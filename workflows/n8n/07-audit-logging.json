@@ -1,0 +1,58 @@
+{
+  "name": "MSA 07 - Audit logging (orchestrator)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "msa-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "g1111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "msa-audit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MSA_APP_URL }}/api/workflows/audit",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "g2222222-2222-4222-8222-222222222222",
+      "name": "Post audit row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "g3333333-3333-4333-8333-333333333333",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [560, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Post audit row", "type": "main", "index": 0 }]]
+    },
+    "Post audit row": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "active": false
+}

@@ -1,0 +1,58 @@
+{
+  "name": "MSA 03 - Approval flow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "msa-approval",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "msa-approval"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.MSA_APP_URL + '/api/proposals/' + $json.body.proposal_id + '/approve' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ decision: $json.body.decision, comments: $json.body.comments }) }}",
+        "options": { "timeout": 60000 }
+      },
+      "id": "c2222222-2222-4222-8222-222222222222",
+      "name": "Call Next API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "c3333333-3333-4333-8333-333333333333",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [560, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Call Next API", "type": "main", "index": 0 }]]
+    },
+    "Call Next API": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [],
+  "active": false
+}
