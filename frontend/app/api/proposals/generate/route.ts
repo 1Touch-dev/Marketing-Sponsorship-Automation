@@ -13,6 +13,7 @@ import {
   type ProposalContentAI,
 } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
+import { guardColumns } from "@/lib/db/column-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -129,18 +130,20 @@ export async function POST(req: Request) {
   const companyId = (campaign as unknown as { company_id: string }).company_id;
   const { data: proposal, error: insertErr } = await sb
     .from("proposals")
-    .insert({
-      company_id: companyId,
-      campaign_id: campaign.id,
-      title,
-      content,
-      content_md: contentMd,
-      status: "draft",
-      version: 1,
-      generated_by: "bedrock-claude",
-      model_id: env.BEDROCK_MODEL_ID,
-      prompt_version: PROMPT_VERSION,
-    })
+    .insert(
+      guardColumns("proposals", {
+        company_id: companyId,
+        campaign_id: campaign.id,
+        title,
+        content,
+        content_md: contentMd,
+        status: "draft",
+        version: 1,
+        generated_by: "bedrock-claude",
+        model_id: env.BEDROCK_MODEL_ID,
+        prompt_version: PROMPT_VERSION,
+      }),
+    )
     .select("*")
     .single();
 

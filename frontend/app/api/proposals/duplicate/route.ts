@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 import type { ProposalContent } from "@/types/database";
 
@@ -30,18 +31,20 @@ export async function POST(req: Request) {
 
   const { data: copy, error: insErr } = await sb
     .from("proposals")
-    .insert({
-      company_id: source.company_id,
-      campaign_id: source.campaign_id,
-      title: `${source.title} (copy)`,
-      content: source.content,
-      content_md: source.content_md,
-      status: "draft",
-      version: 1,
-      generated_by: source.generated_by,
-      model_id: source.model_id,
-      prompt_version: source.prompt_version,
-    })
+    .insert(
+      guardColumns("proposals", {
+        company_id: source.company_id,
+        campaign_id: source.campaign_id,
+        title: `${source.title} (copy)`,
+        content: source.content,
+        content_md: source.content_md,
+        status: "draft",
+        version: 1,
+        generated_by: source.generated_by,
+        model_id: source.model_id,
+        prompt_version: source.prompt_version,
+      }),
+    )
     .select("*")
     .single();
 

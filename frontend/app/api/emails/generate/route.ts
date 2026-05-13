@@ -8,6 +8,7 @@ import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
+import { guardColumns } from "@/lib/db/column-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -108,18 +109,20 @@ export async function POST(req: Request) {
 
   const { data: row, error: insErr } = await sb
     .from("emails")
-    .insert({
-      proposal_id: proposal.id,
-      recipient: parsed.data.recipient,
-      subject: validated.subject,
-      body_text: validated.body_text,
-      body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
-      status: "pending_approval",
-      generated_by: "bedrock-claude",
-      sender: env.DEFAULT_FROM_EMAIL ?? null,
-      prompt_version: PROMPT_VERSION,
-      metadata: { model_id: env.BEDROCK_MODEL_ID },
-    })
+    .insert(
+      guardColumns("emails", {
+        proposal_id: proposal.id,
+        recipient: parsed.data.recipient,
+        subject: validated.subject,
+        body_text: validated.body_text,
+        body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
+        status: "pending_approval",
+        generated_by: "bedrock-claude",
+        sender: env.DEFAULT_FROM_EMAIL ?? null,
+        prompt_version: PROMPT_VERSION,
+        metadata: { model_id: env.BEDROCK_MODEL_ID },
+      }),
+    )
     .select("*")
     .single();
 

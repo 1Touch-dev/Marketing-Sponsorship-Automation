@@ -12,6 +12,7 @@ import {
   validateAiOutput,
   type CampaignIdeaResponse,
 } from "@/lib/ai/schemas";
+import { guardColumns } from "@/lib/db/column-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -119,7 +120,10 @@ export async function POST(req: Request) {
     status: "draft" as const,
   }));
 
-  const { data: inserted, error: insertErr } = await sb.from("campaigns").insert(rows).select("*");
+  const { data: inserted, error: insertErr } = await sb
+    .from("campaigns")
+    .insert(rows.map((r) => guardColumns("campaigns", r)))
+    .select("*");
   if (insertErr) {
     if (eventId) await failWorkflow(eventId, insertErr.message);
     return NextResponse.json({ error: insertErr.message }, { status: 500 });

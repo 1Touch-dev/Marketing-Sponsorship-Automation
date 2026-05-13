@@ -4,6 +4,7 @@ import { approvalSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalStatus } from "@/types/database";
+import { guardColumns } from "@/lib/db/column-guard";
 
 export const runtime = "nodejs";
 
@@ -33,11 +34,13 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
 
   const newStatus = STATUS_MAP[parsed.data.decision];
-  const update: Record<string, unknown> = {
+  const updateData: Record<string, unknown> = {
     status: newStatus,
     status_reason: parsed.data.status_reason ?? parsed.data.comments ?? null,
   };
-  if (parsed.data.decision === "approve") update.approved_at = new Date().toISOString();
+  if (parsed.data.decision === "approve") updateData.approved_at = new Date().toISOString();
+
+  const update = guardColumns("proposals", updateData as Record<string, unknown>);
 
   const { data: proposal, error: updErr } = await sb
     .from("proposals")

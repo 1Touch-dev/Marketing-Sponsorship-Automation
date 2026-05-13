@@ -28,7 +28,6 @@ async function loadDashboard() {
     recentProposals,
     recentEmails,
     pendingFollowups,
-    failedWorkflows,
     recentAudit,
   ] = await Promise.all([
     sb.from("companies").select("id", { count: "exact", head: true }),
@@ -49,22 +48,25 @@ async function loadDashboard() {
       .limit(5),
     sb.from("followups").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sb
-      .from("workflow_events")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "failed"),
-    sb
       .from("audit_logs")
       .select("id, action, entity_type, created_at, actor_email")
       .order("created_at", { ascending: false })
       .limit(8),
   ]);
 
+  // workflow_events may not exist yet (migration 0006 pending) — query separately
+  const failedWorkflows = await sb
+    .from("workflow_events")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "failed")
+    .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
+
   return {
     companyCount: companies.count ?? 0,
     campaignCount: campaigns.count ?? 0,
     pendingApprovalCount: pendingApprovals.count ?? 0,
     pendingFollowupCount: pendingFollowups.count ?? 0,
-    failedWorkflowCount: failedWorkflows.count ?? 0,
+    failedWorkflowCount: failedWorkflows.count,
     recentProposals: recentProposals.data ?? [],
     recentEmails: recentEmails.data ?? [],
     recentAudit: recentAudit.data ?? [],

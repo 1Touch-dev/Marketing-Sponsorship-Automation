@@ -7,6 +7,7 @@ import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
+import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -127,19 +128,21 @@ export async function POST(req: Request) {
 
   const { data: draft, error: insErr } = await sb
     .from("emails")
-    .insert({
-      proposal_id: typedEmail.proposal_id,
-      thread_id: typedEmail.thread_id,
-      gmail_thread_id: typedEmail.gmail_thread_id,
-      recipient: typedEmail.recipient,
-      sender: typedEmail.sender ?? env.DEFAULT_FROM_EMAIL ?? null,
-      subject: validated.subject,
-      body_text: validated.body_text,
-      body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
-      status: "pending_approval",
-      generated_by: "bedrock-claude-followup",
-      prompt_version: PROMPT_VERSION,
-    })
+    .insert(
+      guardColumns("emails", {
+        proposal_id: typedEmail.proposal_id,
+        thread_id: typedEmail.thread_id,
+        gmail_thread_id: typedEmail.gmail_thread_id,
+        recipient: typedEmail.recipient,
+        sender: typedEmail.sender ?? env.DEFAULT_FROM_EMAIL ?? null,
+        subject: validated.subject,
+        body_text: validated.body_text,
+        body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
+        status: "pending_approval",
+        generated_by: "bedrock-claude-followup",
+        prompt_version: PROMPT_VERSION,
+      }),
+    )
     .select("*")
     .single();
 

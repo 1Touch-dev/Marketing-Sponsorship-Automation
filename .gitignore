@@ -40,3 +40,4 @@ supabase/.temp/
 # Backups
 *.bak
 Market_Sponsorship_Automation.bak/
+frontend/.env.local
