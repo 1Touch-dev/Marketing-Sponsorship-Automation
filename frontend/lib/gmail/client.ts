@@ -31,8 +31,12 @@ export function gmailAuthUrl(state: string) {
   const client = oauthClient();
   return client.generateAuthUrl({
     access_type: "offline",
-    prompt: "consent",
+    // "select_account consent" forces Google to show the account picker AND
+    // re-request consent, ensuring a refresh_token is always returned and the
+    // operator can choose which Gmail account to connect.
+    prompt: "select_account consent",
     scope: SCOPES,
+    include_granted_scopes: true,
     state,
   });
 }

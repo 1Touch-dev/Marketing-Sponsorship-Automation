@@ -131,6 +131,28 @@ export default async function SettingsPage({
             <p className="text-xs text-muted-foreground">
               Scopes: gmail.compose, gmail.send, gmail.readonly, gmail.modify.
             </p>
+            {/* Remind the operator which redirect URI must be registered in Google Cloud */}
+            {!gmailConnected && (
+              <div className="rounded border border-sky-200 bg-sky-50 p-3 space-y-1.5 text-xs text-sky-800">
+                <p className="font-medium">Pre-requisite: Google Cloud Console setup</p>
+                <p>
+                  The following URI must be added to your OAuth 2.0 client under
+                  &quot;Authorised redirect URIs&quot;:
+                </p>
+                <code className="block font-mono bg-white border border-sky-200 rounded px-2 py-1 break-all select-all">
+                  {process.env.GOOGLE_REDIRECT_URI ??
+                    `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/gmail/callback`}
+                </code>
+                <a
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline inline-block"
+                >
+                  Open Google Cloud Console → Credentials
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
 
