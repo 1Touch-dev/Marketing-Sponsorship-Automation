@@ -1,0 +1,34 @@
+[Unit]
+Description=n8n workflow automation (Docker container)
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ubuntu
+# If the container exists but is stopped, start it.
+# If it's already running, docker start is a no-op.
+# If it doesn't exist, create it with the correct env.
+ExecStart=/bin/bash -c " \
+  if sudo docker inspect n8n > /dev/null 2>&1; then \
+    sudo docker start n8n || true; \
+  else \
+    sudo docker run -d \
+      --name n8n \
+      --restart always \
+      -p 5678:5678 \
+      -e WEBHOOK_URL=https://eligibly-facing-unloved.ngrok-free.dev \
+      -e N8N_EDITOR_BASE_URL=https://eligibly-facing-unloved.ngrok-free.dev \
+      -e N8N_SECURE_COOKIE=false \
+      -v n8n_data:/home/node/.n8n \
+      docker.n8n.io/n8nio/n8n; \
+  fi"
+ExecStop=/bin/bash -c "sudo docker stop n8n || true"
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=n8n
+
+[Install]
+WantedBy=multi-user.target

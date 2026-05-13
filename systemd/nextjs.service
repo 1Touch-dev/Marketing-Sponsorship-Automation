@@ -1,0 +1,24 @@
+[Unit]
+Description=Next.js Market Sponsorship Automation
+After=network.target
+# Cap restart storm: max 10 restarts per 60 s before systemd gives up.
+StartLimitIntervalSec=60
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/Market_Sponsorship_Automation/frontend
+EnvironmentFile=/home/ubuntu/Market_Sponsorship_Automation/frontend/.env.local
+# Explicitly clear NODE_ENV so Next.js does not inherit a stale shell value.
+Environment=NODE_ENV=
+ExecStart=/usr/bin/npm run start
+# always: restart on any exit (crash, OOM, kill signal).
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nextjs
+
+[Install]
+WantedBy=multi-user.target

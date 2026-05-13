@@ -1,0 +1,27 @@
+[Unit]
+Description=ngrok tunnel — Next.js app (port 3000)
+After=network-online.target nextjs.service
+Wants=network-online.target
+# Cap restart storm: max 5 restarts per 5 min.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ubuntu
+# Kill any orphaned ngrok process before starting a fresh instance.
+# This prevents ERR_NGROK_334 "endpoint already online" on restart.
+ExecStartPre=/bin/bash -c "pkill -x ngrok || true; sleep 1"
+ExecStart=/usr/local/bin/ngrok http 3000
+# always: ensures the tunnel recovers from any crash.
+Restart=always
+# 30-second gap gives ngrok's cloud time to release the old endpoint.
+RestartSec=30
+KillMode=process
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ngrok
+
+[Install]
+WantedBy=multi-user.target
