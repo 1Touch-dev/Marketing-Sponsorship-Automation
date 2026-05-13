@@ -2,13 +2,22 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { proposalGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
-import { proposalPrompt } from "@/lib/bedrock/prompts";
+import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
+import {
+  proposalContentSchema,
+  validateAiOutput,
+  type ProposalContentAI,
+} from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const MAX_RETRIES = 2;
 
 function renderMarkdown(content: ProposalContent): string {
   const lines: string[] = [];
@@ -27,6 +36,10 @@ function renderMarkdown(content: ProposalContent): string {
 
 export async function POST(req: Request) {
   const env = serverEnv();
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`proposal-generate:${ip}`, { max: 10, windowMs: 60_000 });
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
+
   const body = await req.json().catch(() => ({}));
   const parsed = proposalGenerateSchema.safeParse(body);
   if (!parsed.success) {
@@ -36,54 +49,88 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const { data: campaign, error: campErr } = await sb
     .from("campaigns")
-    .select("*, companies(*)")
+    .select("id, title, summary, activation, cta, company_id, companies(id, company_name, industry, website, country, notes)")
     .eq("id", parsed.data.campaign_id)
     .single();
   if (campErr || !campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }
 
-  const company = (campaign as any).companies;
+  const company = (campaign as unknown as { companies: ProposalContent | null }).companies;
   if (!company) return NextResponse.json({ error: "Campaign has no company" }, { status: 500 });
 
+  const eventId = await startWorkflow({
+    workflow_name: "proposal.generate",
+    entity_type: "campaign",
+    entity_id: campaign.id,
+    metadata: { campaign_id: campaign.id },
+  });
+
   const { system, user } = proposalPrompt({
-    company,
+    company: company as unknown as Parameters<typeof proposalPrompt>[0]["company"],
     campaign: {
       title: campaign.title,
-      summary: campaign.summary,
-      activation: campaign.activation,
-      cta: campaign.cta,
+      summary: (campaign as unknown as { summary: string | null }).summary,
+      activation: (campaign as unknown as { activation: string | null }).activation,
+      cta: (campaign as unknown as { cta: string | null }).cta,
     },
   });
 
-  let claude;
-  try {
-    claude = await invokeClaude<ProposalContent>({
-      system,
-      messages: [{ role: "user", content: user }],
-      json: true,
-      maxTokens: 2500,
-      temperature: 0.5,
+  let validated: ProposalContentAI | null = null;
+  let lastError = "";
+  let attempt = 0;
+
+  while (attempt < MAX_RETRIES) {
+    attempt++;
+    try {
+      const claude = await invokeClaude<unknown>({
+        system,
+        messages: [{ role: "user", content: user }],
+        json: true,
+        maxTokens: 2500,
+        temperature: 0.5,
+      });
+
+      const vr = validateAiOutput(proposalContentSchema, claude.json, {
+        workflow: "proposal.generate",
+        entity_type: "campaign",
+        entity_id: campaign.id,
+      });
+
+      if (vr.ok && vr.data) {
+        validated = vr.data;
+        break;
+      }
+      lastError = vr.error ?? "Validation failed";
+      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Bedrock invocation failed";
+      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
+    }
+  }
+
+  if (!validated) {
+    if (eventId) await failWorkflow(eventId, lastError);
+    await recordAudit({
+      entity_type: "proposal",
+      action: "proposal.generate_failed",
+      metadata: { campaign_id: campaign.id, error: lastError },
     });
-  } catch (err) {
     return NextResponse.json(
-      { error: `Bedrock error: ${err instanceof Error ? err.message : "unknown"}` },
+      { error: `AI generation failed after ${attempt} attempt(s): ${lastError}` },
       { status: 502 },
     );
   }
 
-  const content = claude.json;
-  if (!content || typeof content !== "object") {
-    return NextResponse.json({ error: "Model did not return JSON", raw_text: claude.text }, { status: 502 });
-  }
-
-  const title = content.title || `Proposal — ${campaign.title}`;
+  const title = validated.title || `Proposal — ${campaign.title}`;
+  const content = validated as unknown as ProposalContent;
   const contentMd = renderMarkdown(content);
 
+  const companyId = (campaign as unknown as { company_id: string }).company_id;
   const { data: proposal, error: insertErr } = await sb
     .from("proposals")
     .insert({
-      company_id: company.id,
+      company_id: companyId,
       campaign_id: campaign.id,
       title,
       content,
@@ -92,10 +139,13 @@ export async function POST(req: Request) {
       version: 1,
       generated_by: "bedrock-claude",
       model_id: env.BEDROCK_MODEL_ID,
+      prompt_version: PROMPT_VERSION,
     })
     .select("*")
     .single();
+
   if (insertErr || !proposal) {
+    if (eventId) await failWorkflow(eventId, insertErr?.message ?? "Insert failed");
     return NextResponse.json({ error: insertErr?.message ?? "Failed to insert proposal" }, { status: 500 });
   }
 
@@ -109,12 +159,13 @@ export async function POST(req: Request) {
 
   await sb.from("campaigns").update({ status: "selected" }).eq("id", campaign.id);
 
+  if (eventId) await completeWorkflow(eventId, { proposal_id: proposal.id });
   await recordAudit({
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.generated",
-    metadata: { campaign_id: campaign.id, company_id: company.id },
+    metadata: { campaign_id: campaign.id, company_id: companyId, attempts: attempt },
   });
 
-  return NextResponse.json({ data: proposal });
+  return NextResponse.json({ data: proposal, attempts: attempt });
 }

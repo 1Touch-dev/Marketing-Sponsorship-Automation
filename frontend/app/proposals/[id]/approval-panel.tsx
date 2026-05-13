@@ -5,19 +5,19 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toaster";
 import type { ProposalStatus } from "@/types/database";
 
 export function ApprovalPanel({ proposalId, status }: { proposalId: string; status: ProposalStatus }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [comments, setComments] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const disabled = status === "approved" || status === "rejected" || status === "sent";
 
   async function submit(decision: "approve" | "reject" | "request_revision") {
     setBusy(decision);
-    setError(null);
     try {
       const res = await fetch(`/api/proposals/${proposalId}/approve`, {
         method: "POST",
@@ -26,10 +26,14 @@ export function ApprovalPanel({ proposalId, status }: { proposalId: string; stat
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({
+        variant: "success",
+        title: `Proposal ${decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "revision requested"}`,
+      });
       setComments("");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      toast({ variant: "destructive", title: "Action failed", description: err instanceof Error ? err.message : "Unknown error" });
     } finally {
       setBusy(null);
     }
@@ -62,7 +66,6 @@ export function ApprovalPanel({ proposalId, status }: { proposalId: string; stat
             {busy === "reject" ? "…" : "Reject"}
           </Button>
         </div>
-        {error ? <div className="text-sm text-destructive">{error}</div> : null}
       </CardContent>
     </Card>
   );

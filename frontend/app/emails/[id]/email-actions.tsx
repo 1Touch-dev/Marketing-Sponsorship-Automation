@@ -4,18 +4,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toaster";
 import type { EmailRow } from "@/types/database";
 
 export function EmailActions({ email }: { email: EmailRow }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const isSent = email.status === "sent";
 
   async function call(mode: "draft" | "send") {
     setBusy(mode);
-    setError(null);
     try {
       const res = await fetch(`/api/emails/${email.id}/send`, {
         method: "POST",
@@ -24,9 +24,10 @@ export function EmailActions({ email }: { email: EmailRow }) {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({ variant: "success", title: mode === "send" ? "Email sent" : "Gmail draft created" });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      toast({ variant: "destructive", title: mode === "send" ? "Send failed" : "Draft failed", description: err instanceof Error ? err.message : "Unknown error" });
     } finally {
       setBusy(null);
     }
@@ -34,7 +35,6 @@ export function EmailActions({ email }: { email: EmailRow }) {
 
   async function followup() {
     setBusy("followup");
-    setError(null);
     try {
       const res = await fetch(`/api/followups/generate`, {
         method: "POST",
@@ -43,9 +43,10 @@ export function EmailActions({ email }: { email: EmailRow }) {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({ variant: "success", title: "Follow-up draft created" });
       router.push(`/emails/${j.data.draft_email.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      toast({ variant: "destructive", title: "Follow-up failed", description: err instanceof Error ? err.message : "Unknown error" });
     } finally {
       setBusy(null);
     }
@@ -69,7 +70,6 @@ export function EmailActions({ email }: { email: EmailRow }) {
             {busy === "followup" ? "Drafting follow-up…" : "Generate follow-up draft"}
           </Button>
         ) : null}
-        {error ? <div className="text-sm text-destructive">{error}</div> : null}
         <p className="text-xs text-muted-foreground">
           Sending requires connecting Gmail in <a href="/settings" className="underline">Settings</a>.
         </p>

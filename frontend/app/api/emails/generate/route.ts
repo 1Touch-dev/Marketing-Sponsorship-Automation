@@ -2,21 +2,24 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
-import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
+import { outreachEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
+import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-interface EmailJson {
-  subject: string;
-  body_text: string;
-  body_html?: string;
-}
+const MAX_RETRIES = 2;
 
 export async function POST(req: Request) {
   const env = serverEnv();
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`email-generate:${ip}`, { max: 15, windowMs: 60_000 });
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
+
   const body = await req.json().catch(() => ({}));
   const parsed = emailGenerateSchema.safeParse(body);
   if (!parsed.success) {
@@ -26,7 +29,7 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const { data: proposal, error: pErr } = await sb
     .from("proposals")
-    .select("*, companies(*)")
+    .select("id, title, status, content, company_id, companies(id, company_name, industry, website, country)")
     .eq("id", parsed.data.proposal_id)
     .single();
   if (pErr || !proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
@@ -34,36 +37,73 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Proposal must be approved before generating outreach" }, { status: 400 });
   }
 
-  const company = (proposal as any).companies;
-  const content: any = proposal.content ?? {};
-  const summary = content.executive_summary || content.campaign_rationale || proposal.title;
+  const company = (proposal as unknown as { companies: Record<string, unknown> | null }).companies;
+  if (!company) return NextResponse.json({ error: "Company not found for proposal" }, { status: 500 });
+
+  const eventId = await startWorkflow({
+    workflow_name: "email.generate",
+    entity_type: "proposal",
+    entity_id: proposal.id,
+    metadata: { proposal_id: proposal.id },
+  });
+
+  const content = proposal.content as Record<string, string> | null;
+  const summary =
+    content?.executive_summary ||
+    content?.campaign_rationale ||
+    proposal.title;
 
   const { system, user } = outreachEmailPrompt({
-    company,
+    company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
     proposalTitle: proposal.title,
     proposalSummary: summary,
     contactName: parsed.data.contact_name,
   });
 
-  let claude;
-  try {
-    claude = await invokeClaude<EmailJson>({
-      system,
-      messages: [{ role: "user", content: user }],
-      json: true,
-      maxTokens: 800,
-      temperature: 0.5,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: `Bedrock error: ${err instanceof Error ? err.message : "unknown"}` },
-      { status: 502 },
-    );
+  let validated: EmailOutput | null = null;
+  let lastError = "";
+  let attempt = 0;
+
+  while (attempt < MAX_RETRIES) {
+    attempt++;
+    try {
+      const claude = await invokeClaude<unknown>({
+        system,
+        messages: [{ role: "user", content: user }],
+        json: true,
+        maxTokens: 800,
+        temperature: 0.5,
+      });
+
+      const vr = validateAiOutput(emailOutputSchema, claude.json, {
+        workflow: "email.generate",
+        entity_type: "proposal",
+        entity_id: proposal.id,
+      });
+
+      if (vr.ok && vr.data) {
+        validated = vr.data;
+        break;
+      }
+      lastError = vr.error ?? "Validation failed";
+      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Bedrock invocation failed";
+      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
+    }
   }
 
-  const email = claude.json;
-  if (!email?.subject || !email?.body_text) {
-    return NextResponse.json({ error: "Model did not return valid email", raw_text: claude.text }, { status: 502 });
+  if (!validated) {
+    if (eventId) await failWorkflow(eventId, lastError);
+    await recordAudit({
+      entity_type: "email",
+      action: "email.generate_failed",
+      metadata: { proposal_id: proposal.id, error: lastError },
+    });
+    return NextResponse.json(
+      { error: `AI generation failed after ${attempt} attempt(s): ${lastError}` },
+      { status: 502 },
+    );
   }
 
   const { data: row, error: insErr } = await sb
@@ -71,24 +111,30 @@ export async function POST(req: Request) {
     .insert({
       proposal_id: proposal.id,
       recipient: parsed.data.recipient,
-      subject: email.subject,
-      body_text: email.body_text,
-      body_html: email.body_html ?? `<p>${email.body_text.replace(/\n/g, "</p><p>")}</p>`,
+      subject: validated.subject,
+      body_text: validated.body_text,
+      body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
       status: "pending_approval",
       generated_by: "bedrock-claude",
       sender: env.DEFAULT_FROM_EMAIL ?? null,
+      prompt_version: PROMPT_VERSION,
       metadata: { model_id: env.BEDROCK_MODEL_ID },
     })
     .select("*")
     .single();
-  if (insErr || !row) return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
 
+  if (insErr || !row) {
+    if (eventId) await failWorkflow(eventId, insErr?.message ?? "Insert failed");
+    return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
+  }
+
+  if (eventId) await completeWorkflow(eventId, { email_id: row.id });
   await recordAudit({
     entity_type: "email",
     entity_id: row.id,
     action: "email.generated",
-    metadata: { proposal_id: proposal.id, recipient: parsed.data.recipient },
+    metadata: { proposal_id: proposal.id, recipient: parsed.data.recipient, attempts: attempt },
   });
 
-  return NextResponse.json({ data: row });
+  return NextResponse.json({ data: row, attempts: attempt });
 }

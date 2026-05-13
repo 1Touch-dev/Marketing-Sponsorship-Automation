@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toaster";
 
 interface Company {
   id: string;
@@ -19,32 +20,38 @@ export function CampaignGenerator({
   preselectedCompanyId?: string;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [companyId, setCompanyId] = useState(preselectedCompanyId || companies[0]?.id || "");
   const [objective, setObjective] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!companyId) {
-      setError("Pick a company first.");
+      toast({ variant: "destructive", title: "Select a company first." });
       return;
     }
     setSubmitting(true);
-    setError(null);
     try {
       const res = await fetch("/api/campaigns/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ company_id: companyId, objective: objective || undefined }),
       });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j?.error ?? `Request failed (${res.status})`);
-      }
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error ?? `Request failed (${res.status})`);
+      toast({
+        variant: "success",
+        title: "Campaign ideas generated",
+        description: `${j.data?.length ?? 0} ideas saved.${j.attempts > 1 ? ` (${j.attempts} attempts)` : ""}`,
+      });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed");
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -83,7 +90,6 @@ export function CampaignGenerator({
           onChange={(e) => setObjective(e.target.value)}
         />
       </div>
-      {error ? <div className="text-sm text-destructive">{error}</div> : null}
       <Button type="submit" disabled={submitting || !companyId} className="w-full">
         {submitting ? "Generating ideas…" : "Generate ideas"}
       </Button>

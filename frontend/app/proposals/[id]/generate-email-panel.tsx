@@ -6,18 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/toaster";
 
 export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [recipient, setRecipient] = useState("");
   const [contact, setContact] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     try {
       const res = await fetch("/api/emails/generate", {
         method: "POST",
@@ -30,9 +30,10 @@ export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({ variant: "success", title: "Email draft created" });
       router.push(`/emails/${j.data.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      toast({ variant: "destructive", title: "Email generation failed", description: err instanceof Error ? err.message : "Unknown error" });
     } finally {
       setBusy(false);
     }
@@ -54,7 +55,6 @@ export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
             <Label htmlFor="contact">Contact name</Label>
             <Input id="contact" value={contact} onChange={(e) => setContact(e.target.value)} />
           </div>
-          {error ? <div className="text-sm text-destructive">{error}</div> : null}
           <Button type="submit" disabled={busy || !recipient} className="w-full">
             {busy ? "Drafting…" : "Generate email"}
           </Button>

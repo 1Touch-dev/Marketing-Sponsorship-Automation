@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatusBadge } from "@/components/shared/status-badge";
 import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
+import { DuplicateCampaignButton } from "./duplicate-campaign-button";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,19 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     .eq("campaign_id", campaign.id)
     .order("updated_at", { ascending: false });
 
-  const company = (campaign as any).companies;
+  const company = (campaign as { companies: { company_name: string; industry: string | null } | null }).companies;
 
   return (
     <>
       <PageHeader
         title={campaign.title}
         description={`${company?.company_name ?? ""}${company?.industry ? " · " + company.industry : ""}`}
-        actions={<StatusBadge status={campaign.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <DuplicateCampaignButton campaignId={campaign.id} />
+            <StatusBadge status={campaign.status} />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -40,6 +46,11 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             {campaign.activation ? (<div><div className="font-medium">Activation</div><p className="text-muted-foreground whitespace-pre-wrap">{campaign.activation}</p></div>) : null}
             {campaign.description ? (<div><div className="font-medium">Partnership angle</div><p className="text-muted-foreground whitespace-pre-wrap">{campaign.description}</p></div>) : null}
             {campaign.cta ? (<div><div className="font-medium">CTA</div><p className="text-muted-foreground whitespace-pre-wrap">{campaign.cta}</p></div>) : null}
+            {campaign.prompt_version && (
+              <div className="text-xs text-muted-foreground border-t pt-2">
+                Prompt version: <span className="font-mono">{campaign.prompt_version}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -54,7 +65,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                 <ul className="space-y-1.5 text-sm">
                   {proposals.map((p) => (
                     <li key={p.id} className="flex justify-between">
-                      <a href={`/proposals/${p.id}`} className="hover:underline">v{p.version} · {p.title}</a>
+                      <a href={`/proposals/${p.id}`} className="hover:underline truncate mr-2">v{p.version} · {p.title}</a>
                       <StatusBadge status={p.status} />
                     </li>
                   ))}

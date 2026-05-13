@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ApprovalPanel } from "./approval-panel";
 import { GenerateEmailPanel } from "./generate-email-panel";
+import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import type { ProposalContent } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     .order("created_at", { ascending: false });
 
   const content = proposal.content as ProposalContent;
-  const company = (proposal as any).companies;
+  const company = (proposal as { companies: { company_name: string } | null }).companies;
 
   const canSendOutreach = proposal.status === "approved";
 
@@ -55,6 +56,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)}`}
         actions={
           <div className="flex items-center gap-2">
+            <DuplicateProposalButton proposalId={proposal.id} />
             <StatusBadge status={proposal.status} />
             <Button asChild variant="outline">
               <Link href={`/proposals/${proposal.id}/edit`}>Edit</Link>
@@ -62,6 +64,12 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           </div>
         }
       />
+
+      {(proposal as { status_reason?: string | null }).status_reason && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Status reason: {(proposal as { status_reason?: string | null }).status_reason}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -82,6 +90,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               ) : null}
               <Section title="Investment" body={content?.investment_note} />
               <Section title="Call to action" body={content?.cta} />
+              {(proposal as { prompt_version?: string | null }).prompt_version && (
+                <div className="text-xs text-muted-foreground border-t pt-2">
+                  Prompt version: <span className="font-mono">{(proposal as { prompt_version?: string | null }).prompt_version}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

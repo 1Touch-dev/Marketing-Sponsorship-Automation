@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
 import { serverEnv } from "@/lib/env";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -18,6 +20,10 @@ export const maxDuration = 30;
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
   const env = serverEnv();
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`email-send:${ip}`, { max: 20, windowMs: 60_000 });
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
+
   const body = (await req.json().catch(() => ({}))) as { mode?: "draft" | "send" };
   const mode = body.mode === "send" ? "send" : "draft";
 
@@ -29,6 +35,13 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
   }
 
+  const eventId = await startWorkflow({
+    workflow_name: mode === "send" ? "email.send" : "email.draft",
+    entity_type: "email",
+    entity_id: email.id,
+    metadata: { mode },
+  });
+
   // Load operator tokens from users table
   const senderEmail = email.sender || env.DEFAULT_FROM_EMAIL;
   if (!senderEmail) {
@@ -39,6 +52,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     | { access_token?: string; refresh_token?: string; expiry_date?: number }
     | undefined;
   if (!tokens?.refresh_token) {
+    if (eventId) await failWorkflow(eventId, "Gmail tokens missing");
     return NextResponse.json(
       { error: `Gmail not connected for ${senderEmail}. Visit /api/auth/gmail to connect.` },
       { status: 412 },
@@ -59,10 +73,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       bcc: email.bcc ?? undefined,
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: `Gmail draft failed: ${err instanceof Error ? err.message : "unknown"}` },
-      { status: 502 },
-    );
+    const msg = `Gmail draft failed: ${err instanceof Error ? err.message : "unknown"}`;
+    if (eventId) await failWorkflow(eventId, msg);
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 
   const updates: Record<string, unknown> = {
@@ -79,10 +92,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       updates.gmail_thread_id = sent.threadId ?? updates.gmail_thread_id;
       updates.sent_at = new Date().toISOString();
     } catch (err) {
-      return NextResponse.json(
-        { error: `Gmail send failed: ${err instanceof Error ? err.message : "unknown"}` },
-        { status: 502 },
-      );
+      const msg = `Gmail send failed: ${err instanceof Error ? err.message : "unknown"}`;
+      if (eventId) await failWorkflow(eventId, msg);
+      return NextResponse.json({ error: msg }, { status: 502 });
     }
   }
 
@@ -112,8 +124,17 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .eq("id", email.id)
     .select("*")
     .single();
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+  if (updErr) {
+    if (eventId) await failWorkflow(eventId, updErr.message);
+    return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
 
+  if (eventId) {
+    await completeWorkflow(eventId, {
+      gmail_thread_id: updates.gmail_thread_id,
+      mode,
+    });
+  }
   await recordAudit({
     entity_type: "email",
     entity_id: email.id,

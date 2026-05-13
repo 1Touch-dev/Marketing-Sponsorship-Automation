@@ -1,7 +1,12 @@
 /**
  * Centralised prompt templates. Each function returns the
  * { system, user } pair to feed into invokeClaude.
+ *
+ * PROMPT_VERSION is bumped whenever a prompt changes so that
+ * campaigns / proposals / emails can record which prompt generated them.
  */
+
+export const PROMPT_VERSION = "v1.1.0" as const;
 
 export interface CompanyContext {
   company_name: string;
