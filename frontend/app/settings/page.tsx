@@ -74,7 +74,7 @@ async function checkMigration0006(sb: ReturnType<typeof supabaseAdmin>) {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: { gmail?: string };
+  searchParams: { gmail?: string; reason?: string };
 }) {
   const sb = supabaseAdmin();
 
@@ -103,6 +103,11 @@ export default async function SettingsPage({
       {searchParams.gmail === "connected" ? (
         <div className="mb-4 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           Gmail connected successfully.
+        </div>
+      ) : null}
+      {searchParams.gmail === "error" ? (
+        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
+          Gmail connection failed{searchParams.reason ? `: ${searchParams.reason.replace(/_/g, " ")}` : ""}. Please try again.
         </div>
       ) : null}
 

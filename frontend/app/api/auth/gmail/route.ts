@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { gmailAuthUrl } from "@/lib/gmail/client";
 import { randomBytes } from "node:crypto";
+import { resolveAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 
@@ -37,8 +38,8 @@ export async function GET(req: Request) {
   // Log the full OAuth URL in non-production so it's easy to verify the
   // redirect_uri parameter without exposing secrets in production logs.
   if (process.env.NODE_ENV !== "production") {
-    const { origin } = new URL(req.url);
-    console.log(`[gmail-oauth] initiating flow from ${origin}`);
+    const baseUrl = resolveAppUrl(req);
+    console.log(`[gmail-oauth] initiating flow — baseUrl = ${baseUrl}`);
     console.log(`[gmail-oauth] redirect_uri = ${redirectUri}`);
     console.log(`[gmail-oauth] auth URL = ${url}`);
   }
