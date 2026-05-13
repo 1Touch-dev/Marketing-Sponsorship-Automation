@@ -12,20 +12,26 @@ export const runtime = "nodejs";
  *
  * Receives the authorization code from Google, exchanges it for tokens,
  * persists them in public.users.metadata, then redirects back to the
- * Settings page using the PUBLIC app URL (not req.url, which would be
- * localhost:3000 when running behind ngrok or any reverse proxy).
+ * Settings page using the PUBLIC app URL (not req.url, which is localhost
+ * when running behind ngrok or any reverse proxy).
+ *
+ * Token storage format in users.metadata.gmail_tokens:
+ *   {
+ *     access_token, refresh_token, expiry_date, scope, token_type,
+ *     connected_email,   // Gmail address that was authorized
+ *     connected_at       // ISO timestamp of the authorization
+ *   }
+ *
+ * If Google does not return a new refresh_token (e.g. re-authorization),
+ * the previously stored refresh_token is preserved.
  */
 export async function GET(req: Request) {
-  // Resolve the canonical public base URL once — used for all redirects
   const baseUrl = resolveAppUrl(req);
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const expected = cookies().get("gmail_oauth_state")?.value;
-
-  // Log resolved base URL (safe — no secrets)
-  console.log(`[gmail-callback] baseUrl = ${baseUrl}`);
 
   if (!code) {
     return NextResponse.redirect(`${baseUrl}/settings?gmail=error&reason=missing_code`);
@@ -34,18 +40,21 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${baseUrl}/settings?gmail=error&reason=invalid_state`);
   }
 
-  let tokens;
+  // ── 1. Exchange code for tokens ──────────────────────────────────────────
+  let tokens: Record<string, unknown>;
   try {
-    tokens = await exchangeCodeForTokens(code);
+    tokens = (await exchangeCodeForTokens(code)) as Record<string, unknown>;
   } catch (err) {
     console.error("[gmail-callback] token exchange failed:", err instanceof Error ? err.message : err);
     return NextResponse.redirect(`${baseUrl}/settings?gmail=error&reason=token_exchange_failed`);
   }
 
-  // Identify the connected Gmail account
+  // ── 2. Identify connected Gmail account ──────────────────────────────────
   let emailAddress = "";
   try {
-    const gmail = gmailClientFromTokens(tokens);
+    const gmail = gmailClientFromTokens(
+      tokens as { access_token?: string; refresh_token?: string; expiry_date?: number },
+    );
     const profile = await gmail.users.getProfile({ userId: "me" });
     emailAddress = profile.data.emailAddress ?? "";
   } catch (err) {
@@ -56,27 +65,64 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${baseUrl}/settings?gmail=error&reason=no_email`);
   }
 
-  // Persist tokens
+  // ── 3. Preserve existing refresh_token if Google didn't return a new one ─
   const sb = supabaseAdmin();
-  const { error: upErr } = await sb.from("users").upsert(
-    {
-      email: emailAddress,
-      role: "admin",
-      metadata: { gmail_tokens: tokens },
-    },
-    { onConflict: "email" },
-  );
-  if (upErr) {
-    console.error("[gmail-callback] token persist failed:", upErr.message);
+
+  let existingRefreshToken: string | null = null;
+  if (!tokens.refresh_token) {
+    const { data: existingUser } = await sb
+      .from("users")
+      .select("metadata")
+      .eq("email", emailAddress)
+      .maybeSingle();
+    const existingTokens = (existingUser?.metadata as Record<string, unknown> | undefined)
+      ?.gmail_tokens as Record<string, unknown> | undefined;
+    existingRefreshToken = (existingTokens?.refresh_token as string | undefined) ?? null;
+    if (existingRefreshToken) {
+      console.log("[gmail-callback] no new refresh_token — preserving existing one");
+    }
+  }
+
+  // ── 4. Build enriched token payload ──────────────────────────────────────
+  const tokenPayload = {
+    access_token: tokens.access_token ?? null,
+    refresh_token: tokens.refresh_token ?? existingRefreshToken ?? null,
+    expiry_date: tokens.expiry_date ?? null,
+    scope: tokens.scope ?? null,
+    token_type: tokens.token_type ?? "Bearer",
+    connected_email: emailAddress,
+    connected_at: new Date().toISOString(),
+  };
+
+  // ── 5. Persist ────────────────────────────────────────────────────────────
+  const { data: savedUser, error: upErr } = await sb
+    .from("users")
+    .upsert(
+      {
+        email: emailAddress,
+        role: "admin",
+        metadata: { gmail_tokens: tokenPayload },
+      },
+      { onConflict: "email" },
+    )
+    .select("id, email")
+    .single();
+
+  if (upErr || !savedUser) {
+    console.error("[gmail-callback] token persist failed:", upErr?.message);
     return NextResponse.redirect(`${baseUrl}/settings?gmail=error&reason=persist_failed`);
   }
+
+  console.log(
+    `[gmail-callback] connected ${emailAddress} (user id: ${savedUser.id}) — has_refresh: ${!!tokenPayload.refresh_token}`,
+  );
 
   await recordAudit({
     entity_type: "user",
     action: "gmail.connected",
     actor_email: emailAddress,
+    metadata: { connected_email: emailAddress, has_refresh_token: !!tokenPayload.refresh_token },
   });
 
-  console.log(`[gmail-callback] connected ${emailAddress} → redirecting to ${baseUrl}/settings?gmail=connected`);
   return NextResponse.redirect(`${baseUrl}/settings?gmail=connected`);
 }

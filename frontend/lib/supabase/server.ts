@@ -17,11 +17,25 @@ import { serverEnv } from "@/lib/env";
 /**
  * Service-role client (bypasses RLS). Use ONLY in trusted server contexts
  * (API routes, server actions, n8n callbacks). Never expose to the browser.
+ *
+ * IMPORTANT — Next.js fetch cache:
+ * Next.js 14 App Router patches globalThis.fetch and caches all HTTP requests
+ * by default. supabase-js v2 uses fetch internally, which means Supabase query
+ * results can be served from the Next.js fetch cache (stale) unless we opt out.
+ *
+ * We pass `global: { fetch: ... }` with `cache: 'no-store'` so every call made
+ * through this client always hits Supabase directly, never a stale cache entry.
+ * This is safe for the service-role client because it is only used in server
+ * contexts where we always need fresh data.
  */
 export function supabaseAdmin() {
   const env = serverEnv();
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (url, options = {}) =>
+        fetch(url, { ...options, cache: "no-store" }),
+    },
   });
 }
 

@@ -24,8 +24,6 @@ async function colExists(
 
 async function checkMigration0005(sb: ReturnType<typeof supabaseAdmin>) {
   // 0005 adds updated_at to proposal_versions, approvals, and audit_logs.
-  // None of these columns exist in the 0001 init schema, so their presence
-  // is the definitive proof that 0005 was applied.
   const [pvOk, approvalsOk, auditOk] = await Promise.all([
     colExists(sb, "proposal_versions", "id, updated_at"),
     colExists(sb, "approvals", "id, updated_at"),
@@ -42,10 +40,7 @@ async function checkMigration0005(sb: ReturnType<typeof supabaseAdmin>) {
 }
 
 async function checkMigration0006(sb: ReturnType<typeof supabaseAdmin>) {
-  // 0006 adds:
-  //   • workflow_events table (entirely new)
-  //   • prompt_version on campaigns, proposals, emails
-  //   • status_reason on proposals, emails, followups
+  // 0006 adds workflow_events table, prompt_version, and status_reason columns.
   const [weOk, cpv, ppv, psr, epv, esr, fsr] = await Promise.all([
     colExists(sb, "workflow_events", "id"),
     colExists(sb, "campaigns", "id, prompt_version"),
@@ -69,6 +64,17 @@ async function checkMigration0006(sb: ReturnType<typeof supabaseAdmin>) {
   };
 }
 
+// ── Gmail token type ────────────────────────────────────────────────────────
+interface GmailTokens {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  expiry_date?: number | null;
+  scope?: string | null;
+  token_type?: string | null;
+  connected_email?: string | null;
+  connected_at?: string | null;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default async function SettingsPage({
@@ -78,21 +84,35 @@ export default async function SettingsPage({
 }) {
   const sb = supabaseAdmin();
 
-  // Gmail token check
-  const senderEmail = process.env.DEFAULT_FROM_EMAIL ?? "";
-  const { data: user } = senderEmail
-    ? await sb.from("users").select("email, metadata, role").eq("email", senderEmail).maybeSingle()
-    : { data: null };
-  const tokens = (user?.metadata as Record<string, unknown> | undefined)?.gmail_tokens as
-    | { refresh_token?: string }
-    | undefined;
-  const gmailConnected = !!tokens?.refresh_token;
+  // ── Gmail token check ─────────────────────────────────────────────────────
+  // We check via two strategies:
+  // 1. By DEFAULT_FROM_EMAIL (legacy: tokens stored on the configured sender row)
+  // 2. By connected_email stored inside the token payload (new: tokens stored on
+  //    the row of the actual authorized account)
+  // Either is enough to consider Gmail connected.
+  const configuredSender = process.env.DEFAULT_FROM_EMAIL ?? "";
+
+  // Fetch rows that could hold the tokens
+  const senderQuery = configuredSender
+    ? sb.from("users").select("id, email, metadata").eq("email", configuredSender).maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const { data: senderUser } = await senderQuery;
+
+  const tokens = (senderUser?.metadata as Record<string, unknown> | undefined)
+    ?.gmail_tokens as GmailTokens | undefined;
+
+  // Connected = has both access_token and refresh_token stored
+  const gmailConnected = !!(tokens?.access_token && tokens?.refresh_token);
+  const connectedEmail = tokens?.connected_email ?? (gmailConnected ? configuredSender : null);
+  const expiresAt = tokens?.expiry_date ? new Date(tokens.expiry_date).toLocaleString() : null;
+
+  // Mismatch warning — connected account differs from configured sender
+  const senderMismatch =
+    gmailConnected && connectedEmail && configuredSender && connectedEmail !== configuredSender;
 
   // Migration checks — run all in parallel
-  const [m0005, m0006] = await Promise.all([
-    checkMigration0005(sb),
-    checkMigration0006(sb),
-  ]);
+  const [m0005, m0006] = await Promise.all([checkMigration0005(sb), checkMigration0006(sb)]);
 
   const allMigrationsApplied = m0005.applied && m0006.applied;
 
@@ -107,7 +127,9 @@ export default async function SettingsPage({
       ) : null}
       {searchParams.gmail === "error" ? (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-          Gmail connection failed{searchParams.reason ? `: ${searchParams.reason.replace(/_/g, " ")}` : ""}. Please try again.
+          Gmail connection failed
+          {searchParams.reason ? `: ${searchParams.reason.replace(/_/g, " ")}` : ""}. Please try
+          again.
         </div>
       ) : null}
 
@@ -127,15 +149,39 @@ export default async function SettingsPage({
                 <Badge variant="outline">Not connected</Badge>
               )}
             </div>
-            {senderEmail ? (
-              <div className="text-muted-foreground">Sender: {senderEmail}</div>
+
+            {/* Connected account details */}
+            {gmailConnected && connectedEmail ? (
+              <div className="space-y-1">
+                <div className="text-muted-foreground">
+                  Connected as: <span className="font-medium text-foreground">{connectedEmail}</span>
+                </div>
+                {configuredSender && (
+                  <div className="text-muted-foreground">Configured sender: {configuredSender}</div>
+                )}
+                {expiresAt && (
+                  <div className="text-xs text-muted-foreground">Token expires: {expiresAt}</div>
+                )}
+              </div>
+            ) : configuredSender ? (
+              <div className="text-muted-foreground">Sender: {configuredSender}</div>
             ) : null}
+
+            {/* Account mismatch warning */}
+            {senderMismatch && (
+              <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                ⚠ Connected account ({connectedEmail}) differs from configured sender (
+                {configuredSender}). Emails will be sent from {connectedEmail}.
+              </div>
+            )}
+
             <Button asChild>
               <a href="/api/auth/gmail">{gmailConnected ? "Reconnect Gmail" : "Connect Gmail"}</a>
             </Button>
             <p className="text-xs text-muted-foreground">
               Scopes: gmail.compose, gmail.send, gmail.readonly, gmail.modify.
             </p>
+
             {/* Remind the operator which redirect URI must be registered in Google Cloud */}
             {!gmailConnected && (
               <div className="rounded border border-sky-200 bg-sky-50 p-3 space-y-1.5 text-xs text-sky-800">
@@ -184,21 +230,17 @@ export default async function SettingsPage({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            {/* 0005 */}
             <MigrationRow
               label="Migration 0005 — updated_at triggers on remaining tables"
               applied={m0005.applied}
               details={m0005.details}
             />
-
-            {/* 0006 */}
             <MigrationRow
               label="Migration 0006 — workflow_events table, prompt_version, status_reason"
               applied={m0006.applied}
               details={m0006.details}
             />
 
-            {/* Action block — only shown when something is still pending */}
             {!allMigrationsApplied && (
               <div className="rounded border border-amber-200 bg-amber-50 p-4 space-y-3">
                 <p className="font-medium text-amber-900">Action required: apply pending migrations</p>
