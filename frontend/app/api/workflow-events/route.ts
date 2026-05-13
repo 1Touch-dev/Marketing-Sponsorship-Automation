@@ -37,7 +37,13 @@ export async function GET(req: Request) {
   if (params.data.entity_id) query = query.eq("entity_id", params.data.entity_id);
 
   const { data, count, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // Gracefully handle missing table (migration 0006 not yet applied)
+    if (error.message?.includes("workflow_events")) {
+      return NextResponse.json({ events: [], total: 0, notice: "workflow_events table not yet created — apply migration 0006." });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ data, count });
 }

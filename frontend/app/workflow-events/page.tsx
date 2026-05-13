@@ -42,8 +42,10 @@ export default async function WorkflowEventsPage({
   if (searchParams.status) query = query.eq("status", searchParams.status);
   if (searchParams.workflow) query = query.ilike("workflow_name", `%${searchParams.workflow}%`);
 
-  const { data } = await query;
-  const events = (data ?? []) as WorkflowEvent[];
+  const { data, error } = await query;
+  // Gracefully handle missing table (migration 0006 not yet applied in Supabase dashboard)
+  const events = (error ? [] : (data ?? [])) as WorkflowEvent[];
+  const migrationPending = !!error?.message?.includes("workflow_events");
 
   const statuses = ["started", "processing", "completed", "failed", "retried"];
 
@@ -74,6 +76,13 @@ export default async function WorkflowEventsPage({
           </a>
         ))}
       </div>
+
+      {migrationPending && (
+        <div className="mb-4 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          <strong>Database migration pending:</strong> The <code>workflow_events</code> table has not been created yet.
+          Please run migration <code>0006_hardening.sql</code> in the Supabase SQL editor.
+        </div>
+      )}
 
       {events.length === 0 ? (
         <EmptyState title="No workflow events" description="Events appear when workflows run." />
