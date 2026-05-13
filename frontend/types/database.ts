@@ -66,6 +66,7 @@ export interface Campaign {
   raw_output: unknown;
   generated_by: string | null;
   model_id: string | null;
+  prompt_version: string | null;
   status: CampaignStatus;
   created_by: string | null;
   created_at: string;
@@ -92,9 +93,11 @@ export interface Proposal {
   content: ProposalContent;
   content_md: string | null;
   status: ProposalStatus;
+  status_reason: string | null;
   version: number;
   generated_by: string | null;
   model_id: string | null;
+  prompt_version: string | null;
   created_by: string | null;
   approved_by: string | null;
   approved_at: string | null;
@@ -150,7 +153,9 @@ export interface EmailRow {
   body_html: string | null;
   body_text: string | null;
   status: EmailStatus;
+  status_reason: string | null;
   generated_by: string | null;
+  prompt_version: string | null;
   approved_by: string | null;
   approved_at: string | null;
   sent_at: string | null;
@@ -172,7 +177,23 @@ export interface Followup {
   reason: string | null;
   scheduled_for: string | null;
   status: FollowupStatus;
+  status_reason: string | null;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WorkflowEventStatus = "started" | "processing" | "completed" | "failed" | "retried";
+
+export interface WorkflowEvent {
+  id: string;
+  workflow_name: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  status: WorkflowEventStatus;
+  error_message: string | null;
+  attempt: number;
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -205,6 +226,7 @@ export interface Database {
       emails:            Tbl<EmailRow>;
       followups:         Tbl<Followup>;
       audit_logs:        Tbl<AuditLog>;
+      workflow_events:   Tbl<WorkflowEvent>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

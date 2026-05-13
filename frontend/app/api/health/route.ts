@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
-import { serverEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 
@@ -26,7 +25,6 @@ export async function GET() {
   // --- Bedrock ---
   const bStart = Date.now();
   try {
-    const env = serverEnv();
     const result = await invokeClaude({
       messages: [{ role: "user", content: 'Reply with the single word "ok"' }],
       maxTokens: 5,

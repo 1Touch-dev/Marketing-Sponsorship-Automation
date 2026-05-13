@@ -9,22 +9,47 @@ import { formatDate, truncate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+type CampaignRow = {
+  id: string;
+  title: string;
+  summary: string | null;
+  status: string;
+  created_at: string;
+  company_id: string;
+  companies: { company_name: string } | null;
+};
+
 export default async function CampaignsPage({
   searchParams,
 }: {
-  searchParams: { company?: string };
+  searchParams: { company?: string; q?: string; status?: string };
 }) {
   const sb = supabaseAdmin();
-  const [{ data: companies }, { data: campaigns }] = await Promise.all([
+  const [{ data: companies }, { data: allCampaigns }] = await Promise.all([
     sb.from("companies").select("id, company_name").order("company_name"),
     sb
       .from("campaigns")
       .select("id, title, summary, status, created_at, company_id, companies(company_name)")
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(100),
   ]);
 
   const preselectedCompanyId = searchParams.company ?? "";
+
+  // Client-side filtering (100 rows max, MVP-safe)
+  let campaigns = (allCampaigns ?? []) as unknown as CampaignRow[];
+  if (searchParams.q) {
+    const q = searchParams.q.toLowerCase();
+    campaigns = campaigns.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.companies?.company_name.toLowerCase().includes(q) ||
+        (c.summary ?? "").toLowerCase().includes(q),
+    );
+  }
+  if (searchParams.status) {
+    campaigns = campaigns.filter((c) => c.status === searchParams.status);
+  }
 
   return (
     <>
@@ -32,17 +57,58 @@ export default async function CampaignsPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
-          <CardHeader><CardTitle>Generate ideas</CardTitle><CardDescription>Pick a company and let Claude propose ideas.</CardDescription></CardHeader>
+          <CardHeader>
+            <CardTitle>Generate ideas</CardTitle>
+            <CardDescription>Pick a company and let Claude propose ideas.</CardDescription>
+          </CardHeader>
           <CardContent>
-            <CampaignGenerator companies={companies ?? []} preselectedCompanyId={preselectedCompanyId} />
+            <CampaignGenerator
+              companies={companies ?? []}
+              preselectedCompanyId={preselectedCompanyId}
+            />
           </CardContent>
         </Card>
 
         <div className="lg:col-span-2 space-y-3">
-          {!campaigns || campaigns.length === 0 ? (
-            <EmptyState title="No campaigns yet" description="Generate your first sponsorship idea on the left." />
+          {/* Search/filter bar */}
+          <form method="GET" className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              name="q"
+              defaultValue={searchParams.q ?? ""}
+              placeholder="Search campaigns…"
+              className="rounded-md border bg-background px-3 py-1.5 text-sm flex-1 min-w-[160px] outline-none focus:ring-1 focus:ring-ring"
+            />
+            <select
+              name="status"
+              defaultValue={searchParams.status ?? ""}
+              className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
+            >
+              <option value="">All statuses</option>
+              <option value="draft">draft</option>
+              <option value="selected">selected</option>
+              <option value="archived">archived</option>
+            </select>
+            <button
+              type="submit"
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+            >
+              Filter
+            </button>
+            {(searchParams.q || searchParams.status) && (
+              <a href="/campaigns" className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+                Clear
+              </a>
+            )}
+          </form>
+
+          {campaigns.length === 0 ? (
+            <EmptyState
+              title="No campaigns yet"
+              description="Generate your first sponsorship idea on the left."
+            />
           ) : (
-            campaigns.map((c: any) => (
+            campaigns.map((c) => (
               <Link
                 key={c.id}
                 href={`/campaigns/${c.id}`}
@@ -55,7 +121,9 @@ export default async function CampaignsPage({
                 <div className="text-xs text-muted-foreground mt-1">
                   {c.companies?.company_name ?? "—"} · {formatDate(c.created_at)}
                 </div>
-                {c.summary ? <p className="text-sm mt-2 text-muted-foreground">{truncate(c.summary, 240)}</p> : null}
+                {c.summary ? (
+                  <p className="text-sm mt-2 text-muted-foreground">{truncate(c.summary, 240)}</p>
+                ) : null}
               </Link>
             ))
           )}

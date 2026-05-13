@@ -7,21 +7,76 @@ import { formatDate, truncate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-export default async function EmailsPage() {
+const EMAIL_STATUSES = ["draft", "pending_approval", "approved", "sent", "opened", "replied", "bounced", "failed"];
+
+export default async function EmailsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; status?: string };
+}) {
   const sb = supabaseAdmin();
-  const { data } = await sb
+  let query = sb
     .from("emails")
     .select("id, subject, status, recipient, updated_at")
-    .order("updated_at", { ascending: false });
+    .order("updated_at", { ascending: false })
+    .limit(200);
+
+  if (searchParams.status) query = query.eq("status", searchParams.status);
+
+  const { data } = await query;
+  let emails = data ?? [];
+
+  if (searchParams.q) {
+    const q = searchParams.q.toLowerCase();
+    emails = emails.filter(
+      (e) => e.subject.toLowerCase().includes(q) || e.recipient.toLowerCase().includes(q),
+    );
+  }
 
   return (
     <>
       <PageHeader title="Emails" description="Drafts pending approval and sent messages." />
-      {!data || data.length === 0 ? (
-        <EmptyState title="No emails yet" description="Approved proposals can have outreach emails drafted." />
+
+      {/* Filter bar */}
+      <form method="GET" className="flex flex-wrap gap-2 mb-4">
+        <input
+          type="text"
+          name="q"
+          defaultValue={searchParams.q ?? ""}
+          placeholder="Search by subject or recipient…"
+          className="rounded-md border bg-background px-3 py-1.5 text-sm flex-1 min-w-[160px] outline-none focus:ring-1 focus:ring-ring"
+        />
+        <select
+          name="status"
+          defaultValue={searchParams.status ?? ""}
+          className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
+        >
+          <option value="">All statuses</option>
+          {EMAIL_STATUSES.map((s) => (
+            <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
+        >
+          Filter
+        </button>
+        {(searchParams.q || searchParams.status) && (
+          <a href="/emails" className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+            Clear
+          </a>
+        )}
+      </form>
+
+      {emails.length === 0 ? (
+        <EmptyState
+          title="No emails yet"
+          description="Approved proposals can have outreach emails drafted."
+        />
       ) : (
         <div className="space-y-3">
-          {data.map((e) => (
+          {emails.map((e) => (
             <Link
               key={e.id}
               href={`/emails/${e.id}`}
@@ -29,7 +84,9 @@ export default async function EmailsPage() {
             >
               <div>
                 <div className="font-medium">{truncate(e.subject, 90)}</div>
-                <div className="text-xs text-muted-foreground">{e.recipient} · {formatDate(e.updated_at)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {e.recipient} · {formatDate(e.updated_at)}
+                </div>
               </div>
               <StatusBadge status={e.status} />
             </Link>

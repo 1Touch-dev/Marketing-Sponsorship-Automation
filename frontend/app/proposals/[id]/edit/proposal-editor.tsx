@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toaster";
 import type { ProposalContent } from "@/types/database";
 
 export function ProposalEditor({
@@ -18,6 +19,7 @@ export function ProposalEditor({
   initialContent: ProposalContent;
 }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState<ProposalContent>({
     executive_summary: initialContent?.executive_summary ?? "",
@@ -29,9 +31,10 @@ export function ProposalEditor({
     cta: initialContent?.cta ?? "",
   });
   const [reason, setReason] = useState("");
-  const [deliverablesText, setDeliverablesText] = useState((initialContent?.deliverables ?? []).join("\n"));
+  const [deliverablesText, setDeliverablesText] = useState(
+    (initialContent?.deliverables ?? []).join("\n"),
+  );
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   function field(name: keyof ProposalContent, label: string, rows = 3) {
     return (
@@ -50,7 +53,6 @@ export function ProposalEditor({
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError(null);
     try {
       const deliverables = deliverablesText
         .split("\n")
@@ -68,10 +70,15 @@ export function ProposalEditor({
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({ variant: "success", title: "Proposal saved", description: "New version created." });
       router.push(`/proposals/${id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      toast({
+        variant: "destructive",
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     } finally {
       setBusy(false);
     }
@@ -100,12 +107,20 @@ export function ProposalEditor({
       {field("cta", "Call to action", 2)}
       <div className="space-y-1.5">
         <Label htmlFor="reason">Reason for edit</Label>
-        <Input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. tightened summary" />
+        <Input
+          id="reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. tightened summary"
+        />
       </div>
-      {error ? <div className="text-sm text-destructive">{error}</div> : null}
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save new version"}</Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save new version"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>
+          Cancel
+        </Button>
       </div>
     </form>
   );

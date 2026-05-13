@@ -7,6 +7,16 @@ import { formatDate, truncate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+type ApprovalProposal = {
+  id: string;
+  title: string;
+  status: string;
+  version: number;
+  updated_at: string;
+  company_id: string;
+  companies: { company_name: string } | null;
+};
+
 export default async function ApprovalsPage() {
   const sb = supabaseAdmin();
   const { data } = await sb
@@ -22,7 +32,7 @@ export default async function ApprovalsPage() {
         <EmptyState title="Nothing waiting for review" description="Generated proposals will appear here." />
       ) : (
         <div className="space-y-3">
-          {data.map((p: any) => (
+          {(data as unknown as ApprovalProposal[]).map((p) => (
             <Link
               key={p.id}
               href={`/proposals/${p.id}`}
@@ -30,7 +40,9 @@ export default async function ApprovalsPage() {
             >
               <div>
                 <div className="font-medium">{truncate(p.title, 90)}</div>
-                <div className="text-xs text-muted-foreground">{p.companies?.company_name ?? "—"} · v{p.version} · {formatDate(p.updated_at)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {p.companies?.company_name ?? "—"} · v{p.version} · {formatDate(p.updated_at)}
+                </div>
               </div>
               <StatusBadge status={p.status} />
             </Link>

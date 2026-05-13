@@ -3,15 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toaster";
 
 export function GenerateProposalButton({ campaignId }: { campaignId: string }) {
   const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function onClick() {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch("/api/proposals/generate", {
         method: "POST",
@@ -20,20 +20,26 @@ export function GenerateProposalButton({ campaignId }: { campaignId: string }) {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+      toast({
+        variant: "success",
+        title: "Proposal generated",
+        description: j.attempts > 1 ? `Done after ${j.attempts} attempts.` : undefined,
+      });
       router.push(`/proposals/${j.data.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed");
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="space-y-2">
-      <Button onClick={onClick} disabled={loading} className="w-full">
-        {loading ? "Generating proposal…" : "Generate proposal"}
-      </Button>
-      {error ? <div className="text-sm text-destructive">{error}</div> : null}
-    </div>
+    <Button onClick={onClick} disabled={loading} className="w-full">
+      {loading ? "Generating proposal…" : "Generate proposal"}
+    </Button>
   );
 }
