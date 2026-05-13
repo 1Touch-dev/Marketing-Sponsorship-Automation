@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/health
