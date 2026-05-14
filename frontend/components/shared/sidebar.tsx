@@ -65,7 +65,11 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
 }
 
 /** Desktop sidebar — hidden on mobile */
+const PUBLIC_PATHS = ["/proposals/view/"];
+
 export function Sidebar() {
+  const pathname = usePathname();
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-card">
       <div className="px-6 py-5 border-b">
@@ -82,7 +86,10 @@ export function Sidebar() {
 
 /** Mobile top bar with slide-out drawer — visible only on sm */
 export function MobileNav() {
+  const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
+
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
 
   return (
     <>

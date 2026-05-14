@@ -177,48 +177,55 @@ export async function POST(req: Request) {
   }
 
   // ── 2–5. Parallel secondary generations ──────────────────────────────────
-  const [variantsResult, tiersResult, visualsResult, intelligenceResult] = await Promise.allSettled([
-    (async (): Promise<StrategyVariant[] | null> => {
-      try {
+  // Run all 4 enrichment generations in parallel.
+  // Each has a 45s individual timeout and fails gracefully (non-fatal).
+  const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T | null> =>
+    Promise.race([
+      promise.catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+    ]);
+
+  const [strategyVariants, pricingTiers, visualPrompts, intelligence] = await Promise.all([
+    withTimeout(
+      (async (): Promise<StrategyVariant[] | null> => {
         const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2500);
         const vr = validateAiOutput(strategyVariantsResponseSchema, raw, { workflow_name: "proposal.strategy_variants" });
         return vr.ok && vr.data ? vr.data.variants : null;
-      } catch { return null; }
-    })(),
+      })(),
+      45000,
+    ),
 
-    (async (): Promise<PricingTier[] | null> => {
-      try {
+    withTimeout(
+      (async (): Promise<PricingTier[] | null> => {
         const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2000);
         const vr = validateAiOutput(pricingTiersResponseSchema, raw, { workflow_name: "proposal.pricing_tiers" });
         return vr.ok && vr.data ? vr.data.tiers : null;
-      } catch { return null; }
-    })(),
+      })(),
+      45000,
+    ),
 
-    (async (): Promise<VisualPrompt[] | null> => {
-      try {
+    withTimeout(
+      (async (): Promise<VisualPrompt[] | null> => {
         const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2000);
         const vr = validateAiOutput(visualPromptsResponseSchema, raw, { workflow_name: "proposal.visual_prompts" });
-        return vr.ok && vr.data ? vr.data.visuals : null;
-      } catch { return null; }
-    })(),
+        return vr.ok && vr.data ? (vr.data.visuals as unknown as VisualPrompt[]) : null;
+      })(),
+      45000,
+    ),
 
-    (async (): Promise<CompanyIntelligence | null> => {
-      try {
+    withTimeout(
+      (async (): Promise<CompanyIntelligence | null> => {
         const pt = companyIntelligencePrompt({ company: companyCtx });
         const raw = await runGeneration(pt.system, pt.user, 1500);
         const vr = validateAiOutput(companyIntelligenceResponseSchema, raw, { workflow_name: "proposal.intelligence" });
         return vr.ok && vr.data ? vr.data.intelligence : null;
-      } catch { return null; }
-    })(),
+      })(),
+      45000,
+    ),
   ]);
-
-  const strategyVariants = variantsResult.status === "fulfilled" ? variantsResult.value : null;
-  const pricingTiers = tiersResult.status === "fulfilled" ? tiersResult.value : null;
-  const visualPrompts = visualsResult.status === "fulfilled" ? visualsResult.value : null;
-  const intelligence = intelligenceResult.status === "fulfilled" ? intelligenceResult.value : null;
 
   // ── 3. Persist ─────────────────────────────────────────────────────────────
   const contentMd = renderMarkdown(proposalContent as unknown as ProposalContent);

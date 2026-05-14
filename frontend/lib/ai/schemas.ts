@@ -11,10 +11,10 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 export const campaignIdeaSchema = z.object({
   title: z.string().min(2).max(300),
-  summary: z.string().max(1000).optional().nullable(),
-  activation: z.string().max(1000).optional().nullable(),
-  partnership_angle: z.string().max(1000).optional().nullable(),
-  cta: z.string().max(500).optional().nullable(),
+  summary: z.string().max(2000).optional().nullable(),
+  activation: z.string().max(2000).optional().nullable(),
+  partnership_angle: z.string().max(2000).optional().nullable(),
+  cta: z.string().max(800).optional().nullable(),
 });
 
 export const campaignIdeasResponseSchema = z.object({
@@ -28,13 +28,13 @@ export type CampaignIdeaResponse = z.infer<typeof campaignIdeasResponseSchema>;
 // ---------------------------------------------------------------------------
 export const proposalContentSchema = z.object({
   title: z.string().min(2).max(300),
-  executive_summary: z.string().min(10).max(3000),
-  campaign_rationale: z.string().min(10).max(3000),
-  sponsorship_value: z.string().min(10).max(3000),
-  activation_plan: z.string().min(10).max(3000),
-  deliverables: z.array(z.string().min(2).max(500)).min(1).max(20),
-  investment_note: z.string().min(5).max(1000),
-  cta: z.string().min(5).max(500),
+  executive_summary: z.string().min(10).max(5000),
+  campaign_rationale: z.string().min(10).max(5000),
+  sponsorship_value: z.string().min(10).max(5000),
+  activation_plan: z.string().min(10).max(6000),
+  deliverables: z.array(z.string().min(2).max(800)).min(1).max(20),
+  investment_note: z.string().min(5).max(2000),
+  cta: z.string().min(5).max(800),
 });
 
 export type ProposalContentAI = z.infer<typeof proposalContentSchema>;
@@ -43,14 +43,14 @@ export type ProposalContentAI = z.infer<typeof proposalContentSchema>;
 // Strategy variants (Phase 2 / intelligence layer)
 // ---------------------------------------------------------------------------
 export const strategyVariantSchema = z.object({
-  id: z.string().min(1),                          // e.g. "awareness", "fan_engagement"
-  label: z.string().min(2).max(100),              // Display name
-  tagline: z.string().max(200).optional().nullable(),
-  description: z.string().min(10).max(1000),
-  key_activations: z.array(z.string().min(2).max(300)).min(1).max(8),
-  audience_fit: z.string().max(500).optional().nullable(),
-  estimated_reach: z.string().max(200).optional().nullable(),
-  differentiator: z.string().max(400).optional().nullable(),
+  id: z.string().min(1),
+  label: z.string().min(2).max(100),
+  tagline: z.string().max(400).optional().nullable(),
+  description: z.string().min(10).max(2000),
+  key_activations: z.array(z.string().min(2).max(600)).min(1).max(8),
+  audience_fit: z.string().max(1000).optional().nullable(),
+  estimated_reach: z.string().max(400).optional().nullable(),
+  differentiator: z.string().max(800).optional().nullable(),
 });
 
 export type StrategyVariant = z.infer<typeof strategyVariantSchema>;
@@ -64,62 +64,71 @@ export const strategyVariantsResponseSchema = z.object({
 // ---------------------------------------------------------------------------
 export const pricingTierSchema = z.object({
   tier: z.enum(["low", "mid", "high"]),
-  label: z.string().min(2).max(80),               // e.g. "Patrocinador Bronze"
-  price_range: z.string().min(2).max(100),         // e.g. "R$ 15.000 – R$ 30.000/mês"
-  activations: z.array(z.string().min(2).max(300)).min(1).max(10),
-  deliverables: z.array(z.string().min(2).max(300)).min(1).max(10),
-  visibility: z.string().max(300).optional().nullable(),   // stadium, digital, print
-  digital_exposure: z.string().max(300).optional().nullable(),
-  stadium_exposure: z.string().max(300).optional().nullable(),
-  highlight: z.boolean().optional(),              // true for the recommended tier
+  label: z.string().min(2).max(80),
+  price_range: z.string().min(2).max(200),
+  activations: z.array(z.string().min(2).max(600)).min(1).max(10),
+  deliverables: z.array(z.string().min(2).max(600)).min(1).max(10),
+  visibility: z.string().max(600).optional().nullable(),
+  digital_exposure: z.string().max(600).optional().nullable(),
+  stadium_exposure: z.string().max(600).optional().nullable(),
+  highlight: z.boolean().optional(),
 });
 
 export type PricingTier = z.infer<typeof pricingTierSchema>;
 
 export const pricingTiersResponseSchema = z.object({
-  tiers: z.array(pricingTierSchema).length(3),
+  tiers: z.array(pricingTierSchema).min(1).max(3),
 });
 
 // ---------------------------------------------------------------------------
 // Visual prompts (AI-generated image-gen prompts)
 // ---------------------------------------------------------------------------
+export const VISUAL_TYPES = ["jersey", "stadium_banner", "led_board", "social_media", "product_placement", "event_activation", "campaign_hero"] as const;
+export type VisualType = typeof VISUAL_TYPES[number];
+
 export const visualPromptSchema = z.object({
-  id: z.string().min(1),                          // e.g. "jersey_front", "stadium_banner"
-  label: z.string().min(2).max(100),              // Display label
-  type: z.enum([
-    "jersey",
-    "stadium_banner",
-    "led_board",
-    "social_media",
-    "product_placement",
-    "event_activation",
-    "campaign_hero",
-  ]),
-  prompt: z.string().min(20).max(800),            // Full image-gen prompt
-  style_notes: z.string().max(300).optional().nullable(),
-  aspect_ratio: z.string().max(20).optional().nullable(), // e.g. "16:9", "1:1"
-  placeholder_description: z.string().max(500).optional().nullable(),
+  id: z.string().min(1),
+  label: z.string().min(2).max(100),
+  type: z.enum(VISUAL_TYPES),
+  prompt: z.string().min(20).max(1500),
+  style_notes: z.string().max(600).optional().nullable(),
+  aspect_ratio: z.string().max(20).optional().nullable(),
+  placeholder_description: z.string().max(800).optional().nullable(),
 });
 
 export type VisualPrompt = z.infer<typeof visualPromptSchema>;
 
 export const visualPromptsResponseSchema = z.object({
-  visuals: z.array(visualPromptSchema).min(1).max(8),
+  visuals: z.array(
+    // Pre-normalize unknown visual types before strict enum validation
+    z.object({
+      id: z.string().min(1),
+      label: z.string().min(2).max(100),
+      type: z.string().transform((v): VisualType => {
+        const valid: string[] = ["jersey", "stadium_banner", "led_board", "social_media", "product_placement", "event_activation", "campaign_hero"];
+        return valid.includes(v) ? (v as VisualType) : "campaign_hero";
+      }).pipe(z.enum(VISUAL_TYPES)),
+      prompt: z.string().min(20).max(1500),
+      style_notes: z.string().max(600).optional().nullable(),
+      aspect_ratio: z.string().max(20).optional().nullable(),
+      placeholder_description: z.string().max(800).optional().nullable(),
+    })
+  ).min(1).max(8),
 });
 
 // ---------------------------------------------------------------------------
 // Company intelligence
 // ---------------------------------------------------------------------------
 export const companyIntelligenceSchema = z.object({
-  marketing_goals: z.array(z.string().max(200)).min(1).max(5),
-  brand_positioning: z.string().min(10).max(500),
-  audience_alignment: z.string().min(10).max(500),
-  loyalty_strategy: z.string().max(400).optional().nullable(),
+  marketing_goals: z.array(z.string().max(400)).min(1).max(5),
+  brand_positioning: z.string().min(10).max(2000),
+  audience_alignment: z.string().min(10).max(2000),
+  loyalty_strategy: z.string().max(1500).optional().nullable(),
   sponsorship_fit_score: z.number().min(1).max(10),
-  sponsorship_fit_rationale: z.string().min(10).max(500),
-  recommended_direction: z.string().min(10).max(500),
-  local_context: z.string().max(400).optional().nullable(),
-  global_inspiration: z.string().max(400).optional().nullable(),
+  sponsorship_fit_rationale: z.string().min(10).max(2000),
+  recommended_direction: z.string().min(10).max(2000),
+  local_context: z.string().max(2000).optional().nullable(),
+  global_inspiration: z.string().max(2000).optional().nullable(),
 });
 
 export type CompanyIntelligence = z.infer<typeof companyIntelligenceSchema>;

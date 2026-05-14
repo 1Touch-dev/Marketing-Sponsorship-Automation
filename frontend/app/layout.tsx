@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar, MobileNav } from "@/components/shared/sidebar";
+import { ContentWrapper } from "@/components/shared/content-wrapper";
 import { ToasterProvider } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
@@ -18,10 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ToasterProvider>
           <div className="flex min-h-screen flex-col md:flex-row">
             <Sidebar />
-            <div className="flex flex-1 flex-col min-w-0">
+            <div className="flex flex-1 flex-col min-w-0 max-w-full">
               <MobileNav />
-              <main className="flex-1 overflow-x-hidden">
-                <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-10 lg:py-8">{children}</div>
+              <main className="flex-1">
+                <ContentWrapper>{children}</ContentWrapper>
               </main>
             </div>
           </div>

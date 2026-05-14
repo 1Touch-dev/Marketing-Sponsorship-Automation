@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
+import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,9 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   const company = p.companies;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen w-full bg-slate-50">
       {/* Minimal public header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 print:hidden">
+      <div className="w-full bg-white border-b border-slate-200 px-6 py-3 print:hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="text-sm font-semibold text-slate-700">
             Proposta de Patrocínio
@@ -54,12 +55,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
               <span className="ml-2 text-slate-400 font-normal">— {company.company_name}</span>
             )}
           </div>
-          <button
-            onClick={() => typeof window !== "undefined" && window.print()}
-            className="text-xs text-slate-500 hover:text-slate-800 underline underline-offset-2"
-          >
-            Imprimir / Salvar como PDF
-          </button>
+          <PrintButton label="Imprimir / Salvar como PDF" />
         </div>
       </div>
 

@@ -11,6 +11,7 @@ import { GenerateEmailPanel } from "./generate-email-panel";
 import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import { ProposalShareButton } from "./proposal-share-button";
+import { EnhanceProposalButton } from "./enhance-proposal-button";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
 
@@ -71,14 +72,12 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             <DuplicateProposalButton proposalId={proposal.id} />
             {p.share_token ? (
               <Button asChild variant="outline" size="sm">
-                <Link
-                  href={`/proposals/${proposal.id}/view`}
-                  target="_blank"
-                >
+                <Link href={`/proposals/${proposal.id}/view`} target="_blank">
                   Landing Page ↗
                 </Link>
               </Button>
             ) : null}
+            <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={hasIntelligenceLayer} />
             <ProposalShareButton proposalId={proposal.id} shareToken={p.share_token ?? null} />
             <StatusBadge status={proposal.status} />
             <Button asChild variant="outline">
