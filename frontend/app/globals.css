@@ -49,3 +49,61 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Print / PDF export styles for Proposal Landing Page
+   Used when user prints via browser or saves as PDF
+────────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide navigation, toasts, buttons */
+  nav,
+  .print\:hidden,
+  [data-radix-toast-viewport],
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Remove backgrounds in main layout */
+  body {
+    background: white !important;
+    color: #0f172a !important;
+    font-size: 11pt;
+  }
+
+  /* Full-width sections */
+  .max-w-5xl {
+    max-width: 100% !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* Preserve hero gradient colors when printing */
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+
+  /* Avoid page breaks inside cards */
+  .rounded-xl,
+  .rounded-2xl,
+  article section {
+    break-inside: avoid;
+  }
+
+  /* Show print-only elements */
+  .print\:block {
+    display: block !important;
+  }
+
+  .print\:bg-blue-900 {
+    background-color: #1e3a8a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Pricing cards */
+  .grid.grid-cols-1.md\:grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+  }
+}
