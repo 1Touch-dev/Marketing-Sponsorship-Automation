@@ -71,9 +71,12 @@ function parseCsv(text: string): CsvRow[] {
 
 function isValidUrl(url: string): boolean {
   if (!url) return true;
+  // Must start with http:// or https:// to be considered valid in this context
+  if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
   try {
-    new URL(url.startsWith("http") ? url : `https://${url}`);
-    return true;
+    const parsed = new URL(url);
+    // Must have a real hostname (at least one dot or be localhost)
+    return parsed.hostname.includes(".") || parsed.hostname === "localhost";
   } catch {
     return false;
   }
@@ -162,11 +165,8 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Normalize website
-      let website = row.website ?? null;
-      if (website && !website.startsWith("http")) {
-        website = `https://${website}`;
-      }
+      // Normalize website — keep as-is since validation already requires http(s)://
+      const website = row.website ?? null;
 
       // Insert
       const { data: inserted, error } = await sb
@@ -202,10 +202,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // Audit log for the bulk import
+    // Audit log for the bulk import (entity_id must be null or UUID — use null for bulk)
     await recordAudit({
       entity_type: "company",
-      entity_id: "bulk_import",
+      entity_id: null,
       action: "company.bulk_import",
       metadata: {
         total_rows: rows.length,
