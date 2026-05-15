@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,104 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
 import type { ProposalContent } from "@/types/database";
+import {
+  FileText, MessageSquare, Target, TrendingUp,
+  Package, DollarSign, Zap, Save, ArrowLeft,
+  AlertCircle, Info, CheckCircle2, History,
+  type LucideIcon,
+} from "lucide-react";
+
+type ContentFieldKey = "executive_summary" | "campaign_rationale" | "sponsorship_value" | "activation_plan" | "investment_note" | "cta";
+
+const SECTIONS: Array<{
+  key: ContentFieldKey;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  rows: number;
+  recommended: number;
+}> = [
+  {
+    key: "executive_summary",
+    label: "Executive summary",
+    description: "Powerful opening about this Coritiba FC partnership (~120 words)",
+    icon: FileText,
+    rows: 5,
+    recommended: 120,
+  },
+  {
+    key: "campaign_rationale",
+    label: "Campaign rationale",
+    description: "Why this sponsorship at Coritiba FC makes business sense (~150 words)",
+    icon: Target,
+    rows: 5,
+    recommended: 150,
+  },
+  {
+    key: "sponsorship_value",
+    label: "Sponsorship value",
+    description: "Concrete value delivered to the sponsor (~120 words)",
+    icon: TrendingUp,
+    rows: 5,
+    recommended: 120,
+  },
+  {
+    key: "activation_plan",
+    label: "Activation plan",
+    description: "Specific phased activation at Couto Pereira (~200 words)",
+    icon: Zap,
+    rows: 7,
+    recommended: 200,
+  },
+  {
+    key: "investment_note",
+    label: "Investment overview",
+    description: "High-level investment framing (aspirational)",
+    icon: DollarSign,
+    rows: 3,
+    recommended: 80,
+  },
+  {
+    key: "cta",
+    label: "Call to action",
+    description: "Single compelling CTA to partner with Coritiba FC",
+    icon: MessageSquare,
+    rows: 2,
+    recommended: 40,
+  },
+];
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function WordCountBadge({ text, recommended }: { text: string; recommended: number }) {
+  const words = wordCount(text);
+  const ratio = words / recommended;
+  let color = "text-muted-foreground";
+  if (ratio >= 0.7 && ratio <= 1.4) color = "text-green-600 dark:text-green-400";
+  else if (ratio < 0.4) color = "text-amber-600 dark:text-amber-400";
+  else if (ratio > 1.6) color = "text-amber-600 dark:text-amber-400";
+
+  return (
+    <span className={`text-xs ${color}`}>
+      {words} words {words > 0 && `(~${recommended} recommended)`}
+    </span>
+  );
+}
 
 export function ProposalEditor({
   id,
   initialTitle,
   initialContent,
+  proposalStatus,
+  versions,
 }: {
   id: string;
   initialTitle: string;
   initialContent: ProposalContent;
+  proposalStatus: string;
+  versions?: Array<{ version: number; edit_reason: string | null; created_at: string }>;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -29,26 +118,16 @@ export function ProposalEditor({
     deliverables: initialContent?.deliverables ?? [],
     investment_note: initialContent?.investment_note ?? "",
     cta: initialContent?.cta ?? "",
+    title: initialContent?.title ?? initialTitle,
   });
   const [reason, setReason] = useState("");
   const [deliverablesText, setDeliverablesText] = useState(
     (initialContent?.deliverables ?? []).join("\n"),
   );
   const [busy, setBusy] = useState(false);
+  const [activeSection, setActiveSection] = useState<ContentFieldKey | null>(null);
 
-  function field(name: keyof ProposalContent, label: string, rows = 3) {
-    return (
-      <div className="space-y-1.5">
-        <Label htmlFor={name as string}>{label}</Label>
-        <Textarea
-          id={name as string}
-          rows={rows}
-          value={(content[name] as string) ?? ""}
-          onChange={(e) => setContent({ ...content, [name]: e.target.value })}
-        />
-      </div>
-    );
-  }
+  const isApproved = proposalStatus === "approved" || proposalStatus === "sent";
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -60,8 +139,8 @@ export function ProposalEditor({
         .filter(Boolean);
       const payload = {
         title,
-        content: { ...content, deliverables },
-        edit_reason: reason || undefined,
+        content: { ...content, title, deliverables },
+        edit_reason: reason || "Manual edit",
       };
       const res = await fetch(`/api/proposals/${id}`, {
         method: "PATCH",
@@ -70,7 +149,11 @@ export function ProposalEditor({
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
-      toast({ variant: "success", title: "Proposal saved", description: "New version created." });
+      toast({
+        variant: "success",
+        title: "Draft saved",
+        description: `Version ${j.data?.version ?? "?"} created successfully.`,
+      });
       router.push(`/proposals/${id}`);
       router.refresh();
     } catch (err) {
@@ -85,42 +168,191 @@ export function ProposalEditor({
   }
 
   return (
-    <form onSubmit={onSave} className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="title">Title</Label>
-        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-      </div>
-      {field("executive_summary", "Executive summary", 4)}
-      {field("campaign_rationale", "Campaign rationale", 4)}
-      {field("sponsorship_value", "Sponsorship value", 4)}
-      {field("activation_plan", "Activation plan", 4)}
-      <div className="space-y-1.5">
-        <Label htmlFor="deliverables">Deliverables (one per line)</Label>
-        <Textarea
-          id="deliverables"
-          rows={4}
-          value={deliverablesText}
-          onChange={(e) => setDeliverablesText(e.target.value)}
-        />
-      </div>
-      {field("investment_note", "Investment", 3)}
-      {field("cta", "Call to action", 2)}
-      <div className="space-y-1.5">
-        <Label htmlFor="reason">Reason for edit</Label>
-        <Input
-          id="reason"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="e.g. tightened summary"
-        />
-      </div>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Save new version"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>
-          Cancel
-        </Button>
+    <form onSubmit={onSave}>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left nav */}
+        <div className="lg:col-span-1 space-y-1">
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+            Sections
+          </div>
+          {SECTIONS.map((s) => {
+            const val = (content[s.key] as string) ?? "";
+            const words = wordCount(val);
+            const hasContent = words > 10;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => {
+                  setActiveSection(s.key as ContentFieldKey);
+                  document.getElementById(`section-${s.key}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors ${
+                  activeSection === s.key
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-accent"
+                }`}
+              >
+                <s.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="flex-1 truncate">{s.label}</span>
+                {hasContent ? (
+                  <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+                ) : (
+                  <div className="h-3 w-3 rounded-full border border-muted-foreground/30 flex-shrink-0" />
+                )}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => document.getElementById("section-deliverables")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors hover:bg-accent"
+          >
+            <Package className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="flex-1">Deliverables</span>
+            {deliverablesText.trim() ? (
+              <CheckCircle2 className="h-3 w-3 text-green-500 flex-shrink-0" />
+            ) : (
+              <div className="h-3 w-3 rounded-full border border-muted-foreground/30 flex-shrink-0" />
+            )}
+          </button>
+
+          {/* Version history */}
+          {versions && versions.length > 0 && (
+            <div className="pt-4 border-t mt-4">
+              <div className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <History className="h-3 w-3" /> Version history
+              </div>
+              {versions.slice(0, 5).map((v) => (
+                <div key={v.version} className="text-xs text-muted-foreground px-2 py-1">
+                  <span className="font-mono font-medium">v{v.version}</span>
+                  {v.edit_reason && (
+                    <span className="truncate block text-muted-foreground/70 pl-3">
+                      {v.edit_reason}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Main edit area */}
+        <div className="lg:col-span-3 space-y-5">
+          {/* Status warning */}
+          {isApproved && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-amber-700 dark:text-amber-300">
+                <strong>This proposal is {proposalStatus}.</strong> Saving a new version will keep its current status and create a new version snapshot.
+              </div>
+            </div>
+          )}
+
+          {/* Coritiba context reminder */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+            <Info className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-green-700 dark:text-green-300">
+              All edits should maintain <strong>Coritiba FC / Couto Pereira</strong> context. Ensure content references Coritiba FC, Verde e Branco branding, and the Curitiba/Paraná market.
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="space-y-1.5">
+            <Label htmlFor="title" className="flex items-center gap-2 font-semibold">
+              <FileText className="h-4 w-4 text-primary" /> Proposal title
+            </Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              className="text-base font-medium"
+              placeholder="Coritiba FC × [Company Name] — Partnership Proposal"
+            />
+          </div>
+
+          {/* Dynamic sections */}
+          {SECTIONS.map((s) => (
+            <div
+              key={s.key}
+              id={`section-${s.key}`}
+              className="space-y-1.5 scroll-mt-20"
+              onClick={() => setActiveSection(s.key as ContentFieldKey)}
+            >
+              <Label htmlFor={s.key} className="flex items-center gap-2 font-semibold">
+                <s.icon className="h-4 w-4 text-primary" />
+                {s.label}
+              </Label>
+              <div className="text-xs text-muted-foreground mb-1">{s.description}</div>
+              <Textarea
+                id={s.key}
+                rows={s.rows}
+                value={(content[s.key] as string) ?? ""}
+                onChange={(e) =>
+                  setContent({ ...content, [s.key]: e.target.value })
+                }
+                className={`transition-all ${activeSection === s.key ? "ring-1 ring-primary" : ""}`}
+              />
+              <div className="flex justify-end">
+                <WordCountBadge
+                  text={(content[s.key] as string) ?? ""}
+                  recommended={s.recommended}
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Deliverables */}
+          <div id="section-deliverables" className="space-y-1.5 scroll-mt-20">
+            <Label htmlFor="deliverables" className="flex items-center gap-2 font-semibold">
+              <Package className="h-4 w-4 text-primary" /> Deliverables
+            </Label>
+            <div className="text-xs text-muted-foreground mb-1">
+              One deliverable per line. Each becomes a bullet point in the proposal.
+            </div>
+            <Textarea
+              id="deliverables"
+              rows={5}
+              value={deliverablesText}
+              onChange={(e) => setDeliverablesText(e.target.value)}
+              placeholder={"Coritiba FC jersey brand placement (chest)\nCouto Pereira LED board x20 matchday\nSocial media activation — 4 posts/month\nMatchday PA announcement\nYouth academy co-branding"}
+            />
+            <div className="text-xs text-muted-foreground text-right">
+              {deliverablesText.split("\n").filter((l) => l.trim()).length} deliverables
+            </div>
+          </div>
+
+          {/* Edit reason */}
+          <div className="space-y-1.5 pt-2 border-t">
+            <Label htmlFor="reason" className="flex items-center gap-2 font-semibold">
+              <History className="h-4 w-4 text-muted-foreground" /> Reason for edit
+              <span className="text-muted-foreground font-normal text-xs">(optional but recommended)</span>
+            </Label>
+            <Input
+              id="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Updated activation plan with Couto Pereira LED boards, tightened executive summary"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" disabled={busy} className="gap-2">
+              <Save className="h-4 w-4" />
+              {busy ? "Saving draft…" : "Save as new version"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/proposals/${id}`)}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to proposal
+            </Button>
+          </div>
+        </div>
       </div>
     </form>
   );

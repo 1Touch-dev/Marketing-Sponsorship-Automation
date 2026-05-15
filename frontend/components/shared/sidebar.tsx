@@ -17,6 +17,7 @@ import {
   Activity,
   Menu,
   X,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/emails", label: "Emails", icon: Mail },
   { href: "/threads", label: "Threads", icon: MessageSquare },
   { href: "/followups", label: "Follow-ups", icon: Clock },
+  { href: "/brand-assets", label: "Brand Assets", icon: Shield },
   { href: "/workflow-events", label: "Workflows", icon: Activity },
   { href: "/audit", label: "Audit", icon: ScrollText },
   { href: "/settings", label: "Settings", icon: Settings },

@@ -1,18 +1,17 @@
 /**
- * Centralised prompt templates — v2.0.0
+ * Centralised prompt templates — v3.0.0
  *
  * PROMPT_VERSION is bumped whenever a prompt changes so that
  * campaigns / proposals / emails can record which prompt generated them.
  *
- * v2.0.0 adds:
- *  - Multi-strategy variant generation (awareness, engagement, community, etc.)
- *  - Low / Mid / High pricing tier generation
- *  - AI visual prompt generation (jersey, banner, LED boards)
- *  - Company intelligence analysis
- *  - Brazilian + global campaign inspiration conditioning
+ * v3.0.0:
+ *  - ALL prompts grounded in Coritiba FC / Couto Pereira ecosystem
+ *  - Strict competitor exclusion (Athletico Paranaense, Corinthians, São Paulo FC, etc.)
+ *  - Global/Brazilian campaigns used ONLY as internal inspiration examples
+ *  - Coritiba-first inventory, branding, fan base, stadium context
  */
 
-export const PROMPT_VERSION = "v2.0.0" as const;
+export const PROMPT_VERSION = "v3.0.0" as const;
 
 export interface CompanyContext {
   company_name: string;
@@ -23,40 +22,74 @@ export interface CompanyContext {
 }
 
 // ---------------------------------------------------------------------------
-// Strategy inspiration library — used as conditioning context
+// Coritiba FC Core Context — injected into every prompt
+// ---------------------------------------------------------------------------
+const CORITIBA_CONTEXT = `
+CLUB CONTEXT — CORITIBA FOOT BALL CLUB (NON-NEGOTIABLE):
+ALL proposals, campaigns, activations, and stadium references MUST center on:
+- Club: Coritiba Foot Ball Club (also known as "Coxa" / "Coxa-Branca")
+- Founded: 1909 — one of the oldest football clubs in Brazil
+- Home stadium: Couto Pereira (official: Estádio Major Antônio Couto Pereira), Curitiba, Paraná
+- Location: Curitiba, Paraná, Brazil — capital of Paraná state
+- Colors: Green and White (Verde e Branco)
+- Fan identity: "Coxa-Branca" supporters — loyal, family-oriented, multi-generational fan base in Curitiba
+- Typical attendance: 15,000–30,000 per match at Couto Pereira
+- Digital reach: ~1.5M+ social followers across platforms
+- Broadcast: matches shown nationally via Globo/SporTV/Paramount+, regional Paraná TV
+- Key competitions: Brasileirão Série A/B, Copa do Brasil, Campeonato Paranaense
+- Social/community programs: Coritiba youth academy, community outreach, women's football
+- Inventory available to sponsors:
+  * Jersey branding (front, sleeve, back)
+  * Couto Pereira LED boards (perimeter, giant scoreboard)
+  * Couto Pereira stadium naming and section naming rights
+  * Digital: club website, app, social media (Instagram, YouTube, TikTok, X)
+  * Matchday PA announcements and in-stadium activations
+  * Training kit and warmup gear
+  * Club magazine, programs, fan club materials
+  * Pre/post-match broadcast segments (co-branded)
+  * Youth academy co-branding (social impact)
+  * Women's team sponsorship (growing visibility)
+  * Community events and fan festivals in Curitiba
+
+COMPETITOR EXCLUSION — ABSOLUTE RULE:
+NEVER mention, recommend, or reference these clubs as sponsorship targets:
+- Athletico Paranaense (CAP / Furacão) — DIRECT Curitiba rival
+- Corinthians — São Paulo club
+- São Paulo FC — São Paulo club  
+- Flamengo — Rio club
+- Palmeiras — São Paulo club
+- Grêmio — Porto Alegre club
+- Internacional — Porto Alegre club
+Any such reference would be commercially damaging and is strictly forbidden.
+
+Global/international campaign examples (Red Bull, Nike, Heineken, etc.) may ONLY be used as:
+- Strategic inspiration and methodology examples
+- Internal benchmarking
+NEVER as alternative club recommendations.
+`;
+
+// ---------------------------------------------------------------------------
+// Strategy inspiration — used as secondary conditioning (internal reference only)
 // ---------------------------------------------------------------------------
 const STRATEGY_INSPIRATION = `
-GLOBAL SPONSORSHIP INSPIRATION EXAMPLES:
+SPONSORSHIP STRATEGY ARCHETYPES (use as creative frameworks for Coritiba proposals):
+1. AWARENESS: maximum Coritiba jersey/stadium logo visibility, Couto Pereira naming, broadcast exposure
+2. FAN ENGAGEMENT: interactive Coritiba fan activations, digital challenges, Couto Pereira matchday experiences
+3. COMMUNITY ACTIVATION: CSR-led at Coritiba youth academy, grassroots Curitiba programs, social impact co-branding
+4. PREMIUM PARTNERSHIP: Coritiba co-branding exclusivity, VIP Couto Pereira hospitality, limited editions
+5. DIGITAL/SOCIAL MEDIA: Coritiba content creation, influencer tie-ins with club, real-time campaigns
+6. PRODUCT-LED: sampling at Couto Pereira, product placement in Coritiba ecosystem, performance tie-in
+7. LOYALTY STRATEGY: Coritiba member/fan club benefits, exclusive offers, CRM integration with fanbase
+8. STADIUM ACTIVATION: Couto Pereira LED boards, concourse branding, matchday Coritiba takeovers
+
+GLOBAL BENCHMARK EXAMPLES (for strategic inspiration only — NOT alternative clubs):
 - Red Bull: extreme-sport lifestyle integration; turned sponsorship into content engine
-- Nike "Write the Future" (FIFA): emotional storytelling with global athletes, local heroes
-- Heineken UEFA CL: "Man of the Match" shared moments, bar culture, digital activation
-- Mastercard "Priceless" series: experiential activations, priceless moments in stadiums
-- Coca-Cola FIFA partnership: fan zones, trophies tour, local street activations
-- Gatorade: performance science meets athlete stories; product-led sponsorship
-- Spotify / Barcelona FC jersey: brand visibility meets streaming culture crossover
-- Guaraná Antarctica (Brazilian): fan culture, regional pride, humor, digital micro-campaigns
-- Brahma (Brazilian football): supporter identity, "torcer" (to root) brand anchoring
-- Banco Itaú (Brazilian): community investment narrative, "Transformar" brand values
+- Nike "Write the Future": emotional storytelling, local heroes
+- Heineken UEFA CL: "Man of the Match" shared moments, digital activation
+- Guaraná Antarctica: fan culture, regional pride, humor, digital micro-campaigns
+- Brahma (Brazilian football): supporter identity brand anchoring
+- Banco Itaú: community investment narrative, "Transformar" values
 - Magazine Luiza / Magalu: digital fan engagement, real-time social activation
-- Claro Brazil: connectivity as empowerment narrative in stadiums and communities
-
-CURITIBA / PARANÁ REGIONAL CONTEXT:
-- Strong football culture: Athletico Paranaense (CAP), Coritiba FC, Paraná Clube
-- Industrial base: automotive (Renault, Volkswagen, Volvo), logistics, agribusiness
-- Young, educated consumer base with high digital penetration
-- Community-driven activation performs well in Curitiba (vila, bairro culture)
-- Sports nutrition and health/wellness industry is growing strongly in the South region
-- Local businesses value long-term community partnerships over transactional deals
-
-KEY SPONSORSHIP STRATEGY ARCHETYPES:
-1. AWARENESS: maximum logo visibility, stadium naming, broadcast exposure
-2. FAN ENGAGEMENT: interactive activations, digital challenges, matchday experiences
-3. COMMUNITY ACTIVATION: CSR-led, grassroots, youth programs, social impact
-4. PREMIUM PARTNERSHIP: co-branding, exclusivity, VIP access, limited editions
-5. DIGITAL/SOCIAL MEDIA: content creation, influencer tie-ins, real-time campaigns
-6. PRODUCT-LED: sampling, product placement, on-field branding, performance tie-in
-7. LOYALTY STRATEGY: member benefits, exclusive offers, CRM integration
-8. STADIUM ACTIVATION: LED boards, concourse branding, matchday takeovers
 `;
 
 // ---------------------------------------------------------------------------
@@ -70,30 +103,36 @@ export function campaignIdeasPrompt(args: {
   const max = args.maxIdeas ?? 5;
   return {
     system: [
-      "You are a senior sponsorship strategist specialised in the Brazilian market, especially Paraná/Curitiba.",
-      "You combine deep local knowledge with global campaign innovation to generate creative, high-conversion sponsorship ideas.",
+      "You are a senior sponsorship strategist for Coritiba Foot Ball Club.",
+      "You generate creative, commercial sponsorship campaign ideas EXCLUSIVELY for Coritiba FC partnerships.",
+      "ALL ideas MUST be centered on Coritiba FC, Couto Pereira stadium, and the Curitiba/Paraná market.",
+      "NEVER suggest Athletico Paranaense, Corinthians, or any other club as a target — only Coritiba.",
       "Your output MUST be a single valid JSON object. No markdown fences, no commentary outside the JSON.",
+      "",
+      CORITIBA_CONTEXT,
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
     user: [
-      `Target company: ${args.company.company_name}`,
+      `Potential sponsor company: ${args.company.company_name}`,
       args.company.industry ? `Industry: ${args.company.industry}` : null,
       args.company.country ? `Country/Region: ${args.company.country}` : null,
       args.company.website ? `Website: ${args.company.website}` : null,
-      args.company.notes ? `Notes: ${args.company.notes}` : null,
+      args.company.notes ? `Context: ${args.company.notes}` : null,
       args.objective ? `Objective: ${args.objective}` : null,
       "",
-      `Generate ${max} DISTINCT sponsorship campaign ideas. Each idea should use a DIFFERENT strategy archetype (awareness, fan engagement, community, premium, digital, product-led, etc).`,
-      "Be creative, specific to this company's industry, and draw on both Brazilian market context and global best practices.",
-      "Return JSON of shape:",
+      `Generate ${max} DISTINCT Coritiba FC sponsorship campaign ideas for this company.`,
+      "Each idea MUST use a DIFFERENT strategy archetype AND be specific to Coritiba's ecosystem.",
+      "Reference Couto Pereira, Coritiba fans (Coxa-Branca), Verde e Branco colors, Curitiba audience.",
+      "Do NOT mention Athletico Paranaense or any competitor club anywhere.",
+      "Return JSON:",
       `{
   "ideas": [
     {
-      "title": "string (creative, memorable campaign name)",
-      "summary": "1-2 sentence concept",
-      "activation": "concrete activation plan with specific touchpoints",
-      "partnership_angle": "why this partnership makes strategic sense for this company",
+      "title": "string (creative campaign name referencing Coritiba/Couto Pereira/Coxa)",
+      "summary": "1-2 sentence concept tied to Coritiba FC",
+      "activation": "concrete activation plan at Couto Pereira with specific Coritiba touchpoints",
+      "partnership_angle": "why this sponsor + Coritiba FC makes strategic sense",
       "cta": "call to action for outreach"
     }
   ]
@@ -113,12 +152,13 @@ export function strategyVariantsPrompt(args: {
 }) {
   return {
     system: [
-      "You are a chief marketing strategist specialising in sports sponsorship.",
-      "Generate multiple distinct strategic approaches for a sponsorship proposal.",
-      "Each variant must have a genuinely different strategic direction and tone.",
+      "You are a chief marketing strategist for Coritiba Foot Ball Club sponsorship sales.",
+      "Generate multiple distinct strategic approaches for a Coritiba FC sponsorship proposal.",
+      "Each variant MUST reference Coritiba FC, Couto Pereira, or the Coritiba fan ecosystem.",
+      "NEVER mention Athletico Paranaense or any other club.",
       "Output MUST be valid JSON. No markdown fences.",
       "",
-      STRATEGY_INSPIRATION,
+      CORITIBA_CONTEXT,
     ].join("\n"),
     user: [
       `Company: ${args.company.company_name}`,
@@ -126,20 +166,21 @@ export function strategyVariantsPrompt(args: {
       `Campaign: ${args.campaign.title}`,
       args.campaign.summary ? `Summary: ${args.campaign.summary}` : null,
       "",
-      "Generate 3 distinct strategy variants for this sponsorship proposal.",
-      "Use different archetypes: e.g. awareness vs. fan engagement vs. community activation.",
+      "Generate 3 distinct Coritiba FC sponsorship strategy variants.",
+      "Use different archetypes (e.g. stadium/awareness vs. fan engagement vs. community).",
+      "All variants must name Coritiba FC, Couto Pereira, or Verde e Branco explicitly.",
       "Return JSON:",
       `{
   "variants": [
     {
       "id": "awareness|fan_engagement|community|premium|digital|product_led|loyalty|stadium",
-      "label": "Strategy name (2-4 words)",
-      "tagline": "One powerful line",
-      "description": "3-4 sentences describing this strategic direction",
-      "key_activations": ["activation 1", "activation 2", "activation 3"],
-      "audience_fit": "Which audience segment this resonates with most",
-      "estimated_reach": "Approximate reach/exposure estimate",
-      "differentiator": "What makes this strategy unique for this company"
+      "label": "Strategy name (2-4 words, Coritiba-themed)",
+      "tagline": "One powerful line referencing Coritiba/Coxa",
+      "description": "3-4 sentences describing this Coritiba FC strategic direction",
+      "key_activations": ["Couto Pereira activation 1", "Coritiba fan activation 2", "activation 3"],
+      "audience_fit": "Which Coritiba fan/audience segment this resonates with most",
+      "estimated_reach": "Approximate Coritiba/Curitiba reach/exposure estimate",
+      "differentiator": "What makes this strategy unique for this sponsor at Coritiba"
     }
   ]
 }`,
@@ -150,7 +191,7 @@ export function strategyVariantsPrompt(args: {
 }
 
 // ---------------------------------------------------------------------------
-// Proposal (v2 — enriched)
+// Proposal (v3 — Coritiba grounded)
 // ---------------------------------------------------------------------------
 export function proposalPrompt(args: {
   company: CompanyContext;
@@ -167,15 +208,19 @@ export function proposalPrompt(args: {
     : "";
   return {
     system: [
-      "You are a senior B2B sponsorship proposal writer with expertise in Brazilian and international sports marketing.",
-      "Write a professional, visually-structured, persuasive sponsorship proposal.",
-      "The proposal should read like a premium business document — executive-quality language.",
+      "You are a senior B2B sponsorship proposal writer for Coritiba Foot Ball Club.",
+      "Write a professional, persuasive sponsorship proposal for a Coritiba FC partnership.",
+      "ALL content MUST reference Coritiba FC, Couto Pereira, and the Curitiba/Paraná market.",
+      "NEVER mention Athletico Paranaense, Corinthians, or any competitor club.",
+      "The sponsor is partnering with CORITIBA FC — not any other club.",
       "Output MUST be valid JSON. No markdown fences.",
+      "",
+      CORITIBA_CONTEXT,
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
     user: [
-      `Company: ${args.company.company_name}`,
+      `Sponsor company: ${args.company.company_name}`,
       args.company.industry ? `Industry: ${args.company.industry}` : null,
       args.company.country ? `Country: ${args.company.country}` : null,
       args.company.notes ? `Context: ${args.company.notes}` : null,
@@ -185,16 +230,17 @@ export function proposalPrompt(args: {
       args.campaign.activation ? `Activation approach: ${args.campaign.activation}` : null,
       strategyNote,
       "",
+      "Write a full Coritiba FC sponsorship proposal. Reference Couto Pereira, Verde e Branco, Coxa-Branca fans.",
       "Return JSON:",
       `{
-  "title": "Proposal title",
-  "executive_summary": "~120 words — powerful opening statement",
-  "campaign_rationale": "~150 words — why this sponsorship makes business sense for the company",
-  "sponsorship_value": "~120 words — concrete value delivered to the sponsor",
-  "activation_plan": "~200 words — specific, phased activation plan with milestones",
-  "deliverables": ["deliverable 1", "deliverable 2", "deliverable 3", "deliverable 4", "deliverable 5"],
-  "investment_note": "High-level investment framing (no specific currency, keep aspirational)",
-  "cta": "Single compelling call to action"
+  "title": "Proposal title (must include Coritiba FC or Coxa reference)",
+  "executive_summary": "~120 words — powerful opening about [company] × Coritiba FC partnership",
+  "campaign_rationale": "~150 words — why this sponsorship at Coritiba FC makes business sense",
+  "sponsorship_value": "~120 words — concrete Coritiba FC value delivered to the sponsor",
+  "activation_plan": "~200 words — specific phased activation at Couto Pereira with Coritiba milestones",
+  "deliverables": ["Coritiba deliverable 1", "Couto Pereira deliverable 2", "3", "4", "5"],
+  "investment_note": "High-level Coritiba FC investment framing (aspirational, no specific currency)",
+  "cta": "Single compelling call to action to partner with Coritiba FC"
 }`,
     ]
       .filter(Boolean)
@@ -213,36 +259,38 @@ export function pricingTiersPrompt(args: {
   const currency = args.currency ?? "BRL";
   return {
     system: [
-      "You are a sponsorship sales director with expertise in Brazilian sports marketing pricing.",
-      "Create realistic, compelling pricing packages for a sponsorship proposal.",
-      "Prices should reflect the Brazilian market — specifically Paraná/Curitiba regional sports.",
+      "You are a sponsorship sales director at Coritiba Foot Ball Club.",
+      "Create realistic pricing packages for a Coritiba FC / Couto Pereira sponsorship.",
+      "Prices should reflect the Brazilian market — specifically Coritiba FC's Série A/B positioning.",
+      "Reference Couto Pereira stadium inventory, Coritiba digital assets, and Verde e Branco branding.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
-      `Company: ${args.company.company_name}`,
+      `Sponsor company: ${args.company.company_name}`,
       args.company.industry ? `Industry: ${args.company.industry}` : null,
       `Campaign: ${args.campaign.title}`,
       args.campaign.summary ? `Summary: ${args.campaign.summary}` : null,
       `Currency: ${currency}`,
       "",
-      "Generate exactly 3 pricing tiers (low, mid, high). The mid tier should be marked as highlighted/recommended.",
+      "Generate 3 Coritiba FC sponsorship pricing tiers (low/mid/high). Mid tier = highlighted/recommended.",
+      "Each tier references specific Couto Pereira inventory (LED boards, jersey, PA, digital, etc.).",
       "Return JSON:",
       `{
   "tiers": [
     {
       "tier": "low",
-      "label": "Patrocinador Apoiador",
+      "label": "Parceiro Coritiba",
       "price_range": "R$ X.000 – R$ Y.000/mês",
-      "activations": ["activation 1", "activation 2"],
-      "deliverables": ["deliverable 1", "deliverable 2"],
-      "visibility": "Where and how the brand appears",
-      "digital_exposure": "Digital/social media exposure details",
-      "stadium_exposure": "Stadium/venue exposure details",
+      "activations": ["Couto Pereira activation 1", "Coritiba digital activation 2"],
+      "deliverables": ["Coritiba deliverable 1", "deliverable 2"],
+      "visibility": "Where/how brand appears in Coritiba FC ecosystem",
+      "digital_exposure": "Coritiba social/digital media exposure",
+      "stadium_exposure": "Couto Pereira stadium exposure details",
       "highlight": false
     },
     {
       "tier": "mid",
-      "label": "Patrocinador Master",
+      "label": "Patrocinador Master Coritiba",
       "price_range": "R$ X.000 – R$ Y.000/mês",
       "activations": ["activation 1", "activation 2", "activation 3"],
       "deliverables": ["deliverable 1", "deliverable 2", "deliverable 3"],
@@ -253,7 +301,7 @@ export function pricingTiersPrompt(args: {
     },
     {
       "tier": "high",
-      "label": "Patrocinador Diamante",
+      "label": "Patrocinador Diamante Coritiba",
       "price_range": "R$ X.000 – R$ Y.000/mês",
       "activations": ["activation 1", "activation 2", "activation 3", "activation 4"],
       "deliverables": ["deliverable 1", "deliverable 2", "deliverable 3", "deliverable 4"],
@@ -279,30 +327,32 @@ export function visualPromptsPrompt(args: {
 }) {
   return {
     system: [
-      "You generate detailed, professional image-generation prompts for sports sponsorship mockups.",
-      "Each prompt should be specific to the company's industry and campaign context.",
+      "You generate detailed image-generation prompts for Coritiba FC sponsorship mockups.",
+      "All visuals MUST reference Coritiba FC colors (green and white), Couto Pereira stadium, or Coritiba branding.",
+      "NEVER reference Athletico Paranaense colors (red/black) or any competitor club.",
       "Prompts should be suitable for AI image generators (DALL-E, Midjourney, Stable Diffusion).",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
-      `Company: ${args.company.company_name}`,
+      `Sponsor company: ${args.company.company_name}`,
       args.company.industry ? `Industry: ${args.company.industry}` : null,
       `Campaign: ${args.campaign.title}`,
       args.campaign.summary ? `Concept: ${args.campaign.summary}` : null,
       "",
-      "Generate 4-5 visual mockup prompts for this sponsorship proposal.",
-      "Include: jersey/kit branding, stadium banner/LED board, social media visual, product activation visual.",
+      "Generate 5 Coritiba FC visual mockup prompts.",
+      "Include: Coritiba jersey/kit with sponsor logo, Couto Pereira LED board, Coritiba social media visual, stadium banner, fan zone activation.",
+      "All prompts must specify Coritiba green and white colors and Couto Pereira or Coritiba fan context.",
       "Return JSON:",
       `{
   "visuals": [
     {
       "id": "jersey_front",
-      "label": "Jersey Brand Placement",
+      "label": "Coritiba Jersey Brand Placement",
       "type": "jersey",
-      "prompt": "Detailed image generation prompt (50-100 words, specific colors, style, context)",
-      "style_notes": "Visual style notes (e.g. photorealistic, modern, vibrant)",
+      "prompt": "Detailed prompt: Coritiba FC green and white jersey, sponsor logo on chest, photorealistic, professional sports photography, Curitiba stadium background...",
+      "style_notes": "Photorealistic, Coritiba Verde e Branco theme",
       "aspect_ratio": "1:1",
-      "placeholder_description": "Brief description of what this mockup shows"
+      "placeholder_description": "Sponsor logo on Coritiba FC jersey front"
     }
   ]
 }`,
@@ -318,9 +368,10 @@ export function visualPromptsPrompt(args: {
 export function companyIntelligencePrompt(args: { company: CompanyContext; objective?: string }) {
   return {
     system: [
-      "You are a business intelligence analyst specialising in brand strategy and sponsorship fit analysis.",
-      "Analyse the company and generate actionable intelligence for a sponsorship outreach strategy.",
-      "Be specific, data-driven in reasoning, and commercially realistic.",
+      "You are a business intelligence analyst specialising in Coritiba FC sponsorship fit analysis.",
+      "Analyse the company's fit as a Coritiba FC sponsor in the Curitiba/Paraná market.",
+      "All analysis, recommendations, and context must be framed around Coritiba FC partnership.",
+      "NEVER suggest competitor clubs. The partnership target is always Coritiba FC.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
@@ -331,18 +382,18 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
       args.company.notes ? `Additional context: ${args.company.notes}` : null,
       args.objective ? `Sponsorship objective: ${args.objective}` : null,
       "",
-      "Analyse this company for sports sponsorship fit. Return JSON:",
+      "Analyse this company's fit as a Coritiba FC / Couto Pereira sponsor. Return JSON:",
       `{
   "intelligence": {
-    "marketing_goals": ["goal 1", "goal 2", "goal 3"],
-    "brand_positioning": "How this brand is positioned in its market",
-    "audience_alignment": "How the company's customer base aligns with sports audiences",
-    "loyalty_strategy": "Likely customer loyalty / retention approach",
+    "marketing_goals": ["goal 1 aligned with Coritiba audience", "goal 2", "goal 3"],
+    "brand_positioning": "How this brand aligns with Coritiba FC's Verde e Branco identity",
+    "audience_alignment": "How the company's customers match Coritiba's Curitiba/Paraná fan base",
+    "loyalty_strategy": "How a Coritiba partnership strengthens customer loyalty",
     "sponsorship_fit_score": 7.5,
-    "sponsorship_fit_rationale": "Why this company is a strong/weak sponsorship candidate",
-    "recommended_direction": "Recommended strategic direction for this sponsorship",
-    "local_context": "Specific Brazilian/regional context for this company",
-    "global_inspiration": "Global campaign examples that could inspire this partnership"
+    "sponsorship_fit_rationale": "Why this company is a strong/weak Coritiba FC sponsor",
+    "recommended_direction": "Recommended Coritiba FC sponsorship strategy for this company",
+    "local_context": "Specific Curitiba/Paraná regional context for this company + Coritiba",
+    "global_inspiration": "Global campaign examples that could inspire this Coritiba partnership"
   }
 }`,
     ]
@@ -362,7 +413,8 @@ export function outreachEmailPrompt(args: {
 }) {
   return {
     system: [
-      "You write concise, warm B2B outreach emails for sponsorship deals.",
+      "You write concise, warm B2B outreach emails for Coritiba FC sponsorship deals.",
+      "Emails represent Coritiba FC's commercial department.",
       "Tone: confident, professional, no fluff. Keep under 180 words.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
@@ -372,9 +424,9 @@ export function outreachEmailPrompt(args: {
       `Proposal title: ${args.proposalTitle}`,
       `Proposal summary: ${args.proposalSummary}`,
       "",
-      "Return JSON:",
+      "Write a Coritiba FC outreach email. Return JSON:",
       `{
-  "subject": "short subject line",
+  "subject": "short subject line mentioning Coritiba FC partnership",
   "body_text": "plain text body",
   "body_html": "same body, simple HTML (<p>...</p>)"
 }`,
@@ -395,7 +447,8 @@ export function followupEmailPrompt(args: {
 }) {
   return {
     system: [
-      "You draft polite, low-pressure follow-up emails for a sponsorship outreach.",
+      "You draft polite, low-pressure follow-up emails for Coritiba FC sponsorship outreach.",
+      "Emails represent Coritiba FC's commercial department.",
       "Keep under 120 words. Reference the prior message lightly.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
@@ -404,7 +457,7 @@ export function followupEmailPrompt(args: {
       `Original subject: ${args.previousSubject}`,
       `Days since last contact: ${args.daysSinceSent}`,
       "",
-      "Original message (for tone, not to be quoted verbatim):",
+      "Original message (for tone reference):",
       args.previousBody,
       "",
       "Return JSON:",

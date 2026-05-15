@@ -261,8 +261,8 @@ export function ProposalLandingPage({
 
           {/* Hero stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <HeroStat icon={Trophy}       label="Clubes Parceiros"   value="Top 3" sub="Atletico PR · Coritiba · Paraná Clube" color="amber" />
-            <HeroStat icon={Users}        label="Torcedores Paraná"  value="600k+" sub="Audiência regional combinada"            color="green" />
+            <HeroStat icon={Trophy}       label="Clube Parceiro"     value="Coritiba FC" sub="Couto Pereira · Curitiba, PR"         color="amber" />
+            <HeroStat icon={Users}        label="Torcedores Coxa"    value="1.5M+" sub="Seguidores digitais combinados"            color="green" />
             <HeroStat icon={Tv2}          label="Jogos por Temporada" value="38+"  sub="Broadcast nacional + streaming"          color="blue"  />
             <HeroStat icon={TrendingUp}   label="Crescimento Digital" value="+47%" sub="Engajamento nas redes em 2025"           color="purple"/>
           </div>
