@@ -3,6 +3,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import {
+  Shield, Trophy, XCircle, CheckCircle2, Zap,
+  FileText, Users, DollarSign, Image, Brain,
+  Mail, ChevronRight,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +122,15 @@ export default async function SettingsPage({
 
   const allMigrationsApplied = m0005.applied && m0006.applied;
 
+  // Prompt version stats — count proposals/campaigns using current vs old prompts
+  const [{ count: totalProposals }, { count: v3Proposals }, { count: totalCampaigns }, { count: v3Campaigns }] =
+    await Promise.all([
+      sb.from("proposals").select("*", { count: "exact", head: true }),
+      sb.from("proposals").select("*", { count: "exact", head: true }).eq("prompt_version", PROMPT_VERSION),
+      sb.from("campaigns").select("*", { count: "exact", head: true }),
+      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("prompt_version", PROMPT_VERSION),
+    ]);
+
   return (
     <>
       <PageHeader title="Settings" description="Configure integrations and platform options." />
@@ -218,6 +233,169 @@ export default async function SettingsPage({
             <Row k="AWS region" v={process.env.AWS_REGION ?? "—"} />
             <Row k="Default ideas / generation" v={process.env.MAX_CAMPAIGN_IDEAS ?? "5"} />
             <Row k="Follow-up delay (days)" v={process.env.FOLLOWUP_DELAY_DAYS ?? "3"} />
+          </CardContent>
+        </Card>
+
+        {/* ── AI Prompt Configuration ── */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-green-600" />
+                  AI Prompt Configuration — Coritiba FC
+                </CardTitle>
+                <CardDescription>
+                  Active prompt rules, Coritiba FC enforcement, competitor exclusions, and generation functions.
+                </CardDescription>
+              </div>
+              <Badge variant="success" className="flex-shrink-0 font-mono text-xs">
+                {PROMPT_VERSION}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+
+            {/* Prompt version stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-xl font-bold">{totalProposals ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Total proposals</div>
+              </div>
+              <div className="rounded-lg border bg-green-50 dark:bg-green-900/20 p-3 text-center">
+                <div className="text-xl font-bold text-green-700 dark:text-green-300">{v3Proposals ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Using {PROMPT_VERSION}</div>
+              </div>
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-xl font-bold">{totalCampaigns ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Total campaigns</div>
+              </div>
+              <div className="rounded-lg border bg-green-50 dark:bg-green-900/20 p-3 text-center">
+                <div className="text-xl font-bold text-green-700 dark:text-green-300">{v3Campaigns ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Using {PROMPT_VERSION}</div>
+              </div>
+            </div>
+
+            {/* Coritiba FC grounding */}
+            <div>
+              <div className="flex items-center gap-2 font-semibold mb-3">
+                <Trophy className="h-4 w-4 text-green-600" />
+                Coritiba FC Grounding — active in all prompts
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { label: "Club", value: "Coritiba Foot Ball Club (Coxa / Coxa-Branca)" },
+                  { label: "Founded", value: "1909 — one of Brazil's oldest clubs" },
+                  { label: "Stadium", value: "Couto Pereira (Estádio Major Antônio Couto Pereira), Curitiba, PR" },
+                  { label: "Colors", value: "Verde e Branco — Green & White" },
+                  { label: "Fan identity", value: "Coxa-Branca supporters — Curitiba/Paraná" },
+                  { label: "Digital reach", value: "1.5M+ social followers" },
+                  { label: "Broadcast", value: "Globo / SporTV / Paramount+ / Paraná TV" },
+                  { label: "Competitions", value: "Brasileirão Série A/B, Copa do Brasil, Camp. Paranaense" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-start gap-2 rounded-md bg-green-50 dark:bg-green-900/20 p-2">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <span className="font-medium">{label}:</span>{" "}
+                      <span className="text-muted-foreground">{value}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sponsor inventory */}
+            <div>
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <Zap className="h-4 w-4 text-amber-500" />
+                Coritiba FC Sponsor Inventory (in prompt context)
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "Jersey front / sleeve / back",
+                  "Couto Pereira LED boards",
+                  "Stadium scoreboard naming",
+                  "Matchday PA announcements",
+                  "Club website & app",
+                  "Instagram / YouTube / TikTok",
+                  "Training & warmup kit",
+                  "Press conference backdrop",
+                  "Youth academy co-branding",
+                  "Women's team sponsorship",
+                  "Fan club materials",
+                  "Pre/post-match broadcast segments",
+                ].map((item) => (
+                  <span key={item} className="text-xs bg-muted border px-2 py-1 rounded-full">{item}</span>
+                ))}
+              </div>
+            </div>
+
+            {/* Competitor exclusions */}
+            <div>
+              <div className="flex items-center gap-2 font-semibold mb-2">
+                <XCircle className="h-4 w-4 text-red-500" />
+                Competitor Exclusions — forbidden in all AI outputs
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { name: "Athletico Paranaense", reason: "Direct Curitiba rival (CAP / Furacão)" },
+                  { name: "Corinthians", reason: "São Paulo club" },
+                  { name: "São Paulo FC", reason: "São Paulo club" },
+                  { name: "Flamengo", reason: "Rio de Janeiro club" },
+                  { name: "Palmeiras", reason: "São Paulo club" },
+                  { name: "Grêmio / Internacional", reason: "Porto Alegre clubs" },
+                ].map(({ name, reason }) => (
+                  <div key={name} className="flex items-start gap-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 p-2">
+                    <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-medium text-xs">{name}</div>
+                      <div className="text-xs text-muted-foreground">{reason}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                External campaigns (Red Bull, Nike, etc.) may only be used as internal strategic inspiration — never recommended as alternative sponsorship targets.
+              </p>
+            </div>
+
+            {/* Prompt functions */}
+            <div>
+              <div className="flex items-center gap-2 font-semibold mb-3">
+                <Brain className="h-4 w-4 text-purple-500" />
+                Active Prompt Functions ({PROMPT_VERSION})
+              </div>
+              <div className="space-y-2">
+                {[
+                  { fn: "campaignIdeasPrompt()", icon: Zap, color: "text-amber-500", desc: "Generates Coritiba FC sponsorship campaign ideas — different archetypes per call, Couto Pereira references required." },
+                  { fn: "strategyVariantsPrompt()", icon: Users, color: "text-blue-500", desc: "Generates 3 distinct Coritiba FC strategy variants (awareness, fan engagement, community, etc.) for a campaign." },
+                  { fn: "proposalPrompt()", icon: FileText, color: "text-green-500", desc: "Writes full sponsorship proposal — must reference Coritiba FC, Couto Pereira, Verde e Branco. No competitors." },
+                  { fn: "pricingTiersPrompt()", icon: DollarSign, color: "text-emerald-500", desc: "Generates 3 Coritiba FC pricing tiers (Parceiro / Master / Diamante) with specific Couto Pereira inventory." },
+                  { fn: "visualPromptsPrompt()", icon: Image, color: "text-pink-500", desc: "Creates 5 Coritiba FC visual mockup prompts — jersey green/white, Couto Pereira LED boards, social templates." },
+                  { fn: "companyIntelligencePrompt()", icon: Brain, color: "text-purple-500", desc: "Analyses sponsor fit for Coritiba FC / Curitiba market. Always frames recommendations around Coritiba." },
+                  { fn: "outreachEmailPrompt()", icon: Mail, color: "text-sky-500", desc: "Writes B2B outreach emails from Coritiba FC's commercial department perspective." },
+                  { fn: "followupEmailPrompt()", icon: Mail, color: "text-indigo-500", desc: "Polite follow-up emails — represents Coritiba FC commercial team." },
+                ].map(({ fn, icon: Icon, color, desc }) => (
+                  <div key={fn} className="flex items-start gap-3 rounded-lg border p-3 hover:bg-accent/50 transition-colors">
+                    <Icon className={`h-4 w-4 ${color} mt-0.5 flex-shrink-0`} />
+                    <div className="min-w-0">
+                      <div className="font-mono text-xs font-semibold">{fn}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Source link */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
+              <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>
+                Prompt source: <code className="font-mono">frontend/lib/bedrock/prompts.ts</code> —
+                all rules are code-enforced and cannot be bypassed from the UI.
+                Prompt version is stamped on every generated proposal and campaign.
+              </span>
+            </div>
           </CardContent>
         </Card>
 
