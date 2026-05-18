@@ -55,12 +55,24 @@
    Used when user prints via browser or saves as PDF
 ────────────────────────────────────────────────────────────── */
 @media print {
-  /* Hide navigation, toasts, buttons */
+  /* Hide navigation, toasts, buttons, sidebar */
   nav,
+  aside,
   .print\:hidden,
   [data-radix-toast-viewport],
   [role="navigation"] {
     display: none !important;
+  }
+
+  /* Ensure main content takes full width when sidebar is hidden */
+  .flex.min-h-screen {
+    display: block !important;
+  }
+
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
   }
 
   /* Remove backgrounds in main layout */
@@ -99,6 +111,13 @@
     background-color: #1e3a8a !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Force-print all gradient/dark backgrounds on proposal landing page */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   /* Pricing cards */
