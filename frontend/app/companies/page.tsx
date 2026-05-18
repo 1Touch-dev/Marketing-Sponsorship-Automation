@@ -27,6 +27,7 @@ export default async function CompaniesPage({
   const { data: rawCompanies } = await sb
     .from("companies")
     .select("id, company_name, industry, status, country, created_at")
+    .neq("status", "closed")  // hide closed/archived companies by default
     .order("created_at", { ascending: false })
     .limit(300);
 

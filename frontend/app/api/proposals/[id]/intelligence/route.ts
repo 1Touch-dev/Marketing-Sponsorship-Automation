@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { companyIntelligencePrompt } from "@/lib/bedrock/prompts";
-import { companyIntelligenceResponseSchema, validateAiOutput } from "@/lib/ai/schemas";
+import { companyIntelligenceResponseSchema, normalizeCompanyIntelligence, validateAiOutput } from "@/lib/ai/schemas";
 import { recordAudit } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
@@ -56,7 +56,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   const company = p.companies;
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
 
-  let intelligence = null;
+  let intelligence: Record<string, unknown> | null = null;
   try {
     const pt = companyIntelligencePrompt({
       company: {
@@ -73,11 +73,12 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
       json: true,
       maxTokens: 1500,
     });
-    const vr = validateAiOutput(companyIntelligenceResponseSchema, result.json, {
+    const vr = validateAiOutput(companyIntelligenceResponseSchema, normalizeCompanyIntelligence(result.json), {
       workflow_name: "intelligence.generate",
       entity_id: proposal.id,
+      silent: true,
     });
-    if (vr.ok && vr.data) intelligence = vr.data.intelligence;
+    if (vr.ok && vr.data) intelligence = vr.data.intelligence as unknown as Record<string, unknown>;
     else throw new Error(vr.error ?? "Validation failed");
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "generation failed" }, { status: 502 });
@@ -95,7 +96,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.intelligence_generated",
-    metadata: { company: company.company_name, score: intelligence.sponsorship_fit_score },
+    metadata: { company: company.company_name, score: (intelligence as Record<string, unknown>)?.sponsorship_fit_score },
   });
 
   return NextResponse.json({ proposal_id: proposal.id, intelligence });

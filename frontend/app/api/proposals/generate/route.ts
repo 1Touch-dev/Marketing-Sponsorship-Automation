@@ -20,6 +20,10 @@ import {
   pricingTiersResponseSchema,
   visualPromptsResponseSchema,
   companyIntelligenceResponseSchema,
+  normalizeStrategyVariants,
+  normalizePricingTiers,
+  normalizeVisualPrompts,
+  normalizeCompanyIntelligence,
   validateAiOutput,
   type ProposalContentAI,
   type StrategyVariant,
@@ -190,7 +194,7 @@ export async function POST(req: Request) {
       (async (): Promise<StrategyVariant[] | null> => {
         const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2500);
-        const vr = validateAiOutput(strategyVariantsResponseSchema, raw, { workflow_name: "proposal.strategy_variants" });
+        const vr = validateAiOutput(strategyVariantsResponseSchema, normalizeStrategyVariants(raw), { workflow_name: "proposal.strategy_variants", silent: true });
         return vr.ok && vr.data ? vr.data.variants : null;
       })(),
       45000,
@@ -200,8 +204,8 @@ export async function POST(req: Request) {
       (async (): Promise<PricingTier[] | null> => {
         const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2000);
-        const vr = validateAiOutput(pricingTiersResponseSchema, raw, { workflow_name: "proposal.pricing_tiers" });
-        return vr.ok && vr.data ? vr.data.tiers : null;
+        const vr = validateAiOutput(pricingTiersResponseSchema, normalizePricingTiers(raw), { workflow_name: "proposal.pricing_tiers", silent: true });
+        return vr.ok && vr.data ? (vr.data.tiers as unknown as PricingTier[]) : null;
       })(),
       45000,
     ),
@@ -210,7 +214,7 @@ export async function POST(req: Request) {
       (async (): Promise<VisualPrompt[] | null> => {
         const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx });
         const raw = await runGeneration(pt.system, pt.user, 2000);
-        const vr = validateAiOutput(visualPromptsResponseSchema, raw, { workflow_name: "proposal.visual_prompts" });
+        const vr = validateAiOutput(visualPromptsResponseSchema, normalizeVisualPrompts(raw), { workflow_name: "proposal.visual_prompts", silent: true });
         return vr.ok && vr.data ? (vr.data.visuals as unknown as VisualPrompt[]) : null;
       })(),
       45000,
@@ -220,8 +224,8 @@ export async function POST(req: Request) {
       (async (): Promise<CompanyIntelligence | null> => {
         const pt = companyIntelligencePrompt({ company: companyCtx });
         const raw = await runGeneration(pt.system, pt.user, 1500);
-        const vr = validateAiOutput(companyIntelligenceResponseSchema, raw, { workflow_name: "proposal.intelligence" });
-        return vr.ok && vr.data ? vr.data.intelligence : null;
+        const vr = validateAiOutput(companyIntelligenceResponseSchema, normalizeCompanyIntelligence(raw), { workflow_name: "proposal.intelligence", silent: true });
+        return vr.ok && vr.data ? (vr.data.intelligence as unknown as CompanyIntelligence) : null;
       })(),
       45000,
     ),

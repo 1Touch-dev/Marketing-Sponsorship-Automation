@@ -33,9 +33,11 @@ export default async function ProposalsPage({
     sb
       .from("proposals")
       .select("id, title, status, version, updated_at, created_at, companies(id, company_name, industry)")
+      .not("status", "eq", "rejected")      // hide archived/competitor proposals by default
+      .not("status", "eq", "cancelled")
       .order("updated_at", { ascending: false })
       .limit(300),
-    sb.from("companies").select("id, company_name").order("company_name"),
+    sb.from("companies").select("id, company_name").neq("status", "closed").order("company_name"),
   ]);
 
   let proposals = (proposalsResult.data ?? []) as unknown as ProposalRow[];

@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Image,
   ChevronDown,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ const NAV: NavItem[] = [
   // System
   { href: "/workflow-events", label: "Workflows", icon: Activity, group: "system" },
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
+  { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
 ];
 

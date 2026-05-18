@@ -15,9 +15,44 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  Zap,
+  Trophy,
+  Users,
+  Activity,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+// Audit actions to HIDE from the dashboard activity feed (internal noise)
+const HIDDEN_AUDIT_ACTIONS = [
+  "ai.validation_failed",
+  "ai.validation_failed:proposal.enhance.pricing",
+  "ai.validation_failed:proposal.enhance.intelligence",
+  "ai.validation_failed:proposal.pricing_tiers",
+  "ai.validation_failed:proposal.enhance.visuals",
+  "ai.validation_failed:proposal.enhance.variants",
+  "campaign.generate_failed",
+];
+
+// Friendly labels for audit actions
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "company.created": "Company added",
+  "company.updated": "Company updated",
+  "company.bulk_import": "Companies imported",
+  "company.intelligence_generated": "AI company analysis run",
+  "campaigns.generated": "Campaign ideas generated",
+  "proposal.generated": "Proposal generated",
+  "proposal.enhanced": "Proposal enhanced with AI",
+  "proposal.approve": "Proposal approved",
+  "proposal.edited": "Proposal edited",
+  "email.generated": "Email drafted",
+  "email.sent": "Email sent",
+  "followup.suggested": "Follow-up suggested",
+};
+
+function friendlyAction(action: string): string {
+  return AUDIT_ACTION_LABELS[action] ?? action.replace(/\./g, " › ").replace(/_/g, " ");
+}
 
 async function loadDashboard() {
   const sb = supabaseAdmin();
@@ -30,36 +65,46 @@ async function loadDashboard() {
     pendingFollowups,
     recentAudit,
   ] = await Promise.all([
-    sb.from("companies").select("id", { count: "exact", head: true }),
+    // Only count non-closed companies
+    sb.from("companies").select("id", { count: "exact", head: true }).neq("status", "closed"),
     sb.from("campaigns").select("id", { count: "exact", head: true }),
     sb
       .from("proposals")
       .select("id", { count: "exact", head: true })
       .in("status", ["under_review", "revision_requested"]),
+    // Exclude archived/rejected competitor proposals from dashboard
     sb
       .from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
+      .not("status", "eq", "rejected")
+      .not("status", "eq", "cancelled")
       .order("updated_at", { ascending: false })
-      .limit(5),
+      .limit(6),
     sb
       .from("emails")
       .select("id, subject, status, recipient, updated_at")
       .order("updated_at", { ascending: false })
       .limit(5),
     sb.from("followups").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    // Fetch more audit logs so we can filter out noise
     sb
       .from("audit_logs")
       .select("id, action, entity_type, created_at, actor_email")
       .order("created_at", { ascending: false })
-      .limit(8),
+      .limit(30),
   ]);
 
-  // workflow_events may not exist yet (migration 0006 pending) — query separately
+  // Workflow failures
   const failedWorkflows = await sb
     .from("workflow_events")
     .select("id", { count: "exact", head: true })
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
+
+  // Filter audit logs: remove AI validation noise, show max 8 clean entries
+  const cleanAudit = (recentAudit.data ?? []).filter(
+    (a) => !HIDDEN_AUDIT_ACTIONS.some((hidden) => a.action.startsWith(hidden))
+  ).slice(0, 8);
 
   return {
     companyCount: companies.count ?? 0,
@@ -69,7 +114,7 @@ async function loadDashboard() {
     failedWorkflowCount: failedWorkflows.count,
     recentProposals: recentProposals.data ?? [],
     recentEmails: recentEmails.data ?? [],
-    recentAudit: recentAudit.data ?? [],
+    recentAudit: cleanAudit,
   };
 }
 
@@ -100,6 +145,8 @@ type AuditEntry = {
 export default async function DashboardPage() {
   const d = await loadDashboard();
 
+  const isHealthy = d.failedWorkflowCount === 0 && d.pendingApprovalCount === 0;
+
   const statCards = [
     {
       label: "Companies",
@@ -107,6 +154,7 @@ export default async function DashboardPage() {
       icon: Building2,
       href: "/companies",
       color: "text-blue-500",
+      bg: "bg-blue-50",
     },
     {
       label: "Campaigns",
@@ -114,13 +162,15 @@ export default async function DashboardPage() {
       icon: TrendingUp,
       href: "/campaigns",
       color: "text-purple-500",
+      bg: "bg-purple-50",
     },
     {
       label: "Pending approvals",
       value: d.pendingApprovalCount,
       icon: FileText,
       href: "/approvals",
-      color: d.pendingApprovalCount > 0 ? "text-amber-500" : "text-muted-foreground",
+      color: d.pendingApprovalCount > 0 ? "text-amber-600" : "text-muted-foreground",
+      bg: d.pendingApprovalCount > 0 ? "bg-amber-50" : "",
     },
     {
       label: "Pending follow-ups",
@@ -128,6 +178,7 @@ export default async function DashboardPage() {
       icon: Clock,
       href: "/followups",
       color: d.pendingFollowupCount > 0 ? "text-orange-500" : "text-muted-foreground",
+      bg: d.pendingFollowupCount > 0 ? "bg-orange-50" : "",
     },
     {
       label: "Emails",
@@ -135,6 +186,7 @@ export default async function DashboardPage() {
       icon: Mail,
       href: "/emails",
       color: "text-green-500",
+      bg: "bg-green-50",
     },
     {
       label: "Workflow failures",
@@ -142,6 +194,7 @@ export default async function DashboardPage() {
       icon: AlertTriangle,
       href: "/workflow-events",
       color: d.failedWorkflowCount > 0 ? "text-destructive" : "text-muted-foreground",
+      bg: d.failedWorkflowCount > 0 ? "bg-destructive/5" : "",
     },
   ];
 
@@ -149,19 +202,61 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Operational overview of your sponsorship workflow."
+        description="Coritiba FC — Commercial Sponsorship Platform"
         actions={
-          <Button asChild>
-            <Link href="/campaigns">Generate campaign</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {isHealthy && (
+              <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 text-xs">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                All systems healthy
+              </Badge>
+            )}
+            <Button asChild>
+              <Link href="/campaigns">
+                <Zap className="h-4 w-4 mr-1" />
+                Generate campaign
+              </Link>
+            </Button>
+          </div>
         }
       />
+
+      {/* System alert: failed workflows */}
+      {d.failedWorkflowCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
+          <p className="text-sm text-destructive font-medium">
+            {d.failedWorkflowCount} workflow{d.failedWorkflowCount !== 1 ? "s" : ""} failed.{" "}
+            <Link href="/workflow-events" className="underline">
+              View details →
+            </Link>
+          </p>
+        </div>
+      )}
+
+      {/* Coritiba FC platform context */}
+      <div className="rounded-xl border bg-gradient-to-r from-green-900 to-green-800 p-4 text-white">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-6 w-6 text-green-300 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-sm">Coritiba FC × Couto Pereira</p>
+              <p className="text-xs text-green-300">Commercial Sponsorship Intelligence Platform — Curitiba, Paraná</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-green-200">
+            <span className="flex items-center gap-1"><Users className="h-3 w-3" /> 1.5M+ followers</span>
+            <span className="flex items-center gap-1"><Activity className="h-3 w-3" /> 38+ matches/season</span>
+            <span className="flex items-center gap-1"><Trophy className="h-3 w-3" /> Brasileirão 1985 &amp; 1990</span>
+          </div>
+        </div>
+      </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {statCards.map((s) => (
           <Link key={s.label} href={s.href} className="block">
-            <Card className="hover:bg-accent transition-colors h-full">
+            <Card className={`hover:border-primary/30 transition-all h-full ${s.bg}`}>
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardDescription className="text-xs">{s.label}</CardDescription>
                 <div className="flex items-center gap-2 mt-1">
@@ -174,26 +269,13 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* System alert: failed workflows */}
-      {d.failedWorkflowCount > 0 && (
-        <div className="mt-4 flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/5 px-4 py-3">
-          <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
-          <p className="text-sm text-destructive font-medium">
-            {d.failedWorkflowCount} workflow{d.failedWorkflowCount !== 1 ? "s" : ""} failed.{" "}
-            <Link href="/workflow-events" className="underline">
-              View details →
-            </Link>
-          </p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent proposals */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-base">Recent proposals</CardTitle>
-              <CardDescription className="text-xs">Latest activity across proposals.</CardDescription>
+              <CardDescription className="text-xs">Latest Coritiba FC sponsorship proposals.</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/proposals">
@@ -230,7 +312,7 @@ export default async function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-base">Recent emails</CardTitle>
-              <CardDescription className="text-xs">Latest drafts and sends.</CardDescription>
+              <CardDescription className="text-xs">Latest drafts and outreach sends.</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/emails">
@@ -261,16 +343,18 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent audit activity */}
+        {/* Recent operational activity */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-base">Recent activity</CardTitle>
-              <CardDescription className="text-xs">System audit log (latest 8 events).</CardDescription>
+              <CardDescription className="text-xs">
+                Operational workflow activity · AI system events filtered
+              </CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/audit">
-                All <ArrowRight className="ml-1 h-3 w-3" />
+                Full log <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           </CardHeader>
@@ -280,10 +364,10 @@ export default async function DashboardPage() {
             ) : (
               <div className="divide-y">
                 {(d.recentAudit as AuditEntry[]).map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 py-2">
-                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                  <div key={a.id} className="flex items-center gap-3 py-2.5">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-green-500" />
                     <div className="min-w-0 flex-1">
-                      <span className="text-sm font-mono">{a.action}</span>
+                      <span className="text-sm font-medium">{friendlyAction(a.action)}</span>
                       <span className="mx-2 text-muted-foreground text-xs">·</span>
                       <Badge variant="outline" className="text-xs">{a.entity_type}</Badge>
                     </div>

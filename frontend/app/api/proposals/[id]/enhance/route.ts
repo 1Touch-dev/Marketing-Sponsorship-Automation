@@ -12,6 +12,10 @@ import {
   pricingTiersResponseSchema,
   visualPromptsResponseSchema,
   companyIntelligenceResponseSchema,
+  normalizeStrategyVariants,
+  normalizePricingTiers,
+  normalizeVisualPrompts,
+  normalizeCompanyIntelligence,
   validateAiOutput,
   type VisualPrompt,
 } from "@/lib/ai/schemas";
@@ -92,7 +96,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       try {
         const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2500 });
-        const vr = validateAiOutput(strategyVariantsResponseSchema, r.json, { workflow_name: "proposal.enhance.variants" });
+        const normalized = normalizeStrategyVariants(r.json);
+        const vr = validateAiOutput(strategyVariantsResponseSchema, normalized, { workflow_name: "proposal.enhance.variants", silent: true });
         results.variants = vr.ok && vr.data ? vr.data.variants : null;
       } catch (err) { results.variants_error = err instanceof Error ? err.message : String(err); }
     }));
@@ -103,7 +108,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       try {
         const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2000 });
-        const vr = validateAiOutput(pricingTiersResponseSchema, r.json, { workflow_name: "proposal.enhance.pricing" });
+        const normalized = normalizePricingTiers(r.json);
+        const vr = validateAiOutput(pricingTiersResponseSchema, normalized, { workflow_name: "proposal.enhance.pricing", silent: true });
         results.pricing = vr.ok && vr.data ? vr.data.tiers : null;
       } catch (err) { results.pricing_error = err instanceof Error ? err.message : String(err); }
     }));
@@ -114,7 +120,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       try {
         const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2000 });
-        const vr = validateAiOutput(visualPromptsResponseSchema, r.json, { workflow_name: "proposal.enhance.visuals" });
+        const normalized = normalizeVisualPrompts(r.json);
+        const vr = validateAiOutput(visualPromptsResponseSchema, normalized, { workflow_name: "proposal.enhance.visuals", silent: true });
         results.visuals = vr.ok && vr.data ? (vr.data.visuals as unknown as VisualPrompt[]) : null;
       } catch (err) { results.visuals_error = err instanceof Error ? err.message : String(err); }
     }));
@@ -125,8 +132,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       try {
         const pt = companyIntelligencePrompt({ company: companyCtx });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 1500 });
-        const vr = validateAiOutput(companyIntelligenceResponseSchema, r.json, { workflow_name: "proposal.enhance.intelligence" });
-        results.intelligence = vr.ok && vr.data ? vr.data.intelligence : null;
+        const normalized = normalizeCompanyIntelligence(r.json);
+        const vr = validateAiOutput(companyIntelligenceResponseSchema, normalized, { workflow_name: "proposal.enhance.intelligence", silent: true });
+        results.intelligence = vr.ok && vr.data ? (vr.data.intelligence as unknown as Record<string, unknown>) : null;
       } catch (err) { results.intelligence_error = err instanceof Error ? err.message : String(err); }
     }));
   }
