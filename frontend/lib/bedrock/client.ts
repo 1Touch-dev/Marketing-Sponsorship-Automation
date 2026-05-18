@@ -45,7 +45,7 @@ function client() {
   return cachedClient;
 }
 
-function extractJson(text: string): unknown | null {
+export function extractJson(text: string): unknown | null {
   if (!text || !text.trim()) return null;
 
   // 1. Try parsing the whole text directly

@@ -17,7 +17,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
   const [{ data: proposal }, { data: versions }] = await Promise.all([
     sb
       .from("proposals")
-      .select("*, companies(company_name, industry)")
+      .select("*, companies(company_name, industry), campaigns(title)")
       .eq("id", params.id)
       .maybeSingle(),
     sb
@@ -30,13 +30,16 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
 
   if (!proposal) notFound();
 
-  const company = (proposal as { companies: { company_name: string; industry: string | null } | null }).companies;
+  const p = proposal as typeof proposal & {
+    companies: { company_name: string; industry: string | null } | null;
+    campaigns: { title: string } | null;
+  };
 
   return (
     <>
       <PageHeader
         title={`Edit: ${proposal.title}`}
-        description={`${company?.company_name ?? ""} · v${proposal.version} · ${formatDate(proposal.updated_at)}`}
+        description={`${p.companies?.company_name ?? ""} · v${proposal.version} · ${formatDate(proposal.updated_at)}`}
         actions={
           <Button asChild variant="outline" size="sm" className="gap-2">
             <Link href={`/proposals/${proposal.id}`}>
@@ -53,11 +56,13 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
             Edit proposal content
           </CardTitle>
           <CardDescription>
-            Edit any section and save as a new version. Version history is preserved for every save.
-            {company?.company_name && (
-              <> Sponsor: <strong>{company.company_name}</strong></>
+            Edit any section directly, or use{" "}
+            <span className="font-medium text-foreground">Generate A / B / C options</span>{" "}
+            to get AI-written alternatives to choose from. Version history is preserved on every save.
+            {p.companies?.company_name && (
+              <> Sponsor: <strong>{p.companies.company_name}</strong></>
             )}
-            {company?.industry && <> · {company.industry}</>}
+            {p.companies?.industry && <> · {p.companies.industry}</>}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -67,6 +72,9 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
             initialContent={proposal.content as ProposalContent}
             proposalStatus={proposal.status}
             versions={versions ?? []}
+            companyName={p.companies?.company_name}
+            industry={p.companies?.industry ?? undefined}
+            campaignTitle={p.campaigns?.title}
           />
         </CardContent>
       </Card>
