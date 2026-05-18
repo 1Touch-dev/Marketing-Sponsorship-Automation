@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import "../globals.css";
-import { ToasterProvider } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "Proposta de Patrocínio",
@@ -10,14 +8,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 /**
- * Public proposal share layout — no sidebar, no navigation, full-screen.
+ * Public proposal share layout — no sidebar, no ContentWrapper, full-screen.
+ * NOTE: In Next.js App Router, route group layouts cannot re-define <html>/<body>.
+ * The root layout provides the HTML shell; this layout just removes the sidebar
+ * by rendering children directly without the app shell.
  */
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt-BR">
-      <body className="min-h-screen bg-white antialiased">
-        <ToasterProvider>{children}</ToasterProvider>
-      </body>
-    </html>
-  );
+  return <>{children}</>;
 }

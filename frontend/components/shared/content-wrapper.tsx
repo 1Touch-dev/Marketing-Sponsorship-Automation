@@ -9,12 +9,9 @@ export function ContentWrapper({ children }: { children: React.ReactNode }) {
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
   if (isPublic) {
-    // Public proposal pages get full-width, no admin padding
-    return (
-      <style global jsx>{`
-        .flex-1 { width: 100% !important; min-width: 100% !important; }
-      `}</style>
-    );
+    // Public proposal pages: full-width, no sidebar padding, no admin chrome
+    // The page itself provides its own bg/layout wrapper
+    return <>{children}</>;
   }
 
   return (
