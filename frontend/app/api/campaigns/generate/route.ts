@@ -9,15 +9,16 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
 import {
   campaignIdeasResponseSchema,
+  normalizeCampaignIdeas,
   validateAiOutput,
   type CampaignIdeaResponse,
 } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3;
 
 export async function POST(req: Request) {
   const env = serverEnv();
@@ -65,14 +66,15 @@ export async function POST(req: Request) {
         system,
         messages: [{ role: "user", content: user }],
         json: true,
-        maxTokens: 2500,
-        temperature: 0.6,
+        maxTokens: 4000,
+        temperature: attempt === 1 ? 0.5 : 0.2,  // lower temp on retry for more predictable JSON
       });
 
-      const vr = validateAiOutput(campaignIdeasResponseSchema, claude.json, {
+      const vr = validateAiOutput(campaignIdeasResponseSchema, normalizeCampaignIdeas(claude.json), {
         workflow: "campaign.generate",
         entity_type: "company",
         entity_id: company.id,
+        silent: true,
       });
 
       if (vr.ok && vr.data) {
@@ -81,6 +83,7 @@ export async function POST(req: Request) {
       }
 
       lastError = vr.error ?? "Validation failed";
+      // On retry, ask Claude explicitly to return only JSON with no markdown
       if (attempt < MAX_RETRIES && eventId) {
         await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
       }

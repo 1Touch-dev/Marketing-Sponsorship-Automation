@@ -46,21 +46,46 @@ function client() {
 }
 
 function extractJson(text: string): unknown | null {
-  // Try parse whole, then look for the first {...} or [...] block.
+  if (!text || !text.trim()) return null;
+
+  // 1. Try parsing the whole text directly
   try {
-    return JSON.parse(text);
-  } catch {
-    /* keep trying */
-  }
-  const objMatch = text.match(/\{[\s\S]*\}/);
-  const arrMatch = text.match(/\[[\s\S]*\]/);
-  const candidate = objMatch?.[0] ?? arrMatch?.[0];
-  if (!candidate) return null;
+    return JSON.parse(text.trim());
+  } catch { /* keep trying */ }
+
+  // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+  const stripped = text
+    .replace(/^```(?:json)?\s*/m, "")
+    .replace(/\s*```\s*$/m, "")
+    .trim();
   try {
-    return JSON.parse(candidate);
-  } catch {
-    return null;
+    return JSON.parse(stripped);
+  } catch { /* keep trying */ }
+
+  // 3. Find the largest {...} block in the text
+  const objMatches = [...text.matchAll(/\{[\s\S]*?\}/g)];
+  // Pick the longest match (most likely to be the full object)
+  const objMatch = objMatches.sort((a, b) => b[0].length - a[0].length)[0]?.[0];
+  if (objMatch) {
+    try { return JSON.parse(objMatch); } catch { /* keep trying */ }
   }
+
+  // 4. Find [...] array block
+  const arrMatches = [...text.matchAll(/\[[\s\S]*?\]/g)];
+  const arrMatch = arrMatches.sort((a, b) => b[0].length - a[0].length)[0]?.[0];
+  if (arrMatch) {
+    try { return JSON.parse(arrMatch); } catch { /* keep trying */ }
+  }
+
+  // 5. Greedy fallback: take everything from first { or [ to end
+  const firstBrace = text.indexOf("{");
+  const firstBracket = text.indexOf("[");
+  const start = firstBrace === -1 ? firstBracket : firstBracket === -1 ? firstBrace : Math.min(firstBrace, firstBracket);
+  if (start !== -1) {
+    try { return JSON.parse(text.slice(start)); } catch { /* give up */ }
+  }
+
+  return null;
 }
 
 export async function invokeClaude<T = unknown>(

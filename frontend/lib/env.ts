@@ -24,7 +24,7 @@ const serverSchema = z.object({
   DEFAULT_FROM_EMAIL: z.string().email().optional(),
 
   FOLLOWUP_DELAY_DAYS: z.coerce.number().int().positive().default(3),
-  MAX_CAMPAIGN_IDEAS: z.coerce.number().int().positive().default(5),
+  MAX_CAMPAIGN_IDEAS: z.coerce.number().int().positive().default(3),
 
   /** Optional: if set, POST /api/workflows/audit must send header x-msa-webhook-secret with this value. */
   MSA_INTERNAL_WEBHOOK_SECRET: z

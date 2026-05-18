@@ -100,14 +100,15 @@ export function campaignIdeasPrompt(args: {
   objective?: string;
   maxIdeas?: number;
 }) {
-  const max = args.maxIdeas ?? 5;
+  const max = args.maxIdeas ?? 3;
   return {
     system: [
       "You are a senior sponsorship strategist for Coritiba Foot Ball Club.",
       "You generate creative, commercial sponsorship campaign ideas EXCLUSIVELY for Coritiba FC partnerships.",
       "ALL ideas MUST be centered on Coritiba FC, Couto Pereira stadium, and the Curitiba/Paraná market.",
       "NEVER suggest Athletico Paranaense, Corinthians, or any other club as a target — only Coritiba.",
-      "Your output MUST be a single valid JSON object. No markdown fences, no commentary outside the JSON.",
+      "CRITICAL: Your ENTIRE response must be ONLY a valid JSON object — no markdown, no ```json fences, no explanation text before or after.",
+      "Start your response with { and end with }. Nothing else.",
       "",
       CORITIBA_CONTEXT,
       "",

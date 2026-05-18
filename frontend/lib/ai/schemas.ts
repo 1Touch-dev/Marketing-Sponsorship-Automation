@@ -34,6 +34,21 @@ export const campaignIdeasResponseSchema = z.object({
 
 export type CampaignIdeaResponse = z.infer<typeof campaignIdeasResponseSchema>;
 
+/** Normalize raw AI output to { ideas: [...] } before parsing */
+export function normalizeCampaignIdeas(raw: unknown): unknown {
+  if (!raw) return { ideas: [] };
+  // Array at root: [{title: ..., ...}, ...]
+  if (Array.isArray(raw)) return { ideas: raw };
+  if (typeof raw !== "object") return { ideas: [] };
+  const obj = raw as Record<string, unknown>;
+  // Already correct
+  if (Array.isArray(obj.ideas)) return raw;
+  // Sometimes Claude returns { "campaign_ideas": [...] } or { "sponsorship_ideas": [...] }
+  const alt = obj.campaign_ideas ?? obj.sponsorship_ideas ?? obj.campaigns ?? obj.results ?? obj.data;
+  if (Array.isArray(alt)) return { ideas: alt };
+  return raw;
+}
+
 // ---------------------------------------------------------------------------
 // Proposal (base / legacy)
 // ---------------------------------------------------------------------------
