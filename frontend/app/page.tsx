@@ -77,7 +77,6 @@ async function loadDashboard() {
       .from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
       .not("status", "eq", "rejected")
-      .not("status", "eq", "cancelled")
       .order("updated_at", { ascending: false })
       .limit(6),
     sb
