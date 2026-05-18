@@ -4,7 +4,10 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Sparkles, TrendingUp, Users, Target, Lightbulb, Trophy, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Brain, Sparkles, TrendingUp, Users, Target, Lightbulb,
+  Trophy, RotateCcw,
+} from "lucide-react";
 
 interface Props {
   companyId: string;
@@ -17,11 +20,12 @@ interface Props {
   competitors: string[];
 }
 
-export function CompanyAIAnalysis({ companyId, companyName, industry, website, notes, hasIntelligence, intelligence, competitors }: Props) {
+export function CompanyAIAnalysis({
+  companyId, companyName, industry, website, notes, intelligence,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown> | null>(intelligence);
-  const [expanded, setExpanded] = useState(hasIntelligence);
 
   async function runAnalysis() {
     setLoading(true);
@@ -35,7 +39,6 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error ?? "Analysis failed");
       setData(j.intelligence);
-      setExpanded(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -46,41 +49,31 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Brain className="h-4 w-4 text-purple-500" />
             AI Company Intelligence
             {data && <Badge variant="secondary" className="text-xs ml-1">Analyzed</Badge>}
           </CardTitle>
-          <div className="flex items-center gap-2">
-            {data && (
-              <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="text-xs text-muted-foreground">
-                {expanded ? (
-                  <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>
-                ) : (
-                  <><ChevronDown className="h-4 w-4 mr-1" /> View Analysis</>
-                )}
-              </Button>
+          <Button
+            variant={data ? "outline" : "default"}
+            size="sm"
+            onClick={runAnalysis}
+            disabled={loading}
+          >
+            {loading ? (
+              <><span className="animate-spin mr-1">⏳</span> Analyzing…</>
+            ) : data ? (
+              <><RotateCcw className="h-3.5 w-3.5 mr-1" /> Re-analyze</>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5 mr-1" /> Run AI Analysis</>
             )}
-            <Button
-              variant={data ? "outline" : "default"}
-              size="sm"
-              onClick={runAnalysis}
-              disabled={loading}
-            >
-              {loading ? (
-                <><span className="animate-spin mr-1">⏳</span> Analyzing…</>
-              ) : data ? (
-                <><RotateCcw className="h-4 w-4 mr-1" /> Re-analyze</>
-              ) : (
-                <><Sparkles className="h-4 w-4 mr-1" /> Run AI Analysis</>
-              )}
-            </Button>
-          </div>
+          </Button>
         </div>
         {!data && (
           <p className="text-xs text-muted-foreground mt-1">
-            AI will analyze {companyName}&apos;s business, sponsorship fit, marketing goals, competitor positioning, and recommended Coritiba FC partnership strategy.
+            AI will analyze {companyName}&apos;s business, sponsorship fit, marketing goals,
+            competitor positioning, and recommended Coritiba FC partnership strategy.
           </p>
         )}
       </CardHeader>
@@ -91,7 +84,8 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
         </CardContent>
       )}
 
-      {data && expanded && (
+      {/* Intelligence content — always visible when data exists, no collapse */}
+      {data && (
         <CardContent className="pt-0 space-y-4">
           {/* Sponsorship Fit Score */}
           {!!data.sponsorship_fit_score && (
@@ -99,7 +93,7 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
               <Trophy className="h-5 w-5 text-green-600 shrink-0" />
               <div>
                 <p className="text-xs text-green-700 font-medium">Sponsorship Fit Score</p>
-                <p className="text-lg font-bold text-green-800">
+                <p className="text-xl font-bold text-green-800">
                   {typeof data.sponsorship_fit_score === "number"
                     ? `${data.sponsorship_fit_score}/10`
                     : String(data.sponsorship_fit_score).replace(/\/10.*/, "/10")}
@@ -162,7 +156,7 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
             )}
           </div>
 
-          {/* Activation ideas */}
+          {/* Activation Ideas */}
           {!!data.sponsorship_activation_ideas && (
             <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
               <p className="text-xs font-medium text-purple-700 uppercase tracking-wide mb-2">
@@ -174,10 +168,24 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
             </div>
           )}
 
+          {/* Global inspiration */}
+          {!!data.global_inspiration && (
+            <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+              <p className="text-xs font-medium text-blue-700 uppercase tracking-wide mb-2">
+                🌍 Global Inspiration
+              </p>
+              <p className="text-sm text-blue-900 leading-relaxed">
+                {String(data.global_inspiration)}
+              </p>
+            </div>
+          )}
+
           {/* Competitor list from AI */}
           {Array.isArray(data.competitor_brands) && (data.competitor_brands as string[]).length > 0 && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Identified Competitors</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Identified Competitors
+              </p>
               <div className="flex flex-wrap gap-1.5">
                 {(data.competitor_brands as string[]).map((c, i) => (
                   <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
@@ -186,10 +194,13 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
             </div>
           )}
 
+          {/* Local context */}
           {!!data.local_context && (
             <div className="p-3 rounded-lg bg-muted/50 border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Curitiba / Paraná Context</p>
-              <p className="text-sm">{data.local_context as string}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Curitiba / Paraná Context
+              </p>
+              <p className="text-sm leading-relaxed">{String(data.local_context)}</p>
             </div>
           )}
         </CardContent>
@@ -198,7 +209,14 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
   );
 }
 
-function IntelSection({ icon, title, content, wide }: { icon: React.ReactNode; title: string; content: unknown; wide?: boolean }) {
+function IntelSection({
+  icon, title, content, wide,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  content: unknown;
+  wide?: boolean;
+}) {
   const text = Array.isArray(content)
     ? (content as string[]).map((s, i) => `${i + 1}. ${s}`).join("\n")
     : String(content ?? "");
