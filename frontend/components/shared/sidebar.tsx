@@ -18,48 +18,112 @@ import {
   Menu,
   X,
   Shield,
+  Trophy,
+  Package,
+  Repeat2,
+  Heart,
+  TrendingUp,
+  Image,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/campaigns", label: "Campaigns", icon: Lightbulb },
-  { href: "/proposals", label: "Proposals", icon: FileText },
-  { href: "/approvals", label: "Approvals", icon: CheckSquare },
-  { href: "/emails", label: "Emails", icon: Mail },
-  { href: "/threads", label: "Threads", icon: MessageSquare },
-  { href: "/followups", label: "Follow-ups", icon: Clock },
-  { href: "/brand-assets", label: "Brand Assets", icon: Shield },
-  { href: "/workflow-events", label: "Workflows", icon: Activity },
-  { href: "/audit", label: "Audit", icon: ScrollText },
-  { href: "/settings", label: "Settings", icon: Settings },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  group?: string;
+};
+
+const NAV: NavItem[] = [
+  // Core CRM
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "core" },
+  { href: "/companies", label: "Companies", icon: Building2, group: "core" },
+  { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
+  // Proposal workflow
+  { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
+  { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
+  { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
+  { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
+  { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
+  { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },
+  // Intelligence
+  { href: "/coritiba-intelligence", label: "Coritiba Intel", icon: Trophy, group: "intelligence" },
+  { href: "/inventory", label: "Inventory", icon: Package, group: "intelligence" },
+  { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
+  { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
+  { href: "/media", label: "AI Media", icon: Image, group: "intelligence" },
+  { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
+  // System
+  { href: "/workflow-events", label: "Workflows", icon: Activity, group: "system" },
+  { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
+  { href: "/settings", label: "Settings", icon: Settings, group: "system" },
 ];
+
+const GROUPS: Record<string, string> = {
+  core: "CRM",
+  proposals: "Proposal Workflow",
+  intelligence: "Intelligence",
+  system: "System",
+};
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+
+  const groupedItems = NAV.reduce<Record<string, NavItem[]>>((acc, item) => {
+    const g = item.group || "core";
+    acc[g] = acc[g] || [];
+    acc[g].push(item);
+    return acc;
+  }, {});
+
   return (
     <>
-      {NAV.map((item) => {
-        const Icon = item.icon;
-        const active =
-          pathname === item.href ||
-          (item.href !== "/" && pathname?.startsWith(item.href));
+      {Object.entries(GROUPS).map(([group, groupLabel]) => {
+        const items = groupedItems[group] || [];
+        const isCollapsed = collapsed[group];
+        const hasActive = items.some((item) =>
+          pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href))
+        );
+
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClick}
-            className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+          <div key={group} className="mb-1">
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => ({ ...c, [group]: !c[group] }))}
+              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>{groupLabel}</span>
+              <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
+            </button>
+            {!isCollapsed && (
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const Icon = item.icon;
+                  const active =
+                    pathname === item.href ||
+                    (item.href !== "/" && pathname?.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClick}
+                      className={cn(
+                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
             )}
-          >
-            <Icon className="h-4 w-4 flex-shrink-0" />
-            {item.label}
-          </Link>
+          </div>
         );
       })}
     </>
@@ -81,7 +145,7 @@ export function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         <NavLinks />
       </nav>
-      <div className="px-3 py-3 border-t text-xs text-muted-foreground">Phase 1 MVP</div>
+      <div className="px-3 py-3 border-t text-xs text-muted-foreground">Commercial Intelligence Platform</div>
     </aside>
   );
 }
