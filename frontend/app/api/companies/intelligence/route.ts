@@ -65,11 +65,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
     }
 
-    // Save to DB
+    // Save to DB — write to both columns for compatibility
     const { data, error } = await sb
       .from("companies")
       .update({
         full_intelligence: intelligence,
+        intelligence: intelligence,
         intelligence_updated_at: new Date().toISOString(),
         competitors: Array.isArray(intelligence.competitor_brands) ? intelligence.competitor_brands : [],
       })

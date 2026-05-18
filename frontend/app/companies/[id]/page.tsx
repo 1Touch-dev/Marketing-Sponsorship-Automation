@@ -54,8 +54,8 @@ export default async function CompanyDetailPage({
     .eq("company_id", company.id)
     .limit(5);
 
-  const hasIntelligence = !!(company as Record<string, unknown>).full_intelligence;
-  const intelligence = (company as Record<string, unknown>).full_intelligence as Record<string, unknown> | null;
+  const hasIntelligence = !!(company as Record<string, unknown>).full_intelligence || !!(company as Record<string, unknown>).intelligence;
+  const intelligence = ((company as Record<string, unknown>).full_intelligence ?? (company as Record<string, unknown>).intelligence) as Record<string, unknown> | null;
   const tags = ((company as Record<string, unknown>).tags as string[]) || [];
   const segment = (company as Record<string, unknown>).segment as string | null;
   const companySize = (company as Record<string, unknown>).company_size as string | null;

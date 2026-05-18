@@ -54,8 +54,12 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
           </CardTitle>
           <div className="flex items-center gap-2">
             {data && (
-              <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
-                {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)} className="text-xs text-muted-foreground">
+                {expanded ? (
+                  <><ChevronUp className="h-4 w-4 mr-1" /> Collapse</>
+                ) : (
+                  <><ChevronDown className="h-4 w-4 mr-1" /> View Analysis</>
+                )}
               </Button>
             )}
             <Button
@@ -95,7 +99,11 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
               <Trophy className="h-5 w-5 text-green-600 shrink-0" />
               <div>
                 <p className="text-xs text-green-700 font-medium">Sponsorship Fit Score</p>
-                <p className="text-lg font-bold text-green-800">{data.sponsorship_fit_score as string}/10</p>
+                <p className="text-lg font-bold text-green-800">
+                  {typeof data.sponsorship_fit_score === "number"
+                    ? `${data.sponsorship_fit_score}/10`
+                    : String(data.sponsorship_fit_score).replace(/\/10.*/, "/10")}
+                </p>
               </div>
             </div>
           )}
@@ -105,35 +113,35 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
               <IntelSection
                 icon={<Target className="h-4 w-4 text-blue-500" />}
                 title="Marketing Goals"
-                content={data.marketing_goals as string}
+                content={data.marketing_goals}
               />
             )}
             {!!data.brand_positioning && (
               <IntelSection
                 icon={<TrendingUp className="h-4 w-4 text-purple-500" />}
                 title="Brand Positioning"
-                content={data.brand_positioning as string}
+                content={data.brand_positioning}
               />
             )}
             {!!data.target_audience && (
               <IntelSection
                 icon={<Users className="h-4 w-4 text-orange-500" />}
                 title="Target Audience"
-                content={data.target_audience as string}
+                content={data.target_audience}
               />
             )}
             {!!data.audience_alignment && (
               <IntelSection
                 icon={<Users className="h-4 w-4 text-green-500" />}
                 title="Audience Alignment"
-                content={data.audience_alignment as string}
+                content={data.audience_alignment}
               />
             )}
             {!!data.recommended_direction && (
               <IntelSection
                 icon={<Lightbulb className="h-4 w-4 text-yellow-500" />}
                 title="Recommended Partnership Direction"
-                content={data.recommended_direction as string}
+                content={data.recommended_direction}
                 wide
               />
             )}
@@ -141,10 +149,30 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
               <IntelSection
                 icon={<Brain className="h-4 w-4 text-gray-500" />}
                 title="Products & Services"
-                content={data.products_services as string}
+                content={data.products_services}
+              />
+            )}
+            {!!data.sponsorship_fit_rationale && (
+              <IntelSection
+                icon={<Trophy className="h-4 w-4 text-green-500" />}
+                title="Fit Rationale"
+                content={data.sponsorship_fit_rationale}
+                wide
               />
             )}
           </div>
+
+          {/* Activation ideas */}
+          {!!data.sponsorship_activation_ideas && (
+            <div className="p-3 rounded-lg bg-purple-50 border border-purple-100">
+              <p className="text-xs font-medium text-purple-700 uppercase tracking-wide mb-2">
+                💡 Activation Ideas (Coritiba FC)
+              </p>
+              <p className="text-sm text-purple-900 whitespace-pre-line leading-relaxed">
+                {String(data.sponsorship_activation_ideas)}
+              </p>
+            </div>
+          )}
 
           {/* Competitor list from AI */}
           {Array.isArray(data.competitor_brands) && (data.competitor_brands as string[]).length > 0 && (
@@ -170,14 +198,18 @@ export function CompanyAIAnalysis({ companyId, companyName, industry, website, n
   );
 }
 
-function IntelSection({ icon, title, content, wide }: { icon: React.ReactNode; title: string; content: string; wide?: boolean }) {
+function IntelSection({ icon, title, content, wide }: { icon: React.ReactNode; title: string; content: unknown; wide?: boolean }) {
+  const text = Array.isArray(content)
+    ? (content as string[]).map((s, i) => `${i + 1}. ${s}`).join("\n")
+    : String(content ?? "");
+
   return (
     <div className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
         {icon}
         {title}
       </div>
-      <p className="text-sm leading-relaxed">{content}</p>
+      <p className="text-sm leading-relaxed whitespace-pre-line">{text}</p>
     </div>
   );
 }
