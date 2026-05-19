@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import {
   CheckCircle2, AlertTriangle, Shield, Wrench, Database,
-  Activity, RefreshCw, Archive, Trash2, XCircle
+  Activity, RefreshCw, Archive, Trash2, XCircle,
+  Cpu, Globe, Key, Zap, Circle,
 } from "lucide-react";
 import { MaintenanceActions } from "./maintenance-actions";
+import { getEnvSummary } from "@/lib/env-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +59,91 @@ export default async function SystemMaintenancePage() {
     { label: "Archived competitor proposals", value: archivedCompetitor.length, ok: true, icon: <Archive className="h-4 w-4" />, note: "Safely preserved, hidden from UI" },
   ];
 
+  const envVars = getEnvSummary();
+  const serpConfigured = !!(process.env.SERPAPI_KEY ?? process.env.SERPAPI_API_KEY);
+  const openaiConfigured = !!(process.env.OPENAI_API_KEY);
+  const bedrockConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+
+  const services = [
+    { id: "supabase", label: "Supabase DB", status: "active", description: "Database connected", icon: Database },
+    { id: "bedrock", label: "AWS Bedrock (Claude)", status: bedrockConfigured ? "active" : "missing", description: bedrockConfigured ? "AI generation ready" : "Configure AWS credentials", icon: Cpu },
+    { id: "openai", label: "OpenAI (gpt-image-1)", status: openaiConfigured ? "active" : "missing", description: openaiConfigured ? "Image generation ready" : "Add OPENAI_API_KEY", icon: Zap },
+    { id: "serpapi", label: "SerpAPI", status: serpConfigured ? "configured" : "missing", description: serpConfigured ? "Key set — verify at serpapi.com/manage-api-key" : "Add SERPAPI_KEY to .env for competitor discovery", icon: Globe },
+    { id: "playwright", label: "Playwright", status: "optional", description: "Browser scraping — run: npx playwright install", icon: Globe },
+    { id: "pipedrive", label: "Pipedrive CRM", status: "placeholder", description: "Architecture ready — no API key required yet", icon: Key },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="System Maintenance"
-        description="Admin utilities for keeping the platform demo-ready and operationally clean"
+        description="Admin utilities, service status, and platform health"
       />
+
+      {/* Service Status Grid */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Activity className="h-4 w-4 text-blue-500" />
+            Service Status
+          </CardTitle>
+          <CardDescription className="text-xs">Real-time status of all integrated services</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {services.map((svc) => {
+              const statusColors: Record<string, string> = {
+                active: "text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800",
+                configured: "text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800",
+                missing: "text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
+                optional: "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800",
+                placeholder: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700",
+              };
+              const statusLabels: Record<string, string> = {
+                active: "Active", configured: "Configured", missing: "Missing",
+                optional: "Optional", placeholder: "Placeholder",
+              };
+              const dotColors: Record<string, string> = {
+                active: "bg-green-500", configured: "bg-blue-500", missing: "bg-red-500",
+                optional: "bg-amber-500", placeholder: "bg-slate-400",
+              };
+              return (
+                <div key={svc.id} className={`rounded-lg border p-3 ${statusColors[svc.status] ?? statusColors.placeholder}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`h-2 w-2 rounded-full flex-shrink-0 ${dotColors[svc.status] ?? "bg-slate-400"}`} />
+                    <span className="text-xs font-semibold">{svc.label}</span>
+                    <span className="ml-auto text-[10px] font-medium capitalize">{statusLabels[svc.status] ?? svc.status}</span>
+                  </div>
+                  <p className="text-[11px] opacity-80">{svc.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Environment Variables */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-4 w-4 text-purple-500" />
+            Environment Variables
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {envVars.map((v) => (
+              <div key={v.key} className={`rounded-lg border px-3 py-2 flex items-center gap-2 ${v.configured ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" : v.required ? "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800" : "bg-muted border-border"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${v.configured ? "bg-green-500" : v.required ? "bg-red-500" : "bg-muted-foreground"}`} />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-mono truncate">{v.key}</p>
+                  <p className="text-[9px] text-muted-foreground">{v.configured ? "Set" : v.required ? "MISSING" : "Optional"}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Demo readiness banner */}
       <div className={`rounded-xl border p-4 ${isDemoReady ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>

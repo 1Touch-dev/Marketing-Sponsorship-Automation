@@ -52,7 +52,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
         </Link>
         <div className="flex items-center gap-2">
           <ShareLinkDisplay proposalId={proposal.id} shareToken={p.share_token ?? null} />
-          <PrintButton />
+          <PrintButton proposalId={proposal.id} exportType="pdf_print" />
         </div>
       </div>
 

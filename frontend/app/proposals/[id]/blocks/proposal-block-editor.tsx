@@ -44,7 +44,7 @@ type Props = {
 
 function SortableSection({
   section, onUpdate, onRegenerate, onDuplicate, onDelete, onToggleLock,
-  onToggleHide, onToggleCollapse, companyName, industry, campaignTitle,
+  onToggleHide, onToggleCollapse, companyName, industry, campaignTitle, onGetSuggestions,
 }: {
   section: Section;
   onUpdate: (id: string, content: string) => void;
@@ -57,6 +57,7 @@ function SortableSection({
   companyName: string;
   industry: string;
   campaignTitle: string;
+  onGetSuggestions?: (id: string, content: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -122,6 +123,11 @@ function SortableSection({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
+          {onGetSuggestions && (
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-purple-500 text-[10px] gap-1" onClick={() => onGetSuggestions(section.id, section.content)} title="AI suggestions for this section">
+              <Sparkles className="h-3 w-3" /> AI
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-500" onClick={fetchVariants} title="Generate A/B/C variants">
             <Sparkles className="h-3.5 w-3.5" />
           </Button>
@@ -202,6 +208,34 @@ export function ProposalBlockEditor({ proposalId, initialSections, companyName, 
   const [sections, setSections] = useState<Section[]>(initialSections.map(s => ({ ...s, isCollapsed: false })));
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [showAISuggestions, setShowAISuggestions] = useState<string | null>(null);
+  const [aiSuggestions, setAISuggestions] = useState<Record<string, unknown>>({});
+  const [loadingAI, setLoadingAI] = useState(false);
+
+  async function fetchAISuggestions(sectionId: string, content: string) {
+    setLoadingAI(true);
+    setShowAISuggestions(sectionId);
+    try {
+      const res = await fetch("/api/proposals/blocks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "ai_suggestions",
+          section_id: sectionId,
+          current_content: content,
+          proposal_type: "sponsorship",
+          company_name: companyName ?? "Company",
+          industry: industry ?? "General",
+        }),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      setAISuggestions(data);
+    } catch {
+      toast({ variant: "destructive", title: "AI suggestions failed" });
+    } finally {
+      setLoadingAI(false);
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -356,6 +390,7 @@ export function ProposalBlockEditor({ proposalId, initialSections, companyName, 
                     companyName={companyName}
                     industry={industry}
                     campaignTitle={campaignTitle}
+                    onGetSuggestions={(id, content) => fetchAISuggestions(id, content)}
                   />
                 </div>
               ))}
@@ -369,6 +404,55 @@ export function ProposalBlockEditor({ proposalId, initialSections, companyName, 
           </div>
         )}
       </div>
+
+      {/* AI Suggestions Panel */}
+      {showAISuggestions && (
+        <div className="fixed right-0 top-0 h-full w-80 bg-card border-l shadow-2xl z-30 overflow-y-auto p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              AI Section Suggestions
+            </h3>
+            <button onClick={() => setShowAISuggestions(null)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
+          </div>
+          {loadingAI ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing section…
+            </div>
+          ) : (
+            <>
+              {(aiSuggestions.suggestions as Array<Record<string,string>>)?.map((s, i) => (
+                <div key={i} className="rounded-lg border p-3 space-y-1.5 bg-muted/30">
+                  <div className="text-xs font-semibold text-purple-700 dark:text-purple-400">{s.title}</div>
+                  <p className="text-xs">{s.suggestion}</p>
+                  <p className="text-[10px] text-muted-foreground italic">{s.reason}</p>
+                  <button
+                    onClick={() => {
+                      const sec = sections.find(sec => sec.id === showAISuggestions);
+                      if (sec) {
+                        updateSection(sec.id, sec.content + "\n\n" + s.suggestion);
+                        setShowAISuggestions(null);
+                      }
+                    }}
+                    className="text-[10px] text-primary hover:underline"
+                  >
+                    Apply suggestion →
+                  </button>
+                </div>
+              ))}
+              {!aiSuggestions.suggestions && (
+                <p className="text-sm text-muted-foreground text-center py-6">No suggestions available.</p>
+              )}
+              {typeof aiSuggestions.readability_score === "number" && (
+                <div className="text-xs text-muted-foreground border-t pt-3 space-y-1">
+                  <div className="flex justify-between"><span>Readability:</span><span className="font-medium">{String(aiSuggestions.readability_score)}/10</span></div>
+                  <div className="flex justify-between"><span>Sponsorship strength:</span><span className="font-medium">{String(aiSuggestions.sponsorship_strength)}/10</span></div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

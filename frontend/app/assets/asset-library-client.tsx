@@ -29,17 +29,40 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCompany, setFilterCompany] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [preview, setPreview] = useState<Asset | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const filtered = useMemo(() => {
     return assets.filter(a => {
       const matchesSearch = !search || a.prompt?.toLowerCase().includes(search.toLowerCase()) || a.job_type?.includes(search.toLowerCase());
       const matchesStatus = filterStatus === "all" || a.status === filterStatus;
-      return matchesSearch && matchesStatus;
+      const matchesCompany = filterCompany === "all" || a.company_id === filterCompany;
+      return matchesSearch && matchesStatus && matchesCompany;
     });
-  }, [assets, search, filterStatus]);
+  }, [assets, search, filterStatus, filterCompany]);
+
+  function toggleSelect(id: string) {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function selectAll() { setSelected(filtered.map(a => a.id)); }
+  function clearSelection() { setSelected([]); }
+
+  async function bulkAction(action: "approved" | "archived" | "rejected") {
+    setBulkUpdating(true);
+    try {
+      await Promise.all(selected.map(id =>
+        fetch("/api/assets", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status: action }) })
+      ));
+      toast({ variant: "success", title: `${selected.length} assets ${action}` });
+      clearSelection();
+      setTimeout(() => window.location.reload(), 800);
+    } finally { setBulkUpdating(false); }
+  }
 
   async function updateAsset(id: string, updates: Record<string, unknown>) {
     setUpdating(id);
@@ -57,6 +80,11 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
   };
 
   const statusList = ["all", "completed", "pending_approval", "generating", "rejected", "archived"];
+  // Unique companies with assets
+  const assetCompanies = useMemo(() => {
+    const ids = new Set(assets.map(a => a.company_id).filter(Boolean));
+    return companies.filter(c => ids.has(c.id));
+  }, [assets, companies]);
 
   return (
     <div className="space-y-4">
@@ -77,15 +105,47 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
             );
           })}
         </div>
+        {assetCompanies.length > 0 && (
+          <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)} className="text-xs border rounded-lg px-2 py-1.5 bg-card">
+            <option value="all">All Companies</option>
+            {assetCompanies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+          </select>
+        )}
+        <div className="flex gap-1 ml-auto">
+          <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded border ${viewMode === "grid" ? "bg-primary/10 border-primary/40" : "bg-card border-border"}`} title="Grid view">
+            <Filter className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
+
+      {/* Bulk actions */}
+      {selected.length > 0 && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <span className="text-xs font-medium">{selected.length} selected</span>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-green-600 border-green-300" onClick={() => bulkAction("approved")} disabled={bulkUpdating}>
+            <CheckCircle className="h-3 w-3" /> Approve All
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => bulkAction("archived")} disabled={bulkUpdating}>
+            <Archive className="h-3 w-3" /> Archive All
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs ml-auto" onClick={clearSelection}>Cancel</Button>
+        </div>
+      )}
+      {filtered.length > 0 && selected.length === 0 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{filtered.length} assets</span>
+          <button onClick={selectAll} className="text-primary hover:underline">Select all</button>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map(asset => {
           const cfg = STATUS_CONFIG[asset.status] ?? STATUS_CONFIG.pending_approval;
           const StatusIcon = cfg.icon;
+          const isSelected = selected.includes(asset.id);
           return (
-            <div key={asset.id} className="rounded-xl border bg-card overflow-hidden group hover:shadow-md transition-all">
+            <div key={asset.id} className={`rounded-xl border bg-card overflow-hidden group hover:shadow-md transition-all ${isSelected ? "ring-2 ring-primary border-primary" : ""}`}>
               {/* Preview */}
               <div className="aspect-video bg-muted relative overflow-hidden cursor-pointer" onClick={() => setPreview(asset)}>
                 {asset.image_url ? (
@@ -98,6 +158,11 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
                 <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>
                   <StatusIcon className="h-2.5 w-2.5" />
                   {cfg.label}
+                </div>
+                {/* Checkbox */}
+                <div className="absolute top-2 left-2">
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(asset.id)}
+                    className="h-3.5 w-3.5 rounded border border-white/80 bg-white/30 cursor-pointer" onClick={e => e.stopPropagation()} />
                 </div>
               </div>
 

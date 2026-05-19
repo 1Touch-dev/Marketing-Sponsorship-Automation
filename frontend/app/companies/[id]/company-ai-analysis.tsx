@@ -26,10 +26,14 @@ export function CompanyAIAnalysis({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
+  const [serpLoading, setSerpLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown> | null>(intelligence);
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape">("intelligence");
+  const [serpData, setSerpData] = useState<Record<string, unknown> | null>(
+    (intelligence?.serp_intelligence as Record<string, unknown>) ?? null
+  );
+  const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp">("intelligence");
 
   const scrapeMetadata = data?.scrape_metadata as Record<string, unknown> | null;
   const competitors = (data?.competitors as Array<Record<string, string>>) ?? [];
@@ -80,6 +84,30 @@ export function CompanyAIAnalysis({
     }
   }
 
+  async function runSerp() {
+    setSerpLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/intelligence/serp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ company_id: companyId, company_name: companyName, industry, website }),
+      });
+      const j = await res.json() as Record<string, unknown>;
+      if (!res.ok) throw new Error(String(j?.error ?? "SERP analysis failed"));
+      setSerpData(j);
+      // Also refresh main intelligence data
+      if (j.competitors) {
+        setData(prev => prev ? { ...prev, competitors: j.competitors, market_context: j.market_context } : prev);
+      }
+      setActiveTab("serp");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "SERP analysis failed");
+    } finally {
+      setSerpLoading(false);
+    }
+  }
+
   const fitScore = data?.coritiba_fit_score ?? data?.sponsorship_fit_score;
 
   return (
@@ -98,6 +126,9 @@ export function CompanyAIAnalysis({
                 {scraping ? <><Loader2 className="h-3 w-3 animate-spin" />{scrapeStatus ?? "Scraping…"}</> : <><Globe className="h-3 w-3" /> Scrape Website</>}
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={runSerp} disabled={serpLoading || loading} className="gap-1.5 text-xs">
+              {serpLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Discovering…</> : <><Search className="h-3 w-3" /> Find Competitors</>}
+            </Button>
             <Button variant={data ? "outline" : "default"} size="sm" onClick={runAnalysis} disabled={loading || scraping} className="gap-1.5">
               {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> :
                data ? <><RotateCcw className="h-3.5 w-3.5" /> Re-analyze</> :
@@ -114,12 +145,14 @@ export function CompanyAIAnalysis({
 
         {/* Tabs */}
         {data && (
-          <div className="flex gap-1 mt-2">
-            {(["intelligence", "competitors", "scrape"] as const).map(tab => (
+          <div className="flex gap-1 mt-2 flex-wrap">
+            {(["intelligence", "competitors", "scrape", "serp"] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${activeTab === tab ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}>
                 {tab === "competitors" ? `Competitors (${competitors.length})` :
-                 tab === "scrape" ? "Scrape Data" : "Intelligence"}
+                 tab === "scrape" ? "Scrape Data" :
+                 tab === "serp" ? `Market Intel${serpData ? " ✓" : ""}` :
+                 "Intelligence"}
               </button>
             ))}
           </div>
@@ -257,6 +290,96 @@ export function CompanyAIAnalysis({
                       <div className="flex gap-2">{(scrapeMetadata.social_links as string[]).map((s, i) => <Badge key={i} variant="secondary" className="text-xs capitalize">{s}</Badge>)}</div>
                     </div>
                   )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Tab: Market Intel (SERP) */}
+          {activeTab === "serp" && (
+            <div className="space-y-3">
+              {!serpData ? (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  <Search className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  No market intelligence yet.
+                  <br />
+                  <Button size="sm" variant="outline" onClick={runSerp} disabled={serpLoading} className="mt-3 gap-1.5">
+                    <Search className="h-3 w-3" /> Discover Competitors &amp; Market
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {!!serpData.data_source && (
+                    <div className={`text-xs px-3 py-1.5 rounded-full inline-flex items-center gap-1 ${serpData.serp_worked ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400" : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"}`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {serpData.serp_worked ? "Live web search + AI analysis" : "AI analysis (web search unavailable)"}
+                    </div>
+                  )}
+
+                  {/* Competitors */}
+                  {Array.isArray(serpData.competitors) && (serpData.competitors as Array<Record<string,string>>).length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Competitors Discovered</p>
+                      {(serpData.competitors as Array<Record<string,string>>).map((c, i) => (
+                        <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg border bg-muted/20">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium">{c.name}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{c.reason}</div>
+                            {c.estimated_spend && <div className="text-xs text-green-700 dark:text-green-400 mt-0.5">Est. spend: {c.estimated_spend}</div>}
+                          </div>
+                          {c.sponsorship_active === "true" || c.sponsorship_active === true as unknown as string ? <Badge variant="outline" className="text-xs border-green-300 text-green-700">Active sponsor</Badge> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Market Context */}
+                  {serpData.market_context && typeof serpData.market_context === "object" && (
+                    <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 space-y-2">
+                      <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Market Context</p>
+                      {(serpData.market_context as Record<string, string>).industry_summary && (
+                        <p className="text-sm text-blue-900 dark:text-blue-100">{(serpData.market_context as Record<string, string>).industry_summary}</p>
+                      )}
+                      {(serpData.market_context as Record<string, string>).average_sponsorship_budget && (
+                        <p className="text-xs text-blue-700 dark:text-blue-300"><strong>Avg budget:</strong> {(serpData.market_context as Record<string,string>).average_sponsorship_budget}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Keyword Clusters */}
+                  {serpData.keyword_clusters && typeof serpData.keyword_clusters === "object" && (() => {
+                    const kc = serpData.keyword_clusters as Record<string, string[]>;
+                    const hasKw = (kc.primary_keywords?.length ?? 0) > 0 || (kc.sponsorship_language?.length ?? 0) > 0;
+                    if (!hasKw) return null;
+                    return (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Keyword Clusters</p>
+                        {kc.primary_keywords?.length > 0 && (
+                          <div><p className="text-xs text-muted-foreground mb-1">Primary</p>
+                            <div className="flex flex-wrap gap-1">{kc.primary_keywords.map((k, i) => <Badge key={i} variant="outline" className="text-xs">{k}</Badge>)}</div>
+                          </div>
+                        )}
+                        {kc.sponsorship_language?.length > 0 && (
+                          <div><p className="text-xs text-muted-foreground mb-1">Sponsorship Language</p>
+                            <div className="flex flex-wrap gap-1">{kc.sponsorship_language.map((k, i) => <Badge key={i} variant="secondary" className="text-xs">{k}</Badge>)}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Coritiba Positioning */}
+                  {!!serpData.coritiba_positioning && typeof serpData.coritiba_positioning === "object" && (() => {
+                    const cp = serpData.coritiba_positioning as Record<string,string>;
+                    return (
+                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+                        <p className="text-xs font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide mb-2">Coritiba FC Positioning</p>
+                        {cp.unique_angle && <p className="text-sm text-green-900 dark:text-green-100 mb-1"><strong>Unique angle:</strong> {cp.unique_angle}</p>}
+                        {cp.risk_mitigation && <p className="text-xs text-green-700 dark:text-green-300">{cp.risk_mitigation}</p>}
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
