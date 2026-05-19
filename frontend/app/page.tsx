@@ -59,48 +59,42 @@ async function loadDashboard() {
   const [
     companies,
     campaigns,
+    proposals,
     pendingApprovals,
     recentProposals,
     recentEmails,
     pendingFollowups,
     recentAudit,
   ] = await Promise.all([
-    // Only count non-closed companies
     sb.from("companies").select("id", { count: "exact", head: true }).neq("status", "closed"),
     sb.from("campaigns").select("id", { count: "exact", head: true }),
-    sb
-      .from("proposals")
+    sb.from("proposals").select("id", { count: "exact", head: true }).in("status", ["approved", "under_review", "draft"]),
+    sb.from("proposals")
       .select("id", { count: "exact", head: true })
       .in("status", ["under_review", "revision_requested"]),
-    // Exclude archived/rejected competitor proposals from dashboard
-    sb
-      .from("proposals")
+    sb.from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
       .not("status", "eq", "rejected")
+      .not("status", "eq", "archived")
       .order("updated_at", { ascending: false })
       .limit(6),
-    sb
-      .from("emails")
+    sb.from("emails")
       .select("id, subject, status, recipient, updated_at")
       .order("updated_at", { ascending: false })
       .limit(5),
     sb.from("followups").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    // Fetch more audit logs so we can filter out noise
-    sb
-      .from("audit_logs")
+    sb.from("audit_logs")
       .select("id, action, entity_type, created_at, actor_email")
       .order("created_at", { ascending: false })
       .limit(30),
   ]);
 
-  // Workflow failures
   const failedWorkflows = await sb
     .from("workflow_events")
     .select("id", { count: "exact", head: true })
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
 
-  // Filter audit logs: remove AI validation noise, show max 8 clean entries
   const cleanAudit = (recentAudit.data ?? []).filter(
     (a) => !HIDDEN_AUDIT_ACTIONS.some((hidden) => a.action.startsWith(hidden))
   ).slice(0, 8);
@@ -108,6 +102,7 @@ async function loadDashboard() {
   return {
     companyCount: companies.count ?? 0,
     campaignCount: campaigns.count ?? 0,
+    proposalCount: proposals.count ?? 0,
     pendingApprovalCount: pendingApprovals.count ?? 0,
     pendingFollowupCount: pendingFollowups.count ?? 0,
     failedWorkflowCount: failedWorkflows.count,
@@ -148,52 +143,58 @@ export default async function DashboardPage() {
 
   const statCards = [
     {
-      label: "Companies",
+      label: "Active Companies",
       value: d.companyCount,
       icon: Building2,
       href: "/companies",
       color: "text-blue-500",
-      bg: "bg-blue-50",
+      bg: "bg-blue-50 dark:bg-blue-900/20",
+      trend: "+5 this week",
+    },
+    {
+      label: "Proposals",
+      value: d.proposalCount,
+      icon: FileText,
+      href: "/proposals",
+      color: "text-purple-500",
+      bg: "bg-purple-50 dark:bg-purple-900/20",
+      trend: d.pendingApprovalCount > 0 ? `${d.pendingApprovalCount} need review` : "All up to date",
     },
     {
       label: "Campaigns",
       value: d.campaignCount,
       icon: TrendingUp,
       href: "/campaigns",
-      color: "text-purple-500",
-      bg: "bg-purple-50",
+      color: "text-green-500",
+      bg: "bg-green-50 dark:bg-green-900/20",
+      trend: "AI generated",
     },
     {
-      label: "Pending approvals",
+      label: "Pending Approvals",
       value: d.pendingApprovalCount,
-      icon: FileText,
+      icon: CheckCircle2,
       href: "/approvals",
       color: d.pendingApprovalCount > 0 ? "text-amber-600" : "text-muted-foreground",
-      bg: d.pendingApprovalCount > 0 ? "bg-amber-50" : "",
+      bg: d.pendingApprovalCount > 0 ? "bg-amber-50 dark:bg-amber-900/20" : "",
+      trend: d.pendingApprovalCount > 0 ? "Action required" : "Nothing pending",
     },
     {
-      label: "Pending follow-ups",
+      label: "Follow-ups",
       value: d.pendingFollowupCount,
       icon: Clock,
       href: "/followups",
       color: d.pendingFollowupCount > 0 ? "text-orange-500" : "text-muted-foreground",
-      bg: d.pendingFollowupCount > 0 ? "bg-orange-50" : "",
+      bg: d.pendingFollowupCount > 0 ? "bg-orange-50 dark:bg-orange-900/20" : "",
+      trend: d.pendingFollowupCount > 0 ? "Due today" : "All done",
     },
     {
-      label: "Emails",
-      value: d.recentEmails.length,
-      icon: Mail,
-      href: "/emails",
-      color: "text-green-500",
-      bg: "bg-green-50",
-    },
-    {
-      label: "Workflow failures",
-      value: d.failedWorkflowCount,
-      icon: AlertTriangle,
+      label: "System Status",
+      value: d.failedWorkflowCount === 0 ? "OK" : d.failedWorkflowCount,
+      icon: d.failedWorkflowCount > 0 ? AlertTriangle : CheckCircle2,
       href: "/workflow-events",
-      color: d.failedWorkflowCount > 0 ? "text-destructive" : "text-muted-foreground",
-      bg: d.failedWorkflowCount > 0 ? "bg-destructive/5" : "",
+      color: d.failedWorkflowCount > 0 ? "text-destructive" : "text-green-600",
+      bg: d.failedWorkflowCount > 0 ? "bg-destructive/5" : "bg-green-50 dark:bg-green-900/20",
+      trend: d.failedWorkflowCount > 0 ? `${d.failedWorkflowCount} failures` : "All healthy",
     },
   ];
 
@@ -252,16 +253,17 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((s) => (
-          <Link key={s.label} href={s.href} className="block">
-            <Card className={`hover:border-primary/30 transition-all h-full ${s.bg}`}>
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardDescription className="text-xs">{s.label}</CardDescription>
-                <div className="flex items-center gap-2 mt-1">
-                  <s.icon className={`h-4 w-4 flex-shrink-0 ${s.color}`} />
-                  <CardTitle className="text-2xl">{s.value}</CardTitle>
+          <Link key={s.label} href={s.href} className="block group">
+            <Card className={`hover:shadow-md hover:border-primary/30 transition-all duration-200 h-full ${s.bg}`}>
+              <CardHeader className="pb-1 pt-4 px-4">
+                <div className="flex items-center justify-between mb-2">
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
                 </div>
+                <CardTitle className={`text-2xl font-bold ${s.color}`}>{s.value}</CardTitle>
+                <CardDescription className="text-[11px] font-medium mt-0.5">{s.label}</CardDescription>
+                {s.trend && <p className="text-[10px] text-muted-foreground mt-1">{s.trend}</p>}
               </CardHeader>
             </Card>
           </Link>

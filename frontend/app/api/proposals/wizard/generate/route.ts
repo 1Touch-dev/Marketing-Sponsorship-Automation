@@ -9,14 +9,18 @@ export const maxDuration = 90;
 export async function POST(req: Request) {
   try {
     const body = await req.json() as {
-      session_key: string;
+      session_key?: string;
       proposal_type: string;
       company_id: string;
       campaign_id?: string | null;
-      selected_components: string[];
-      selected_strategies: string[];
+      selected_components?: string[];
+      selected_strategies?: string[];
+      strategy?: string;
       custom_brief?: string;
     };
+
+    const selectedComponents: string[] = body.selected_components ?? (body.strategy ? [body.strategy] : []);
+    const selectedStrategies: string[] = body.selected_strategies ?? (body.strategy ? [body.strategy] : []);
 
     const sb = supabaseAdmin();
 
@@ -30,18 +34,18 @@ export async function POST(req: Request) {
       : { data: null };
 
     // Build context-aware proposal prompt with selected components and strategies
-    const componentContext = body.selected_components.length > 0
-      ? `\nSelected sponsorship inventory: ${body.selected_components.map(c => c.replace(/_/g, " ")).join(", ")}.`
+    const componentContext = selectedComponents.length > 0
+      ? `\nSelected sponsorship inventory: ${selectedComponents.map(c => c.replace(/_/g, " ")).join(", ")}.`
       : "";
-    const strategyContext = body.selected_strategies.length > 0
-      ? `\nSelected strategies: ${body.selected_strategies.map(s => s.replace(/_/g, " ")).join(", ")}.`
+    const strategyContext = selectedStrategies.length > 0
+      ? `\nSelected strategies: ${selectedStrategies.map(s => s.replace(/_/g, " ")).join(", ")}.`
       : "";
     const typeContext = body.proposal_type !== "sponsorship"
       ? `\nProposal type: ${body.proposal_type.replace(/_/g, " ")} — adapt the content accordingly.`
       : "";
     const briefContext = body.custom_brief ? `\nAdditional brief: ${body.custom_brief}` : "";
 
-    const strategyVariant = body.selected_strategies[0]?.replace(/_/g, " ") ?? null;
+    const strategyVariant = selectedStrategies[0]?.replace(/_/g, " ") ?? null;
 
     const { system, user } = proposalPrompt({
       company: { company_name: company.company_name, industry: company.industry, country: company.country, notes: company.notes },
@@ -82,8 +86,8 @@ export async function POST(req: Request) {
       status: "draft",
       content: parsed,
       proposal_type: body.proposal_type,
-      selected_components: body.selected_components,
-      selected_strategies: body.selected_strategies,
+      selected_components: selectedComponents,
+      selected_strategies: selectedStrategies,
       version: 1,
     }).select("id").single();
 
@@ -100,7 +104,7 @@ export async function POST(req: Request) {
       action: "proposal.wizard_generated",
       entity_type: "proposal",
       entity_id: proposal.id,
-      metadata: { company: company.company_name, type: body.proposal_type, strategies: body.selected_strategies.length, components: body.selected_components.length },
+      metadata: { company: company.company_name, type: body.proposal_type, strategies: selectedStrategies.length, components: selectedComponents.length },
     });
 
     return NextResponse.json({ proposal_id: proposal.id });

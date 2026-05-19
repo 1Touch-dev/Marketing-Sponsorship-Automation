@@ -34,6 +34,23 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+function GlobalSearchCompact() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <button
+      onClick={() => {
+        // Dispatch global search open event
+        window.dispatchEvent(new CustomEvent("open-global-search"));
+      }}
+      className="flex items-center gap-2 w-full rounded-lg border bg-muted/30 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <span className="flex-1 text-left">Search…</span>
+      <kbd className="text-[9px] border rounded px-1 bg-background">⌘K</kbd>
+    </button>
+  );
+}
+
 type NavItem = {
   href: string;
   label: string;
@@ -60,10 +77,10 @@ const NAV: NavItem[] = [
   { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
   { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
   { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
-  // Media
+  // Media & Assets
   { href: "/media-generation", label: "AI Image Gen", icon: Sparkles, group: "media" },
   { href: "/mockup-editor", label: "Mockup Editor", icon: Layers, group: "media" },
-  { href: "/media", label: "Media Archive", icon: Image, group: "media" },
+  { href: "/assets", label: "Asset Library", icon: Image, group: "media" },
   // CRM & Integrations
   { href: "/crm-sync", label: "CRM Sync", icon: GitMerge, group: "integrations" },
   // System
@@ -153,14 +170,22 @@ export function Sidebar() {
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-card">
-      <div className="px-6 py-5 border-b">
-        <div className="text-sm font-semibold tracking-tight">Market Sponsorship</div>
-        <div className="text-xs text-muted-foreground">Automation MVP</div>
+      <div className="px-5 py-4 border-b">
+        <div className="text-sm font-bold tracking-tight text-foreground">Coritiba FC</div>
+        <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Commercial Intelligence</div>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <div className="px-3 py-2 border-b">
+        <GlobalSearchCompact />
+      </div>
+      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         <NavLinks />
       </nav>
-      <div className="px-3 py-3 border-t text-xs text-muted-foreground">Commercial Intelligence Platform</div>
+      <div className="px-3 py-2 border-t">
+        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
+          Platform v2.0 · Live
+        </div>
+      </div>
     </aside>
   );
 }

@@ -50,6 +50,68 @@
   body { @apply bg-background text-foreground; }
 }
 
+/* ─── Executive Platform Design Tokens ────────────────────── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Smooth hover transitions everywhere */
+  a, button, [role="button"] {
+    transition: color 0.15s ease, background-color 0.15s ease,
+      border-color 0.15s ease, opacity 0.15s ease,
+      box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  /* Subtle page entrance animation */
+  main > * {
+    animation: fadeSlideIn 0.2s ease-out both;
+  }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Card hover lift effect */
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1);
+  }
+
+  /* Toast animations */
+  [data-radix-toast-viewport] {
+    --viewport-padding: 20px;
+  }
+
+  /* Skeleton loading shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--accent)) 50%, hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: 0.375rem;
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Progress bar animation */
+  .progress-bar {
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Focus rings — consistent */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    Print / PDF export styles for Proposal Landing Page
    Used when user prints via browser or saves as PDF
