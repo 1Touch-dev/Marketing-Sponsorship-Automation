@@ -40,6 +40,13 @@ export function GlobalSearch() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Listen for open event from sidebar button
+  useEffect(() => {
+    function onOpenEvent() { setOpen(true); }
+    window.addEventListener("open-global-search", onOpenEvent);
+    return () => window.removeEventListener("open-global-search", onOpenEvent);
+  }, []);
+
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
@@ -75,17 +82,7 @@ export function GlobalSearch() {
 
   return (
     <>
-      {/* Trigger button */}
-      <button
-        onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted transition-colors w-full max-w-xs"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span className="flex-1 text-left">Search…</span>
-        <kbd className="text-[10px] border rounded px-1 py-0.5 bg-background hidden sm:block">⌘K</kbd>
-      </button>
-
-      {/* Modal */}
+      {/* Modal only — trigger is in sidebar or via ⌘K */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4" onClick={() => setOpen(false)}>
           <div className="bg-card border rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden" onClick={e => e.stopPropagation()}>

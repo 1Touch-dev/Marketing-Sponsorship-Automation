@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  Sparkles, Check, X, Loader2, Plus, Eye, Download,
+  Sparkles, Check, X, Loader2, Plus, Eye, Download, Wand2,
   Image as ImageIcon, Clock, Zap,
 } from "lucide-react";
 
@@ -83,6 +83,54 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     }
   }
 
+  /** One-click: create → approve → generate */
+  async function createAndGenerate() {
+    if (!form.prompt.trim()) return;
+    setLoadingId("new_generate");
+    try {
+      // Step 1: create
+      const res1 = await fetch("/api/image-generation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...form, triggered_by: "manual" }),
+      });
+      const j1 = await res1.json() as { job?: Job; error?: string };
+      if (!res1.ok || !j1.job) throw new Error(j1.error ?? "Failed to create job");
+
+      const jobId = (j1.job as Record<string, string>).id;
+      setLocalJobs(prev => [j1.job!, ...prev]);
+      setShowNew(false);
+
+      // Step 2: approve
+      await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
+      });
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId ? { ...j, status: "approved" } : j));
+      toast({ title: "Generating image…", description: "This may take 15–30 seconds." });
+
+      // Step 3: generate
+      const res3 = await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, action: "generate" }),
+      });
+      const d3 = await res3.json() as { output_urls?: Array<{ url: string }>; error?: string };
+      if (!res3.ok) throw new Error(d3.error ?? "Generation failed");
+
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId
+        ? { ...j, status: "completed", output_urls: d3.output_urls, selected_url: d3.output_urls?.[0]?.url }
+        : j
+      ));
+      toast({ variant: "success", title: "Image generated!" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Generation failed", description: err instanceof Error ? err.message : "Error" });
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
   async function approveJob(jobId: string) {
     setLoadingId(jobId + "_approve");
     try {
@@ -110,7 +158,7 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
 
   async function generateJob(jobId: string) {
     setLoadingId(jobId + "_gen");
-    toast({ title: "Generating with DALL-E 3…", description: "This may take 10–30 seconds." });
+    toast({ title: "Generating image…", description: "This may take 15–30 seconds." });
     try {
       const res = await fetch("/api/image-generation", {
         method: "PATCH",
@@ -127,6 +175,36 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     } catch (err) {
       setLocalJobs(prev => prev.map(j => (j.id as string) === jobId ? { ...j, status: "failed" } : j));
       toast({ variant: "destructive", title: "Generation failed", description: err instanceof Error ? err.message : "Error" });
+    } finally { setLoadingId(null); }
+  }
+
+  async function retryJob(jobId: string) {
+    setLoadingId(jobId + "_retry");
+    try {
+      // Reset to approved
+      await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
+      });
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId ? { ...j, status: "approved" } : j));
+      toast({ title: "Retrying generation…", description: "This may take 15–30 seconds." });
+
+      const res = await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, action: "generate" }),
+      });
+      const data = await res.json() as { output_urls?: Array<{ url: string }>; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Generation failed");
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId
+        ? { ...j, status: "completed", output_urls: data.output_urls, selected_url: data.output_urls?.[0]?.url }
+        : j
+      ));
+      toast({ variant: "success", title: "Image generated!" });
+    } catch (err) {
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId ? { ...j, status: "failed" } : j));
+      toast({ variant: "destructive", title: "Retry failed", description: err instanceof Error ? err.message : "Error" });
     } finally { setLoadingId(null); }
   }
 
@@ -180,8 +258,8 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
               <Label className="text-xs">Size</Label>
               <select value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} className="w-full mt-1 rounded-md border bg-background px-3 py-1.5 text-sm">
                 <option value="1024x1024">1024×1024 (Square)</option>
-                <option value="1792x1024">1792×1024 (Landscape)</option>
-                <option value="1024x1792">1024×1792 (Portrait)</option>
+                <option value="1536x1024">1536×1024 (Landscape)</option>
+                <option value="1024x1536">1024×1536 (Portrait)</option>
               </select>
             </div>
             <div>
@@ -192,10 +270,14 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
               </select>
             </div>
           </div>
-          <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={createJob} disabled={loadingId === "new"} className="gap-1.5">
+          <div className="flex gap-2 pt-1 flex-wrap">
+            <Button size="sm" onClick={createAndGenerate} disabled={!!loadingId} className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white">
+              {loadingId === "new_generate" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              Generate Now
+            </Button>
+            <Button size="sm" variant="outline" onClick={createJob} disabled={!!loadingId} className="gap-1.5">
               {loadingId === "new" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-              Create Job
+              Save for Later
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
           </div>
@@ -250,6 +332,12 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
                     {status === "generating" && (
                       <Button size="sm" variant="outline" className="h-7 px-2" disabled>
                         <Loader2 className="h-3 w-3 animate-spin" /> Generating…
+                      </Button>
+                    )}
+                    {status === "failed" && (
+                      <Button size="sm" variant="outline" className="h-7 px-2 gap-1 text-amber-600 border-amber-300" onClick={() => retryJob(jobId)} disabled={!!loadingId}>
+                        {loadingId === jobId + "_retry" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Retry
                       </Button>
                     )}
                     {status === "completed" && outputs.length > 0 && (

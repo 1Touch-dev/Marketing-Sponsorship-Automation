@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 export const maxDuration = 90;
 
 const OPENAI_API_URL = "https://api.openai.com/v1/images/generations";
+const STORAGE_BUCKET = "campaign-assets";
 
 /**
  * GET /api/image-generation?proposal_id=xxx — list jobs
@@ -16,11 +17,15 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
 
   const sb = supabaseAdmin();
-  let query: any = sb.from("image_generation_jobs" as "companies").select("*").order("created_at", { ascending: false }).limit(50);
+  // query builder
+  let query: any = sb.from("image_generation_jobs" as "companies")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   if (proposalId) query = query.eq("proposal_id", proposalId);
-  if (companyId) query = query.eq("company_id", companyId);
-  if (status) query = query.eq("status", status);
+  if (companyId)  query = query.eq("company_id", companyId);
+  if (status)     query = query.eq("status", status);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,8 +33,7 @@ export async function GET(req: Request) {
 }
 
 /**
- * POST /api/image-generation
- * Create a new image generation job (starts in pending_approval)
+ * POST /api/image-generation — Create a new job (pending_approval)
  */
 export async function POST(req: Request) {
   try {
@@ -53,25 +57,24 @@ export async function POST(req: Request) {
     }
 
     const sb = supabaseAdmin();
-    const sb2 = sb as any;
-    const { data: job, error } = await sb2
+    const { data: job, error } = await (sb as any)
       .from("image_generation_jobs")
       .insert({
-        proposal_id: body.proposal_id ?? null,
-        company_id: body.company_id ?? null,
-        mockup_id: body.mockup_id ?? null,
-        job_type: body.job_type ?? "custom",
-        status: "pending_approval",
-        prompt: body.prompt,
+        proposal_id:     body.proposal_id ?? null,
+        company_id:      body.company_id ?? null,
+        mockup_id:       body.mockup_id ?? null,
+        job_type:        body.job_type ?? "custom",
+        status:          "pending_approval",
+        prompt:          body.prompt,
         negative_prompt: body.negative_prompt ?? null,
-        style_notes: body.style_notes ?? null,
-        provider: body.provider ?? "gpt-image-1",
-        model: body.provider ?? "gpt-image-1",
-        size: body.size ?? "1024x1024",
-        quality: body.quality ?? "standard",
-        n_images: body.n_images ?? 1,
-        triggered_by: body.triggered_by ?? "manual",
-      } as unknown)
+        style_notes:     body.style_notes ?? null,
+        provider:        body.provider ?? "gpt-image-1",
+        model:           body.provider ?? "gpt-image-1",
+        size:            body.size ?? "1024x1024",
+        quality:         body.quality ?? "standard",
+        n_images:        body.n_images ?? 1,
+        triggered_by:    body.triggered_by ?? "manual",
+      })
       .select()
       .single();
 
@@ -84,15 +87,14 @@ export async function POST(req: Request) {
       metadata: { job_type: body.job_type, provider: body.provider ?? "gpt-image-1" },
     });
 
-    return NextResponse.json({ job, message: "Job created — pending approval before generation" });
+    return NextResponse.json({ job, message: "Job created — approve to generate image" });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });
   }
 }
 
 /**
- * PATCH /api/image-generation
- * Approve/reject a job, or trigger generation for approved jobs
+ * PATCH /api/image-generation — Approve / reject / generate / select
  */
 export async function PATCH(req: Request) {
   try {
@@ -106,7 +108,6 @@ export async function PATCH(req: Request) {
 
     const sb = supabaseAdmin();
 
-    // Load job
     const { data: job } = await sb
       .from("image_generation_jobs" as "companies")
       .select("*")
@@ -116,33 +117,40 @@ export async function PATCH(req: Request) {
     if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
     const j = job as Record<string, unknown>;
 
+    // ── Reject ────────────────────────────────────────────────────────
     if (body.action === "reject") {
       await sb.from("image_generation_jobs" as "companies")
-        .update({ status: "rejected", rejection_reason: body.rejection_reason ?? "Rejected", approved_by: body.approved_by } as unknown as Record<string,unknown>)
+        .update({ status: "rejected", rejection_reason: body.rejection_reason ?? "Rejected" } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
       return NextResponse.json({ success: true, status: "rejected" });
     }
 
+    // ── Approve ───────────────────────────────────────────────────────
     if (body.action === "approve") {
       await sb.from("image_generation_jobs" as "companies")
-        .update({ status: "approved", approved_by: body.approved_by ?? "admin", approved_at: new Date().toISOString() } as unknown as Record<string,unknown>)
+        .update({
+          status: "approved",
+          approved_by: body.approved_by ?? "admin",
+          approved_at: new Date().toISOString(),
+        } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
-      return NextResponse.json({ success: true, status: "approved", message: "Job approved — call generate to create images" });
+      return NextResponse.json({ success: true, status: "approved" });
     }
 
+    // ── Select image ──────────────────────────────────────────────────
     if (body.action === "select_image") {
       await sb.from("image_generation_jobs" as "companies")
-        .update({ selected_url: body.selected_url } as unknown as Record<string,unknown>)
+        .update({ selected_url: body.selected_url } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
-      // Update linked mockup if exists
       if (j.mockup_id && body.selected_url) {
         await sb.from("visual_mockups" as "companies")
-          .update({ output_url: body.selected_url, status: "generated" } as unknown as Record<string,unknown>)
+          .update({ output_url: body.selected_url, status: "generated" } as unknown as Record<string, unknown>)
           .eq("id", j.mockup_id as string);
       }
       return NextResponse.json({ success: true, selected_url: body.selected_url });
     }
 
+    // ── Generate ──────────────────────────────────────────────────────
     if (body.action === "generate") {
       if (j.status !== "approved") {
         return NextResponse.json({ error: "Job must be approved before generating" }, { status: 400 });
@@ -151,23 +159,26 @@ export async function PATCH(req: Request) {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-      // Mark as generating
       await sb.from("image_generation_jobs" as "companies")
-        .update({ status: "generating" } as unknown as Record<string,unknown>)
+        .update({ status: "generating" } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
 
       const startMs = Date.now();
 
-      // Call DALL-E 3 API
+      // ── Call OpenAI gpt-image-1 ───────────────────────────────────
+      // gpt-image-1 always returns b64_json (not url). We upload to Supabase Storage.
       const openaiRes = await fetch(OPENAI_API_URL, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          model: j.model ?? "gpt-image-1",
-          prompt: j.prompt as string,
-          n: Math.min((j.n_images as number) ?? 1, 1),
-          size: j.size ?? "1024x1024",
-          quality: (j.quality === "hd" ? "high" : j.quality === "standard" ? "medium" : j.quality) ?? "medium",
+          model:   j.model ?? "gpt-image-1",
+          prompt:  j.prompt as string,
+          n:       Math.min(Number(j.n_images ?? 1), 4),
+          size:    validateSize(j.size as string),
+          quality: mapQuality(j.quality as string),
         }),
       });
 
@@ -177,31 +188,78 @@ export async function PATCH(req: Request) {
         const errBody = await openaiRes.json() as { error?: { message?: string } };
         const errMsg = errBody?.error?.message ?? `OpenAI error ${openaiRes.status}`;
         await sb.from("image_generation_jobs" as "companies")
-          .update({ status: "failed", error_message: errMsg, generation_ms: generationMs } as unknown as Record<string,unknown>)
+          .update({ status: "failed", error_message: errMsg } as unknown as Record<string, unknown>)
           .eq("id", body.job_id);
         return NextResponse.json({ error: errMsg }, { status: 500 });
       }
 
-      const openaiData = await openaiRes.json() as { data: Array<{ url: string; revised_prompt?: string }> };
-      const outputUrls = openaiData.data.map((img, i) => ({
-        url: img.url,
-        revised_prompt: img.revised_prompt,
-        index: i,
-      }));
+      const openaiData = await openaiRes.json() as {
+        data: Array<{ b64_json?: string; url?: string; revised_prompt?: string }>;
+      };
 
+      if (!openaiData.data || openaiData.data.length === 0) {
+        await sb.from("image_generation_jobs" as "companies")
+          .update({ status: "failed", error_message: "OpenAI returned no images" } as unknown as Record<string, unknown>)
+          .eq("id", body.job_id);
+        return NextResponse.json({ error: "OpenAI returned no images" }, { status: 500 });
+      }
+
+      // ── Upload b64 images to Supabase Storage ──────────────────────
+      const outputUrls: Array<{ url: string; revised_prompt?: string; index: number }> = [];
+
+      for (let i = 0; i < openaiData.data.length; i++) {
+        const img = openaiData.data[i];
+        const b64 = img.b64_json;
+        const directUrl = img.url; // some models return url
+
+        if (directUrl) {
+          outputUrls.push({ url: directUrl, revised_prompt: img.revised_prompt, index: i });
+          continue;
+        }
+
+        if (b64) {
+          // Convert base64 to Buffer and upload to Supabase Storage
+          const imageBuffer = Buffer.from(b64, "base64");
+          const filename = `generated/${body.job_id}_${i}_${Date.now()}.png`;
+
+          const { data: uploadData, error: uploadErr } = await sb.storage
+            .from(STORAGE_BUCKET)
+            .upload(filename, imageBuffer, {
+              contentType: "image/png",
+              upsert: true,
+            });
+
+          if (uploadErr) {
+            // Fall back to data URL if storage upload fails
+            const dataUrl = `data:image/png;base64,${b64}`;
+            outputUrls.push({ url: dataUrl, revised_prompt: img.revised_prompt, index: i });
+          } else {
+            const { data: publicUrl } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
+            outputUrls.push({ url: publicUrl.publicUrl, revised_prompt: img.revised_prompt, index: i });
+          }
+        }
+      }
+
+      if (outputUrls.length === 0) {
+        await sb.from("image_generation_jobs" as "companies")
+          .update({ status: "failed", error_message: "No images could be processed" } as unknown as Record<string, unknown>)
+          .eq("id", body.job_id);
+        return NextResponse.json({ error: "No images could be processed" }, { status: 500 });
+      }
+
+      // ── Persist results ────────────────────────────────────────────
       await sb.from("image_generation_jobs" as "companies")
         .update({
           status: "completed",
           output_urls: outputUrls,
           selected_url: outputUrls[0]?.url ?? null,
           generation_ms: generationMs,
-        } as unknown as Record<string,unknown>)
+        } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
 
-      // Update linked mockup
       if (j.mockup_id && outputUrls[0]?.url) {
         await sb.from("visual_mockups" as "companies")
-          .update({ output_url: outputUrls[0].url, status: "generated" } as unknown as Record<string,unknown>)
+          .update({ output_url: outputUrls[0].url, status: "generated" } as unknown as Record<string, unknown>)
           .eq("id", j.mockup_id as string);
       }
 
@@ -209,14 +267,33 @@ export async function PATCH(req: Request) {
         action: "image_job.generated",
         entity_type: "image_generation_job",
         entity_id: body.job_id,
-        metadata: { images_generated: outputUrls.length, generation_ms: generationMs },
+        metadata: { images_count: outputUrls.length, generation_ms: generationMs },
       });
 
-      return NextResponse.json({ success: true, output_urls: outputUrls, generation_ms: generationMs });
+      return NextResponse.json({
+        success: true,
+        output_urls: outputUrls,
+        selected_url: outputUrls[0]?.url,
+        generation_ms: generationMs,
+      });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+/** gpt-image-1 only supports specific sizes */
+function validateSize(size: string | undefined): string {
+  const valid = ["1024x1024", "1024x1536", "1536x1024", "auto"];
+  return valid.includes(size ?? "") ? (size as string) : "1024x1024";
+}
+
+/** Map quality label to OpenAI values */
+function mapQuality(q: string | undefined): "low" | "medium" | "high" {
+  if (q === "hd" || q === "high") return "high";
+  if (q === "low" || q === "draft") return "low";
+  return "medium";
 }
