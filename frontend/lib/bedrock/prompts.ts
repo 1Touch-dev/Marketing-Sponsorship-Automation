@@ -373,6 +373,8 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
       "Analyse the company's fit as a Coritiba FC sponsor in the Curitiba/Paraná market.",
       "All analysis, recommendations, and context must be framed around Coritiba FC partnership.",
       "NEVER suggest competitor clubs. The partnership target is always Coritiba FC.",
+      "CRITICAL: Do NOT mention Athletico Paranaense, Corinthians, Flamengo, São Paulo FC, Palmeiras, Grêmio, Internacional, or any other Brazilian or global football club by name anywhere in your response. Only Coritiba FC.",
+      "When giving global inspiration examples, reference non-football or international sponsorships only (e.g., NBA, NFL, F1, tennis, technology companies, retail brands) — never other Brazilian clubs.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
@@ -386,6 +388,8 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
       "Analyse this company's fit as a Coritiba FC / Couto Pereira sponsor. Return JSON:",
       `{
   "intelligence": {
+    "products_services": "Brief description of main products/services",
+    "target_audience": "Primary customer segments and demographics",
     "marketing_goals": ["goal 1 aligned with Coritiba audience", "goal 2", "goal 3"],
     "brand_positioning": "How this brand aligns with Coritiba FC's Verde e Branco identity",
     "audience_alignment": "How the company's customers match Coritiba's Curitiba/Paraná fan base",
@@ -394,7 +398,7 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
     "sponsorship_fit_rationale": "Why this company is a strong/weak Coritiba FC sponsor",
     "recommended_direction": "Recommended Coritiba FC sponsorship strategy for this company",
     "local_context": "Specific Curitiba/Paraná regional context for this company + Coritiba",
-    "global_inspiration": "Global campaign examples that could inspire this Coritiba partnership"
+    "global_inspiration": "Non-football brand sponsorship examples (international only, no Brazilian clubs) that inspire this Coritiba partnership"
   }
 }`,
     ]
