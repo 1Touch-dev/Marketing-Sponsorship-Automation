@@ -12,12 +12,10 @@ import {
 } from "lucide-react";
 
 // Dynamically import Konva components to avoid SSR issues
-const Stage = dynamic(() => import("react-konva").then(m => m.Stage), { ssr: false });
-const Layer = dynamic(() => import("react-konva").then(m => m.Layer), { ssr: false });
-const KonvaImage: React.ComponentType<Record<string, unknown>> = dynamic(() => import("react-konva").then(m => m.Image as unknown as React.ComponentType<Record<string, unknown>>), { ssr: false }) as React.ComponentType<Record<string, unknown>>;
-const Transformer = dynamic(() => import("react-konva").then(m => m.Transformer), { ssr: false });
-const Rect = dynamic(() => import("react-konva").then(m => m.Rect), { ssr: false });
-const Text = dynamic(() => import("react-konva").then(m => m.Text), { ssr: false });
+const KonvaCanvas = dynamic(
+  () => import("./konva-canvas").then(m => m.KonvaCanvas),
+  { ssr: false, loading: () => <div className="flex items-center justify-center w-full h-full min-h-[300px]"><div className="text-white/40 text-sm">Loading canvas…</div></div> }
+);
 
 type Template = {
   id: string;
@@ -95,7 +93,6 @@ export function MockupEditorClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState("");
   const [showZones, setShowZones] = useState(true);
-  const [canvasReady, setCanvasReady] = useState(false);
 
   const loadLogoImage = useCallback((url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -251,65 +248,16 @@ export function MockupEditorClient() {
       {/* Canvas */}
       <div className="flex-1">
         <div className="rounded-xl border bg-slate-900 overflow-auto p-4 flex items-center justify-center min-h-[400px]">
-          {typeof window !== "undefined" && (
-            <Stage
-              ref={stageRef}
-              width={tmpl.width}
-              height={tmpl.height}
-              onMount={() => setCanvasReady(true)}
-              style={{ cursor: "crosshair" }}
-            >
-              <Layer>
-                {/* Background */}
-                <Rect x={0} y={0} width={tmpl.width} height={tmpl.height} fill={tmpl.bgColor} />
-
-                {/* Template label */}
-                <Text x={10} y={10} text={`Coritiba FC — ${tmpl.label}`} fill="rgba(255,255,255,0.4)" fontSize={11} fontFamily="sans-serif" />
-
-                {/* Placement zones */}
-                {showZones && tmpl.zones.map(zone => (
-                  <React.Fragment key={zone.id}>
-                    <Rect
-                      x={zone.x} y={zone.y} width={zone.w} height={zone.h}
-                      fill={zone.color} stroke="rgba(255,255,255,0.3)" strokeWidth={1}
-                      dash={[5, 3]}
-                    />
-                    <Text
-                      x={zone.x + 4} y={zone.y + 4}
-                      text={zone.label} fill="rgba(255,255,255,0.5)"
-                      fontSize={9} fontFamily="sans-serif"
-                    />
-                  </React.Fragment>
-                ))}
-
-                {/* Logos */}
-                {logos.map(logo => (
-                  logo.imgElement ? (
-                    <KonvaImage                       key={logo.id}
-                      id={logo.id}
-                      image={logo.imgElement}
-                      x={logo.x}
-                      y={logo.y}
-                      scaleX={logo.scaleX}
-                      scaleY={logo.scaleY}
-                      rotation={logo.rotation}
-                      draggable={true}
-                      onClick={() => setSelectedId(logo.id)}
-                      onTap={() => setSelectedId(logo.id)}
-                      onDragEnd={(e: { target: { x: () => number; y: () => number } }) => setLogos(prev => prev.map(l => l.id === logo.id ? { ...l, x: e.target.x(), y: e.target.y() } : l))}
-                      onTransformEnd={(e: { target: { x: () => number; y: () => number; scaleX: () => number; scaleY: () => number; rotation: () => number } }) => {
-                        setLogos(prev => prev.map(l => l.id === logo.id ? {
-                          ...l, x: e.target.x(), y: e.target.y(),
-                          scaleX: e.target.scaleX(), scaleY: e.target.scaleY(),
-                          rotation: e.target.rotation(),
-                        } : l));
-                      }}
-                    />
-                  ) : null
-                ))}
-              </Layer>
-            </Stage>
-          )}
+          <KonvaCanvas
+            stageRef={stageRef}
+            tmpl={tmpl}
+            logos={logos}
+            showZones={showZones}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onLogoMove={(id, x, y) => setLogos(prev => prev.map(l => l.id === id ? { ...l, x, y } : l))}
+            onLogoTransform={(id, x, y, scaleX, scaleY, rotation) => setLogos(prev => prev.map(l => l.id === id ? { ...l, x, y, scaleX, scaleY, rotation } : l))}
+          />
         </div>
         <div className="mt-2 text-xs text-muted-foreground flex items-center gap-4">
           <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" /> {logos.length} logo{logos.length !== 1 ? "s" : ""} on canvas</span>
