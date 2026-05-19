@@ -65,8 +65,8 @@ export async function POST(req: Request) {
         prompt: body.prompt,
         negative_prompt: body.negative_prompt ?? null,
         style_notes: body.style_notes ?? null,
-        provider: body.provider ?? "dall-e-3",
-        model: body.provider ?? "dall-e-3",
+        provider: body.provider ?? "gpt-image-1",
+        model: body.provider ?? "gpt-image-1",
         size: body.size ?? "1024x1024",
         quality: body.quality ?? "standard",
         n_images: body.n_images ?? 1,
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       action: "image_job.created",
       entity_type: "image_generation_job",
       entity_id: (job as Record<string, string>).id,
-      metadata: { job_type: body.job_type, provider: body.provider ?? "dall-e-3" },
+      metadata: { job_type: body.job_type, provider: body.provider ?? "gpt-image-1" },
     });
 
     return NextResponse.json({ job, message: "Job created — pending approval before generation" });
@@ -163,12 +163,11 @@ export async function PATCH(req: Request) {
         method: "POST",
         headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: j.model ?? "dall-e-3",
+          model: j.model ?? "gpt-image-1",
           prompt: j.prompt as string,
-          n: Math.min((j.n_images as number) ?? 1, 1), // DALL-E 3 supports n=1 only
+          n: Math.min((j.n_images as number) ?? 1, 1),
           size: j.size ?? "1024x1024",
-          quality: j.quality ?? "standard",
-          response_format: "url",
+          quality: (j.quality === "hd" ? "high" : j.quality === "standard" ? "medium" : j.quality) ?? "medium",
         }),
       });
 
