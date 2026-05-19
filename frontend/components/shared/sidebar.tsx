@@ -26,6 +26,11 @@ import {
   Image,
   ChevronDown,
   Wrench,
+  Sparkles,
+  Layers,
+  Wand2,
+  GitMerge,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +47,7 @@ const NAV: NavItem[] = [
   { href: "/companies", label: "Companies", icon: Building2, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
   // Proposal workflow
+  { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
   { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
@@ -53,8 +59,13 @@ const NAV: NavItem[] = [
   { href: "/inventory", label: "Inventory", icon: Package, group: "intelligence" },
   { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
   { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
-  { href: "/media", label: "AI Media", icon: Image, group: "intelligence" },
   { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
+  // Media
+  { href: "/media-generation", label: "AI Image Gen", icon: Sparkles, group: "media" },
+  { href: "/mockup-editor", label: "Mockup Editor", icon: Layers, group: "media" },
+  { href: "/media", label: "Media Archive", icon: Image, group: "media" },
+  // CRM & Integrations
+  { href: "/crm-sync", label: "CRM Sync", icon: GitMerge, group: "integrations" },
   // System
   { href: "/workflow-events", label: "Workflows", icon: Activity, group: "system" },
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
@@ -66,6 +77,8 @@ const GROUPS: Record<string, string> = {
   core: "CRM",
   proposals: "Proposal Workflow",
   intelligence: "Intelligence",
+  media: "Media & Visuals",
+  integrations: "Integrations",
   system: "System",
 };
 
