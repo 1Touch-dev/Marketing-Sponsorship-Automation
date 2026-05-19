@@ -9,6 +9,7 @@ import {
   Trophy, RotateCcw, Globe, Search, Building2, CheckCircle,
   AlertCircle, Loader2, ExternalLink,
 } from "lucide-react";
+import { ApifyDiscoveryPanel } from "@/components/intelligence/apify-discovery-panel";
 
 interface Props {
   companyId: string;
@@ -33,7 +34,7 @@ export function CompanyAIAnalysis({
   const [serpData, setSerpData] = useState<Record<string, unknown> | null>(
     (intelligence?.serp_intelligence as Record<string, unknown>) ?? null
   );
-  const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp">("intelligence");
+  const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp" | "discover">("intelligence");
 
   const scrapeMetadata = data?.scrape_metadata as Record<string, unknown> | null;
   const competitors = (data?.competitors as Array<Record<string, string>>) ?? [];
@@ -146,12 +147,13 @@ export function CompanyAIAnalysis({
         {/* Tabs */}
         {data && (
           <div className="flex gap-1 mt-2 flex-wrap">
-            {(["intelligence", "competitors", "scrape", "serp"] as const).map(tab => (
+            {(["intelligence", "competitors", "scrape", "serp", "discover"] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize ${activeTab === tab ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}>
                 {tab === "competitors" ? `Competitors (${competitors.length})` :
                  tab === "scrape" ? "Scrape Data" :
                  tab === "serp" ? `Market Intel${serpData ? " ✓" : ""}` :
+                 tab === "discover" ? "⚡ Apify Discovery" :
                  "Intelligence"}
               </button>
             ))}
@@ -383,6 +385,17 @@ export function CompanyAIAnalysis({
                 </>
               )}
             </div>
+          )}
+
+          {/* Tab: Apify Commercial Discovery */}
+          {activeTab === "discover" && (
+            <ApifyDiscoveryPanel
+              companyId={companyId}
+              companyName={companyName}
+              industry={industry}
+              website={website}
+              existingIntelligence={data}
+            />
           )}
         </CardContent>
       )}

@@ -1,15 +1,18 @@
+/**
+ * POST /api/intelligence/serp
+ * Market intelligence via Apify Google Search + Claude AI enrichment.
+ * Replaces SerpAPI dependency. Graceful fallback to AI-only when Apify unavailable.
+ */
+
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
+import { searchGoogle, batchSearchGoogle } from "@/lib/intelligence/google-search";
 import { logger } from "@/lib/monitoring/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY ?? process.env.SERPAPI_API_KEY ?? "";
-const SERPAPI_BASE = "https://serpapi.com/search.json";
-
-/** POST /api/intelligence/serp */
 export async function POST(req: Request) {
   try {
     const { company_id, company_name, industry, website } = await req.json() as {
@@ -20,55 +23,46 @@ export async function POST(req: Request) {
     };
 
     const startTime = Date.now();
-    let serpResults: SerpResult[] = [];
-    let serpWorked = false;
 
-    // ── Try SerpAPI if key is configured ─────────────────────────────
-    if (SERPAPI_KEY && SERPAPI_KEY.length > 10) {
-      try {
-        const queries = [
-          `concorrentes de ${company_name} Brasil`,
-          `${company_name} patrocínio esporte futebol`,
-          `empresas similares ${company_name} ${industry ?? ""}`,
-        ];
+    // ── Apify Google Search ───────────────────────────────────────────
+    const queries = [
+      `concorrentes de ${company_name} Brasil`,
+      `${company_name} patrocínio esporte futebol`,
+      `empresas similares ${company_name} ${industry ?? ""}`,
+    ];
 
-        const allResults: SerpResult[] = [];
-        for (const q of queries.slice(0, 2)) {
-          const url = `${SERPAPI_BASE}?engine=google&q=${encodeURIComponent(q)}&api_key=${SERPAPI_KEY}&num=8&gl=br&hl=pt&safe=active`;
-          const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-          if (!res.ok) continue;
-          const data = await res.json() as { organic_results?: SerpResult[]; error?: string };
-          if (data.error) {
-            logger.warn("SerpAPI key invalid", { error: data.error });
-            break;
-          }
-          allResults.push(...(data.organic_results ?? []));
-          serpWorked = true;
-        }
-        serpResults = allResults;
-      } catch (e) {
-        logger.warn("SerpAPI fetch failed, using AI fallback", { error: String(e) });
-      }
+    let searchResults: Awaited<ReturnType<typeof batchSearchGoogle>> = [];
+    let apifyWorked = false;
+
+    try {
+      searchResults = await batchSearchGoogle(queries.slice(0, 2), {
+        lang: "pt",
+        country: "BR",
+        numResults: 8,
+        timeoutMs: 45_000,
+      });
+      apifyWorked = searchResults.some((r) => r.organic_results.length > 0);
+    } catch (e) {
+      logger.warn("Apify search failed, using AI fallback", { error: String(e) });
     }
 
-    // ── AI-powered competitor discovery (always runs) ─────────────────
-    const serpContext = serpWorked && serpResults.length > 0
-      ? `\nWeb search results for context:\n${serpResults.slice(0, 6).map(r => `- ${r.title}: ${r.snippet ?? ""}`).join("\n")}`
-      : "\n(No live web search available — use your training knowledge for Brazil market)";
+    const serpContext = apifyWorked && searchResults.length > 0
+      ? `\nWeb search results:\n${searchResults.flatMap((r) => r.organic_results).slice(0, 8).map((o) => `- ${o.title}: ${o.description?.slice(0, 100) ?? ""}`).join("\n")}`
+      : "\n(No live web search — using training knowledge for Brazil market)";
 
+    // ── AI Enrichment ─────────────────────────────────────────────────
     const prompt = `You are a Brazilian commercial intelligence analyst for Coritiba FC sponsorship.
-
 Company: ${company_name}
 Industry: ${industry ?? "Unknown"}
 Website: ${website ?? "Unknown"}
 ${serpContext}
 
 CRITICAL RULES:
-- NEVER mention Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, Grêmio, Internacional or any Brazilian football club as inspiration
-- Only suggest non-football competitors and business-domain companies
+- NEVER mention Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, Grêmio, Internacional or any Brazilian football club
+- Only suggest non-football commercial/corporate companies
 - Keep all recommendations Coritiba FC focused
 
-Provide deep market intelligence for this company's sponsorship ecosystem. Return JSON ONLY:
+Return JSON ONLY:
 {
   "competitors": [
     {"name": "Company Name", "reason": "Direct competitor because...", "estimated_spend": "R$X/year", "sponsorship_active": true, "website": "domain.com", "confidence": 0.9}
@@ -98,8 +92,8 @@ Provide deep market intelligence for this company's sponsorship ecosystem. Retur
     "differentiation": "What makes this partnership unique",
     "risk_mitigation": "How to address likely objections"
   },
-  "serp_worked": ${serpWorked},
-  "data_source": "${serpWorked ? "serp+ai" : "ai_only"}"
+  "apify_worked": ${apifyWorked},
+  "data_source": "${apifyWorked ? "apify+ai" : "ai_only"}"
 }`;
 
     const result = await invokeClaude({
@@ -114,7 +108,7 @@ Provide deep market intelligence for this company's sponsorship ecosystem. Retur
       if (match) intelligence = JSON.parse(match[0]);
     } catch { /* fallback */ }
 
-    // ── Persist to company intelligence ──────────────────────────────
+    // ── Persist ───────────────────────────────────────────────────────
     const sb = supabaseAdmin();
     const { data: company } = await sb.from("companies")
       .select("full_intelligence, intelligence")
@@ -131,7 +125,7 @@ Provide deep market intelligence for this company's sponsorship ecosystem. Retur
       industry_graph: intelligence.industry_graph ?? {},
       sponsorship_discovery: intelligence.sponsorship_discovery ?? [],
       serp_updated_at: new Date().toISOString(),
-      serp_method: serpWorked ? "serpapi+claude" : "claude_only",
+      serp_method: apifyWorked ? "apify+claude" : "claude_only",
     };
 
     await sb.from("companies").update({
@@ -141,14 +135,14 @@ Provide deep market intelligence for this company's sponsorship ecosystem. Retur
 
     logger.info("SERP intelligence completed", {
       company_id,
-      serp_worked: serpWorked,
+      apify_worked: apifyWorked,
       duration_ms: Date.now() - startTime,
       competitors_found: (intelligence.competitors as unknown[])?.length ?? 0,
     });
 
     return NextResponse.json({
       success: true,
-      serp_worked: serpWorked,
+      apify_worked: apifyWorked,
       data_source: intelligence.data_source ?? "ai_only",
       competitors: intelligence.competitors ?? [],
       market_context: intelligence.market_context ?? {},
@@ -157,16 +151,8 @@ Provide deep market intelligence for this company's sponsorship ecosystem. Retur
       sponsorship_discovery: intelligence.sponsorship_discovery ?? [],
       coritiba_positioning: intelligence.coritiba_positioning ?? {},
     });
-
   } catch (err) {
     logger.apiError("/api/intelligence/serp", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed" }, { status: 500 });
   }
 }
-
-type SerpResult = {
-  title: string;
-  link: string;
-  snippet?: string;
-  position?: number;
-};

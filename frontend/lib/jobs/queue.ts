@@ -11,7 +11,9 @@ export type JobType =
   | "proposal_generate"
   | "logo_fetch"
   | "campaign_generate"
-  | "crm_sync";
+  | "crm_sync"
+  | "competitor_discovery"
+  | "industry_expand";
 
 export type JobStatus = "queued" | "running" | "done" | "failed" | "retrying";
 

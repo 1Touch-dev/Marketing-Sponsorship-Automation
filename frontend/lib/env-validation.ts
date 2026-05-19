@@ -21,6 +21,8 @@ export function validateEnv(): { valid: boolean; statuses: EnvStatus[]; summary:
     { key: "AWS_SECRET_ACCESS_KEY", required: false, validate: v => v.length > 20 },
     { key: "BEDROCK_MODEL_ID", required: false },
     { key: "OPENAI_API_KEY", required: false, validate: v => v.startsWith("sk-") },
+    { key: "APIFY_API_TOKEN", required: false, validate: v => v.startsWith("apify_api_"), hint: "Get from apify.com/account/integrations" },
+    { key: "SERPAPI_KEY", required: false, hint: "Optional — get from serpapi.com/manage-api-key" },
     { key: "PIPEDRIVE_API_KEY", required: false },
     { key: "NEXTAUTH_SECRET", required: false },
   ];
