@@ -158,16 +158,16 @@ export function ProposalWizard({
   const { toast } = useToast();
 
   const [step, setStep] = useState(1);
-  const [sessionKey] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = sessionStorage.getItem("wizard_session");
-      if (stored) return stored;
-      const key = crypto.randomUUID();
-      sessionStorage.setItem("wizard_session", key);
-      return key;
+  // Use a stable session key — avoid SSR/client mismatch by not touching sessionStorage during render
+  const [sessionKey] = useState(() => crypto.randomUUID());
+  const sessionInitialized = React.useRef(false);
+  useEffect(() => {
+    if (sessionInitialized.current) return;
+    sessionInitialized.current = true;
+    if (!sessionStorage.getItem("wizard_session")) {
+      sessionStorage.setItem("wizard_session", sessionKey);
     }
-    return crypto.randomUUID();
-  });
+  }, [sessionKey]);
 
   // Wizard state
   const [proposalType, setProposalType] = useState<ProposalType>("sponsorship");
@@ -243,7 +243,7 @@ export function ProposalWizard({
   }
 
   function next() {
-    saveDraft({ current_step: step + 1, proposal_type: proposalType, company_id: selectedCompany?.id, selected_components: selectedComponents, selected_strategies: selectedStrategies, custom_brief: customBrief });
+    saveDraft({ current_step: step + 1, proposal_type: proposalType, company_id: selectedCompany?.id, selected_components: selectedComponents, selected_strategies: selectedStrategies, custom_brief: customBrief }).catch(() => {/* non-blocking */});
     setStep(s => Math.min(s + 1, 6));
   }
   function back() { setStep(s => Math.max(s - 1, 1)); }
@@ -318,7 +318,7 @@ export function ProposalWizard({
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto pb-28">
       <StepIndicator current={step} />
 
       {/* ── STEP 1: Proposal Type ── */}
