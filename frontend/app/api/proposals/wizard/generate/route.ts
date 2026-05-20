@@ -14,6 +14,14 @@ export async function POST(req: Request) {
       company_id: string;
       campaign_id?: string | null;
       selected_components?: string[];
+      selected_inventory_lines?: Array<{
+        inventory_id: string;
+        name: string;
+        quantity: number;
+        scope: string;
+        slot_timing: string | null;
+        price_agreed: number | null;
+      }>;
       selected_strategies?: string[];
       strategy?: string;
       custom_brief?: string;
@@ -21,6 +29,7 @@ export async function POST(req: Request) {
 
     const selectedComponents: string[] = body.selected_components ?? (body.strategy ? [body.strategy] : []);
     const selectedStrategies: string[] = body.selected_strategies ?? (body.strategy ? [body.strategy] : []);
+    const inventoryLines = body.selected_inventory_lines ?? [];
 
     const sb = supabaseAdmin();
 
@@ -28,12 +37,45 @@ export async function POST(req: Request) {
     const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
+    // Load company intelligence + differentiators
+    const co = company as Record<string, unknown>;
+    const intel = (co.full_intelligence as Record<string, unknown> | null) ?? {};
+    const differentiators = (intel.differentiators as Record<string, unknown> | null) ?? null;
+    const competitors = (intel.competitors as Array<Record<string, unknown>> | null) ?? [];
+
     // Load campaign if provided
     const { data: campaign } = body.campaign_id
       ? await sb.from("campaigns").select("id, title, summary").eq("id", body.campaign_id).maybeSingle()
       : { data: null };
 
-    // Build context-aware proposal prompt with selected components and strategies
+    // Build inventory package summary for the AI
+    const packageLines = inventoryLines.length > 0
+      ? inventoryLines.map(l => `- ${l.name} × ${l.quantity} (${l.scope}${l.slot_timing ? " / " + l.slot_timing : ""})${l.price_agreed ? " — R$" + l.price_agreed.toLocaleString("pt-BR") : ""}`)
+      : [];
+    const packageTotal = inventoryLines.reduce((s, l) => s + (l.price_agreed ?? 0) * l.quantity, 0);
+
+    const inventoryContext = packageLines.length > 0
+      ? `\n\nSPONSORSHIP PACKAGE SELECTED (use these exact items in the proposal):\n${packageLines.join("\n")}${packageTotal > 0 ? `\nPackage total: R$${packageTotal.toLocaleString("pt-BR")}` : ""}`
+      : "";
+
+    // Differentiator personalisation context
+    let diffContext = "";
+    if (differentiators) {
+      const d = differentiators as Record<string, unknown>;
+      const strengths = (d.brand_strengths as string[] | null) ?? [];
+      const gaps = (d.competitor_gaps as string[] | null) ?? [];
+      const angle = d.proposal_angle as string | null;
+      const intro = d.personalised_proposal_intro as string | null;
+      if (strengths.length || gaps.length || angle) {
+        diffContext = `\n\nPERSONALISATION CONTEXT (use this to make the proposal specific to this brand):\n`;
+        if (strengths.length) diffContext += `Brand strengths: ${strengths.slice(0, 3).join("; ")}\n`;
+        if (gaps.length) diffContext += `Competitor gaps to exploit: ${gaps.slice(0, 3).join("; ")}\n`;
+        if (angle) diffContext += `Key pitch angle: ${angle}\n`;
+        if (intro) diffContext += `Personalised intro context: ${intro}\n`;
+        if (competitors.length) diffContext += `Key competitors: ${competitors.slice(0, 4).map(c => c.name).join(", ")}\n`;
+      }
+    }
+
     const componentContext = selectedComponents.length > 0
       ? `\nSelected sponsorship inventory: ${selectedComponents.map(c => c.replace(/_/g, " ")).join(", ")}.`
       : "";
@@ -53,7 +95,7 @@ export async function POST(req: Request) {
       strategy_variant: strategyVariant,
     });
 
-    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext;
+    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext;
 
     const result = await invokeClaude({
       messages: [{ role: "user", content: enhancedUser }],
@@ -92,6 +134,21 @@ export async function POST(req: Request) {
     }).select("id").single();
 
     if (error) throw new Error(error.message);
+
+    // Save individual inventory line items if selected
+    if (inventoryLines.length > 0 && proposal?.id) {
+      await (sb as any).from("proposal_inventory_items").insert(
+        inventoryLines.map(l => ({
+          proposal_id: proposal.id,
+          inventory_id: l.inventory_id,
+          quantity: l.quantity,
+          scope: l.scope,
+          slot_timing: l.slot_timing,
+          price_agreed: l.price_agreed,
+          currency: "BRL",
+        }))
+      );
+    }
 
     // Update wizard draft
     await sb.from("proposal_wizard_drafts" as "companies").upsert({

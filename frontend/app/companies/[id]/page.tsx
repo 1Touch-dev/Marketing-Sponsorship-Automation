@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Building2, Globe, Calendar, Tag, Users, Briefcase,
   TrendingUp, Brain, Target, ArrowLeft, Plus, Pencil,
-  MapPin, Phone, Mail, Activity
+  MapPin, Phone, Mail, Activity, Zap, FileText
 } from "lucide-react";
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
@@ -91,6 +91,18 @@ export default async function CompanyDetailPage({
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 New Campaign
+              </Button>
+            </Link>
+            <Link href={`/campaigns/new?company_id=${company.id}`}>
+              <Button size="sm" variant="outline">
+                <Zap className="h-4 w-4 mr-1" />
+                Generate Campaign
+              </Button>
+            </Link>
+            <Link href={`/proposals/new?company_id=${company.id}`}>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                <FileText className="h-4 w-4 mr-1" />
+                Create Proposal
               </Button>
             </Link>
           </div>

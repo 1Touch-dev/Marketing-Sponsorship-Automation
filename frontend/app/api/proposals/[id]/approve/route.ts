@@ -5,13 +5,15 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalStatus } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
 const STATUS_MAP: Record<string, ProposalStatus> = {
-  approve: "approved",
-  reject: "rejected",
+  approve:          "approved",
+  reject:           "rejected",
   request_revision: "revision_requested",
+  submit_review:    "under_review",
 };
 
 export async function POST(req: Request, ctx: { params: { id: string } }) {
@@ -26,21 +28,42 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   }
 
   const sb = supabaseAdmin();
-  const { error: insErr } = await sb.from("approvals").insert({
-    proposal_id: parsed.data.proposal_id,
-    decision: parsed.data.decision,
-    comments: parsed.data.comments ?? null,
-  });
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+
+  // Insert approval record (skip for submit_review — that's just a status change)
+  if (parsed.data.decision !== "submit_review") {
+    const { error: insErr } = await sb.from("approvals").insert({
+      proposal_id: parsed.data.proposal_id,
+      decision: parsed.data.decision,
+      comments: parsed.data.comments ?? null,
+    });
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+  }
 
   const newStatus = STATUS_MAP[parsed.data.decision];
+  if (!newStatus) return NextResponse.json({ error: "Unknown decision" }, { status: 400 });
+
   const updateData: Record<string, unknown> = {
     status: newStatus,
     status_reason: parsed.data.status_reason ?? parsed.data.comments ?? null,
   };
-  if (parsed.data.decision === "approve") updateData.approved_at = new Date().toISOString();
 
-  const update = guardColumns("proposals", updateData as Record<string, unknown>);
+  if (parsed.data.decision === "approve") {
+    updateData.approved_at = new Date().toISOString();
+
+    // Auto-generate share_token if the proposal doesn't have one
+    const { data: current } = await sb
+      .from("proposals")
+      .select("share_token")
+      .eq("id", parsed.data.proposal_id)
+      .maybeSingle();
+
+    const existing = (current as Record<string, unknown> | null)?.share_token;
+    if (!existing) {
+      updateData.share_token = crypto.randomBytes(24).toString("hex");
+    }
+  }
+
+  const update = guardColumns("proposals", updateData);
 
   const { data: proposal, error: updErr } = await sb
     .from("proposals")
@@ -54,7 +77,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     entity_type: "proposal",
     entity_id: parsed.data.proposal_id,
     action: `proposal.${parsed.data.decision}`,
-    metadata: { comments: parsed.data.comments ?? null, status_reason: update.status_reason },
+    metadata: { comments: parsed.data.comments ?? null, new_status: newStatus },
   });
 
   return NextResponse.json({ data: proposal });

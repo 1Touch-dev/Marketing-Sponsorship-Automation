@@ -113,6 +113,37 @@ function StepIndicator({ current }: { current: number }) {
 }
 
 
+// ── DB inventory item type ─────────────────────────────────────────────────
+type DbInventoryItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  inventory_type: string;
+  category: string;
+  unit_type: string | null;
+  slot_timing: string | null;
+  slot_duration_sec: number | null;
+  total_quantity: number | null;
+  quantity_sold: number | null;
+  price_min: number | null;
+  price_max: number | null;
+  price_small: number | null;
+  price_medium: number | null;
+  price_large: number | null;
+  price_enterprise: number | null;
+  availability: string;
+  is_exclusive: boolean | null;
+};
+
+type SelectedInventoryLine = {
+  inventory_id: string;
+  name: string;
+  quantity: number;
+  scope: string;
+  slot_timing: string | null;
+  price_agreed: number | null;
+};
+
 // ── Main Wizard Component ─────────────────────────────────────────────────
 export function ProposalWizard({ companies, campaigns }: { companies: Company[]; campaigns: Campaign[] }) {
   const router = useRouter();
@@ -135,6 +166,9 @@ export function ProposalWizard({ companies, campaigns }: { companies: Company[];
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companySearch, setCompanySearch] = useState("");
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
+  const [selectedInventoryLines, setSelectedInventoryLines] = useState<SelectedInventoryLine[]>([]);
+  const [dbInventory, setDbInventory] = useState<DbInventoryItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
   const [customBrief, setCustomBrief] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -148,6 +182,52 @@ export function ProposalWizard({ companies, campaigns }: { companies: Company[];
       body: JSON.stringify({ session_key: sessionKey, ...updates }),
     });
   }, [sessionKey]);
+
+  // Fetch live inventory when reaching step 3 (sponsorship/mixed)
+  useEffect(() => {
+    if (step === 3 && (proposalType === "sponsorship" || proposalType === "mixed") && dbInventory.length === 0) {
+      setInventoryLoading(true);
+      fetch("/api/inventory?status=active")
+        .then(r => r.json())
+        .then(d => setDbInventory(d.items ?? d.data ?? []))
+        .catch(() => {})
+        .finally(() => setInventoryLoading(false));
+    }
+  }, [step, proposalType, dbInventory.length]);
+
+  function getPriceForCompany(item: DbInventoryItem): number | null {
+    const size = selectedCompany?.company_size ?? "medium";
+    if (size === "small" && item.price_small) return item.price_small;
+    if (size === "large" && item.price_large) return item.price_large;
+    if (size === "enterprise" && item.price_enterprise) return item.price_enterprise;
+    if (item.price_medium) return item.price_medium;
+    return item.price_min ?? null;
+  }
+
+  function toggleInventoryLine(item: DbInventoryItem) {
+    const exists = selectedInventoryLines.find(l => l.inventory_id === item.id);
+    if (exists) {
+      setSelectedInventoryLines(prev => prev.filter(l => l.inventory_id !== item.id));
+    } else {
+      const price = getPriceForCompany(item);
+      setSelectedInventoryLines(prev => [...prev, {
+        inventory_id: item.id,
+        name: item.name,
+        quantity: 1,
+        scope: item.unit_type ?? "per_season",
+        slot_timing: item.slot_timing ?? null,
+        price_agreed: price,
+      }]);
+    }
+  }
+
+  function updateLineQty(inventoryId: string, qty: number) {
+    setSelectedInventoryLines(prev => prev.map(l => l.inventory_id === inventoryId ? { ...l, quantity: Math.max(1, qty) } : l));
+  }
+
+  function packageTotal(): number {
+    return selectedInventoryLines.reduce((sum, l) => sum + (l.price_agreed ?? 0) * l.quantity, 0);
+  }
 
   function next() {
     saveDraft({ current_step: step + 1, proposal_type: proposalType, company_id: selectedCompany?.id, selected_components: selectedComponents, selected_strategies: selectedStrategies, custom_brief: customBrief });
@@ -173,6 +253,7 @@ export function ProposalWizard({ companies, campaigns }: { companies: Company[];
           company_id: selectedCompany.id,
           campaign_id: campaign?.id ?? null,
           selected_components: selectedComponents,
+          selected_inventory_lines: selectedInventoryLines,
           selected_strategies: selectedStrategies,
           custom_brief: customBrief,
         }),
@@ -336,41 +417,120 @@ export function ProposalWizard({ companies, campaigns }: { companies: Company[];
         </Card>
       )}
 
-      {/* ── STEP 3: Components ── */}
+      {/* ── STEP 3: Inventory / Components ── */}
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> Select proposal components</CardTitle>
-            <CardDescription>Choose the inventory and activation elements to include. These shape pricing and AI generation.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Package className="h-5 w-5 text-primary" /> Select inventory items</CardTitle>
+            <CardDescription>
+              Pick individual sponsorship units. Prices shown are for{" "}
+              <span className="font-medium capitalize">{selectedCompany?.company_size ?? "medium"}</span>-sized companies.
+              {selectedInventoryLines.length > 0 && (
+                <span className="ml-2 text-emerald-600 font-medium">
+                  Package total: R${packageTotal().toLocaleString("pt-BR")}
+                </span>
+              )}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {availableComponents.map(comp => {
-                const selected = selectedComponents.includes(comp.id);
-                return (
-                  <button
-                    key={comp.id}
-                    onClick={() => setSelectedComponents(prev =>
-                      prev.includes(comp.id) ? prev.filter(id => id !== comp.id) : [...prev, comp.id]
-                    )}
-                    className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${
-                      selected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"
-                    }`}
-                  >
-                    <div className={`mt-0.5 rounded-md p-1.5 flex-shrink-0 ${selected ? "bg-primary/10" : "bg-muted"}`}>
-                      <comp.icon className="h-4 w-4" />
+          <CardContent className="space-y-4">
+            {inventoryLoading && (
+              <div className="flex items-center justify-center py-8 text-muted-foreground text-sm gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading inventory…
+              </div>
+            )}
+
+            {/* Live DB inventory for sponsorship/mixed */}
+            {!inventoryLoading && (proposalType === "sponsorship" || proposalType === "mixed") && dbInventory.length > 0 && (
+              <>
+                {/* Group by category */}
+                {Array.from(new Set(dbInventory.map(i => i.category))).map(cat => {
+                  const items = dbInventory.filter(i => i.category === cat);
+                  const catLabel: Record<string, string> = {
+                    jersey: "Jersey", stadium: "Stadium / LED Boards", press: "Press & Events",
+                    hospitality: "VIP Hospitality", social: "Digital / Social Media",
+                    player: "Player Content", email: "Email & Newsletter",
+                  };
+                  return (
+                    <div key={cat}>
+                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{catLabel[cat] ?? cat}</div>
+                      <div className="space-y-1.5">
+                        {items.map(item => {
+                          const line = selectedInventoryLines.find(l => l.inventory_id === item.id);
+                          const isSelected = !!line;
+                          const price = getPriceForCompany(item);
+                          const available = (item.total_quantity ?? 1) - (item.quantity_sold ?? 0);
+                          return (
+                            <div key={item.id} className={`rounded-xl border-2 p-3 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}>
+                              <div className="flex items-start gap-3">
+                                <button
+                                  onClick={() => toggleInventoryLine(item)}
+                                  className={`mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary text-white" : "border-slate-300"}`}
+                                >
+                                  {isSelected && <Check className="h-3 w-3" />}
+                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium">{item.name}</span>
+                                    {item.is_exclusive && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Exclusive</span>}
+                                    {available <= 0 && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Sold out</span>}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
+                                    {price && <span className="text-emerald-700 font-medium">R${price.toLocaleString("pt-BR")}</span>}
+                                    {item.unit_type && <span className="capitalize">{item.unit_type.replace(/_/g, " ")}</span>}
+                                    {item.slot_timing && <span className="bg-slate-100 px-1.5 py-0.5 rounded capitalize">{item.slot_timing.replace(/_/g, " ")}</span>}
+                                    {item.slot_duration_sec && <span>{item.slot_duration_sec}s slot</span>}
+                                    <span>{available} of {item.total_quantity ?? 1} available</span>
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) - 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">−</button>
+                                    <span className="text-sm font-medium w-5 text-center">{line?.quantity ?? 1}</span>
+                                    <button onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) + 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">+</button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium leading-tight">{comp.name}</div>
-                      {comp.price && <div className="text-xs text-muted-foreground mt-0.5">{comp.price}</div>}
-                    </div>
-                    {selected && <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />}
-                  </button>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Fallback static list for barter/lei + when DB empty */}
+            {!inventoryLoading && (proposalType === "barter" || proposalType === "lei_de_incentivo" || dbInventory.length === 0) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {availableComponents.map(comp => {
+                  const selected = selectedComponents.includes(comp.id);
+                  return (
+                    <button
+                      key={comp.id}
+                      onClick={() => setSelectedComponents(prev =>
+                        prev.includes(comp.id) ? prev.filter(id => id !== comp.id) : [...prev, comp.id]
+                      )}
+                      className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${selected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}
+                    >
+                      <div className={`mt-0.5 rounded-md p-1.5 flex-shrink-0 ${selected ? "bg-primary/10" : "bg-muted"}`}>
+                        <comp.icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium leading-tight">{comp.name}</div>
+                        {comp.price && <div className="text-xs text-muted-foreground mt-0.5">{comp.price}</div>}
+                      </div>
+                      {selected && <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="text-xs text-muted-foreground text-center">
-              {selectedComponents.length} component{selectedComponents.length !== 1 ? "s" : ""} selected
+              {(proposalType === "sponsorship" || proposalType === "mixed") && dbInventory.length > 0
+                ? `${selectedInventoryLines.length} item${selectedInventoryLines.length !== 1 ? "s" : ""} selected`
+                : `${selectedComponents.length} component${selectedComponents.length !== 1 ? "s" : ""} selected`}
             </div>
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={back} className="gap-2"><ChevronLeft className="h-4 w-4" /> Back</Button>

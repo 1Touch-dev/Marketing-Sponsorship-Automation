@@ -19,6 +19,7 @@ import {
   Trophy,
   Users,
   Activity,
+  Plus,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -204,17 +205,23 @@ export default async function DashboardPage() {
         title="Dashboard"
         description="Coritiba FC — Commercial Sponsorship Platform"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {isHealthy && (
               <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 text-xs">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 All systems healthy
               </Badge>
             )}
-            <Button asChild>
-              <Link href="/campaigns">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/campaigns/new">
+                <Plus className="h-4 w-4 mr-1" />
+                New Campaign
+              </Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/proposals/new">
                 <Zap className="h-4 w-4 mr-1" />
-                Generate campaign
+                Create Proposal
               </Link>
             </Button>
           </div>
@@ -250,6 +257,34 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1"><Trophy className="h-3 w-3" /> Brasileirão 1985 &amp; 1990</span>
           </div>
         </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link href="/companies/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-blue-400 hover:shadow-sm transition-all p-4 group">
+          <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+            <Building2 className="h-4.5 w-4.5 text-blue-600" />
+          </div>
+          <div><div className="text-sm font-semibold">Add Company</div><div className="text-xs text-slate-500">+ auto-discover</div></div>
+        </Link>
+        <Link href="/campaigns/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-green-400 hover:shadow-sm transition-all p-4 group">
+          <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+            <Zap className="h-4.5 w-4.5 text-green-600" />
+          </div>
+          <div><div className="text-sm font-semibold">Generate Campaign</div><div className="text-xs text-slate-500">AI-powered</div></div>
+        </Link>
+        <Link href="/proposals/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-4 group">
+          <div className="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+            <FileText className="h-4.5 w-4.5 text-indigo-600" />
+          </div>
+          <div><div className="text-sm font-semibold">Create Proposal</div><div className="text-xs text-slate-500">guided wizard</div></div>
+        </Link>
+        <Link href="/media-generation" className="flex items-center gap-3 rounded-xl border bg-white hover:border-violet-400 hover:shadow-sm transition-all p-4 group">
+          <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">
+            <TrendingUp className="h-4.5 w-4.5 text-violet-600" />
+          </div>
+          <div><div className="text-sm font-semibold">Generate Images</div><div className="text-xs text-slate-500">AI visuals</div></div>
+        </Link>
       </div>
 
       {/* Stat cards */}

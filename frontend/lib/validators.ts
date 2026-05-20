@@ -47,7 +47,7 @@ export const proposalUpdateSchema = z.object({
 
 export const approvalSchema = z.object({
   proposal_id: z.string().uuid(),
-  decision: z.enum(["approve", "reject", "request_revision"]),
+  decision: z.enum(["approve", "reject", "request_revision", "submit_review"]),
   comments: z.string().max(2000).optional(),
   status_reason: z.string().max(500).optional(),
 });
