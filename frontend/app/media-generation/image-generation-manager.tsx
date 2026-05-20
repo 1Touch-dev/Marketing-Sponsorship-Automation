@@ -66,10 +66,17 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     if (!form.prompt.trim()) return;
     setLoadingId("new");
     try {
+      const payload = {
+        ...form,
+        proposal_id: form.proposal_id?.trim() || undefined,
+        company_id: form.company_id?.trim() || undefined,
+        style_notes: form.style_notes?.trim() || undefined,
+        triggered_by: "manual",
+      };
       const res = await fetch("/api/image-generation", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, triggered_by: "manual" }),
+        body: JSON.stringify(payload),
       });
       const j = await res.json() as { job?: Job; error?: string };
       if (!res.ok || !j.job) throw new Error(j.error ?? "Failed");
@@ -89,10 +96,17 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     setLoadingId("new_generate");
     try {
       // Step 1: create
+      const payload = {
+        ...form,
+        proposal_id: form.proposal_id?.trim() || undefined,
+        company_id: form.company_id?.trim() || undefined,
+        style_notes: form.style_notes?.trim() || undefined,
+        triggered_by: "manual",
+      };
       const res1 = await fetch("/api/image-generation", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, triggered_by: "manual" }),
+        body: JSON.stringify(payload),
       });
       const j1 = await res1.json() as { job?: Job; error?: string };
       if (!res1.ok || !j1.job) throw new Error(j1.error ?? "Failed to create job");

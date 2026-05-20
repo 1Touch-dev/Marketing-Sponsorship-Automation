@@ -40,10 +40,11 @@ export function QuickActionsFAB() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Hide on public pages and on wizard/form pages where it would block UI
+  // Only show on top-level pages; hide on all detail/wizard/editor pages
   const isPublic = pathname.startsWith("/proposals/view/");
-  const isWizardPage = pathname === "/proposals/new" || pathname === "/companies/new" || pathname === "/campaigns/generate";
-  if (isPublic || isWizardPage) return null;
+  const showOnlyOn = ["/", "/companies", "/proposals", "/campaigns", "/inventory"];
+  const isTopLevel = showOnlyOn.includes(pathname);
+  if (isPublic || !isTopLevel) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">

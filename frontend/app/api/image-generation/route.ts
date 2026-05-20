@@ -60,9 +60,9 @@ export async function POST(req: Request) {
     const { data: job, error } = await (sb as any)
       .from("image_generation_jobs")
       .insert({
-        proposal_id:     body.proposal_id ?? null,
-        company_id:      body.company_id ?? null,
-        mockup_id:       body.mockup_id ?? null,
+        proposal_id:     body.proposal_id?.trim() || null,
+        company_id:      body.company_id?.trim() || null,
+        mockup_id:       body.mockup_id?.trim() || null,
         job_type:        body.job_type ?? "custom",
         status:          "pending_approval",
         prompt:          body.prompt,
