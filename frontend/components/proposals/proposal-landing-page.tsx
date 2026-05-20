@@ -55,6 +55,7 @@ interface ProposalLandingPageProps {
     title: string;
     summary?: string | null;
   } | null;
+  approvedImages?: Array<{ url: string; job_type: string; prompt?: string }>;
   adminMode?: boolean;
   onPrint?: () => void;
   onShare?: () => void;
@@ -186,6 +187,7 @@ export function ProposalLandingPage({
   proposal,
   company,
   campaign,
+  approvedImages = [],
   adminMode = false,
   onPrint,
   onShare,
@@ -414,6 +416,33 @@ export function ProposalLandingPage({
           <Section id="visuals" title="Conceitos Visuais" badge="Identidade Visual"
             subtitle="Mockups e prompts de geração de imagem criados especificamente para sua marca">
             <VisualMockupGrid visuals={proposal.visual_prompts} companyName={company.company_name} />
+          </Section>
+        )}
+
+        {/* AI Generated Images — shown when images have been generated and approved */}
+        {approvedImages.length > 0 && (
+          <Section id="generated-images" title="Imagens Geradas" badge="AI Visual Assets"
+            subtitle="Imagens criadas por inteligência artificial aprovadas para esta proposta">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {approvedImages.map((img, idx) => (
+                <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt={img.prompt ?? `Generated visual ${idx + 1}`}
+                    className="w-full object-cover"
+                    style={{ maxHeight: 400 }}
+                  />
+                  {img.job_type && (
+                    <div className="px-4 py-2 border-t border-slate-100">
+                      <span className="text-xs text-slate-500 capitalize">
+                        {img.job_type.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </Section>
         )}
 

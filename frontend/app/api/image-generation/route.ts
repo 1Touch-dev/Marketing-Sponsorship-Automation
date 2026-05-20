@@ -217,8 +217,13 @@ export async function PATCH(req: Request) {
           continue;
         }
 
+        // Neither b64 nor url — shouldn't happen but guard it
+        if (!b64 && !directUrl) {
+          console.error("[image-generation] Image", i, "has neither b64_json nor url. Keys:", Object.keys(img));
+          continue;
+        }
+
         if (b64) {
-          // Convert base64 to Buffer and upload to Supabase Storage
           const imageBuffer = Buffer.from(b64, "base64");
           const filename = `generated/${body.job_id}_${i}_${Date.now()}.png`;
 
@@ -230,12 +235,20 @@ export async function PATCH(req: Request) {
             });
 
           if (uploadErr) {
-            // Fall back to data URL if storage upload fails
+            // Log the upload error for debugging
+            console.error("[image-generation] Storage upload failed:", uploadErr.message, "| filename:", filename);
+            // Fall back to data URL if storage upload fails (will be large but functional)
             const dataUrl = `data:image/png;base64,${b64}`;
             outputUrls.push({ url: dataUrl, revised_prompt: img.revised_prompt, index: i });
+          } else if (uploadData) {
+            const { data: publicUrl } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(uploadData.path ?? filename);
+            const finalUrl = publicUrl.publicUrl;
+            console.log("[image-generation] Uploaded to storage:", finalUrl);
+            outputUrls.push({ url: finalUrl, revised_prompt: img.revised_prompt, index: i });
           } else {
-            const { data: publicUrl } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(filename);
-            outputUrls.push({ url: publicUrl.publicUrl, revised_prompt: img.revised_prompt, index: i });
+            console.error("[image-generation] Upload returned no data or error");
+            const dataUrl = `data:image/png;base64,${b64}`;
+            outputUrls.push({ url: dataUrl, revised_prompt: img.revised_prompt, index: i });
           }
         }
       }

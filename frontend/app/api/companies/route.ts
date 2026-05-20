@@ -49,5 +49,16 @@ export async function POST(req: Request) {
     metadata: { company_name: data.company_name },
   });
 
-  return NextResponse.json({ data }, { status: 201 });
+  // ── Fire-and-forget: auto-trigger competitor discovery in background ────────
+  // We kick this off without awaiting so the response returns immediately.
+  // The discovery runs async and populates competitors + differentiators.
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  fetch(`${appUrl}/api/companies/${data.id}/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  }).catch(() => {
+    // Silently fail — discovery is non-blocking, can be retried from the UI
+  });
+
+  return NextResponse.json({ data, discovery_triggered: true }, { status: 201 });
 }

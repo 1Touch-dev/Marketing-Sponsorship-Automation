@@ -26,6 +26,30 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   // Only show approved or draft proposals publicly
   if (proposal.status === "rejected") notFound();
 
+  // Fetch approved/completed image generation jobs for this proposal
+  const { data: imageJobs } = await (sb as any)
+    .from("image_generation_jobs")
+    .select("id, job_type, prompt, output_urls, selected_url, status, created_at")
+    .eq("proposal_id", proposal.id)
+    .in("status", ["completed", "approved"])
+    .order("created_at", { ascending: false });
+
+  const approvedImages: Array<{ url: string; job_type: string; prompt?: string }> = [];
+  for (const job of (imageJobs ?? [])) {
+    const urls: Array<{ url?: string }> = job.output_urls ?? [];
+    const selected = job.selected_url;
+    if (selected) {
+      approvedImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
+    } else {
+      for (const u of urls) {
+        if (u?.url && !u.url.startsWith("data:")) {
+          approvedImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
+          break;
+        }
+      }
+    }
+  }
+
   type EnrichedProposal = typeof proposal & {
     companies: {
       company_name: string;
@@ -80,6 +104,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
           country: company?.country,
         }}
         campaign={p.campaigns}
+        approvedImages={approvedImages}
         adminMode={false}
       />
     </div>

@@ -21,6 +21,30 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
 
   if (!proposal) notFound();
 
+  // Fetch approved/completed images for this proposal
+  const { data: imageJobs } = await (sb as any)
+    .from("image_generation_jobs")
+    .select("id, job_type, prompt, output_urls, selected_url, status")
+    .eq("proposal_id", proposal.id)
+    .in("status", ["completed", "approved"])
+    .order("created_at", { ascending: false });
+
+  const approvedImages: Array<{ url: string; job_type: string; prompt?: string }> = [];
+  for (const job of (imageJobs ?? [])) {
+    const selected = job.selected_url;
+    if (selected) {
+      approvedImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
+    } else {
+      const urls: Array<{ url?: string }> = job.output_urls ?? [];
+      for (const u of urls) {
+        if (u?.url && !u.url.startsWith("data:")) {
+          approvedImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
+          break;
+        }
+      }
+    }
+  }
+
   type EnrichedProposal = typeof proposal & {
     companies: {
       company_name: string;
@@ -77,6 +101,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
           country: company?.country,
         }}
         campaign={p.campaigns}
+        approvedImages={approvedImages}
         adminMode={true}
       />
     </div>

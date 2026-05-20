@@ -14,6 +14,7 @@ import {
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
+import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,9 @@ export default async function CompanyDetailPage({
 
           {/* AI Inventory Suggestion */}
           <InventorySuggestionPanel companyId={company.id} companyName={company.company_name} />
+
+          {/* Differentiator Analysis */}
+          <DifferentiatorPanel companyId={company.id} companyName={company.company_name} />
 
           {/* Contact info */}
           <Card>
