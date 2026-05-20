@@ -4,7 +4,11 @@ import { ProposalWizard } from "./proposal-wizard";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewProposalPage() {
+export default async function NewProposalPage({
+  searchParams,
+}: {
+  searchParams: { company_id?: string };
+}) {
   const sb = supabaseAdmin();
 
   const [{ data: companies }, { data: campaigns }] = await Promise.all([
@@ -21,6 +25,7 @@ export default async function NewProposalPage() {
       <ProposalWizard
         companies={companies ?? []}
         campaigns={campaigns ?? []}
+        preselectedCompanyId={searchParams.company_id ?? ""}
       />
     </>
   );

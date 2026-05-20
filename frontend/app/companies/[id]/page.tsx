@@ -93,7 +93,7 @@ export default async function CompanyDetailPage({
                 New Campaign
               </Button>
             </Link>
-            <Link href={`/campaigns/new?company_id=${company.id}`}>
+            <Link href={`/campaigns?company=${company.id}`}>
               <Button size="sm" variant="outline">
                 <Zap className="h-4 w-4 mr-1" />
                 Generate Campaign

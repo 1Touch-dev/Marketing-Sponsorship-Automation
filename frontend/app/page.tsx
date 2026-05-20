@@ -213,7 +213,7 @@ export default async function DashboardPage() {
               </Badge>
             )}
             <Button asChild variant="outline" size="sm">
-              <Link href="/campaigns/new">
+              <Link href="/campaigns">
                 <Plus className="h-4 w-4 mr-1" />
                 New Campaign
               </Link>
@@ -267,13 +267,12 @@ export default async function DashboardPage() {
           </div>
           <div><div className="text-sm font-semibold">Add Company</div><div className="text-xs text-slate-500">+ auto-discover</div></div>
         </Link>
-        <Link href="/campaigns/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-green-400 hover:shadow-sm transition-all p-4 group">
+        <Link href="/campaigns" className="flex items-center gap-3 rounded-xl border bg-white hover:border-green-400 hover:shadow-sm transition-all p-4 group">
           <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
             <Zap className="h-4.5 w-4.5 text-green-600" />
           </div>
           <div><div className="text-sm font-semibold">Generate Campaign</div><div className="text-xs text-slate-500">AI-powered</div></div>
-        </Link>
-        <Link href="/proposals/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-4 group">
+        </Link>        <Link href="/proposals/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-4 group">
           <div className="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
             <FileText className="h-4.5 w-4.5 text-indigo-600" />
           </div>

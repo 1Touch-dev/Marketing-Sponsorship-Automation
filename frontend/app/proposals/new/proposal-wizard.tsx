@@ -145,7 +145,15 @@ type SelectedInventoryLine = {
 };
 
 // ── Main Wizard Component ─────────────────────────────────────────────────
-export function ProposalWizard({ companies, campaigns }: { companies: Company[]; campaigns: Campaign[] }) {
+export function ProposalWizard({
+  companies,
+  campaigns,
+  preselectedCompanyId = "",
+}: {
+  companies: Company[];
+  campaigns: Campaign[];
+  preselectedCompanyId?: string;
+}) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -163,7 +171,12 @@ export function ProposalWizard({ companies, campaigns }: { companies: Company[];
 
   // Wizard state
   const [proposalType, setProposalType] = useState<ProposalType>("sponsorship");
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(() => {
+    if (preselectedCompanyId) {
+      return companies.find(c => c.id === preselectedCompanyId) ?? null;
+    }
+    return null;
+  });
   const [companySearch, setCompanySearch] = useState("");
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [selectedInventoryLines, setSelectedInventoryLines] = useState<SelectedInventoryLine[]>([]);
