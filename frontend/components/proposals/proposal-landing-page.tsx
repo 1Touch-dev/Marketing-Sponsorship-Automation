@@ -91,17 +91,17 @@ function HeroStat({
   };
   return (
     <div className={cn(
-      "flex items-start gap-3 rounded-xl bg-gradient-to-br border backdrop-blur-sm p-4 sm:p-5",
+      "flex flex-col gap-1.5 rounded-xl bg-gradient-to-br border backdrop-blur-sm p-3",
       colors[color]
     )}>
-      <div className="rounded-lg bg-white/10 p-2 shrink-0">
-        <Icon className={cn("h-5 w-5", iconColors[color])} />
+      <div className="flex items-center gap-1.5">
+        <div className="rounded-md bg-white/10 p-1.5 shrink-0">
+          <Icon className={cn("h-3.5 w-3.5", iconColors[color])} />
+        </div>
+        <div className="text-[10px] text-white/60 font-semibold uppercase tracking-wide leading-tight">{label}</div>
       </div>
-      <div className="min-w-0">
-        <div className="text-xs text-white/60 font-medium uppercase tracking-wide truncate">{label}</div>
-        <div className="text-xl sm:text-2xl font-extrabold text-white leading-none mt-0.5">{value}</div>
-        {sub && <div className="text-xs text-white/60 mt-0.5 truncate">{sub}</div>}
-      </div>
+      <div className="text-lg font-extrabold text-white leading-none">{value}</div>
+      {sub && <div className="text-[10px] text-white/50 leading-tight">{sub}</div>}
     </div>
   );
 }
@@ -262,7 +262,7 @@ export function ProposalLandingPage({
           )}
 
           {/* Hero stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <HeroStat icon={Trophy}       label="Clube Parceiro"     value="Coritiba FC" sub="Couto Pereira · Curitiba, PR"         color="amber" />
             <HeroStat icon={Users}        label="Torcedores Coxa"    value="1.5M+" sub="Seguidores digitais combinados"            color="green" />
             <HeroStat icon={Tv2}          label="Jogos por Temporada" value="38+"  sub="Broadcast nacional + streaming"          color="blue"  />
