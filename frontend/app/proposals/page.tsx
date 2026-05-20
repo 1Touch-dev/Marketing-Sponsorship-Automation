@@ -33,7 +33,7 @@ export default async function ProposalsPage({
     sb
       .from("proposals")
       .select("id, title, status, version, updated_at, created_at, companies(id, company_name, industry)")
-      .not("status", "eq", "rejected")      // hide rejected proposals by default
+      .neq("status", "rejected")             // hide rejected proposals by default
       .order("updated_at", { ascending: false })
       .limit(300),
     sb.from("companies").select("id, company_name").neq("status", "closed").order("company_name"),

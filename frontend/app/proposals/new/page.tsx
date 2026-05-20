@@ -9,7 +9,7 @@ export default async function NewProposalPage() {
 
   const [{ data: companies }, { data: campaigns }] = await Promise.all([
     sb.from("companies").select("id, company_name, industry, segment, business_type, company_size, website, logo_url, notes").neq("status", "closed").order("company_name"),
-    sb.from("campaigns").select("id, title, summary, status").eq("status", "active").order("created_at", { ascending: false }).limit(50),
+    sb.from("campaigns").select("id, title, summary, status").in("status", ["active", "draft"]).order("created_at", { ascending: false }).limit(50),
   ]);
 
   return (

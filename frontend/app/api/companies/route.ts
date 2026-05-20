@@ -29,6 +29,13 @@ export async function POST(req: Request) {
       country: parsed.data.country ?? "BR",
       notes: parsed.data.notes ?? null,
       status: parsed.data.status ?? "prospect",
+      segment: parsed.data.segment ?? "local",
+      company_size: parsed.data.company_size ?? "medium",
+      business_type: parsed.data.business_type ?? "B2C",
+      pipeline_stage: parsed.data.pipeline_stage ?? "prospect",
+      contact_name: parsed.data.contact_name ?? null,
+      contact_email: parsed.data.contact_email || null,
+      contact_phone: parsed.data.contact_phone ?? null,
     })
     .select("*")
     .single();

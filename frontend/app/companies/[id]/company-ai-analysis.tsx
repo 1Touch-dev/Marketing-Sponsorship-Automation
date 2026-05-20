@@ -23,7 +23,7 @@ interface Props {
 }
 
 export function CompanyAIAnalysis({
-  companyId, companyName, industry, website, notes, intelligence,
+  companyId, companyName, industry, website, notes, intelligence, competitors: rawCompetitors,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
@@ -37,8 +37,22 @@ export function CompanyAIAnalysis({
   const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp" | "discover">("intelligence");
 
   const scrapeMetadata = data?.scrape_metadata as Record<string, unknown> | null;
-  const competitors = (data?.competitors as Array<Record<string, string>>) ?? [];
   const sponsorshipProfile = (data?.sponsorship_profile as Record<string, unknown>) ?? {};
+
+  // Normalize competitors — can be string[] or object[] from intelligence, or raw string[] from DB
+  function normalizeCompetitors(raw: unknown[]): Array<{ name: string; reason?: string; website?: string; sponsorship_spend?: string }> {
+    return raw.map(c => {
+      if (typeof c === "string") return { name: c };
+      if (typeof c === "object" && c !== null) return c as { name: string; reason?: string; website?: string };
+      return { name: String(c) };
+    });
+  }
+  const aiCompetitors = normalizeCompetitors((data?.competitors as unknown[]) ?? []);
+  const dbCompetitors = normalizeCompetitors(rawCompetitors as unknown[]);
+  // Merge: AI competitors take priority, fill in DB competitors not already listed
+  const allCompetitorNames = new Set(aiCompetitors.map(c => c.name.toLowerCase()));
+  const extraFromDb = dbCompetitors.filter(c => !allCompetitorNames.has(c.name.toLowerCase()));
+  const competitors = [...aiCompetitors, ...extraFromDb];
 
   async function runAnalysis() {
     setLoading(true);

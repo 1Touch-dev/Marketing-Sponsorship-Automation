@@ -7,6 +7,13 @@ export const companyCreateSchema = z.object({
   country: z.string().max(40).optional().nullable().default("BR"),
   notes: z.string().max(4000).optional().nullable(),
   status: z.enum(["prospect", "active", "paused", "closed"]).default("prospect"),
+  segment: z.enum(["local", "state", "national", "global"]).optional().default("local"),
+  company_size: z.enum(["startup", "small", "medium", "large", "enterprise"]).optional().default("medium"),
+  business_type: z.enum(["B2C", "B2B", "B2B2C"]).optional().default("B2C"),
+  pipeline_stage: z.string().max(40).optional().nullable(),
+  contact_name: z.string().max(200).optional().nullable(),
+  contact_email: z.string().email().optional().or(z.literal("")).nullable(),
+  contact_phone: z.string().max(50).optional().nullable(),
 });
 export type CompanyCreateInput = z.infer<typeof companyCreateSchema>;
 

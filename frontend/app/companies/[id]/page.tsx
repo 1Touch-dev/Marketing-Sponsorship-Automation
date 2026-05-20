@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
+import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,9 @@ export default async function CompanyDetailPage({
 
         {/* Right column — sidebar */}
         <div className="space-y-4">
+
+          {/* AI Inventory Suggestion */}
+          <InventorySuggestionPanel companyId={company.id} companyName={company.company_name} />
 
           {/* Contact info */}
           <Card>
