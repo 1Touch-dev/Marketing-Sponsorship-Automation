@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ApprovalPanel } from "./approval-panel";
+import { ApprovalFlowPanel } from "./approval-flow-panel";
 import { GenerateEmailPanel } from "./generate-email-panel";
 import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
@@ -37,6 +38,14 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     .select("decision, comments, created_at")
     .eq("proposal_id", proposal.id)
     .order("created_at", { ascending: false });
+
+  // Check if there are approved/completed images for the flow panel
+  const { data: imageJobs } = await (sb as any)
+    .from("image_generation_jobs")
+    .select("id, status")
+    .eq("proposal_id", proposal.id)
+    .in("status", ["completed", "approved"]);
+  const hasImages = Array.isArray(imageJobs) && imageJobs.length > 0;
 
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null } | null;
@@ -170,6 +179,14 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
       {/* Admin sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-6">
+          {/* Guided approval flow — shows where you are and next step */}
+          <ApprovalFlowPanel
+            proposalId={proposal.id}
+            proposalStatus={proposal.status}
+            shareToken={p.share_token ?? null}
+            hasImages={hasImages}
+          />
+
           <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
 
           {canSendOutreach ? (
