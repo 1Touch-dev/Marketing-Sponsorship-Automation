@@ -60,5 +60,23 @@ export async function POST(req: Request) {
     // Silently fail — discovery is non-blocking, can be retried from the UI
   });
 
+  // ── Fire-and-forget: sync to Pipedrive as Organization ───────────────────
+  fetch(`${appUrl}/api/crm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entity_type: "company",
+      entity_id: data.id,
+      operation: "create",
+      payload: {
+        company_name: data.company_name,
+        website: data.website,
+        industry: data.industry,
+        segment: data.segment,
+        city: null,
+      },
+    }),
+  }).catch(() => {});
+
   return NextResponse.json({ data, discovery_triggered: true }, { status: 201 });
 }

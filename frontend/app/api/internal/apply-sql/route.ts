@@ -12,7 +12,7 @@ export async function GET() {
       "0011": "Guided OS: proposal_wizard_drafts, proposal_sections, image_generation_jobs, company_logos, crm_sync_queue",
       "0014": "Inventory overhaul: individual units, quantity tracking, adjustable slots, size-based pricing, proposal_inventory_items",
     },
-    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' }",
+    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' }",
   });
 }
 
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     "0010": SQL_0010,
     "0011": SQL_0011,
     "0014": SQL_0014,
+    "0015": SQL_0015,
   };
 
   const sql = sqlMap[migration];
@@ -465,6 +466,20 @@ CREATE INDEX IF NOT EXISTS idx_proposal_inventory_proposal ON public.proposal_in
 ALTER TABLE public.proposal_inventory_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "service_all_proposal_inventory_items" ON public.proposal_inventory_items;
 CREATE POLICY "service_all_proposal_inventory_items" ON public.proposal_inventory_items FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+NOTIFY pgrst, 'reload schema';
+`;
+
+const SQL_0015 = `
+-- Migration 0015: Pipedrive CRM columns
+ALTER TABLE public.companies
+  ADD COLUMN IF NOT EXISTS pipedrive_org_id    INTEGER,
+  ADD COLUMN IF NOT EXISTS pipedrive_synced_at TIMESTAMPTZ;
+
+ALTER TABLE public.proposals
+  ADD COLUMN IF NOT EXISTS pipedrive_deal_id     INTEGER,
+  ADD COLUMN IF NOT EXISTS pipedrive_pipeline_id INTEGER,
+  ADD COLUMN IF NOT EXISTS pipedrive_synced_at   TIMESTAMPTZ;
 
 NOTIFY pgrst, 'reload schema';
 `;

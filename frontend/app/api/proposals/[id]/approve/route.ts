@@ -80,5 +80,24 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     metadata: { comments: parsed.data.comments ?? null, new_status: newStatus },
   });
 
+  // ── Fire-and-forget: sync status change to Pipedrive ─────────────────────
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const p = proposal as Record<string, unknown>;
+  fetch(`${appUrl}/api/crm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      entity_type: "proposal",
+      entity_id: parsed.data.proposal_id,
+      operation: p.pipedrive_deal_id ? "status_change" : "create",
+      payload: {
+        pipedrive_deal_id: p.pipedrive_deal_id ?? null,
+        pipedrive_pipeline_id: p.pipedrive_pipeline_id ?? null,
+        new_status: newStatus,
+        status_reason: parsed.data.comments ?? null,
+      },
+    }),
+  }).catch(() => {});
+
   return NextResponse.json({ data: proposal });
 }
