@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,19 +55,28 @@ type Props = {
 type ActivePanel = "discover" | "industry" | "goods" | null;
 
 export function ApifyDiscoveryPanel({ companyId, companyName, industry, website, existingIntelligence }: Props) {
+  const router = useRouter();
   const [active, setActive] = useState<ActivePanel>(null);
   const [loading, setLoading] = useState(false);
-  const [discoveryResult, setDiscoveryResult] = useState<DiscoveryResult | null>(
-    existingIntelligence?.competitor_discovery
-      ? ((existingIntelligence.competitor_discovery as Record<string, unknown>).data as DiscoveryResult)
-      : null
-  );
+
+  // Hydrate from saved data — reads competitor_discovery.data from full_intelligence
+  const savedDiscovery = existingIntelligence?.competitor_discovery
+    ? ((existingIntelligence.competitor_discovery as Record<string, unknown>).data as DiscoveryResult)
+    : null;
+
+  const [discoveryResult, setDiscoveryResult] = useState<DiscoveryResult | null>(savedDiscovery);
   const [industryResult, setIndustryResult] = useState<IndustryResult | null>(
     existingIntelligence?.industry_expansion as IndustryResult | null
   );
   const [goodsQuery, setGoodsQuery] = useState("");
   const [goodsResult, setGoodsResult] = useState<GoodsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-expand to results tab if we have saved data
+  React.useEffect(() => {
+    if (savedDiscovery && active === null) setActive("discover");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function runDiscovery(force = false) {
     setLoading(true); setActive("discover"); setError(null);
@@ -79,6 +89,8 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
       const d = await res.json() as DiscoveryResult & { error?: string };
       if (!res.ok) throw new Error(d.error ?? "Discovery failed");
       setDiscoveryResult(d);
+      // Refresh server component so persisted data is re-read on next load
+      router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Failed"); setActive(null); }
     finally { setLoading(false); }
   }
@@ -95,6 +107,7 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
       const d = await res.json() as IndustryResult & { error?: string };
       if (!res.ok) throw new Error(d.error ?? "Failed");
       setIndustryResult(d);
+      router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Failed"); setActive(null); }
     finally { setLoading(false); }
   }
@@ -117,6 +130,21 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
 
   return (
     <div className="space-y-4">
+      {/* Saved indicator — shows when results are loaded from DB */}
+      {savedDiscovery && (
+        <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="font-medium">✓ Saved to database</span>
+          {(() => {
+            const cachedAt = (existingIntelligence?.competitor_discovery as Record<string,unknown>)?.cached_at;
+            if (!cachedAt) return null;
+            return (
+              <span className="text-emerald-600/70 ml-auto">
+                Last run: {new Date(String(cachedAt)).toLocaleDateString()}
+              </span>
+            );
+          })()}
+        </div>
+      )}
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant={discoveryResult ? "outline" : "default"} onClick={() => runDiscovery(false)} disabled={loading} className="gap-1.5">

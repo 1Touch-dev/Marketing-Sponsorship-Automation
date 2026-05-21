@@ -100,10 +100,11 @@ export async function PATCH(req: Request) {
   try {
     const body = await req.json() as {
       job_id: string;
-      action: "approve" | "reject" | "generate" | "select_image";
+      action: "approve" | "reject" | "generate" | "select_image" | "link_proposal";
       approved_by?: string;
       rejection_reason?: string;
       selected_url?: string;
+      proposal_id?: string;
     };
 
     const sb = supabaseAdmin();
@@ -116,6 +117,16 @@ export async function PATCH(req: Request) {
 
     if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
     const j = job as Record<string, unknown>;
+
+    // ── Link to Proposal ──────────────────────────────────────────────
+    if (body.action === "link_proposal") {
+      const proposalId = body.proposal_id?.trim() || null;
+      if (!proposalId) return NextResponse.json({ error: "proposal_id required" }, { status: 400 });
+      await sb.from("image_generation_jobs" as "companies")
+        .update({ proposal_id: proposalId } as unknown as Record<string, unknown>)
+        .eq("id", body.job_id);
+      return NextResponse.json({ success: true, proposal_id: proposalId });
+    }
 
     // ── Reject ────────────────────────────────────────────────────────
     if (body.action === "reject") {

@@ -16,7 +16,7 @@ export function ProposalShareButton({ proposalId, shareToken }: ProposalShareBut
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const shareUrl = token ? `${window?.location?.origin ?? ""}/proposals/view/${token}` : null;
+  const shareUrl = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/proposals/view/${token}` : null;
 
   async function handleShare() {
     setLoading(true);

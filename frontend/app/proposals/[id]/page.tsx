@@ -39,13 +39,31 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     .eq("proposal_id", proposal.id)
     .order("created_at", { ascending: false });
 
-  // Check if there are approved/completed images for the flow panel
+  // Fetch approved/completed images for the flow panel and inline preview
   const { data: imageJobs } = await (sb as any)
     .from("image_generation_jobs")
-    .select("id, status")
+    .select("id, status, job_type, prompt, output_urls, selected_url")
     .eq("proposal_id", proposal.id)
-    .in("status", ["completed", "approved"]);
+    .in("status", ["completed", "approved"])
+    .order("created_at", { ascending: false });
   const hasImages = Array.isArray(imageJobs) && imageJobs.length > 0;
+
+  // Build a flat list of preview image URLs for inline display
+  const inlineImages: Array<{ url: string; job_type?: string; prompt?: string }> = [];
+  for (const job of (imageJobs ?? [])) {
+    const selected = job.selected_url;
+    if (selected) {
+      inlineImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
+    } else {
+      const urls: Array<{ url?: string }> = job.output_urls ?? [];
+      for (const u of urls) {
+        if (u?.url && !u.url.startsWith("data:")) {
+          inlineImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
+          break;
+        }
+      }
+    }
+  }
 
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null } | null;
@@ -186,6 +204,42 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             shareToken={p.share_token ?? null}
             hasImages={hasImages}
           />
+
+          {/* Inline image preview — shown at step 4 so you can review before going live */}
+          {inlineImages.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="text-lg">🖼️</span> Generated Images
+                  <span className="ml-auto text-xs font-normal text-muted-foreground">{inlineImages.length} image{inlineImages.length !== 1 ? "s" : ""}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {inlineImages.map((img, idx) => (
+                  <div key={idx} className="rounded-lg overflow-hidden border border-slate-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={img.prompt ?? `Generated visual ${idx + 1}`}
+                      className="w-full object-cover"
+                      style={{ maxHeight: 220 }}
+                    />
+                    {img.job_type && (
+                      <div className="px-3 py-1.5 bg-slate-50 border-t text-xs text-slate-500 capitalize">
+                        {img.job_type.replace(/_/g, " ")}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <a
+                  href="/media-generation"
+                  className="block text-center text-xs text-indigo-600 hover:text-indigo-800 underline"
+                >
+                  Manage in Media Generation →
+                </a>
+              </CardContent>
+            </Card>
+          )}
 
           <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
 

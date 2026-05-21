@@ -49,6 +49,8 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
   const [showNew, setShowNew] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [previewJob, setPreviewJob] = useState<Job | null>(null);
+  const [linkingJobId, setLinkingJobId] = useState<string | null>(null);
+  const [linkProposalId, setLinkProposalId] = useState<string>("");
 
   // New job form state
   const [form, setForm] = useState({
@@ -222,6 +224,26 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     } finally { setLoadingId(null); }
   }
 
+  async function linkImageToProposal(jobId: string, proposalId: string) {
+    if (!proposalId.trim()) return;
+    setLoadingId(jobId + "_link");
+    try {
+      const res = await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job_id: jobId, action: "link_proposal", proposal_id: proposalId.trim() }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Link failed");
+      setLocalJobs(prev => prev.map(j => (j.id as string) === jobId ? { ...j, proposal_id: proposalId.trim() } : j));
+      setLinkingJobId(null);
+      setLinkProposalId("");
+      toast({ variant: "success", title: "Image linked to proposal", description: "It will now appear on the proposal landing page." });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Link failed", description: err instanceof Error ? err.message : "Error" });
+    } finally { setLoadingId(null); }
+  }
+
   return (
     <div className="space-y-4">
       {/* New Job Button */}
@@ -361,6 +383,46 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
                     )}
                   </div>
                 </div>
+
+                {/* Link to Proposal — for completed images without a proposal */}
+                {status === "completed" && !job.proposal_id && proposals.length > 0 ? (
+                  linkingJobId === jobId ? (
+                    <div className="mt-3 flex gap-2 items-center">
+                      <select
+                        value={linkProposalId}
+                        onChange={e => setLinkProposalId(e.target.value)}
+                        className="flex-1 text-xs border rounded-lg px-2 py-1.5 bg-card outline-none focus:ring-2 ring-primary/30"
+                      >
+                        <option value="">— select proposal —</option>
+                        {proposals.map(p => (
+                          <option key={p.id as string} value={p.id as string}>
+                            {String(p.title ?? p.id ?? "")}
+                          </option>
+                        ))}
+                      </select>
+                      <Button size="sm" className="h-7 px-3 gap-1 text-xs" onClick={() => linkImageToProposal(jobId, linkProposalId)} disabled={!linkProposalId || !!loadingId}>
+                        {loadingId === jobId + "_link" ? <Loader2 className="h-3 w-3 animate-spin" /> : "Link"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setLinkingJobId(null); setLinkProposalId(""); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <button
+                        onClick={() => { setLinkingJobId(jobId); setLinkProposalId(""); }}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                      >
+                        + Link to proposal (shows on landing page)
+                      </button>
+                    </div>
+                  )
+                ) : null}
+                {status === "completed" && !!job.proposal_id && (
+                  <div className="mt-2 text-xs text-emerald-600">
+                    ✓ Linked to proposal — visible on landing page
+                  </div>
+                )}
 
                 {/* Generated image preview (inline) */}
                 {status === "completed" && outputs.length > 0 && (
