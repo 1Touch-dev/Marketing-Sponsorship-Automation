@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
+import { ProposalCMSEditor } from "@/components/proposals/proposal-cms-editor";
 import { PrintButton } from "./print-button";
 import { ShareLinkDisplay } from "./share-link-display";
 import type { ProposalContent } from "@/types/database";
@@ -66,7 +66,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Admin back-link bar */}
-      <div className="sticky top-0 z-50 flex items-center justify-between bg-white border-b border-slate-200 px-4 py-2 print:hidden">
+      <div className="sticky top-0 z-[60] flex items-center justify-between bg-white border-b border-slate-200 px-4 py-2 print:hidden">
         <Link
           href={`/proposals/${proposal.id}`}
           className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors"
@@ -80,7 +80,8 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
         </div>
       </div>
 
-      <ProposalLandingPage
+      {/* CMS editor wraps the landing page — edit mode toggle is inside */}
+      <ProposalCMSEditor
         proposal={{
           id: p.id,
           title: p.title,
@@ -102,7 +103,6 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
         }}
         campaign={p.campaigns}
         approvedImages={approvedImages}
-        adminMode={true}
       />
     </div>
   );

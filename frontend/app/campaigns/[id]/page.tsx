@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
+import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import {
@@ -226,6 +227,21 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           )}
         </div>
       </div>
+
+      {/* Inventory table — full width below the two-column layout */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            💰 Pacote de Inventário
+          </CardTitle>
+          <CardDescription>
+            Monte o pacote de patrocínio com itens de estádio, digital e ativação. Ajuste preços e quantidades antes de gerar a proposta.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CampaignInventoryTable campaignId={campaign.id} />
+        </CardContent>
+      </Card>
     </>
   );
 }

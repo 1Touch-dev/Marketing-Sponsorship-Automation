@@ -11,8 +11,9 @@ const INDUSTRIES = [
   "Bebidas / FMCG", "Bebidas Energéticas / Lifestyle", "Tecnologia", "Tecnologia / Educação",
   "Automóveis / Mobilidade", "Energia / Utilities", "Varejo / E-commerce", "Saúde / Bem-estar",
   "Cosméticos / Beleza", "Financeiro / Bancos", "Seguros", "Educação", "Construção / Imóveis",
-  "Alimentação / Bebidas", "Moda / Vestuário", "Telecomunicações", "Turismo / Hospitalidade",
-  "Agronegócio", "Logística / Transporte", "Outros",
+  "Alimentação / Bebidas", "Moda / Vestuário", "Moda Esportiva", "Telecomunicações",
+  "Turismo / Hospitalidade", "Agronegócio", "Logística / Transporte",
+  "Esportes / Entretenimento", "Farmacêutico / Saúde", "Indústria / Manufatura", "Outros",
 ];
 
 const selectCls = "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring";

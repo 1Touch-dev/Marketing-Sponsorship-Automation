@@ -13,8 +13,10 @@ import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import { ProposalShareButton } from "./proposal-share-button";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
+import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
+import { CampaignImageGenerator } from "@/components/proposals/campaign-image-generator";
 import type { ProposalContent } from "@/types/database";
-import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
+import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -243,6 +245,23 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
 
           <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
 
+          {/* Execution brief — internal use only, not shown on landing page */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span className="text-lg">📋</span> Execution Brief
+                <span className="ml-auto text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Interno</span>
+              </CardTitle>
+              <CardDescription className="text-xs">Estimativas de tempo, recursos e custo por estratégia. Não aparece na proposta pública.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExecutionBriefPanel
+                proposalId={proposal.id}
+                initialBrief={(p.content as unknown as { execution_brief?: ExecutionBrief })?.execution_brief ?? null}
+              />
+            </CardContent>
+          </Card>
+
           {canSendOutreach ? (
             <GenerateEmailPanel proposalId={proposal.id} />
           ) : (
@@ -253,6 +272,25 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               </CardHeader>
             </Card>
           )}
+
+          {/* Campaign image generator — creates creative visuals per strategy */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span className="text-lg">🎨</span> Imagens de Campanha
+                <span className="ml-auto text-xs font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">AI</span>
+              </CardTitle>
+              <CardDescription className="text-xs">Gera criativos visuais para cada estratégia de campanha. Aparecem na proposta e landing page.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CampaignImageGenerator
+                proposalId={proposal.id}
+                companyName={p.companies?.company_name ?? ""}
+                strategyVariants={p.strategy_variants}
+                campaignTitle={p.campaigns?.title}
+              />
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">

@@ -232,6 +232,49 @@ export function normalizeCompanyIntelligence(raw: unknown): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// Execution brief (internal only — time, resources, cost per campaign strategy)
+// ---------------------------------------------------------------------------
+export const executionBriefItemSchema = z.object({
+  strategy_id: z.string().min(1).transform((s) => s.slice(0, 50)),
+  strategy_label: z.string().min(2).transform((s) => s.slice(0, 100)),
+  estimated_duration: z.string().min(2).transform((s) => s.slice(0, 200)),
+  estimated_cost_brl: z.union([
+    z.string().min(1).transform((s) => s.slice(0, 200)),
+    z.number().transform((n) => `R$ ${n.toLocaleString("pt-BR")}`),
+  ]),
+  resources_needed: z.array(z.string().min(2).transform((s) => s.slice(0, 400))).min(1).max(12),
+  action_items: z.array(z.string().min(2).transform((s) => s.slice(0, 500))).min(1).max(15),
+  complexity: z.enum(["low", "medium", "high"]).optional().default("medium"),
+  key_risk: z.string().transform((s) => s.slice(0, 600)).optional().nullable(),
+}).passthrough();
+
+export const executionBriefSchema = z.object({
+  briefs: z.array(executionBriefItemSchema).min(1).max(6),
+  total_estimated_cost_brl: z.union([
+    z.string().min(1).transform((s) => s.slice(0, 200)),
+    z.number().transform((n) => `R$ ${n.toLocaleString("pt-BR")}`),
+  ]).optional().nullable(),
+  production_timeline_weeks: z.union([
+    z.number(),
+    z.string().transform((s) => parseInt(s.replace(/[^\d]/g, "")) || 8),
+  ]).optional().nullable(),
+}).passthrough();
+
+export type ExecutionBrief = z.infer<typeof executionBriefSchema>;
+export type ExecutionBriefItem = z.infer<typeof executionBriefItemSchema>;
+
+export function normalizeExecutionBrief(raw: unknown): unknown {
+  if (Array.isArray(raw)) return { briefs: raw };
+  if (typeof raw === "object" && raw !== null) {
+    const obj = raw as Record<string, unknown>;
+    if (Array.isArray(obj.briefs)) return raw;
+    // Flat brief for single strategy
+    if (obj.strategy_id || obj.resources_needed || obj.action_items) return { briefs: [raw] };
+  }
+  return raw;
+}
+
+// ---------------------------------------------------------------------------
 // Email (outreach + follow-up)
 // ---------------------------------------------------------------------------
 export const emailOutputSchema = z.object({
