@@ -242,8 +242,8 @@ export const executionBriefItemSchema = z.object({
     z.string().min(1).transform((s) => s.slice(0, 200)),
     z.number().transform((n) => `R$ ${n.toLocaleString("pt-BR")}`),
   ]),
-  resources_needed: z.array(z.string().min(2).transform((s) => s.slice(0, 400))).min(1).max(12),
-  action_items: z.array(z.string().min(2).transform((s) => s.slice(0, 500))).min(1).max(15),
+  resources_needed: z.array(z.string().min(1).transform((s) => s.slice(0, 400))).min(1).max(30),
+  action_items: z.array(z.string().min(1).transform((s) => s.slice(0, 500))).min(1).max(30),
   complexity: z.enum(["low", "medium", "high"]).optional().default("medium"),
   key_risk: z.string().transform((s) => s.slice(0, 600)).optional().nullable(),
 }).passthrough();
