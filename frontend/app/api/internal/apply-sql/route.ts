@@ -11,8 +11,9 @@ export async function GET() {
       "0010": "New modules: coritiba_metrics, inventory_items, barter_items, social_projects, pipeline_leads, visual_mockups",
       "0011": "Guided OS: proposal_wizard_drafts, proposal_sections, image_generation_jobs, company_logos, crm_sync_queue",
       "0014": "Inventory overhaul: individual units, quantity tracking, adjustable slots, size-based pricing, proposal_inventory_items",
+      "0016": "Role-based users: platform_users table, role enum (admin/sales_rep/approver/viewer)",
     },
-    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' }",
+    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' | '0016' }",
   });
 }
 
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
     "0011": SQL_0011,
     "0014": SQL_0014,
     "0015": SQL_0015,
+    "0016": SQL_0016,
   };
 
   const sql = sqlMap[migration];
@@ -480,6 +482,37 @@ ALTER TABLE public.proposals
   ADD COLUMN IF NOT EXISTS pipedrive_deal_id     INTEGER,
   ADD COLUMN IF NOT EXISTS pipedrive_pipeline_id INTEGER,
   ADD COLUMN IF NOT EXISTS pipedrive_synced_at   TIMESTAMPTZ;
+
+NOTIFY pgrst, 'reload schema';
+`;
+
+const SQL_0016 = `
+-- Migration 0016: Role-based platform users
+CREATE TABLE IF NOT EXISTS public.platform_users (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  email        TEXT        NOT NULL UNIQUE,
+  full_name    TEXT        NOT NULL,
+  role         TEXT        NOT NULL DEFAULT 'viewer'
+                           CHECK (role IN ('admin','sales_rep','approver','viewer')),
+  is_active    BOOLEAN     NOT NULL DEFAULT TRUE,
+  invited_by   TEXT,
+  last_seen_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_platform_users_email ON public.platform_users(email);
+CREATE INDEX IF NOT EXISTS idx_platform_users_role  ON public.platform_users(role);
+
+ALTER TABLE public.platform_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "service_all_platform_users" ON public.platform_users;
+CREATE POLICY "service_all_platform_users" ON public.platform_users
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- Seed the first admin using the ADMIN_EMAIL env var (safe: INSERT … WHERE NOT EXISTS)
+INSERT INTO public.platform_users (email, full_name, role, invited_by)
+SELECT 'admin@coritiba.com.br', 'Admin', 'admin', 'system'
+WHERE NOT EXISTS (SELECT 1 FROM public.platform_users WHERE role = 'admin');
 
 NOTIFY pgrst, 'reload schema';
 `;

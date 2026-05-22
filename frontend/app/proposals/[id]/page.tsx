@@ -15,6 +15,7 @@ import { ProposalShareButton } from "./proposal-share-button";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { CampaignImageGenerator } from "@/components/proposals/campaign-image-generator";
+import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
 
@@ -243,7 +244,9 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             </Card>
           )}
 
-          <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
+          <ApprovalRoleGate>
+            <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
+          </ApprovalRoleGate>
 
           {/* Execution brief — internal use only, not shown on landing page */}
           <Card>
@@ -263,7 +266,9 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           </Card>
 
           {canSendOutreach ? (
-            <GenerateEmailPanel proposalId={proposal.id} />
+            <ApprovalRoleGate>
+              <GenerateEmailPanel proposalId={proposal.id} />
+            </ApprovalRoleGate>
           ) : (
             <Card>
               <CardHeader>

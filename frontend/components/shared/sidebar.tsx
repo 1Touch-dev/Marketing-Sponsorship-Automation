@@ -31,8 +31,10 @@ import {
   Wand2,
   GitMerge,
   Zap,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/lib/auth/use-user-role";
 
 function GlobalSearchCompact() {
   const [open, setOpen] = React.useState(false);
@@ -56,6 +58,7 @@ type NavItem = {
   label: string;
   icon: React.ElementType;
   group?: string;
+  adminOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
@@ -88,6 +91,7 @@ const NAV: NavItem[] = [
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
   { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
+  { href: "/users", label: "Team & Roles", icon: Users, group: "system", adminOnly: true },
 ];
 
 const GROUPS: Record<string, string> = {
@@ -102,8 +106,10 @@ const GROUPS: Record<string, string> = {
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  const { role } = useUserRole();
 
   const groupedItems = NAV.reduce<Record<string, NavItem[]>>((acc, item) => {
+    if (item.adminOnly && role !== "admin") return acc;
     const g = item.group || "core";
     acc[g] = acc[g] || [];
     acc[g].push(item);
@@ -165,6 +171,34 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
 /** Desktop sidebar — hidden on mobile */
 const PUBLIC_PATHS = ["/proposals/view/"];
 
+function CurrentUserBadge() {
+  const { user, role, loading } = useUserRole();
+  if (loading || !user) return null;
+  const roleColors: Record<string, string> = {
+    admin: "bg-red-500",
+    sales_rep: "bg-blue-500",
+    approver: "bg-green-500",
+    viewer: "bg-gray-400",
+  };
+  const roleLabels: Record<string, string> = {
+    admin: "Admin",
+    sales_rep: "Sales Rep",
+    approver: "Approver",
+    viewer: "Viewer",
+  };
+  return (
+    <div className="px-3 py-2 border-t">
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full flex-shrink-0 ${roleColors[role ?? "viewer"] ?? "bg-gray-400"}`} />
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-foreground truncate">{user.full_name}</div>
+          <div className="text-[10px] text-muted-foreground">{roleLabels[role ?? "viewer"]}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
@@ -180,6 +214,7 @@ export function Sidebar() {
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
         <NavLinks />
       </nav>
+      <CurrentUserBadge />
       <div className="px-3 py-2 border-t">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
