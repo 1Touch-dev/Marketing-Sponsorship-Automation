@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
-import { Plus, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { InventoryManager } from "./inventory-manager";
 
 export const dynamic = "force-dynamic";
@@ -33,12 +32,6 @@ export default async function InventoryPage() {
       <PageHeader
         title="Sponsorship Inventory"
         description="Manage all Coritiba FC physical and digital sponsorship assets"
-        actions={
-          // Button is now inside InventoryManager — this is a visual placeholder
-          <Button size="sm" id="inventory-add-btn" disabled className="gap-1.5 opacity-0 pointer-events-none">
-            <Plus className="h-4 w-4" /> Add Item
-          </Button>
-        }
       />
 
       {migrationNeeded ? (
