@@ -73,9 +73,14 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       bcc: email.bcc ?? undefined,
     });
   } catch (err) {
-    const msg = `Gmail draft failed: ${err instanceof Error ? err.message : "unknown"}`;
+    const errMsg = err instanceof Error ? err.message : "unknown";
+    // Detect expired/revoked token — return a specific reconnect error
+    const isTokenError = errMsg.includes("invalid_grant") || errMsg.includes("Token has been expired") || errMsg.includes("invalid_client");
+    const msg = isTokenError
+      ? "Gmail token expired or revoked. Please reconnect Gmail in Settings → Gmail Integration."
+      : `Gmail draft failed: ${errMsg}`;
     if (eventId) await failWorkflow(eventId, msg);
-    return NextResponse.json({ error: msg }, { status: 502 });
+    return NextResponse.json({ error: msg, needs_reconnect: isTokenError }, { status: isTokenError ? 401 : 502 });
   }
 
   const updates: Record<string, unknown> = {
