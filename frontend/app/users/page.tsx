@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/shared/page-header";
 import UsersManager from "./users-manager";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +12,11 @@ export default async function UsersPage() {
     .order("created_at" as "id", { ascending: true });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Team & Roles</h1>
-        <p className="text-muted-foreground mt-1">
-          Invite teammates and control what each person can do on the platform.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Team & Roles"
+        description="Invite teammates and control what each person can do on the platform."
+      />
 
       {/* Roles reference card */}
       <div className="rounded-xl border bg-muted/30 p-4">

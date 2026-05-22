@@ -75,8 +75,7 @@ async function loadDashboard() {
       .in("status", ["under_review", "revision_requested"]),
     sb.from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
-      .not("status", "eq", "rejected")
-      .not("status", "eq", "archived")
+      .neq("status", "rejected")
       .order("updated_at", { ascending: false })
       .limit(6),
     sb.from("emails")
