@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Zap, Star, Target, Mail, TrendingUp, Users, RefreshCw } from "lucide-react";
@@ -59,15 +59,18 @@ export function DifferentiatorPanel({
       const res = await fetch(`/api/companies/${companyId}/differentiators`);
       const json = await res.json();
       if (json.differentiators) setData(json.differentiators);
+    } catch {
+      // No cached data, just leave empty — user can click Analyse
     } finally {
       setLoading(false);
     }
   }
 
-  // Load cached on first render
-  if (!data && !loading && !error) {
+  // Load cached data once on mount
+  useEffect(() => {
     loadCached();
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const fitScore = data?.sponsorship_fit?.score ?? 0;
   const fitColor =
