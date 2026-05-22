@@ -72,8 +72,8 @@ export async function discoverCompetitors(
   let apifyUsed = false;
   try {
     searchResults = await batchSearchGoogle(queries.slice(0, 6), {
-      lang: "pt",
-      country: "BR",
+      lang: "pt-BR",
+      country: "br",
       numResults: 10,
       timeoutMs: 50_000,
     });

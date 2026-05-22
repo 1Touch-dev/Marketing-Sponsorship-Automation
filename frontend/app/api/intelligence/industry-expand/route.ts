@@ -50,8 +50,8 @@ export async function POST(req: Request) {
     let apifyUsed = false;
     try {
       searchResults = await batchSearchGoogle(queries.slice(0, 5), {
-        lang: "pt",
-        country: "BR",
+        lang: "pt-BR",
+        country: "br",
         numResults: 10,
         timeoutMs: 50_000,
       });

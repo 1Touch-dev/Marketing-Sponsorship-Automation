@@ -23,8 +23,8 @@ export function getApifyClient(): ApifyClient {
 
 // ── Actor IDs ──────────────────────────────────────────────────────────────────
 export const ACTORS = {
-  GOOGLE_SEARCH: "thescrappa/google-search-scraper",   // $0.20/1000 results
-  WEBSITE_CRAWLER: "apify/website-content-crawler",    // deep JS crawling
+  GOOGLE_SEARCH: "apify/google-search-scraper",       // official Apify actor - uses "queries" field
+  WEBSITE_CRAWLER: "apify/website-content-crawler",   // deep JS crawling
 } as const;
 
 // ── Core run wrapper ──────────────────────────────────────────────────────────

@@ -62,27 +62,29 @@ export function extractJson(text: string): unknown | null {
     return JSON.parse(stripped);
   } catch { /* keep trying */ }
 
-  // 3. Find the largest {...} block in the text
-  const objMatches = [...text.matchAll(/\{[\s\S]*?\}/g)];
-  // Pick the longest match (most likely to be the full object)
-  const objMatch = objMatches.sort((a, b) => b[0].length - a[0].length)[0]?.[0];
-  if (objMatch) {
-    try { return JSON.parse(objMatch); } catch { /* keep trying */ }
+  // 3. Greedy fallback: take everything from first { or [ to last } or ]
+  const firstBrace = stripped.indexOf("{");
+  const firstBracket = stripped.indexOf("[");
+  if (firstBrace !== -1) {
+    const lastBrace = stripped.lastIndexOf("}");
+    if (lastBrace > firstBrace) {
+      try { return JSON.parse(stripped.slice(firstBrace, lastBrace + 1)); } catch { /* keep trying */ }
+    }
+  }
+  if (firstBracket !== -1) {
+    const lastBracket = stripped.lastIndexOf("]");
+    if (lastBracket > firstBracket) {
+      try { return JSON.parse(stripped.slice(firstBracket, lastBracket + 1)); } catch { /* keep trying */ }
+    }
   }
 
-  // 4. Find [...] array block
-  const arrMatches = [...text.matchAll(/\[[\s\S]*?\]/g)];
-  const arrMatch = arrMatches.sort((a, b) => b[0].length - a[0].length)[0]?.[0];
-  if (arrMatch) {
-    try { return JSON.parse(arrMatch); } catch { /* keep trying */ }
-  }
-
-  // 5. Greedy fallback: take everything from first { or [ to end
-  const firstBrace = text.indexOf("{");
-  const firstBracket = text.indexOf("[");
-  const start = firstBrace === -1 ? firstBracket : firstBracket === -1 ? firstBrace : Math.min(firstBrace, firstBracket);
-  if (start !== -1) {
-    try { return JSON.parse(text.slice(start)); } catch { /* give up */ }
+  // 4. Same on original text
+  const firstBraceOrig = text.indexOf("{");
+  if (firstBraceOrig !== -1) {
+    const lastBraceOrig = text.lastIndexOf("}");
+    if (lastBraceOrig > firstBraceOrig) {
+      try { return JSON.parse(text.slice(firstBraceOrig, lastBraceOrig + 1)); } catch { /* give up */ }
+    }
   }
 
   return null;

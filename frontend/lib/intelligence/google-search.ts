@@ -48,8 +48,8 @@ export async function searchGoogle(
   options: SearchOptions = {}
 ): Promise<GoogleSearchResult> {
   const {
-    lang = "pt",
-    country = "BR",
+    lang = "pt-BR",
+    country = "br",
     numResults = 10,
     safeSearch = true,
     timeoutMs = 45_000,
@@ -62,7 +62,7 @@ export async function searchGoogle(
       ACTORS.GOOGLE_SEARCH,
       {
         queries: query,
-        countryCode: country,
+        countryCode: country.toLowerCase(),
         languageCode: lang,
         maxPagesPerQuery: 1,
         resultsPerPage: Math.min(numResults, 10),
