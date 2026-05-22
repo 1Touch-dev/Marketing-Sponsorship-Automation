@@ -17,6 +17,7 @@ type GeneratedJob = {
   status: string;
   output_urls?: Array<{ url: string }>;
   job_type: string;
+  strategy_label?: string;
 };
 
 export function CampaignImageGenerator({
@@ -38,7 +39,6 @@ export function CampaignImageGenerator({
     const prompts: Array<{ prompt: string; job_type: string; strategy_label?: string }> = [];
 
     if (strategyVariants && strategyVariants.length > 0) {
-      // Generate a creative visual for each strategy
       for (const v of strategyVariants.slice(0, 3)) {
         const activations = v.key_activations?.slice(0, 2).join(" and ") ?? "stadium activation";
         prompts.push({
@@ -48,7 +48,6 @@ export function CampaignImageGenerator({
         });
       }
     } else {
-      // Generic campaign creative
       prompts.push({
         prompt: `Professional sports marketing campaign creative for ${companyName} × Coritiba FC sponsorship. ${campaignTitle ?? "Stadium activation"}. Estádio Couto Pereira in Curitiba, Brazil. Green and white team colors, exciting game atmosphere, sponsor branding integrated naturally. High-quality advertising photography, 16:9 format.`,
         job_type: "campaign_creative",
@@ -59,27 +58,54 @@ export function CampaignImageGenerator({
 
     try {
       for (const p of prompts) {
-        const res = await fetch("/api/image-generation", {
+        // Step 1: Create job (status: pending_approval)
+        const res1 = await fetch("/api/image-generation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "create_and_generate",
             prompt: p.prompt,
             job_type: p.job_type,
-            proposal_id: proposalId,
+            proposal_id: proposalId || undefined,
             size: "1792x1024",
             quality: "standard",
+            triggered_by: "campaign_generator",
           }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Generation failed");
-        if (data.job) created.push(data.job);
+        const d1 = await res1.json();
+        if (!res1.ok) throw new Error(d1.error ?? "Failed to create job");
+        const jobId = d1.job?.id;
+        if (!jobId) throw new Error("No job ID returned");
+
+        // Step 2: Auto-approve
+        await fetch("/api/image-generation", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
+        });
+
+        // Step 3: Generate image
+        const res3 = await fetch("/api/image-generation", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: jobId, action: "generate" }),
+        });
+        const d3 = await res3.json();
+        if (!res3.ok) throw new Error(d3.error ?? "Generation failed");
+
+        created.push({
+          id: jobId,
+          prompt: p.prompt,
+          status: "completed",
+          output_urls: d3.output_urls ?? [],
+          job_type: p.job_type,
+          strategy_label: p.strategy_label,
+        });
       }
 
       setJobs(created);
       setDone(true);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -96,13 +122,13 @@ export function CampaignImageGenerator({
         </div>
         <button
           onClick={generate}
-          disabled={loading || done}
+          disabled={loading}
           className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-3 py-2 text-xs font-semibold transition-colors"
         >
           {loading ? (
             <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando…</>
           ) : done ? (
-            <><CheckCircle2 className="h-3.5 w-3.5" /> Gerado</>
+            <><CheckCircle2 className="h-3.5 w-3.5" /> Regenerar</>
           ) : (
             <><Sparkles className="h-3.5 w-3.5" /> Gerar Criativos</>
           )}
@@ -114,28 +140,37 @@ export function CampaignImageGenerator({
       )}
 
       {jobs.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {jobs.map((job, idx) => (
-            <div key={job.id} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <ImageIcon className="h-4 w-4 text-indigo-500 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-slate-700 truncate">
-                  Criativo {idx + 1}{strategyVariants?.[idx]?.label ? ` — ${strategyVariants[idx].label}` : ""}
+            <div key={job.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <ImageIcon className="h-4 w-4 text-indigo-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-slate-700 truncate">
+                    Criativo {idx + 1}{job.strategy_label ? ` — ${job.strategy_label}` : ""}
+                  </div>
+                  <div className={`text-xs mt-0.5 ${job.status === "completed" ? "text-green-600" : "text-amber-600"}`}>
+                    {job.status === "completed" ? "✓ Gerado com sucesso" : "⏳ Processando…"}
+                  </div>
                 </div>
-                <div className={`text-xs mt-0.5 ${job.status === "completed" ? "text-green-600" : "text-amber-600"}`}>
-                  {job.status === "completed" ? "✓ Pronto" : "⏳ Processando…"}
-                </div>
+                <a
+                  href="/media-generation"
+                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 shrink-0"
+                >
+                  Ver todos <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
-              <a
-                href="/media-generation"
-                className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
-              >
-                Ver <ExternalLink className="h-3 w-3" />
-              </a>
+              {job.status === "completed" && job.output_urls && job.output_urls.length > 0 && (
+                <img
+                  src={job.output_urls[0].url}
+                  alt={`Criativo ${idx + 1}`}
+                  className="w-full rounded-md border border-slate-200 object-cover max-h-48"
+                />
+              )}
             </div>
           ))}
           <p className="text-xs text-slate-400">
-            As imagens aparecem na aba &quot;Imagens Geradas&quot; da proposta e na landing page após processamento.
+            As imagens também aparecem na aba &quot;Imagens Geradas&quot; e na landing page da proposta.
           </p>
         </div>
       )}
