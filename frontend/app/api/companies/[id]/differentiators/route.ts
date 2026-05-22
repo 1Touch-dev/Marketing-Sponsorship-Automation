@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { invokeClaude, extractJson } from "@/lib/bedrock/client";
+import { invokeClaude } from "@/lib/bedrock/client";
 
 export const maxDuration = 90;
 
@@ -78,12 +78,27 @@ Rules:
 - Reference Coritiba FC's Paraná/Curitiba audience as a strategic asset`;
 
     const result = await invokeClaude({
+      system: "You are a commercial intelligence analyst. Always respond with valid JSON only. Never use markdown code blocks or code fences.",
       messages: [{ role: "user", content: prompt }],
-      maxTokens: 3500,
+      maxTokens: 4096,
       temperature: 0.4,
+      json: true,
     });
 
-    const parsed = extractJson(result.text) as Record<string, unknown> | null;
+    let parsed: Record<string, unknown> | null = null;
+    if (result.json && !Array.isArray(result.json) && typeof result.json === "object") {
+      parsed = result.json as Record<string, unknown>;
+    } else {
+      // Fallback manual parse
+      const text = (result.text ?? "").trim();
+      const stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      const firstBrace = stripped.indexOf("{");
+      const lastBrace = stripped.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try { parsed = JSON.parse(stripped.slice(firstBrace, lastBrace + 1)); } catch { /* give up */ }
+      }
+    }
+
     if (!parsed) throw new Error("AI returned invalid response");
 
     // Persist to full_intelligence
