@@ -64,6 +64,20 @@ CREATE INDEX IF NOT EXISTS idx_companies_pipedrive_org  ON public.companies(pipe
 CREATE INDEX IF NOT EXISTS idx_proposals_pipedrive_deal ON public.proposals(pipedrive_deal_id) WHERE pipedrive_deal_id IS NOT NULL;
 
 
+-- MIGRATION 0019: approval_decision enum for active_contract audit (optional)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'approval_decision' AND e.enumlabel = 'active_contract'
+  ) THEN
+    ALTER TYPE public.approval_decision ADD VALUE 'active_contract';
+  END IF;
+EXCEPTION WHEN others THEN
+  RAISE NOTICE '0019: %', SQLERRM;
+END $$;
+
 -- NOTIFY PostgREST to reload schema cache
 NOTIFY pgrst, 'reload schema';
 

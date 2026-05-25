@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +28,9 @@ export const dynamic = "force-dynamic";
  * A 200 response means the column/table exists; any error means it doesn't.
  * This is safe, read-only, and works with the service-role key.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
   const sb = supabaseAdmin();
 
   // Helper: returns true if the select succeeds (column/table exists)

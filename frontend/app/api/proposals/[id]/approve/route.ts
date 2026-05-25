@@ -30,8 +30,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   const sb = supabaseAdmin();
 
-  // Insert approval record (skip for submit_review — that's just a status change)
-  if (parsed.data.decision !== "submit_review") {
+  // Insert approval record (skip for status-only transitions that aren't in approval_decision enum)
+  const SKIP_APPROVAL_INSERT = new Set(["submit_review", "active_contract"]);
+  if (!SKIP_APPROVAL_INSERT.has(parsed.data.decision)) {
     const { error: insErr } = await sb.from("approvals").insert({
       proposal_id: parsed.data.proposal_id,
       decision: parsed.data.decision,

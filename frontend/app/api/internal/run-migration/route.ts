@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,6 +12,8 @@ export const maxDuration = 60;
  * Called by the app on startup or via admin action.
  */
 export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
   const { file, sql: inlineSql } = await req.json().catch(() => ({ file: null, sql: null }));
 
   let sql = inlineSql as string | null;
