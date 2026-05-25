@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -44,6 +45,16 @@ Rules:
 - DO NOT mention competitor football clubs (Athletico Paranaense, etc.)`;
 
 export async function POST(req: Request) {
+  // Rate limit AI intelligence calls: 10 per minute per IP
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = checkRateLimit({ key: `intelligence:${ip}`, limit: 10, windowSec: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Please wait before running more intelligence analyses." },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   const { company_id, company_name, industry, website, notes } = await req.json().catch(() => ({}));
 
   if (!company_id || !company_name) {

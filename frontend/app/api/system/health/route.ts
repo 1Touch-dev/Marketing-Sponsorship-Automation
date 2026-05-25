@@ -26,22 +26,37 @@ export async function GET() {
   // AI service status
   const awsConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
   const openaiConfigured = !!process.env.OPENAI_API_KEY;
+  const pipedriveConfigured = !!process.env.PIPEDRIVE_API_KEY;
 
   // Queue stats
   let queueStats: Record<string, number> = {};
   try { queueStats = await getQueueStats(); } catch { /* */ }
 
-  // Platform stats
+  // Platform stats — fixed: proposals count all non-rejected statuses
   let platformStats: Record<string, number> = {};
   try {
     const sb = supabaseAdmin();
     const [{ count: companies }, { count: proposals }, { count: campaigns }] = await Promise.all([
-      sb.from("companies").select("*", { count: "exact", head: true }).neq("status", "closed"),
-      sb.from("proposals").select("*", { count: "exact", head: true }).not("status", "eq", "archived"),
+      sb.from("companies").select("*", { count: "exact", head: true }).neq("status" as "id", "closed"),
+      sb.from("proposals").select("*", { count: "exact", head: true }),
       sb.from("campaigns").select("*", { count: "exact", head: true }),
     ]);
-    platformStats = { companies: companies ?? 0, proposals: proposals ?? 0, campaigns: campaigns ?? 0 };
-  } catch { /* */ }
+
+    // Active proposals: not rejected
+    const { count: activeProposals } = await sb
+      .from("proposals")
+      .select("*", { count: "exact", head: true })
+      .neq("status" as "id", "rejected");
+
+    platformStats = {
+      companies: companies ?? 0,
+      proposals_total: proposals ?? 0,
+      proposals_active: activeProposals ?? 0,
+      campaigns: campaigns ?? 0,
+    };
+  } catch (e) {
+    console.error("[health] platformStats error:", e);
+  }
 
   const allHealthy = dbHealthy && envHealthy;
   const responseTime = Date.now() - startTime;
@@ -54,7 +69,7 @@ export async function GET() {
       database: { healthy: dbHealthy, latency_ms: dbLatencyMs },
       bedrock_ai: { healthy: awsConfigured, configured: awsConfigured },
       openai: { healthy: openaiConfigured, configured: openaiConfigured },
-      pipedrive: { healthy: false, configured: !!process.env.PIPEDRIVE_API_KEY },
+      pipedrive: { healthy: pipedriveConfigured, configured: pipedriveConfigured },
     },
     environment: { healthy: envHealthy, vars: envStatus },
     queue: queueStats,

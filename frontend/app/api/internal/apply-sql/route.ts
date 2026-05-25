@@ -1,23 +1,31 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
   return NextResponse.json({
     migrations: {
       "0009": "Company intelligence columns",
       "0010": "New modules: coritiba_metrics, inventory_items, barter_items, social_projects, pipeline_leads, visual_mockups",
       "0011": "Guided OS: proposal_wizard_drafts, proposal_sections, image_generation_jobs, company_logos, crm_sync_queue",
       "0014": "Inventory overhaul: individual units, quantity tracking, adjustable slots, size-based pricing, proposal_inventory_items",
+      "0015": "Pipedrive CRM columns on companies + proposals",
       "0016": "Role-based users: platform_users table, role enum (admin/sales_rep/approver/viewer)",
+      "0017": "Inventory operational fields: avg_views, content_hours, team_required, production_cost, setup_hours, line_items",
+      "0018": "Add active_contract to proposal_status enum",
     },
-    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' | '0016' }",
+    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' | '0016' | '0017' | '0018' }",
   });
 }
 
 export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
   const { migration } = await req.json().catch(() => ({ migration: null }));
   if (!migration) return NextResponse.json({ error: "Provide migration number" }, { status: 400 });
 
@@ -28,6 +36,8 @@ export async function POST(req: Request) {
     "0014": SQL_0014,
     "0015": SQL_0015,
     "0016": SQL_0016,
+    "0017": SQL_0017,
+    "0018": SQL_0018,
   };
 
   const sql = sqlMap[migration];
@@ -515,4 +525,25 @@ SELECT 'admin@coritiba.com.br', 'Admin', 'admin', 'system'
 WHERE NOT EXISTS (SELECT 1 FROM public.platform_users WHERE role = 'admin');
 
 NOTIFY pgrst, 'reload schema';
+`;
+
+const SQL_0017 = `
+-- 0017: Inventory operational fields for commercial campaigns
+ALTER TABLE public.inventory_items
+  ADD COLUMN IF NOT EXISTS avg_views        INTEGER       DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS content_hours    NUMERIC(6,2)  DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS team_required    TEXT          DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS production_cost  NUMERIC(12,2) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS setup_hours      NUMERIC(6,2)  DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS line_items       JSONB         DEFAULT '[]';
+NOTIFY pgrst, 'reload schema';
+`;
+
+const SQL_0018 = `
+-- 0018: Add active_contract status to proposal_status enum
+-- IF NOT EXISTS requires Postgres 12+; Supabase uses Postgres 15+
+DO $$ BEGIN
+  ALTER TYPE public.proposal_status ADD VALUE IF NOT EXISTS 'active_contract' AFTER 'sent';
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 `;

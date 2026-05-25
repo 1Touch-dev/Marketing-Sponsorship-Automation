@@ -35,12 +35,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "name, category, and inventory_type are required" }, { status: 400 });
   }
 
+  // Strip any new operational fields if the DB hasn't been migrated yet
+  // They'll be silently dropped; the migration adds them properly
+  const safeBody = { ...body };
+  const newCols = ["avg_views", "content_hours", "team_required", "production_cost", "setup_hours", "line_items"];
+
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("inventory_items" as "companies")
-    .insert(body as never)
+    .insert(safeBody as never)
     .select("*")
     .single();
 
+  if (error?.message?.includes("column") && error.message.includes("does not exist")) {
+    // New columns missing — try without them
+    newCols.forEach(k => delete safeBody[k]);
+    const { data: d2, error: e2 } = await (sb as ReturnType<typeof supabaseAdmin>)
+      .from("inventory_items" as "companies")
+      .insert(safeBody as never)
+      .select("*")
+      .single();
+    if (e2) return NextResponse.json({ error: e2.message, migration_needed: true }, { status: 500 });
+    await recordAudit({ entity_type: "inventory", entity_id: null, action: "inventory.created", metadata: { name: body.name, category: body.category, type: body.inventory_type } });
+    return NextResponse.json({ data: d2, warning: "Some new fields not saved — run migration 0017" }, { status: 201 });
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await recordAudit({

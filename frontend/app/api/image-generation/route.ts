@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 export const maxDuration = 90;
 
@@ -36,6 +37,16 @@ export async function GET(req: Request) {
  * POST /api/image-generation — Create a new job (pending_approval)
  */
 export async function POST(req: Request) {
+  // Rate limit: 5 image generation requests per minute per IP
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = checkRateLimit({ key: `img-gen:${ip}`, limit: 5, windowSec: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded for image generation. Try again in 60 seconds." },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   try {
     const body = await req.json() as {
       proposal_id?: string;

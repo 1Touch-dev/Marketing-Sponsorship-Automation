@@ -18,13 +18,20 @@ const serverSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
-  GOOGLE_REDIRECT_URI: z.string().url(),
+  // Google OAuth — kept for threads/Gmail viewing; optional
+  GOOGLE_CLIENT_ID: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().optional()),
+  GOOGLE_CLIENT_SECRET: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().optional()),
+  GOOGLE_REDIRECT_URI: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().url().optional()),
   DEFAULT_FROM_EMAIL: z.string().email().optional(),
 
   FOLLOWUP_DELAY_DAYS: z.coerce.number().int().positive().default(3),
   MAX_CAMPAIGN_IDEAS: z.coerce.number().int().positive().default(3),
+
+  /** Internal API secret — required in production, optional in dev */
+  INTERNAL_API_SECRET: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(16).optional()
+  ),
 
   /** Optional: if set, POST /api/workflows/audit must send header x-msa-webhook-secret with this value. */
   MSA_INTERNAL_WEBHOOK_SECRET: z

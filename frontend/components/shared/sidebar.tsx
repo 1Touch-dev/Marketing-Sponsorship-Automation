@@ -32,6 +32,7 @@ import {
   GitMerge,
   Zap,
   Users,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -172,7 +173,7 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
 const PUBLIC_PATHS = ["/proposals/view/"];
 
 function CurrentUserBadge() {
-  const { user, role, loading } = useUserRole();
+  const { user, role, loading, logout } = useUserRole();
   if (loading || !user) return null;
   const roleColors: Record<string, string> = {
     admin: "bg-red-500",
@@ -190,10 +191,17 @@ function CurrentUserBadge() {
     <div className="px-3 py-2 border-t">
       <div className="flex items-center gap-2">
         <span className={`h-2 w-2 rounded-full flex-shrink-0 ${roleColors[role ?? "viewer"] ?? "bg-gray-400"}`} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-[11px] font-medium text-foreground truncate">{user.full_name}</div>
           <div className="text-[10px] text-muted-foreground">{roleLabels[role ?? "viewer"]}</div>
         </div>
+        <button
+          onClick={() => logout()}
+          title="Sign out"
+          className="text-muted-foreground hover:text-destructive transition-colors flex-shrink-0"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );

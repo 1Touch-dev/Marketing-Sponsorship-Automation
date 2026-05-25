@@ -22,9 +22,10 @@ export function validateEnv(): { valid: boolean; statuses: EnvStatus[]; summary:
     { key: "BEDROCK_MODEL_ID", required: false },
     { key: "OPENAI_API_KEY", required: false, validate: v => v.startsWith("sk-") },
     { key: "APIFY_API_TOKEN", required: false, validate: v => v.startsWith("apify_api_"), hint: "Get from apify.com/account/integrations" },
-    { key: "SERPAPI_KEY", required: false, hint: "Optional — get from serpapi.com/manage-api-key" },
+    { key: "SERPAPI_KEY", required: false, hint: "Deprecated — Apify is now used instead of SerpAPI" },
     { key: "PIPEDRIVE_API_KEY", required: false },
     { key: "NEXTAUTH_SECRET", required: false },
+    { key: "INTERNAL_API_SECRET", required: false, validate: v => v.length >= 16, hint: "Required in production for /api/internal/* routes" },
   ];
 
   const statuses: EnvStatus[] = checks.map(({ key, required, validate, hint }) => {
