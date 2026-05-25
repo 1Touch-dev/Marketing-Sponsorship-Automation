@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 import Link from "next/link";
 import { ApprovalPanel } from "./approval-panel";
 import { ApprovalFlowPanel } from "./approval-flow-panel";
@@ -15,6 +16,7 @@ import { ProposalShareButton } from "./proposal-share-button";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { CampaignImageGenerator } from "@/components/proposals/campaign-image-generator";
+import { AssetUploader } from "@/components/proposals/asset-uploader";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
@@ -293,6 +295,22 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                 companyName={p.companies?.company_name ?? ""}
                 strategyVariants={p.strategy_variants}
                 campaignTitle={p.campaigns?.title}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Brand asset uploader */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Upload className="h-4 w-4 text-primary" /> Brand Assets
+              </CardTitle>
+              <CardDescription>Upload logos and brand assets for use in image generation and the proposal.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AssetUploader
+                proposalId={proposal.id}
+                existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
               />
             </CardContent>
           </Card>

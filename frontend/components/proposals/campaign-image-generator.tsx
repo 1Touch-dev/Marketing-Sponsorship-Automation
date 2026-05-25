@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Loader2, Image as ImageIcon, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Sparkles, Loader2, Image as ImageIcon, ExternalLink, CheckCircle2, Upload } from "lucide-react";
 import type { StrategyVariant } from "@/lib/ai/schemas";
 
 interface CampaignImageGeneratorProps {
@@ -9,6 +9,7 @@ interface CampaignImageGeneratorProps {
   companyName: string;
   strategyVariants?: StrategyVariant[] | null;
   campaignTitle?: string;
+  uploadedLogoUrl?: string | null;
 }
 
 type GeneratedJob = {
@@ -20,11 +21,24 @@ type GeneratedJob = {
   strategy_label?: string;
 };
 
+/** Build a vivid, strategy-aware prompt for each campaign strategy */
+function buildPromptForStrategy(
+  strategy: StrategyVariant,
+  companyName: string,
+  logoUrl?: string | null,
+): string {
+  const activations = strategy.key_activations?.slice(0, 2).join(" and ") ?? "stadium activation";
+  const tagline = strategy.tagline ? `Tagline: "${strategy.tagline}". ` : "";
+  const logoNote = logoUrl ? `The sponsor logo is available and should be placed prominently. ` : "";
+  return `Professional Brazilian sports marketing campaign visual for ${companyName} sponsoring Coritiba FC (green and white club from Curitiba, Brazil, founded 1909). ${tagline}Strategy: "${strategy.label}". Activation: ${activations}. Scene: Estádio Couto Pereira stadium atmosphere during match day with 40,000 passionate fans. ${logoNote}${companyName} brand prominently integrated into Coritiba FC's iconic green and white color scheme. Modern advertising photography, cinematic lighting, 16:9 widescreen format, high quality commercial visual.`;
+}
+
 export function CampaignImageGenerator({
   proposalId,
   companyName,
   strategyVariants,
   campaignTitle,
+  uploadedLogoUrl,
 }: CampaignImageGeneratorProps) {
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState<GeneratedJob[]>([]);
@@ -35,21 +49,19 @@ export function CampaignImageGenerator({
     setLoading(true);
     setError(null);
 
-    // Build prompts for campaign creatives based on strategies
     const prompts: Array<{ prompt: string; job_type: string; strategy_label?: string }> = [];
 
     if (strategyVariants && strategyVariants.length > 0) {
       for (const v of strategyVariants.slice(0, 3)) {
-        const activations = v.key_activations?.slice(0, 2).join(" and ") ?? "stadium activation";
         prompts.push({
-          prompt: `Professional sports marketing campaign creative visual for ${companyName} sponsoring Coritiba FC. Strategy: ${v.label}. Activation: ${activations}. Scene: Estádio Couto Pereira, Curitiba, Brazil. Green and white Coritiba FC colors, modern stadium atmosphere, ${companyName} branding prominently displayed. High quality advertising photography style, 16:9 widescreen format.`,
+          prompt: buildPromptForStrategy(v, companyName, uploadedLogoUrl),
           job_type: "campaign_creative",
           strategy_label: v.label,
         });
       }
     } else {
       prompts.push({
-        prompt: `Professional sports marketing campaign creative for ${companyName} × Coritiba FC sponsorship. ${campaignTitle ?? "Stadium activation"}. Estádio Couto Pereira in Curitiba, Brazil. Green and white team colors, exciting game atmosphere, sponsor branding integrated naturally. High-quality advertising photography, 16:9 format.`,
+        prompt: `Professional sports marketing campaign creative for ${companyName} × Coritiba FC sponsorship. ${campaignTitle ?? "Stadium activation"}. Estádio Couto Pereira in Curitiba, Brazil, with 40,000 passionate fans. Green and white team colors, exciting match atmosphere, sponsor branding integrated naturally. High-quality advertising photography, 16:9 format.`,
         job_type: "campaign_creative",
       });
     }
@@ -58,7 +70,7 @@ export function CampaignImageGenerator({
 
     try {
       for (const p of prompts) {
-        // Step 1: Create job (status: pending_approval)
+        // Step 1: Create job
         const res1 = await fetch("/api/image-generation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -117,8 +129,15 @@ export function CampaignImageGenerator({
         <div>
           <div className="text-xs font-semibold text-slate-600 mb-0.5">Imagens de Campanha</div>
           <p className="text-xs text-slate-400">
-            Gera visuais criativos para cada estratégia de campanha
+            {strategyVariants && strategyVariants.length > 0
+              ? `Gera ${Math.min(strategyVariants.length, 3)} imagem(ns) — 1 criativo por estratégia`
+              : "Gera 1 imagem criativa para a campanha"}
           </p>
+          {uploadedLogoUrl && (
+            <p className="text-xs text-green-600 mt-0.5 flex items-center gap-1">
+              <Upload className="h-2.5 w-2.5" /> Logo carregado — será incluído nos prompts
+            </p>
+          )}
         </div>
         <button
           onClick={generate}
@@ -172,12 +191,6 @@ export function CampaignImageGenerator({
           <p className="text-xs text-slate-400">
             As imagens também aparecem na aba &quot;Imagens Geradas&quot; e na landing page da proposta.
           </p>
-        </div>
-      )}
-
-      {!done && !loading && (
-        <div className="text-xs text-slate-400">
-          Gera {Math.min(strategyVariants?.length ?? 1, 3)} imagem(ns) — 1 por estratégia de campanha
         </div>
       )}
     </div>

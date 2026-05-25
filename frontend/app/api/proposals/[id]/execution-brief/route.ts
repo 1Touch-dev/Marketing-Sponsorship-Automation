@@ -34,16 +34,38 @@ export async function POST(
 
   const content = p.content as Record<string, unknown> | null;
 
+  // Fetch inventory items to include in brief calculations
+  const { data: inventoryItems } = await (sb as ReturnType<typeof supabaseAdmin>)
+    .from("inventory_items" as "companies")
+    .select("name, inventory_type, category, content_hours, team_required, production_cost, setup_hours, avg_views, line_items")
+    .eq("status", "active") as unknown as { data: Array<Record<string, unknown>> | null };
+
+  const inventoryContext = inventoryItems && inventoryItems.length > 0
+    ? `\n\nAvailable Inventory Items (use these for cost/hour estimates):\n${
+        inventoryItems.map((item) => {
+          const parts = [`- ${item.name} (${item.inventory_type}/${item.category})`];
+          if (item.content_hours) parts.push(`  Content hours: ${item.content_hours}h`);
+          if (item.team_required) parts.push(`  Team: ${item.team_required}`);
+          if (item.production_cost) parts.push(`  Production cost: R$${item.production_cost}`);
+          if (item.setup_hours) parts.push(`  Setup hours: ${item.setup_hours}h`);
+          if (item.avg_views) parts.push(`  Avg views: ${item.avg_views}`);
+          if (item.line_items) parts.push(`  Line items: ${item.line_items}`);
+          return parts.join("\n");
+        }).join("\n")
+      }`
+    : "";
+
   const prompt = `You are a sports marketing operations expert for Coritiba FC.
 
 Generate a detailed execution brief for EACH campaign strategy in this sponsorship proposal.
-For each strategy, estimate:
-- Duration to produce/activate
-- Resources required (human, equipment, venues, creative)
-- Action items (specific tasks)
-- Estimated cost in BRL (production + activation, NOT the sponsorship fee itself)
-- Complexity level (low/medium/high)
+For each strategy, estimate based on the actual inventory items and their real production hours/costs:
+- Duration to produce/activate (be specific, use inventory hours as basis)
+- Resources required (list specific team roles from team_required fields)
+- Action items (specific tasks per inventory item)
+- Estimated cost in BRL (sum production costs + activation costs, NOT the sponsorship fee itself)
+- Complexity level (low/medium/high based on total hours)
 - Key risk
+- Total team hours breakdown
 
 Company: ${p.companies?.company_name ?? "Unknown"}
 Industry: ${p.companies?.industry ?? "Unknown"}
@@ -52,6 +74,7 @@ Proposal activation plan: ${String(content?.activation_plan ?? "").slice(0, 500)
 
 Campaign strategies to brief:
 ${strategies || "General sponsorship activation"}
+${inventoryContext}
 
 Return JSON:
 {
@@ -61,10 +84,11 @@ Return JSON:
       "strategy_label": "Brand Awareness",
       "estimated_duration": "8–12 weeks",
       "estimated_cost_brl": "R$ 45.000 – R$ 70.000",
-      "resources_needed": ["Videographer", "Graphic designer", "Social media team", "Player involvement (2h)"],
+      "resources_needed": ["Videographer (8h)", "Graphic designer (16h)", "Social media team (4h/week)", "Player involvement (2h)"],
       "action_items": ["Briefing criativo com time de marketing", "Gravação de vídeo no Couto Pereira", "Edição e aprovação", "Publicação nas redes"],
       "complexity": "medium",
-      "key_risk": "Player availability during match week"
+      "key_risk": "Player availability during match week",
+      "total_team_hours": 40
     }
   ],
   "total_estimated_cost_brl": "R$ 45.000 – R$ 70.000",

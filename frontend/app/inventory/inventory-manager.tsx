@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toaster";
 import {
   Plus, X, Pencil, Trash2, DollarSign, Eye,
   Package, Smartphone, ChevronDown, ChevronUp,
+  Clock, Users, BarChart3,
 } from "lucide-react";
 
 const PHYSICAL_CATEGORIES: Record<string, string> = {
@@ -83,6 +84,14 @@ function ItemForm({
       availability: String(fd.get("availability") ?? "available"),
       exposure_reach: String(fd.get("exposure_reach") ?? "").trim() || null,
       placement_zone: String(fd.get("placement_zone") ?? "").trim() || null,
+      // Digital-specific
+      avg_views: fd.get("avg_views") ? Number(fd.get("avg_views")) : null,
+      content_hours: fd.get("content_hours") ? Number(fd.get("content_hours")) : null,
+      team_required: String(fd.get("team_required") ?? "").trim() || null,
+      // Physical-specific
+      production_cost: fd.get("production_cost") ? Number(fd.get("production_cost")) : null,
+      setup_hours: fd.get("setup_hours") ? Number(fd.get("setup_hours")) : null,
+      line_items: String(fd.get("line_items") ?? "").trim() || null,
     };
     try {
       const url = isEdit ? `/api/inventory/${initialData!.id}` : "/api/inventory";
@@ -192,6 +201,52 @@ function ItemForm({
         </div>
       </div>
 
+      {/* Digital-specific fields */}
+      {inventoryType === "digital" && (
+        <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 space-y-3">
+          <p className="text-xs font-semibold text-blue-700 flex items-center gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Digital Performance Fields
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="avg_views" className="text-xs">Avg Views / Post</Label>
+              <Input id="avg_views" name="avg_views" type="number" defaultValue={initialData?.avg_views as number} placeholder="e.g. 50000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="content_hours" className="text-xs">Content Hours / Item</Label>
+              <Input id="content_hours" name="content_hours" type="number" step="0.5" defaultValue={initialData?.content_hours as number} placeholder="e.g. 4" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="team_required" className="text-xs">Team Required</Label>
+              <Input id="team_required" name="team_required" defaultValue={initialData?.team_required as string} placeholder="e.g. Editor, Photographer, Player" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Physical-specific fields */}
+      {inventoryType === "physical" && (
+        <div className="rounded-lg bg-orange-50 border border-orange-100 p-3 space-y-3">
+          <p className="text-xs font-semibold text-orange-700 flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" /> Physical Production Fields
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="production_cost" className="text-xs">Production Cost (BRL)</Label>
+              <Input id="production_cost" name="production_cost" type="number" defaultValue={initialData?.production_cost as number} placeholder="e.g. 15000" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="setup_hours" className="text-xs">Setup Hours</Label>
+              <Input id="setup_hours" name="setup_hours" type="number" step="0.5" defaultValue={initialData?.setup_hours as number} placeholder="e.g. 8" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="line_items" className="text-xs">Line Items / Requirements</Label>
+            <Textarea id="line_items" name="line_items" rows={2} defaultValue={initialData?.line_items as string} placeholder="e.g. LED panel rental: R$5000, Installation team: R$2000, Electrician: R$1500" />
+          </div>
+        </div>
+      )}
+
       {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</div>}
 
       <div className="flex items-center gap-2">
@@ -234,6 +289,41 @@ function InventoryRow({
           <div className="flex items-center gap-1 mt-1">
             <Eye className="h-3 w-3 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">{item.exposure_reach as string}</p>
+          </div>
+        )}
+        {/* Digital fields */}
+        {!!(item.avg_views || item.content_hours || item.team_required) && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {!!item.avg_views && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                <BarChart3 className="h-2.5 w-2.5" /> {Number(item.avg_views).toLocaleString("pt-BR")} views
+              </span>
+            )}
+            {!!item.content_hours && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                <Clock className="h-2.5 w-2.5" /> {String(item.content_hours)}h
+              </span>
+            )}
+            {!!item.team_required && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">
+                <Users className="h-2.5 w-2.5" /> {item.team_required as string}
+              </span>
+            )}
+          </div>
+        )}
+        {/* Physical fields */}
+        {!!(item.production_cost || item.setup_hours) && (
+          <div className="flex flex-wrap gap-2 mt-1">
+            {!!item.production_cost && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded">
+                <DollarSign className="h-2.5 w-2.5" /> Prod: R${Number(item.production_cost).toLocaleString("pt-BR")}
+              </span>
+            )}
+            {!!item.setup_hours && (
+              <span className="inline-flex items-center gap-0.5 text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                <Clock className="h-2.5 w-2.5" /> Setup: {String(item.setup_hours)}h
+              </span>
+            )}
           </div>
         )}
       </div>

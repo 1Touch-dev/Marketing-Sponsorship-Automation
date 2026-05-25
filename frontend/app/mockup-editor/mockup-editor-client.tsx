@@ -142,12 +142,20 @@ export function MockupEditorClient() {
 
   function exportPNG() {
     if (!stageRef.current) { toast({ variant: "destructive", title: "Canvas not ready" }); return; }
-    const dataUrl = stageRef.current.toDataURL({ pixelRatio: 2 });
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `coritiba-${selectedTemplate.id}-mockup.png`;
-    a.click();
-    toast({ variant: "success", title: "Exported!", description: "Mockup saved as PNG (2x resolution)" });
+    // Temporarily hide zones for clean export
+    const stage = stageRef.current as any;
+    const prevShowZones = showZones;
+    setShowZones(false);
+    // Small timeout to let React re-render without zones
+    setTimeout(() => {
+      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `coritiba-${selectedTemplate.id}-mockup.png`;
+      a.click();
+      setShowZones(prevShowZones);
+      toast({ variant: "success", title: "Exported!", description: "Clean mockup saved as PNG (2x resolution, no guides)" });
+    }, 50);
   }
 
   const tmpl = selectedTemplate;

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
 import type { PricingTier, StrategyVariant, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
@@ -12,7 +12,7 @@ import { IntelligencePanel } from "./intelligence-panel";
 import {
   TrendingUp, Users, MapPin, Target, CheckCircle2, Building2,
   ArrowRight, Trophy, Tv2, Zap, Globe, Megaphone, BarChart3,
-  Star, Shield,
+  Star, Shield, ChevronDown, ChevronUp, Calendar, Play,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -48,10 +48,96 @@ interface ProposalLandingPageProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Coritiba green palette tokens
+// Real Coritiba FC facts (verified from Wikipedia, Transfermarkt, Rocketfan 2026)
 // ─────────────────────────────────────────────────────────────────────────────
-// Primary: #006400 (dark green)  Secondary: #FFFFFF  Accent: #008000
-// Used throughout for brand consistency
+const CORITIBA_FACTS = {
+  founded: "1909",
+  stadium: "Estádio Couto Pereira",
+  capacity: "40.502",
+  members: "38.000+",
+  // 2026 avg attendance per Globo Esporte (Coritiba x Santos: 36k+, avg >25k in Série A)
+  avgAttendance: "25.000–36.000",
+  // Social: Instagram ~700k, Facebook ~800k, combined 1.5M+
+  socialFollowers: "1,5M+",
+  // Revenue per Rocketfan 2024 data
+  revenue2024: "R$ 92M",
+  // Transfermarkt squad value
+  squadValue: "€ 14,1M",
+  state: "Paraná",
+  city: "Curitiba",
+  // Curitiba is highest HDI capital in South Brazil
+  curitibaHDI: "0,823",
+  // Brazil's 8th largest metropolitan area
+  curitibaMetro: "3,7M hab.",
+  competitions: "Série A + Copa do Brasil + Campeonato Paranaense",
+  broadcasts: "Globo, SporTV, Paramount+",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expandable strategy card for landing page
+// ─────────────────────────────────────────────────────────────────────────────
+function ExpandableStrategyCard({ variant, index }: { variant: StrategyVariant; index: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg, #006400, #008000)" }}>
+            {index + 1}
+          </div>
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-900 truncate">{variant.label}</div>
+            {variant.tagline && (
+              <div className="text-xs text-slate-500 truncate mt-0.5">{variant.tagline}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 ml-3">
+          {variant.estimated_reach && (
+            <span className="hidden sm:inline text-xs bg-green-50 text-green-700 border border-green-100 rounded-full px-2 py-0.5">
+              {variant.estimated_reach}
+            </span>
+          )}
+          {open ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+        </div>
+      </button>
+      {open && (
+        <div className="px-5 pb-5 space-y-4 border-t border-slate-100">
+          <p className="text-slate-600 text-sm leading-relaxed pt-4">{variant.description}</p>
+          {variant.key_activations && variant.key_activations.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Ativações-chave</div>
+              <ul className="space-y-1.5">
+                {variant.key_activations.map((act, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                    {act}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {variant.audience_fit && (
+            <div className="rounded-lg bg-blue-50 border border-blue-100 p-3">
+              <div className="text-xs font-semibold text-blue-600 mb-1">Fit com Público</div>
+              <p className="text-xs text-blue-800">{variant.audience_fit}</p>
+            </div>
+          )}
+          {variant.differentiator && (
+            <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+              <div className="text-xs font-semibold text-amber-700 mb-1">Diferencial Competitivo</div>
+              <p className="text-xs text-amber-800">{variant.differentiator}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hero stat card  (dark hero area)
@@ -228,12 +314,12 @@ export function ProposalLandingPage({
             </div>
           )}
 
-          {/* Hero stats */}
+          {/* Hero stats — real Coritiba FC facts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <HeroStat icon={Trophy}      label="Clube Parceiro"      value="Coritiba FC"  sub="Couto Pereira · Curitiba, PR"       color="green" />
-            <HeroStat icon={Users}       label="Torcedores Coxa"     value="1.5M+"        sub="Seguidores digitais combinados"     color="emerald" />
-            <HeroStat icon={Tv2}         label="Jogos / Temporada"   value="38+"          sub="Broadcast nacional + streaming"    color="white" />
-            <HeroStat icon={TrendingUp}  label="Crescimento Digital" value="+47%"         sub="Engajamento nas redes em 2025"     color="amber" />
+            <HeroStat icon={Trophy}      label="Fundado em"          value={CORITIBA_FACTS.founded}    sub={`${CORITIBA_FACTS.stadium} · ${CORITIBA_FACTS.city}`}  color="green" />
+            <HeroStat icon={Users}       label="Sócios + Seguidores"  value={CORITIBA_FACTS.socialFollowers} sub={`${CORITIBA_FACTS.members} sócios torcedores`} color="emerald" />
+            <HeroStat icon={Tv2}         label="Transmissão"          value="3 torneios"  sub={CORITIBA_FACTS.broadcasts}    color="white" />
+            <HeroStat icon={MapPin}      label="Couto Pereira"        value={CORITIBA_FACTS.capacity}   sub="torcedores por partida"       color="amber" />
           </div>
 
           {/* Meta */}
@@ -257,8 +343,11 @@ export function ProposalLandingPage({
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Parceria Estratégica</div>
                 <h2 className="text-xl font-bold text-slate-900">
-                  {company.company_name} × Futebol Paranaense
+                  {company.company_name} × Coritiba FC
                 </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {CORITIBA_FACTS.stadium} · Curitiba, {CORITIBA_FACTS.state} · Fundado {CORITIBA_FACTS.founded}
+                </p>
               </div>
               {proposal.intelligence && (
                 <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-100 px-4 py-2.5">
@@ -272,11 +361,28 @@ export function ProposalLandingPage({
                 </div>
               )}
             </div>
+            {/* Real audience KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <MetricCard icon={Globe}      value="5M+"   label="Impressões/Temporada"  color="bg-green-100 text-green-700" />
-              <MetricCard icon={Megaphone}  value="18–35" label="Faixa Etária Principal" color="bg-blue-100 text-blue-600" />
-              <MetricCard icon={BarChart3}  value="68%"   label="Audiência Masculina"    color="bg-amber-100 text-amber-600" />
-              <MetricCard icon={Shield}     value="92%"   label="Recall de Marca Jogo"   color="bg-violet-100 text-violet-600" />
+              <MetricCard icon={Users}      value={CORITIBA_FACTS.avgAttendance} label="Média Público/Jogo" color="bg-green-100 text-green-700" />
+              <MetricCard icon={Globe}      value={CORITIBA_FACTS.socialFollowers} label="Seguidores Digitais" color="bg-blue-100 text-blue-600" />
+              <MetricCard icon={MapPin}     value={CORITIBA_FACTS.curitibaMetro} label="Metro Curitiba" color="bg-amber-100 text-amber-600" />
+              <MetricCard icon={Shield}     value={CORITIBA_FACTS.members} label="Sócios Torcedores" color="bg-violet-100 text-violet-600" />
+            </div>
+            {/* Curitiba positioning */}
+            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-500 mb-1">Curitiba — IDH</div>
+                <div className="text-sm font-bold text-slate-900">{CORITIBA_FACTS.curitibaHDI}</div>
+                <div className="text-xs text-slate-400">Maior IDH do Sul do Brasil</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-500 mb-1">Competições 2026</div>
+                <div className="text-xs font-semibold text-slate-800">{CORITIBA_FACTS.competitions}</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="text-xs font-semibold text-slate-500 mb-1">Transmissão</div>
+                <div className="text-xs font-semibold text-slate-800">{CORITIBA_FACTS.broadcasts}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -301,11 +407,15 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* ─── STRATEGY VARIANTS — each gets its own dedicated card (#8) ─── */}
+        {/* ─── STRATEGY VARIANTS — expandable cards ─── */}
         {proposal.strategy_variants && proposal.strategy_variants.length > 0 && (
           <Section id="strategies" title="Estratégias de Patrocínio" badge="Direções Estratégicas"
-            subtitle="Três abordagens distintas — cada uma com ativações, alcance e diferenciais próprios">
-            <StrategyCards variants={proposal.strategy_variants} />
+            subtitle="Cada estratégia inclui ativações detalhadas, fit de público e diferencial competitivo — clique para expandir">
+            <div className="space-y-3">
+              {proposal.strategy_variants.map((v, i) => (
+                <ExpandableStrategyCard key={v.id} variant={v} index={i} />
+              ))}
+            </div>
           </Section>
         )}
 

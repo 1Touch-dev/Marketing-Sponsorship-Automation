@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
-import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
-import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
+import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -12,14 +11,14 @@ export const maxDuration = 30;
 /**
  * POST /api/emails/:id/send
  * Body: { mode?: "draft" | "send" }
- *  - "draft" (default): create a Gmail draft, persist gmail_*_id, mark as approved.
- *  - "send": create draft then immediately send it.
  *
- * Requires Gmail OAuth tokens for the operator stored in
- * public.users.metadata (selected by sender email = DEFAULT_FROM_EMAIL).
+ * "draft" = mark email as approved in DB + log activity to Pipedrive as scheduled (done:0)
+ * "send"  = mark email as sent in DB + log activity to Pipedrive as done (done:1)
+ *
+ * Uses Pipedrive Activities API (type: "email") instead of Gmail.
+ * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
-  const env = serverEnv();
   const ip = getClientIp(req);
   const rl = checkRateLimit(`email-send:${ip}`, { max: 20, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
@@ -42,85 +41,53 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     metadata: { mode },
   });
 
-  // Load operator tokens from users table
-  const senderEmail = email.sender || env.DEFAULT_FROM_EMAIL;
-  if (!senderEmail) {
-    return NextResponse.json({ error: "No sender email configured" }, { status: 400 });
-  }
-  const { data: user } = await sb.from("users").select("*").eq("email", senderEmail).maybeSingle();
-  const tokens = (user?.metadata as Record<string, unknown> | undefined)?.gmail_tokens as
-    | { access_token?: string; refresh_token?: string; expiry_date?: number }
-    | undefined;
-  if (!tokens?.refresh_token) {
-    if (eventId) await failWorkflow(eventId, "Gmail tokens missing");
-    return NextResponse.json(
-      { error: `Gmail not connected for ${senderEmail}. Visit /api/auth/gmail to connect.` },
-      { status: 412 },
-    );
+  // Resolve Pipedrive IDs from the linked proposal/company
+  let pipedriveDealId: number | null = null;
+  let pipedriveOrgId: number | null = null;
+  let pipedrivePersonId: number | null = null;
+
+  if (email.proposal_id) {
+    const { data: proposal } = await sb
+      .from("proposals")
+      .select("content, companies(full_intelligence)")
+      .eq("id", email.proposal_id)
+      .maybeSingle();
+
+    if (proposal) {
+      // Try proposal content first
+      const proposalContent = proposal.content as Record<string, unknown> | null;
+      pipedriveDealId = (proposalContent?.pipedrive_deal_id as number) ?? null;
+
+      // Try company full_intelligence
+      const companyData = (proposal as Record<string, unknown>).companies as Record<string, unknown> | null;
+      const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
+      pipedriveOrgId = (fullIntel?.pipedrive_org_id as number) ?? null;
+      pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
+    }
   }
 
-  const gmail = gmailClientFromTokens(tokens);
-
-  let draft;
-  try {
-    draft = await createGmailDraft(gmail, {
-      from: senderEmail,
-      to: email.recipient,
-      subject: email.subject,
-      bodyText: email.body_text ?? "",
-      bodyHtml: email.body_html ?? undefined,
-      cc: email.cc ?? undefined,
-      bcc: email.bcc ?? undefined,
-    });
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : "unknown";
-    // Detect expired/revoked token — return a specific reconnect error
-    const isTokenError = errMsg.includes("invalid_grant") || errMsg.includes("Token has been expired") || errMsg.includes("invalid_client");
-    const msg = isTokenError
-      ? "Gmail token expired or revoked. Please reconnect Gmail in Settings → Gmail Integration."
-      : `Gmail draft failed: ${errMsg}`;
-    if (eventId) await failWorkflow(eventId, msg);
-    return NextResponse.json({ error: msg, needs_reconnect: isTokenError }, { status: isTokenError ? 401 : 502 });
-  }
+  // Log to Pipedrive Activities
+  const { activity_id, error: pdError } = await logEmailToPipedrive({
+    subject: email.subject,
+    bodyHtml: email.body_html ?? email.body_text ?? "",
+    pipedrive_deal_id: pipedriveDealId,
+    pipedrive_org_id: pipedriveOrgId,
+    pipedrive_person_id: pipedrivePersonId,
+  });
 
   const updates: Record<string, unknown> = {
     status: mode === "send" ? "sent" : "approved",
     approved_at: new Date().toISOString(),
-    gmail_message_id: draft.message?.id ?? null,
-    gmail_thread_id: draft.message?.threadId ?? null,
+    // Store Pipedrive activity ID in metadata field
+    metadata: {
+      ...(email.metadata as Record<string, unknown> ?? {}),
+      pipedrive_activity_id: activity_id,
+      pipedrive_error: pdError ?? null,
+    },
   };
 
-  if (mode === "send" && draft.id) {
-    try {
-      const sent = await sendGmailDraft(gmail, draft.id);
-      updates.gmail_message_id = sent.id ?? updates.gmail_message_id;
-      updates.gmail_thread_id = sent.threadId ?? updates.gmail_thread_id;
-      updates.sent_at = new Date().toISOString();
-    } catch (err) {
-      const msg = `Gmail send failed: ${err instanceof Error ? err.message : "unknown"}`;
-      if (eventId) await failWorkflow(eventId, msg);
-      return NextResponse.json({ error: msg }, { status: 502 });
-    }
-  }
-
-  // Upsert thread row
-  if (updates.gmail_thread_id) {
-    const threadId = updates.gmail_thread_id as string;
-    const { data: thread } = await sb
-      .from("email_threads")
-      .upsert(
-        {
-          gmail_thread_id: threadId,
-          proposal_id: email.proposal_id,
-          subject: email.subject,
-          participants: [email.recipient, senderEmail],
-          last_message_at: new Date().toISOString(),
-        },
-        { onConflict: "gmail_thread_id" },
-      )
-      .select("*")
-      .single();
-    if (thread) updates.thread_id = thread.id;
+  if (mode === "send") {
+    updates.sent_at = new Date().toISOString();
   }
 
   const { data: updated, error: updErr } = await sb
@@ -129,23 +96,30 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .eq("id", email.id)
     .select("*")
     .single();
+
   if (updErr) {
     if (eventId) await failWorkflow(eventId, updErr.message);
     return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
 
   if (eventId) {
-    await completeWorkflow(eventId, {
-      gmail_thread_id: updates.gmail_thread_id,
-      mode,
-    });
+    await completeWorkflow(eventId, { pipedrive_activity_id: activity_id, mode });
   }
+
   await recordAudit({
     entity_type: "email",
     entity_id: email.id,
     action: mode === "send" ? "email.sent" : "email.draft_created",
-    metadata: { recipient: email.recipient, gmail_thread_id: updates.gmail_thread_id },
+    metadata: {
+      recipient: email.recipient,
+      pipedrive_activity_id: activity_id,
+      pipedrive_error: pdError ?? null,
+    },
   });
 
-  return NextResponse.json({ data: updated });
+  return NextResponse.json({
+    data: updated,
+    pipedrive_activity_id: activity_id,
+    pipedrive_warning: pdError ? `Pipedrive log failed: ${pdError}` : null,
+  });
 }

@@ -30,10 +30,30 @@ export function KonvaCanvas({ stageRef, tmpl, logos, showZones, selectedId, onSe
         {/* Background */}
         <Rect x={0} y={0} width={tmpl.width} height={tmpl.height} fill={tmpl.bgColor} />
 
-        {/* Template watermark */}
-        <Text x={10} y={10} text={`Coritiba FC — ${tmpl.label}`} fill="rgba(255,255,255,0.4)" fontSize={11} fontFamily="Arial, sans-serif" />
+        {/* Jersey template: draw Coritiba-style green/white vertical stripes */}
+        {tmpl.id === "jersey" && (
+          <>
+            {/* White vertical stripe in center (Coritiba hallmark) */}
+            <Rect x={tmpl.width / 2 - 30} y={0} width={60} height={tmpl.height} fill="rgba(255,255,255,0.15)" />
+            {/* Collar area */}
+            <Rect x={tmpl.width / 2 - 35} y={0} width={70} height={40} fill="rgba(255,255,255,0.08)" />
+            {/* Shoulder seams */}
+            <Rect x={0} y={120} width={tmpl.width} height={3} fill="rgba(255,255,255,0.12)" />
+          </>
+        )}
 
-        {/* Placement zones */}
+        {/* LED board: add stadium lighting glow */}
+        {tmpl.id === "led_board" && (
+          <>
+            <Rect x={0} y={0} width={tmpl.width} height={tmpl.height}
+              fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+              fillLinearGradientEndPoint={{ x: tmpl.width, y: 0 }}
+              fillLinearGradientColorStops={[0, "rgba(0,80,20,0.3)", 0.5, "rgba(0,150,50,0.1)", 1, "rgba(0,80,20,0.3)"]}
+            />
+          </>
+        )}
+
+        {/* Placement zones — only when showZones is true, do NOT show in final export */}
         {showZones && tmpl.zones.map(zone => (
           <React.Fragment key={zone.id}>
             <Rect
