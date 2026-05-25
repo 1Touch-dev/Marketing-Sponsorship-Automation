@@ -17,7 +17,8 @@ export type ProposalStatus =
   | "approved"
   | "scheduled"
   | "sent"
-  | "rejected";
+  | "rejected"
+  | "active_contract";
 export type ApprovalDecision = "approve" | "reject" | "request_revision";
 export type EmailStatus =
   | "draft"

@@ -28,10 +28,10 @@ interface ProposalLandingPageProps {
     created_at: string;
     content: ProposalContent;
     content_md?: string | null;
-    strategy_variants?: StrategyVariant[] | null;
-    pricing_tiers?: PricingTier[] | null;
-    visual_prompts?: VisualPrompt[] | null;
-    intelligence?: CompanyIntelligence | null;
+    strategy_variants?: unknown[] | null;
+    pricing_tiers?: unknown[] | null;
+    visual_prompts?: unknown[] | null;
+    intelligence?: unknown;
     share_token?: string | null;
   };
   company: {
@@ -76,7 +76,7 @@ const CORITIBA_FACTS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // Expandable strategy card for landing page
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpandableStrategyCard({ variant, index }: { variant: StrategyVariant; index: number }) {
+function ExpandableStrategyCard({ variant, index }: { variant: SV; index: number }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -227,6 +227,18 @@ function MetricCard({
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
+// Local type without Zod passthrough index signature
+type SV = {
+  id: string;
+  label: string;
+  tagline?: string | null;
+  description: string;
+  key_activations: string[];
+  audience_fit?: string | null;
+  estimated_reach?: string | null;
+  differentiator?: string | null;
+};
+
 export function ProposalLandingPage({
   proposal, company, campaign, approvedImages = [], adminMode = false, onPrint, onShare,
 }: ProposalLandingPageProps) {
@@ -239,7 +251,14 @@ export function ProposalLandingPage({
     deliverables: string[];
     investment_note: string;
     cta: string;
+    campaign_video_url?: string;
   };
+
+  const intelligence = proposal.intelligence as CompanyIntelligence | null | undefined;
+  const hasIntelligence = intelligence != null;
+  const strategyVariants = (proposal.strategy_variants ?? []) as SV[];
+  const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
+  const visualPrompts = (proposal.visual_prompts ?? []) as VisualPrompt[];
 
   const statusColor =
     proposal.status === "approved" ? "bg-emerald-500 text-white" :
@@ -349,13 +368,13 @@ export function ProposalLandingPage({
                   {CORITIBA_FACTS.stadium} · Curitiba, {CORITIBA_FACTS.state} · Fundado {CORITIBA_FACTS.founded}
                 </p>
               </div>
-              {proposal.intelligence && (
+              {intelligence && (
                 <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-100 px-4 py-2.5">
                   <Zap className="h-4 w-4 text-green-700" />
                   <div>
                     <div className="text-xs text-green-700 font-medium">Score de Fit</div>
                     <div className="text-lg font-extrabold text-green-900">
-                      {proposal.intelligence.sponsorship_fit_score?.toFixed(1)}/10
+                      {intelligence.sponsorship_fit_score?.toFixed(1)}/10
                     </div>
                   </div>
                 </div>
@@ -399,20 +418,21 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* Intelligence */}
-        {proposal.intelligence && (
+
+        {hasIntelligence ? (
           <Section id="intelligence" title="Inteligência Comercial" badge="Análise IA"
             subtitle="Análise estratégica do fit entre sua marca e o futebol paranaense">
-            <IntelligencePanel intelligence={proposal.intelligence} />
+            <IntelligencePanel intelligence={intelligence!} />
           </Section>
-        )}
+        ) : null}
 
-        {/* ─── STRATEGY VARIANTS — expandable cards ─── */}
-        {proposal.strategy_variants && proposal.strategy_variants.length > 0 && (
+
+
+        {strategyVariants.length > 0 && (
           <Section id="strategies" title="Estratégias de Patrocínio" badge="Direções Estratégicas"
             subtitle="Cada estratégia inclui ativações detalhadas, fit de público e diferencial competitivo — clique para expandir">
             <div className="space-y-3">
-              {proposal.strategy_variants.map((v, i) => (
+              {strategyVariants.map((v, i) => (
                 <ExpandableStrategyCard key={v.id} variant={v} index={i} />
               ))}
             </div>
@@ -461,6 +481,23 @@ export function ProposalLandingPage({
           </div>
         </Section>
 
+        {/* Video embed — if proposal has a video_url in content */}
+        {content.campaign_video_url ? (
+          <Section id="video" title="Vídeo da Parceria" badge="Conteúdo em Vídeo"
+            subtitle="Veja o clube e a proposta em ação">
+            <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-black aspect-video">
+              <video
+                src={content.campaign_video_url}
+                controls
+                className="w-full h-full object-cover"
+                poster="/brand/coritiba-logo.svg"
+              >
+                <source src={content.campaign_video_url} type="video/mp4" />
+              </video>
+            </div>
+          </Section>
+        ) : null}
+
         {/* Deliverables */}
         {content?.deliverables && content.deliverables.length > 0 && (
           <Section id="deliverables" title="Entregas e Benefícios" badge="O que está incluso"
@@ -479,22 +516,22 @@ export function ProposalLandingPage({
         )}
 
         {/* Pricing tiers */}
-        {proposal.pricing_tiers && proposal.pricing_tiers.length > 0 && (
+        {pricingTiers.length > 0 && (
           <Section id="pricing" title="Opções de Investimento" badge="Pacotes de Patrocínio"
             subtitle="Três níveis de parceria para se adaptar ao seu orçamento e objetivos estratégicos">
-            <PricingTiers tiers={proposal.pricing_tiers} />
+            <PricingTiers tiers={pricingTiers} />
           </Section>
         )}
 
         {/* Visual mockups */}
-        {proposal.visual_prompts && proposal.visual_prompts.length > 0 && (
+        {visualPrompts.length > 0 && (
           <Section id="visuals" title="Conceitos Visuais" badge="Identidade Visual"
             subtitle="Mockups e prompts de geração de imagem criados especificamente para sua marca">
-            <VisualMockupGrid visuals={proposal.visual_prompts} companyName={company.company_name} />
+            <VisualMockupGrid visuals={visualPrompts} companyName={company.company_name} />
           </Section>
         )}
 
-        {/* AI Generated Images */}
+        {/* AI Generated Images + Video */}
         {approvedImages.length > 0 && (
           <Section id="generated-images" title="Imagens Geradas" badge="AI Visual Assets"
             subtitle="Imagens criadas por inteligência artificial aprovadas para esta proposta">

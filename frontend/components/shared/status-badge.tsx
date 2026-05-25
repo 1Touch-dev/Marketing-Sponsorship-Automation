@@ -24,6 +24,7 @@ const VARIANT_MAP: Record<string, "default" | "secondary" | "success" | "warning
   scheduled: "info",
   sent: "success",
   rejected: "destructive",
+  active_contract: "success",
   // emails
   pending_approval: "warning",
   opened: "info",
@@ -43,7 +44,15 @@ const VARIANT_MAP: Record<string, "default" | "secondary" | "success" | "warning
   archived: "secondary",
 };
 
+const LABEL_MAP: Record<string, string> = {
+  active_contract: "Active / In Contract",
+  under_review: "Under Review",
+  revision_requested: "Revision Requested",
+  pending_approval: "Pending Approval",
+};
+
 export function StatusBadge({ status }: { status: AnyStatus }) {
   const variant = VARIANT_MAP[status] ?? "outline";
-  return <Badge variant={variant}>{status.replace(/_/g, " ")}</Badge>;
+  const label = LABEL_MAP[status] ?? status.replace(/_/g, " ");
+  return <Badge variant={variant}>{label}</Badge>;
 }

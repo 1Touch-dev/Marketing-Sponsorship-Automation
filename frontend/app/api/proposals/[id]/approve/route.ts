@@ -14,6 +14,7 @@ const STATUS_MAP: Record<string, ProposalStatus> = {
   reject:           "rejected",
   request_revision: "revision_requested",
   submit_review:    "under_review",
+  active_contract:  "active_contract",
 };
 
 export async function POST(req: Request, ctx: { params: { id: string } }) {

@@ -64,10 +64,11 @@ export function ApprovalFlowPanel({
   const isUnderReview = proposalStatus === "under_review";
   const isApproved = proposalStatus === "approved";
   const isSent = proposalStatus === "sent";
+  const isContract = proposalStatus === "active_contract";
 
   const stepDraft = true; // always done
-  const stepReview = isUnderReview || isApproved || isSent;
-  const stepApproved = isApproved || isSent;
+  const stepReview = isUnderReview || isApproved || isSent || isContract;
+  const stepApproved = isApproved || isSent || isContract;
   const stepImages = stepApproved && hasImages;
   const stepLanding = !!shareToken;
 

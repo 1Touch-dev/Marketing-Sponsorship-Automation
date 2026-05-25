@@ -77,7 +77,7 @@ export const strategyVariantSchema = z.object({
   audience_fit: z.string().transform((s) => s.slice(0, 1500)).optional().nullable(),
   estimated_reach: z.string().transform((s) => s.slice(0, 400)).optional().nullable(),
   differentiator: z.string().transform((s) => s.slice(0, 1000)).optional().nullable(),
-}).passthrough();
+});
 
 export type StrategyVariant = z.infer<typeof strategyVariantSchema>;
 
