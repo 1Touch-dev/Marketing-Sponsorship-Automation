@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { Badge } from "@/components/ui/badge";
@@ -446,61 +447,56 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
         </div>
       )}
 
-      {/* Image preview modal */}
-      {previewJob && (() => {
+      {/* Image preview modal — rendered via portal to escape layout constraints */}
+      {previewJob && typeof document !== "undefined" && (() => {
         const imgUrl = (previewJob._preview_url as string | undefined)
           ?? (previewJob.selected_url as string | undefined)
           ?? (previewJob.output_urls as Array<{url:string}>)?.[0]?.url
           ?? "";
-        return (
-          <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4" onClick={() => setPreviewJob(null)}>
-            <div className="bg-card rounded-2xl max-w-3xl w-full p-4 space-y-3 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-              <div className="flex justify-between items-center">
-                <div className="font-semibold">Generated Image</div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs" asChild>
-                    <a href={imgUrl} target="_blank" rel="noreferrer">
-                      <ExternalLink className="h-3 w-3" /> Open full size
-                    </a>
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPreviewJob(null)}><X className="h-4 w-4" /></Button>
+        return createPortal(
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+            onClick={() => setPreviewJob(null)}
+          >
+            <div
+              style={{ background: "white", borderRadius: "1rem", maxWidth: "800px", width: "100%", padding: "1rem", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.75rem" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 600, fontSize: "1rem" }}>Generated Image</span>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <a href={imgUrl} target="_blank" rel="noreferrer"
+                    style={{ fontSize: "0.75rem", padding: "0.25rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", display: "flex", alignItems: "center", gap: "0.25rem", textDecoration: "none", color: "#374151" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Open full size
+                  </a>
+                  <button onClick={() => setPreviewJob(null)}
+                    style={{ padding: "0.25rem", border: "none", background: "transparent", cursor: "pointer", fontSize: "1.25rem", lineHeight: 1, color: "#6b7280" }}>
+                    ✕
+                  </button>
                 </div>
               </div>
               {imgUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imgUrl}
-                  alt="Generated"
-                  className="w-full rounded-xl object-contain max-h-[60vh]"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                    const parent = (e.target as HTMLImageElement).parentElement;
-                    if (parent) {
-                      const msg = document.createElement("div");
-                      msg.className = "text-sm text-red-500 py-8 text-center";
-                      msg.textContent = "Image failed to load. Try opening full size.";
-                      parent.appendChild(msg);
-                    }
-                  }}
-                />
+                <img src={imgUrl} alt="Generated" style={{ width: "100%", borderRadius: "0.75rem", objectFit: "contain", maxHeight: "60vh" }} />
               ) : (
-                <div className="text-sm text-muted-foreground py-8 text-center">No image URL available</div>
+                <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af" }}>No image URL available</div>
               )}
-              <div className="text-xs text-muted-foreground line-clamp-3">{previewJob.prompt as string}</div>
-              <div className="flex gap-2">
-                <Button size="sm" asChild variant="outline" className="gap-1.5">
-                  <a href={imgUrl} download target="_blank" rel="noreferrer">
-                    <Download className="h-3.5 w-3.5" /> Download
-                  </a>
-                </Button>
-                <Button size="sm" asChild variant="outline" className="gap-1.5">
-                  <a href={imgUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" /> Open in new tab
-                  </a>
-                </Button>
+              <div style={{ fontSize: "0.75rem", color: "#6b7280", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {previewJob.prompt as string}
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <a href={imgUrl} download target="_blank" rel="noreferrer"
+                  style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", display: "flex", alignItems: "center", gap: "0.25rem", textDecoration: "none", color: "#374151" }}>
+                  ↓ Download
+                </a>
+                <a href={imgUrl} target="_blank" rel="noreferrer"
+                  style={{ fontSize: "0.75rem", padding: "0.375rem 0.75rem", border: "1px solid #d1d5db", borderRadius: "0.375rem", display: "flex", alignItems: "center", gap: "0.25rem", textDecoration: "none", color: "#374151" }}>
+                  ↗ Open in new tab
+                </a>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
     </div>
