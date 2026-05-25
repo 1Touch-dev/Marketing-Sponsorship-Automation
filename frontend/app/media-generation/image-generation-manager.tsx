@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Sparkles, Check, X, Loader2, Plus, Eye, Download, Wand2,
-  Image as ImageIcon, Clock, Zap,
+  Image as ImageIcon, Clock, Zap, ExternalLink,
 } from "lucide-react";
 
 type Job = Record<string, unknown>;
@@ -376,7 +376,7 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
                         Retry
                       </Button>
                     )}
-                    {status === "completed" && outputs.length > 0 && (
+                    {status === "completed" && (outputs.length > 0 || !!job.selected_url) && (
                       <Button size="sm" variant="outline" className="h-7 px-2 gap-1" onClick={() => setPreviewJob(job)}>
                         <Eye className="h-3 w-3" /> View
                       </Button>
@@ -424,12 +424,19 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
                   </div>
                 )}
 
-                {/* Generated image preview (inline) */}
-                {status === "completed" && outputs.length > 0 && (
+                {/* Generated image preview (inline thumbnails) */}
+                {status === "completed" && (outputs.length > 0 || !!job.selected_url) && (
                   <div className="mt-3 flex gap-2 flex-wrap">
-                    {outputs.map((img, i) => (
+                    {(outputs.length > 0 ? outputs : [{ url: job.selected_url as string }]).map((img, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} src={img.url} alt="Generated" className="w-24 h-24 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setPreviewJob({ ...job, _preview_url: img.url })} />
+                      <img
+                        key={i}
+                        src={img.url}
+                        alt="Generated"
+                        className="w-32 h-20 object-cover rounded-lg border cursor-pointer hover:opacity-80 hover:ring-2 ring-primary/50 transition-all"
+                        onClick={() => setPreviewJob({ ...job, _preview_url: img.url })}
+                        title="Click to enlarge"
+                      />
                     ))}
                   </div>
                 )}
@@ -440,26 +447,62 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
       )}
 
       {/* Image preview modal */}
-      {previewJob && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setPreviewJob(null)}>
-          <div className="bg-card rounded-2xl max-w-2xl w-full p-4 space-y-3" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center">
-              <div className="font-semibold">Generated Image</div>
-              <Button size="sm" variant="ghost" onClick={() => setPreviewJob(null)}><X className="h-4 w-4" /></Button>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={(previewJob._preview_url as string | undefined) ?? (previewJob.output_urls as Array<{url:string}>)?.[0]?.url ?? ""} alt="Generated" className="w-full rounded-xl object-contain max-h-[500px]" />
-            <div className="text-xs text-muted-foreground line-clamp-3">{previewJob.prompt as string}</div>
-            <div className="flex gap-2">
-              <Button size="sm" asChild variant="outline" className="gap-1.5">
-                <a href={(previewJob._preview_url as string) ?? ((previewJob.output_urls as Array<{ url: string }>)?.[0]?.url)} download target="_blank">
-                  <Download className="h-3.5 w-3.5" /> Download
-                </a>
-              </Button>
+      {previewJob && (() => {
+        const imgUrl = (previewJob._preview_url as string | undefined)
+          ?? (previewJob.selected_url as string | undefined)
+          ?? (previewJob.output_urls as Array<{url:string}>)?.[0]?.url
+          ?? "";
+        return (
+          <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4" onClick={() => setPreviewJob(null)}>
+            <div className="bg-card rounded-2xl max-w-3xl w-full p-4 space-y-3 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center">
+                <div className="font-semibold">Generated Image</div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs" asChild>
+                    <a href={imgUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-3 w-3" /> Open full size
+                    </a>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPreviewJob(null)}><X className="h-4 w-4" /></Button>
+                </div>
+              </div>
+              {imgUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imgUrl}
+                  alt="Generated"
+                  className="w-full rounded-xl object-contain max-h-[60vh]"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                    const parent = (e.target as HTMLImageElement).parentElement;
+                    if (parent) {
+                      const msg = document.createElement("div");
+                      msg.className = "text-sm text-red-500 py-8 text-center";
+                      msg.textContent = "Image failed to load. Try opening full size.";
+                      parent.appendChild(msg);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground py-8 text-center">No image URL available</div>
+              )}
+              <div className="text-xs text-muted-foreground line-clamp-3">{previewJob.prompt as string}</div>
+              <div className="flex gap-2">
+                <Button size="sm" asChild variant="outline" className="gap-1.5">
+                  <a href={imgUrl} download target="_blank" rel="noreferrer">
+                    <Download className="h-3.5 w-3.5" /> Download
+                  </a>
+                </Button>
+                <Button size="sm" asChild variant="outline" className="gap-1.5">
+                  <a href={imgUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" /> Open in new tab
+                  </a>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
