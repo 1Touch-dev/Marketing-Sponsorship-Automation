@@ -16,27 +16,37 @@ import type { ProposalContent } from "@/types/database";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-/** Sequential Bedrock calls per company (~30–90s each); 10 companies needs headroom. */
+/**
+ * Parallel batches of 3 companies × ~30s each ≈ 60–90s per batch.
+ * 15 companies = 5 batches ≈ 5–8 min. Keep generous headroom.
+ */
 export const maxDuration = 900;
 
 const bulkSchema = z.object({
   industry: z.string().min(1, "Industry is required"),
   objective: z.string().optional().default("brand awareness"),
-  company_ids: z.array(z.string().uuid()).optional(), // if omitted, all companies in industry
+  company_ids: z.array(z.string().uuid()).optional(),
   max_companies: z.number().int().min(1).max(20).optional().default(10),
-  campaign_title_prefix: z.string().optional(),
 });
 
-async function generateForCompany(
-  company: { id: string; company_name: string; industry: string | null; website: string | null; country: string | null; notes: string | null },
-  objective: string
-): Promise<{
+type Company = {
+  id: string;
+  company_name: string;
+  industry: string | null;
+  website: string | null;
+  country: string | null;
+  notes: string | null;
+};
+
+type GenResult = {
   campaign: { title: string; summary: string; activation: string | null };
   proposal: ProposalContent;
   strategy_variants: StrategyVariant[];
   pricing_tiers: PricingTier[];
   error?: string;
-}> {
+};
+
+async function generateForCompany(company: Company, objective: string): Promise<GenResult> {
   const context = `Company: ${company.company_name}
 Industry: ${company.industry ?? "general"}
 Country: ${company.country ?? "BR"}
@@ -44,54 +54,44 @@ Website: ${company.website ?? "—"}
 Objective: ${objective}`;
 
   try {
-    // Campaign
+    // --- Step 1: Campaign brief (needed by proposal prompt) ---
     const campaignRes = await invokeClaude<{ title?: string; summary?: string; activation?: string }>({
       system: "You are a sports sponsorship strategist for Coritiba FC (Brazilian football club). Respond in JSON.",
       messages: [{ role: "user", content: `Generate a sponsorship campaign strategy for Coritiba FC × ${company.company_name}.
 ${context}
 
-Return JSON with keys: title (string), summary (2-3 sentence strategy overview), activation (phased activation at Couto Pereira stadium, 2-3 sentences)` }],
-      json: true,
-      maxTokens: 800,
-      temperature: 0.7,
+Return JSON: { title, summary (2-3 sentences), activation (2-3 sentences about Couto Pereira activation) }` }],
+      json: true, maxTokens: 700, temperature: 0.7,
     });
     const camp = (campaignRes.json ?? {}) as { title?: string; summary?: string; activation?: string };
 
-    // Proposal content
-    const proposalRes = await invokeClaude<unknown>({
-      system: "You are a sponsorship proposal writer for Coritiba FC. Respond in JSON.",
-      messages: [{ role: "user", content: `Write a concise sponsorship proposal for Coritiba FC × ${company.company_name}.
+    // --- Step 2: Proposal content + variants + pricing in parallel ---
+    const [proposalRes, variantsRes, pricingRes] = await Promise.all([
+      invokeClaude<unknown>({
+        system: "You are a sponsorship proposal writer for Coritiba FC. Respond in JSON.",
+        messages: [{ role: "user", content: `Write a concise proposal for Coritiba FC × ${company.company_name}.
 ${context}
 Campaign: ${camp.title ?? "Partnership Proposal"}
 
-Return JSON: { executive_summary, campaign_rationale, sponsorship_value, activation_plan, deliverables (array of 5 items), investment_note, cta, title }` }],
-      json: true,
-      maxTokens: 1200,
-      temperature: 0.65,
-    });
-    const rawProposal = proposalRes.json;
-    const parsedProposal = proposalContentSchema.safeParse(rawProposal);
+Return JSON: { executive_summary, campaign_rationale, sponsorship_value, activation_plan, deliverables (array of 5), investment_note, cta, title }` }],
+        json: true, maxTokens: 1200, temperature: 0.65,
+      }),
+      invokeClaude<unknown>({
+        system: "You are a Coritiba FC sponsorship strategy expert. Respond in JSON.",
+        messages: [{ role: "user", content: `3 strategy variants for Coritiba FC × ${company.company_name} (${company.industry ?? "general"}).
+Return JSON: { strategies: [{ name, tagline, description, key_benefits (array), estimated_reach, best_for }] }` }],
+        json: true, maxTokens: 900, temperature: 0.75,
+      }),
+      invokeClaude<unknown>({
+        system: "You are a Coritiba FC sponsorship pricing expert. Respond in JSON.",
+        messages: [{ role: "user", content: `3 pricing tiers for Coritiba FC × ${company.company_name} (${company.industry ?? "general"}, ${company.country ?? "BR"}).
+Return JSON: { tiers: [{ name, price_brl, description, includes (array), best_for, roi_estimate }] }` }],
+        json: true, maxTokens: 700, temperature: 0.6,
+      }),
+    ]);
 
-    // Variants
-    const variantsRes = await invokeClaude<unknown>({
-      system: "You are a sponsorship strategy expert for Coritiba FC. Respond in JSON.",
-      messages: [{ role: "user", content: `Generate 3 distinct Coritiba FC sponsorship strategy variants for ${company.company_name} (${company.industry ?? "general industry"}).
-Return JSON: { strategies: [ { name, tagline, description, key_benefits (array), estimated_reach, best_for } ] }` }],
-      json: true,
-      maxTokens: 1000,
-      temperature: 0.75,
-    });
+    const parsedProposal = proposalContentSchema.safeParse(proposalRes.json);
     const parsedVariants = strategyVariantsResponseSchema.safeParse(variantsRes.json);
-
-    // Pricing
-    const pricingRes = await invokeClaude<unknown>({
-      system: "You are a Coritiba FC sponsorship pricing expert. Respond in JSON.",
-      messages: [{ role: "user", content: `Create 3 Coritiba FC sponsorship pricing tiers for ${company.company_name} (${company.industry ?? "general"}, ${company.country ?? "BR"}).
-Return JSON: { tiers: [ { name, price_brl, description, includes (array), best_for, roi_estimate } ] }` }],
-      json: true,
-      maxTokens: 800,
-      temperature: 0.6,
-    });
     const parsedPricing = pricingTiersResponseSchema.safeParse(pricingRes.json);
 
     const proposalContent = parsedProposal.success
@@ -105,8 +105,12 @@ Return JSON: { tiers: [ { name, price_brl, description, includes (array), best_f
         activation: camp.activation ?? null,
       },
       proposal: proposalContent,
-      strategy_variants: parsedVariants.success ? (normalizeStrategyVariants(parsedVariants.data) as { strategies: StrategyVariant[] }).strategies : [],
-      pricing_tiers: parsedPricing.success ? (normalizePricingTiers(parsedPricing.data) as { tiers: PricingTier[] }).tiers : [],
+      strategy_variants: parsedVariants.success
+        ? (normalizeStrategyVariants(parsedVariants.data) as { strategies: StrategyVariant[] }).strategies
+        : [],
+      pricing_tiers: parsedPricing.success
+        ? (normalizePricingTiers(parsedPricing.data) as { tiers: PricingTier[] }).tiers
+        : [],
     };
   } catch (e) {
     return {
@@ -119,9 +123,20 @@ Return JSON: { tiers: [ { name, price_brl, description, includes (array), best_f
   }
 }
 
+/** Run an array of async tasks in parallel batches of size `batchSize`. */
+async function batchMap<T, R>(items: T[], batchSize: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(fn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 export async function POST(req: Request) {
   const ip = getClientIp(req);
-  const rl = checkRateLimit(`bulk-campaigns:${ip}`, { max: 3, windowMs: 300_000 }); // 3 per 5 min
+  const rl = checkRateLimit(`bulk-campaigns:${ip}`, { max: 3, windowMs: 300_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
 
   const body = await req.json().catch(() => ({}));
@@ -133,7 +148,6 @@ export async function POST(req: Request) {
   const { industry, objective, company_ids, max_companies } = parsed.data;
   const sb = supabaseAdmin();
 
-  // Fetch target companies
   let query = sb
     .from("companies")
     .select("id, company_name, industry, website, country, notes")
@@ -151,6 +165,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `No active companies found in industry: ${industry}` }, { status: 404 });
   }
 
+  // Generate all companies in parallel batches of 3 to speed up without overwhelming Bedrock
+  const BATCH_SIZE = 3;
+  const generatedResults = await batchMap(companies as Company[], BATCH_SIZE, (c) =>
+    generateForCompany(c, objective)
+  );
+
+  // Persist results to DB
   const results: Array<{
     company_id: string;
     company_name: string;
@@ -158,14 +179,19 @@ export async function POST(req: Request) {
     proposal_id?: string;
     status: "success" | "error";
     error?: string;
+    time_ms?: number;
   }> = [];
 
-  // Process sequentially to avoid overwhelming Bedrock
-  for (const company of companies) {
-    try {
-      const gen = await generateForCompany(company, objective);
+  for (let i = 0; i < companies.length; i++) {
+    const company = companies[i] as Company;
+    const gen = generatedResults[i];
 
-      // Insert campaign
+    if (gen.error) {
+      results.push({ company_id: company.id, company_name: company.company_name, status: "error", error: gen.error });
+      continue;
+    }
+
+    try {
       const { data: campaign, error: campErr } = await sb
         .from("campaigns")
         .insert({
@@ -185,7 +211,6 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Insert proposal
       const { data: proposal, error: propErr } = await sb
         .from("proposals")
         .insert({

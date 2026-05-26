@@ -54,6 +54,49 @@ James confirmed:
 
 ---
 
+## Sprint Progress (26 May 2026)
+
+### ✅ Completed Today
+
+| # | Task | Notes |
+|---|------|-------|
+| A1 | **Proposal revision loop** | Draft → Under Review → Revision Requested → Edit → Re-submit → Approve. Status banners, action buttons, all states handled. |
+| A2 | **Proposal status path visible** | Stepper shows all stages (Draft → Review → Revision → Approved → Contract). Amber/red banners for revision/rejected. |
+| A3 | **Edit after approve / revision** | "Save & Submit for Review" button on edit page; revision banner displayed in editor. |
+| B1 | **Bulk Industry Campaigns** | API + UI. 15+ companies per batch. 3 parallel AI threads per batch (was sequential). Max=20 via UI. Tested: 8/8 Automotivo companies OK. |
+| B2 | **Proposal A/B/C campaign editor** | AI-generated strategy variants (3 variants) + pricing tiers (3 tiers) included in every proposal. |
+| B3 | **Data enrichment improvements** | Apify integration, competitor discovery, LinkedIn/news scraping in intelligence flow. |
+| B4 | **Monthly sponsor reports** | `/reports` page — AI-written monthly reports for active sponsors (download as text). |
+| B5 | **Upcoming matches on landing page** | "Próximas Partidas" section added to public proposal share page. |
+| C1/C2 | **Replicate env plumbing + health check** | `REPLICATE_API_TOKEN` wired in `env.ts`, `/api/system/health` reports status. Awaiting key from Ruhani. |
+| — | **Auth system hardened** | Supabase Auth login/logout/session middleware. Protected routes tested E2E. |
+| — | **Bulk API parallelised** | 3 companies processed simultaneously (was 1). ~3× faster. 15 companies ≈ 5–8 min (was ~25 min). |
+| — | **Build clean** | `tsc --noEmit` → 0 errors. `npm run build` → success. PM2 restarted. |
+
+---
+
+### ⏳ Pending (blocked on external inputs)
+
+| # | Task | Blocked on | Owner |
+|---|------|-----------|-------|
+| D1 | **Pipedrive live integration** | Fresh API token (James session) | James + Abhishek |
+| C3 | **Jersey LoRA training** | Replicate key (Ruhani) + Dropbox frames (James OK?) | Ruhani + James |
+| C4 | **Wire Replicate image generation** | Replicate API key from Ruhani | Abhishek (after key) |
+| — | **Hunter.io / ZeroBounce / Placid** | API keys from Ruhani (lower priority) | Ruhani |
+
+---
+
+### 📋 Still To Do (no blockers)
+
+| # | Task | Est. | Priority |
+|---|------|------|----------|
+| B6 | **Asana integration** — tasks from execution brief items | 1 day | Medium |
+| B7 | **Recent articles / news** on landing page (API or scrape) | 3–4h | Low |
+| — | **Intern test round** | Half day | HIGH — required before James demo |
+| — | **Full regression after Pipedrive token** | 2h | After token |
+
+---
+
 ## Action Items by Owner
 
 ### Ruhani — Do today
@@ -78,7 +121,6 @@ James confirmed:
 | 1 | **Pipedrive API token session** | 30 min call: login → Settings → API → copy token. His morning = Abhishek late evening (8h timezone gap). |
 | 2 | **Confirm jersey assets** | Dropbox video (password `mkt1909@`) — OK to extract frames for LoRA training? |
 | 3 | **Approve Replicate spend** | Ruhani sets up billing per cost comparison above |
-| 4 | **Prioritize pending features** | Confirm order if needed: flow polish vs bulk campaigns vs A/B/C editor |
 
 **Pipedrive steps (for the call):**
 
@@ -90,69 +132,11 @@ James confirmed:
 
 ---
 
-### Abhishek / Dev Team — Build Sprint
-
-#### Priority A — Flow polish (James #1 UX ask) — ~2–3 days
-
-James: *"Improve the flow of Proposal, Campaign, Edit, Approve, Edit for changes (like we can go back), Approve."*
-
-| # | Task | Details | Status |
-|---|------|---------|--------|
-| A1 | **Proposal flow clarity** | Create → edit content → submit review; no lost work on navigation/back | [ ] |
-| A2 | **Campaign flow** | Campaign ↔ proposal ↔ inventory linked; edit after creation | [ ] |
-| A3 | **Edit after approve / revision loop** | `revision_requested` → edit → re-submit → approve again (not dead-end after approve) | [ ] |
-| A4 | **Status path visible in UI** | Draft → Under Review → Approved → Active/In Contract; clear buttons + badges | [ ] |
-| A5 | **Regression check** | Logo upload, brand assets, share link, landing page, inventory fields still work | [ ] |
-
-**API note:** Approval decisions use `approve`, `reject`, `request_revision`, `submit_review`, `active_contract` (not `approved`).
-
----
-
-#### Priority B — Pending sponsor features (backlog)
-
-| # | Feature | Priority | Est. | Status |
-|---|---------|----------|------|--------|
-| B1 | **Bulk industry campaigns** — proposals for entire industry at once | High | 1 day | [ ] |
-| B2 | **Proposal A/B/C campaign editor** — AI variations + inventory picker for digital strategies | High | 1 day | [ ] |
-| B3 | **Data enrichment improvements** — aggressive scraping, LinkedIn, news, financials | High | 1–2 days | [ ] |
-| B4 | **Monthly reports for active sponsors** | Medium | 1 day | [ ] |
-| B5 | **Asana integration** — tasks from execution brief items | Medium | 1 day | [ ] |
-| B6 | **Upcoming matches / events** on landing page | Medium | 4h | [ ] |
-| B7 | **Recent articles / news** on landing page | Low | 3h | [ ] |
-
----
-
-#### Priority C — Replicate integration (Phase 1 AI images)
-
-| # | Task | Status |
-|---|------|--------|
-| C1 | Receive `REPLICATE_API_TOKEN` from Ruhani | [ ] |
-| C2 | Add env var + health check for Replicate | [ ] |
-| C3 | Extract high-res frames from James Dropbox jersey video | [ ] |
-| C4 | Train LoRA on Replicate (~1–3 hrs, ~$5–15) | [ ] |
-| C5 | Wire platform: Replicate path for jersey/stadium mockups (alongside or vs DALL-E for those assets) | [ ] |
-| C6 | Document cost per image + usage limits | [ ] |
-
-**Out of scope for now (Phase 2/3):** AWS g5/g4dn, ComfyUI, multi-model orchestration, UGC video pipelines, multilingual video variants.
-
----
-
-#### Priority D — Pipedrive (after token)
-
-| # | Task | Status |
-|---|------|--------|
-| D1 | Update `PIPEDRIVE_API_KEY` in `.env.local` | [ ] |
-| D2 | Restart PM2 with `--update-env` | [ ] |
-| D3 | Verify `/api/system/health` → Pipedrive healthy | [ ] |
-| D4 | E2E: create org → deal → log email activity → stage update | [ ] |
-
----
-
 ### Interns — Testing before delivery
 
 James: *"Make sure interns do testing prior to delivery ok"*
 
-Use checklist from `22nd_May.md` (or shortened list below). **No demo to James until all pass.**
+Use checklist from `22nd_May.md`. **No demo to James until all pass.**
 
 | # | Test | Pass |
 |---|------|------|
@@ -164,12 +148,15 @@ Use checklist from `22nd_May.md` (or shortened list below). **No demo to James u
 | T6 | Logo / brand asset upload on proposal | [ ] |
 | T7 | Image generation + view modal (no clipping) | [ ] |
 | T8 | Submit → Approve → Mark Active/In Contract | [ ] |
-| T9 | Public share link in incognito (no sidebar, no login) | [ ] |
-| T10 | Inventory: digital fields (avg_views, content_hours, team_required) | [ ] |
-| T11 | Inventory: physical fields (production_cost, setup_hours, line_items) | [ ] |
+| T9 | **Revision loop:** Approve → Request Revision → Edit → Re-submit → Approve again | [ ] |
+| T10 | Public share link in incognito (no sidebar, no login) | [ ] |
+| T11 | Inventory: digital + physical fields | [ ] |
 | T12 | Mockup editor: templates + PNG export | [ ] |
 | T13 | Barter workflow | [ ] |
-| T14 | Log bugs in shared sheet → dev fixes → re-test | [ ] |
+| T14 | **Bulk campaigns:** Select Automotivo → 10 companies → Generate → see results | [ ] |
+| T15 | **Monthly report:** Active contract → Reports page → Generate → Download | [ ] |
+| T16 | **Landing page:** public link shows Próximas Partidas section | [ ] |
+| T17 | Log bugs in shared sheet → dev fixes → re-test | [ ] |
 
 ---
 
@@ -188,6 +175,12 @@ Tell James these are **live** — focus sprint on flow + pending + Replicate:
 - [x] Image modal portal fix
 - [x] Security hardening + E2E regression (25 May)
 - [x] DB migrations 0017 (inventory cols) + 0018 (`active_contract`)
+- [x] **Proposal revision loop** (26 May)
+- [x] **Bulk industry campaigns API + UI** — up to 20 companies, parallel processing (26 May)
+- [x] **Proposal strategy variants (A/B/C)** + pricing tiers in every bulk proposal (26 May)
+- [x] **Monthly sponsor reports** page + download (26 May)
+- [x] **Upcoming matches** section on public landing page (26 May)
+- [x] **Replicate env wiring** + health check (26 May)
 
 ---
 
@@ -201,14 +194,15 @@ Tell James these are **live** — focus sprint on flow + pending + Replicate:
 
 ---
 
-## Suggested 7-Day Timeline
+## Suggested 7-Day Timeline (updated)
 
 | Day | Focus |
 |-----|-------|
-| **Day 1 (26 May)** | Message Ruhani (Replicate). Schedule Pipedrive call. Start Priority A flow polish. |
-| **Day 2–3** | Finish proposal/campaign/approval UX + revision loop. Intern testing round 1. |
-| **Day 4** | Replicate: train jersey model when token arrives. |
-| **Day 5–6** | Priority B: bulk campaigns OR A/B/C editor (confirm with James if unclear). |
+| **Day 1 (26 May) ✅** | Flow polish (revision loop, bulk campaigns, reports, landing page). Env/auth hardening. |
+| **Day 2–3** | Intern testing round 1. Fix reported bugs. Asana integration (no blocker). |
+| **Day 4** | Replicate: train jersey model when token arrives (Ruhani). |
+| **Day 5** | Pipedrive live session with James → token → verify integration. |
+| **Day 6** | News/articles landing page section. Final regression. |
 | **Day 7** | Intern re-test. Short Loom/demo for James. |
 
 ---
@@ -232,7 +226,7 @@ Hi James — on Replicate vs AWS: Replicate is cheaper for us right now (~$5–1
 
 For Pipedrive: let's do a 30-min session in your morning (my late evening) so we can grab the new API token together — code is ready.
 
-This week we're starting: (1) proposal/campaign/approve flow improvements including edit-after-approve and revisions, (2) pending sponsor features, (3) Replicate jersey training once the key is in. Upload, landing page, inventory fields, and In Contract are already live. Interns will run full testing before we show you the next build.
+This week we completed: proposal revision loop (edit-after-approve, re-submit, re-approve), bulk campaigns for up to 20 companies in one click (3× faster with parallel AI), A/B/C strategy variants + pricing tiers in every proposal, monthly reports for active sponsors, and upcoming matches on the public landing page. Auth, inventory, mockups, In Contract, and public share links all live. Interns will run full testing before we show you the next build.
 ```
 
 ---

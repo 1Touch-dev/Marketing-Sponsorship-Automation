@@ -30,7 +30,7 @@ export default function BulkCampaignsPage() {
   const { toast } = useToast();
   const [industry, setIndustry] = useState("");
   const [objective, setObjective] = useState("brand awareness and fan engagement");
-  const [maxCompanies, setMaxCompanies] = useState(5);
+  const [maxCompanies, setMaxCompanies] = useState(10);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<{ message: string; successful: number; failed: number } | null>(null);
@@ -44,7 +44,7 @@ export default function BulkCampaignsPage() {
     setLoading(true);
     setResults(null);
     setSummary(null);
-    setProgress(`Generating campaigns for ${maxCompanies} companies in "${industry}"…`);
+    setProgress(`Generating campaigns for up to ${maxCompanies} companies in "${industry}" (3 at a time)…`);
 
     try {
       const res = await fetch("/api/campaigns/bulk", {
@@ -135,7 +135,7 @@ export default function BulkCampaignsPage() {
                 value={maxCompanies}
                 onChange={(e) => setMaxCompanies(Math.min(20, Math.max(1, Number(e.target.value))))}
               />
-              <p className="text-xs text-muted-foreground">Maximum 20 per batch. Each company runs several Claude calls in sequence (~1–2 min each).</p>
+              <p className="text-xs text-muted-foreground">Max 20 per batch. Companies are processed 3 at a time in parallel (~2 min per batch).</p>
             </div>
 
             <Button
@@ -167,8 +167,8 @@ export default function BulkCampaignsPage() {
                 <li>3 strategy variants</li>
               </ul>
               <p className="text-amber-500 mt-2">
-                Est. time: ~{Math.ceil(maxCompanies * 1.2)}–{Math.ceil(maxCompanies * 2)} min for {maxCompanies} companies
-                (sequential Bedrock calls; use a broad industry like Automotivo or Energia to match many rows).
+                Est. time: ~{Math.ceil(maxCompanies / 3) * 2}–{Math.ceil(maxCompanies / 3) * 4} min for {maxCompanies} companies
+                (3 companies processed in parallel; ~2 min per batch).
               </p>
             </div>
           </CardContent>
