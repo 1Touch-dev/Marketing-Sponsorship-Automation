@@ -37,6 +37,11 @@ coverage/
 supabase/.branches/
 supabase/.temp/
 
+# Jersey assets — large binaries stay on server only
+jersey-assets/extracted-images/
+jersey-assets/lora-training-set/
+jersey-assets/*.pdf
+
 # Backups
 *.bak
 Market_Sponsorship_Automation.bak/
