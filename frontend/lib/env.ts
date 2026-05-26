@@ -36,6 +36,12 @@ const serverSchema = z.object({
   /** Optional: if set, POST /api/workflows/audit must send header x-msa-webhook-secret with this value. */
   MSA_INTERNAL_WEBHOOK_SECRET: z
     .preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().min(8).optional()),
+
+  /** Replicate — AI image hosting (jersey/stadium mockups). Optional until Ruhani provides token. */
+  REPLICATE_API_TOKEN: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(10).optional()
+  ),
 });
 
 const publicSchema = z.object({

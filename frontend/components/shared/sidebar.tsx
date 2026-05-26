@@ -67,9 +67,11 @@ const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "core" },
   { href: "/companies", label: "Companies", icon: Building2, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
+  { href: "/reports", label: "Sponsor Reports", icon: Trophy, group: "core" },
   // Proposal workflow
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
   { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
+  { href: "/campaigns/bulk", label: "Bulk Campaigns", icon: Zap, group: "proposals" },
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },

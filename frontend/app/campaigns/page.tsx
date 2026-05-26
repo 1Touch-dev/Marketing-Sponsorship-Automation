@@ -6,7 +6,8 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { CampaignGenerator } from "./campaign-generator";
 import Link from "next/link";
 import { formatDate, truncate } from "@/lib/utils";
-import { Filter, Lightbulb, ArrowRight, Tag, ChevronRight } from "lucide-react";
+import { Filter, Lightbulb, ArrowRight, Tag, ChevronRight, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,13 @@ export default async function CampaignsPage({
       <PageHeader
         title="Campaign generator"
         description="Generate AI Coritiba FC sponsorship ideas — select one to create a proposal."
+        actions={
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/campaigns/bulk">
+              <Zap className="h-3.5 w-3.5 text-amber-500" /> Bulk Industry Campaigns
+            </Link>
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

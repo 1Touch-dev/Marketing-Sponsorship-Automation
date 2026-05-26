@@ -27,6 +27,7 @@ export async function GET() {
   const awsConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
   const openaiConfigured = !!process.env.OPENAI_API_KEY;
   const pipedriveConfigured = !!process.env.PIPEDRIVE_API_KEY;
+  const replicateConfigured = !!process.env.REPLICATE_API_TOKEN;
 
   // Queue stats
   let queueStats: Record<string, number> = {};
@@ -70,6 +71,7 @@ export async function GET() {
       bedrock_ai: { healthy: awsConfigured, configured: awsConfigured },
       openai: { healthy: openaiConfigured, configured: openaiConfigured },
       pipedrive: { healthy: pipedriveConfigured, configured: pipedriveConfigured },
+      replicate: { healthy: replicateConfigured, configured: replicateConfigured, note: replicateConfigured ? "Ready for jersey/stadium image generation" : "Awaiting REPLICATE_API_TOKEN" },
     },
     environment: { healthy: envHealthy, vars: envStatus },
     queue: queueStats,

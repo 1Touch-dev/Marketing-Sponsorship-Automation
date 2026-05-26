@@ -13,6 +13,7 @@ import {
   Package, DollarSign, Zap, Save, ArrowLeft,
   AlertCircle, Info, CheckCircle2, History,
   Sparkles, Loader2, PenLine, ChevronDown, ChevronUp,
+  RotateCcw, Send,
   type LucideIcon,
 } from "lucide-react";
 
@@ -280,9 +281,11 @@ export function ProposalEditor({
     (initialContent?.deliverables ?? []).join("\n"),
   );
   const [busy, setBusy] = useState(false);
+  const [busySubmit, setBusySubmit] = useState(false);
   const [activeSection, setActiveSection] = useState<ContentFieldKey | null>(null);
 
   const isApproved = proposalStatus === "approved" || proposalStatus === "sent";
+  const isRevision = proposalStatus === "revision_requested";
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -319,6 +322,37 @@ export function ProposalEditor({
       });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onSaveAndSubmit(e: React.MouseEvent) {
+    e.preventDefault();
+    setBusySubmit(true);
+    try {
+      // 1. Save the content
+      const deliverables = deliverablesText.split("\n").map((s) => s.trim()).filter(Boolean);
+      const saveRes = await fetch(`/api/proposals/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title, content: { ...content, title, deliverables }, edit_reason: reason || "Revision — re-submitting for review" }),
+      });
+      const saveJ = await saveRes.json() as { error?: string };
+      if (!saveRes.ok) throw new Error(saveJ?.error ?? "Save failed");
+      // 2. Submit for review
+      const reviewRes = await fetch(`/api/proposals/${id}/approve`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision: "submit_review" }),
+      });
+      const reviewJ = await reviewRes.json() as { error?: string };
+      if (!reviewRes.ok) throw new Error(reviewJ?.error ?? "Submit failed");
+      toast({ variant: "success", title: "Saved and submitted for review ✓" });
+      router.push(`/proposals/${id}`);
+      router.refresh();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed", description: err instanceof Error ? err.message : "Unknown error" });
+    } finally {
+      setBusySubmit(false);
     }
   }
 
@@ -397,6 +431,16 @@ export function ProposalEditor({
               <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-amber-700 dark:text-amber-300">
                 <strong>This proposal is {proposalStatus}.</strong> Saving a new version will keep its current status and create a new version snapshot.
+              </div>
+            </div>
+          )}
+
+          {isRevision && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <RotateCcw className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-amber-700 dark:text-amber-300">
+                <strong>Revision requested.</strong> Make your changes and use{" "}
+                <span className="font-semibold">Save &amp; Submit for Review</span> when done.
               </div>
             </div>
           )}
@@ -500,11 +544,22 @@ export function ProposalEditor({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <Button type="submit" disabled={busy} className="gap-2">
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button type="submit" disabled={busy || busySubmit} className="gap-2">
               <Save className="h-4 w-4" />
-              {busy ? "Saving draft…" : "Save as new version"}
+              {busy ? "Saving…" : "Save as new version"}
             </Button>
+            {(isRevision || proposalStatus === "draft" || isApproved) && (
+              <Button
+                type="button"
+                disabled={busy || busySubmit}
+                onClick={onSaveAndSubmit}
+                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Send className="h-4 w-4" />
+                {busySubmit ? "Submitting…" : "Save & Submit for Review"}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"

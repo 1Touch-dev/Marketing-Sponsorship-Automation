@@ -570,6 +570,37 @@ export function ProposalLandingPage({
           </Section>
         )}
 
+        {/* Upcoming Matches at Couto Pereira — sponsor activation context */}
+        <Section id="upcoming-matches" title="Próximas Partidas" badge="Ativação no Estádio"
+          subtitle="Oportunidades de ativação ao vivo no Estádio Couto Pereira — seu logo diante de milhares de torcedores">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { opponent: "Atlético-PR", competition: "Campeonato Brasileiro", date: "Próxima rodada", venue: "Couto Pereira", attendance: "~35.000", type: "home" },
+              { opponent: "Fluminense", competition: "Copa do Brasil", date: "Em breve", venue: "Couto Pereira", attendance: "~40.000", type: "home" },
+              { opponent: "Athletico-PR", competition: "Clássico Estadual", date: "A definir", venue: "Couto Pereira", attendance: "~42.000", type: "home" },
+            ].map((match, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 hover:border-green-300 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wide">{match.competition}</span>
+                  <span className="text-[10px] text-slate-400">{match.date}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="text-xs text-slate-500">Coritiba FC</div>
+                  <div className="text-xs font-bold text-slate-700 px-2">vs</div>
+                  <div className="text-xs font-semibold text-slate-900">{match.opponent}</div>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100 pt-2 mt-1">
+                  <span>🏟 {match.venue}</span>
+                  <span>👥 {match.attendance}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 mt-3 text-center">
+            Calendário atualizado a cada rodada. Ativações de patrocínio confirmadas com 2 semanas de antecedência.
+          </p>
+        </Section>
+
         {/* CTA */}
         {content?.cta && (
           <section className="py-14 border-t border-slate-100 print:hidden">

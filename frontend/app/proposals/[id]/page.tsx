@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, Edit3, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { ApprovalPanel } from "./approval-panel";
 import { ApprovalFlowPanel } from "./approval-flow-panel";
@@ -101,6 +101,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)}`}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link href="/proposals">
+                <ArrowLeft className="h-3.5 w-3.5" /> All
+              </Link>
+            </Button>
             <DuplicateProposalButton proposalId={proposal.id} />
             {p.share_token ? (
               <Button asChild variant="outline" size="sm">
@@ -111,15 +116,44 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             ) : null}
             <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={hasIntelligenceLayer} />
             <ProposalShareButton proposalId={proposal.id} shareToken={p.share_token ?? null} />
-            <StatusBadge status={proposal.status} />
-            <Button asChild variant="outline">
-              <Link href={`/proposals/${proposal.id}/edit`}>Edit</Link>
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href={`/proposals/${proposal.id}/edit`}>
+                <Edit3 className="h-3.5 w-3.5" /> Edit
+              </Link>
             </Button>
+            <StatusBadge status={proposal.status} />
           </div>
         }
       />
 
-      {p.status_reason && (
+      {/* Status banners for actionable states */}
+      {proposal.status === "revision_requested" && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+            ✏️ Revision requested — please edit the proposal and re-submit for review.
+          </p>
+          <Button asChild size="sm" className="gap-1.5 shrink-0">
+            <Link href={`/proposals/${proposal.id}/edit`}>
+              <Edit3 className="h-3.5 w-3.5" /> Edit now
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {proposal.status === "rejected" && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">
+            ❌ This proposal was rejected. You can still edit it and re-submit.
+          </p>
+          <Button asChild size="sm" variant="outline" className="gap-1.5 shrink-0">
+            <Link href={`/proposals/${proposal.id}/edit`}>
+              <Edit3 className="h-3.5 w-3.5" /> Edit &amp; Re-submit
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {p.status_reason && proposal.status !== "revision_requested" && proposal.status !== "rejected" && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           Status reason: {p.status_reason}
         </div>
