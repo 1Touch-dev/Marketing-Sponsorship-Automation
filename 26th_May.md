@@ -68,7 +68,7 @@ James confirmed:
 | B3 | **Data enrichment improvements** | Apify integration, competitor discovery, LinkedIn/news scraping in intelligence flow. |
 | B4 | **Monthly sponsor reports** | `/reports` page — AI-written monthly reports for active sponsors (download as text). |
 | B5 | **Upcoming matches on landing page** | "Próximas Partidas" section added to public proposal share page. |
-| C1/C2 | **Replicate env plumbing + health check** | `REPLICATE_API_TOKEN` wired in `env.ts`, `/api/system/health` reports status. Awaiting key from Ruhani. |
+| C1/C2 | **Replicate env plumbing + health check** | `REPLICATE_API_TOKEN` wired in `env.ts`, `/api/system/health` reports status. **Token received from Ruhani — LIVE ✅** |
 | — | **Auth system hardened** | Supabase Auth login/logout/session middleware. Protected routes tested E2E. |
 | — | **Bulk API parallelised** | 3 companies processed simultaneously (was 1). ~3× faster. 15 companies ≈ 5–8 min (was ~25 min). |
 | — | **Build clean** | `tsc --noEmit` → 0 errors. `npm run build` → success. PM2 restarted. |
@@ -80,8 +80,8 @@ James confirmed:
 | # | Task | Blocked on | Owner |
 |---|------|-----------|-------|
 | D1 | **Pipedrive live integration** | Fresh API token (James session) | James + Abhishek |
-| C3 | **Jersey LoRA training** | Replicate key (Ruhani) + Dropbox frames (James OK?) | Ruhani + James |
-| C4 | **Wire Replicate image generation** | Replicate API key from Ruhani | Abhishek (after key) |
+| C3 | **Jersey LoRA training** | Replicate key ✅ received — need Dropbox frames (James OK?) | James |
+| C4 | **Wire Replicate image generation** | Next step — implement API call once jersey model trained | Abhishek |
 | — | **Hunter.io / ZeroBounce / Placid** | API keys from Ruhani (lower priority) | Ruhani |
 
 ---
