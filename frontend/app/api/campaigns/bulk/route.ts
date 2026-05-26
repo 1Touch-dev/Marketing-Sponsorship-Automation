@@ -16,7 +16,8 @@ import type { ProposalContent } from "@/types/database";
 import { z } from "zod";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+/** Sequential Bedrock calls per company (~30–90s each); 10 companies needs headroom. */
+export const maxDuration = 900;
 
 const bulkSchema = z.object({
   industry: z.string().min(1, "Industry is required"),

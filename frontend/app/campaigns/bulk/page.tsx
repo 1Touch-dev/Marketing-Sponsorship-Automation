@@ -135,7 +135,7 @@ export default function BulkCampaignsPage() {
                 value={maxCompanies}
                 onChange={(e) => setMaxCompanies(Math.min(20, Math.max(1, Number(e.target.value))))}
               />
-              <p className="text-xs text-muted-foreground">Maximum 20 per batch. Each takes ~30s of AI generation.</p>
+              <p className="text-xs text-muted-foreground">Maximum 20 per batch. Each company runs several Claude calls in sequence (~1–2 min each).</p>
             </div>
 
             <Button
@@ -166,7 +166,10 @@ export default function BulkCampaignsPage() {
                 <li>3 pricing tiers</li>
                 <li>3 strategy variants</li>
               </ul>
-              <p className="text-amber-500 mt-2">Est. time: ~{maxCompanies * 30}s for {maxCompanies} companies</p>
+              <p className="text-amber-500 mt-2">
+                Est. time: ~{Math.ceil(maxCompanies * 1.2)}–{Math.ceil(maxCompanies * 2)} min for {maxCompanies} companies
+                (sequential Bedrock calls; use a broad industry like Automotivo or Energia to match many rows).
+              </p>
             </div>
           </CardContent>
         </Card>
