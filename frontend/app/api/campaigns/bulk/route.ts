@@ -173,7 +173,7 @@ export async function POST(req: Request) {
           summary: gen.campaign.summary,
           activation: gen.campaign.activation,
           description: `Bulk-generated for ${industry} industry`,
-          status: "active",
+          status: "draft",
           prompt_version: PROMPT_VERSION,
         })
         .select("id")
