@@ -1,7 +1,8 @@
 # Coritiba FC Platform — Intern End-to-End Test Plan
 **Version:** 1.0 | **Date:** 27 May 2026  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login credentials:** `patrocinios@coritiba.com.br` / *(ask Abhishek for password)*  
+**Login credentials:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
+**Pre-test report:** See `E2E_PRE_INTERN_TEST_RESULTS.md` (Abhishek ran smoke tests 27 May — 22 pass, intern completes remaining AI flows)  
 **Rule:** Do NOT demo to James until every test below has a ✅
 
 ---
