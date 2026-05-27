@@ -313,9 +313,13 @@
 |------|--------|----------|------|
 | 1 | Open an **approved** proposal | Detail page | [ ] |
 | 2 | Scroll to "Outreach" section | "Generate Email" panel visible (not grayed out) | [ ] |
-| 3 | Click "Generate Email" | AI drafts an outreach email in ~15s | [ ] |
+| 3 | Enter recipient email + contact name, click "Generate Email" | AI drafts an outreach email in ~15s | [ ] |
 | 4 | Email body displayed | Professional Portuguese-language email mentioning the sponsor and Coritiba | [ ] |
-| 5 | Navigate to `/emails` | Email appears in the list | [ ] |
+| 5 | Navigate to `/emails` | Email appears in the list with status "draft" | [ ] |
+| 6 | Open the email, click **"Approve & log to Pipedrive"** | Green banner: "Logged in Pipedrive · Activity #XXX created" | [ ] |
+| 7 | Click **"Mark as Sent in Pipedrive"** | Status → "sent"; Pipedrive Activity marked done | [ ] |
+
+> **Note on email delivery:** This platform does **NOT** use Gmail/SMTP. Outreach emails are AI-drafted here, then logged as **Pipedrive Activities (type: email)**. The actual email is sent by the sales rep manually from their email client. This is by design — James requested all outreach tracking go through Pipedrive CRM.
 
 ---
 
