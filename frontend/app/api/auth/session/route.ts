@@ -5,18 +5,17 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (error || !user) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
   return NextResponse.json({
     authenticated: true,
     user: {
-      id: session.user.id,
-      email: session.user.email,
+      id: user.id,
+      email: user.email,
     },
-    expires_at: session.expires_at,
   });
 }

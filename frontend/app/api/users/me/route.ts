@@ -6,14 +6,14 @@ export const runtime = "nodejs";
 export async function GET() {
   const supabase = supabaseServer();
 
-  // Validate the current session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  // getUser() contacts the Supabase Auth server — more secure than getSession()
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-  if (sessionError || !session?.user) {
+  if (userError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const email = session.user.email?.toLowerCase();
+  const email = user.email?.toLowerCase();
   if (!email) {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }

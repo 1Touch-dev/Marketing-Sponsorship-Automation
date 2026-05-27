@@ -7,6 +7,7 @@ const PUBLIC_ROUTES = new Set([
   "/login",
   "/api/auth/login",
   "/api/auth/session",
+  "/api/health",        // public health check endpoint
 ]);
 
 // Public path prefixes
@@ -51,10 +52,10 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  // Refresh and validate session (this also rotates the session cookie if needed)
-  const { data: { session } } = await supabase.auth.getSession();
+  // Refresh and validate session — getUser() verifies with the Auth server
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     // API routes return 401
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(

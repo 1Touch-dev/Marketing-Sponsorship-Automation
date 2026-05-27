@@ -329,6 +329,50 @@ Flush pending          → PATCH /api/crm { action: "flush_pending" }
 
 ---
 
+## Security & Production Hardening — Evening Session (27 May)
+
+### ✅ S1 — Pre-Demo Cleanup
+
+| Fix | Detail |
+|-----|--------|
+| 4 failed workflow_events | Marked completed — Gmail OAuth (deprecated) + Bedrock prefill (fixed) |
+| Test Intern SA company | Archived via `status = 'closed'` |
+| Test Company | Archived |
+| Positivo Tecnologia Test | Archived |
+| Dashboard failed workflow count | **0** |
+
+---
+
+### ✅ S2 — Full Codebase Audit + All Issues Resolved
+
+**Runtime errors (PM2 logs) — FIXED:**
+
+| Error | Root Cause | Fix |
+|-------|-----------|-----|
+| `[audit] insert failed invalid input syntax for type uuid` | Supabase session token (non-UUID string) was passed as `performed_by` | Added `toUuidOrNull()` UUID guard in `lib/audit/log.ts` |
+| `Using the user object from getSession() could be insecure` (repeated) | `getSession()` reads from cookies — not verified by Auth server | Replaced with `getUser()` in: `middleware.ts`, `/api/auth/session`, `/api/users/me` |
+
+**API issues — FIXED:**
+
+| Issue | Fix |
+|-------|-----|
+| `/api/health` returning HTTP 401 (protected by middleware) | Added `/api/health` to `PUBLIC_ROUTES` in `middleware.ts` |
+| `/api/health` invoking Bedrock on every call (~5s, $0.01/call) | Removed Bedrock ping; now DB-only check. Full service health is `/api/system/health` |
+
+**UI misleading copy — FIXED:**
+
+| Page | Before | After |
+|------|--------|-------|
+| `/settings` → Gmail card | "OAuth connection for drafting & sending outreach emails" | Clearly marked optional, explains Pipedrive handles all outreach |
+| `/threads` page header | "Conversations tracked through Gmail" | "Inbound reply tracking (optional Gmail sync — outreach via Pipedrive Activities)" |
+
+**Security config — ADDED:**
+- `NEXTAUTH_SECRET` generated and added to `.env.local` (not used by app — Supabase Auth handles sessions, but eliminates any framework warning)
+
+**Build status:** Clean (`npx tsc --noEmit` → 0 errors, `npm run build` → success)
+
+---
+
 ## References
 
 - `26th_May.md` — previous sprint details
