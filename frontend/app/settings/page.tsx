@@ -152,8 +152,11 @@ export default async function SettingsPage({
         {/* ── Gmail ── */}
         <Card>
           <CardHeader>
-            <CardTitle>Gmail integration</CardTitle>
-            <CardDescription>OAuth connection for drafting &amp; sending outreach emails.</CardDescription>
+            <CardTitle>Gmail integration <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span></CardTitle>
+            <CardDescription>
+              Outreach emails are logged as Pipedrive Activities — Gmail is not required for sending.
+              Connect only if you want inbound reply sync back into the Threads view.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center gap-2">

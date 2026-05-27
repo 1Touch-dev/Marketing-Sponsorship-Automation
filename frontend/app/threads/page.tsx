@@ -15,7 +15,7 @@ export default async function ThreadsPage() {
 
   return (
     <>
-      <PageHeader title="Email threads" description="Conversations tracked through Gmail." />
+      <PageHeader title="Email threads" description="Inbound reply tracking (optional Gmail sync — outreach logging is via Pipedrive Activities)." />
       {!data || data.length === 0 ? (
         <EmptyState title="No threads yet" description="Threads appear once an outreach email is drafted or sent." />
       ) : (
