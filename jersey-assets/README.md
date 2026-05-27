@@ -9,14 +9,18 @@ Assets extracted from James's campaign PDF: **Camisa 2 2026 - Curitiba é Coriti
 3. **Steps:** 1000 (~20 min, ~$2)
 4. **Destination:** your Replicate account (private model)
 
-## Contents of the zip (18 images)
+## Contents of the zip (15 clean images)
 
 | Group | Count | Description |
 |-------|-------|-------------|
 | `coritiba_jersey_model_*` | 9 | 1080×1350 product/lifestyle shots |
 | `coritiba_jersey_full_body_*` | 3 | Full-body poses |
-| `coritiba_jersey_studio_*` | 2 | Studio shots |
-| `coritiba_jersey_detail_*` | 4 | Detail/close-up frames |
+| `coritiba_jersey_studio_*` | 1 | Studio shot (1 removed — was grayscale mask) |
+| `coritiba_jersey_detail_*` | 2 | Detail/close-up frames (2 removed — were grayscale masks) |
+
+**Note:** 3 images were removed from the original 18 after quality check:
+- `detail_2`, `detail_4`, `studio_2` — all grayscale alpha-mask artifacts from PDF extraction (256 colors, 18K size)
+- Only 15 high-quality RGB color images remain
 
 ## Local-only (not in git)
 
