@@ -2,9 +2,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/shared/page-header";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ImageGenerationManager } from "./image-generation-manager";
-import { Plus, Layers, ExternalLink } from "lucide-react";
+import { ReplicateJerseyGenerator } from "@/components/proposals/replicate-jersey-generator";
+import { Plus, Layers, ExternalLink, Shirt } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function MediaGenerationPage() {
     <>
       <PageHeader
         title="AI Image Generation"
-        description="Approval-first DALL-E 3 pipeline for sponsor placement visuals"
+        description="DALL-E campaign creatives + Replicate FLUX LoRA jersey mockups"
         actions={
           <div className="flex gap-2">
             <Button asChild variant="outline" size="sm" className="gap-2">
@@ -74,6 +75,28 @@ export default async function MediaGenerationPage() {
             jobs={safeJobs}
             proposals={(proposals ?? []) as Array<Record<string, unknown>>}
             companies={(companies ?? []) as Array<Record<string, unknown>>}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Replicate FLUX LoRA jersey mockup generator — standalone usage */}
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shirt className="h-4 w-4 text-green-600" />
+            Mockup de Camisa — FLUX LoRA
+            <span className="ml-auto text-xs font-normal text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Replicate</span>
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Gera mockups fotorrealistas da Camisa Coritiba 2026 Away (verde) com branding de patrocinador.
+            Modelo treinado com fotos reais da coleção. Trigger: <code className="font-mono bg-slate-100 px-1 rounded">coritiba_jersey</code>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ReplicateJerseyGenerator
+            proposalId=""
+            companyName="Patrocinador"
+            campaignTitle="Geração Standalone"
           />
         </CardContent>
       </Card>

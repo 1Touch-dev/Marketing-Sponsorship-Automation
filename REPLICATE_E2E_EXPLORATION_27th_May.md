@@ -300,31 +300,39 @@ Deliverable of Phase 5:
 
 ---
 
-## 6) Next action — Phase 2 (Quality Validation)
+## 6) Phase 4 — UI (COMPLETE ✅)
 
-Phase 1 is complete. The model is now live at:  
-`abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c`
+**Status:** All phases complete as of 27 May 2026.
 
-**Phase 2 test prompts to run:**
+### Component built: `ReplicateJerseyGenerator`
 
-1. `a person wearing coritiba_jersey green football kit with sponsor logo area, product photo, studio lighting`
-2. `coritiba_jersey football shirt floating on white background, clean product shot`
-3. `coritiba_jersey worn by athlete running in stadium, broadcast angle, action shot`
-4. `close up of coritiba_jersey chest area showing sponsor placement zone, clean textile detail`
-5. `coritiba_jersey on mannequin, front view, clean background, commercial photography`
+Location: `frontend/components/proposals/replicate-jersey-generator.tsx`
 
-**API call to test:**
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "version": "abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c",
-    "input": {
-      "prompt": "a person wearing coritiba_jersey green football kit, studio product photo",
-      "num_outputs": 1
-    }
-  }' \
-  https://api.replicate.com/v1/predictions
+**5 scene presets:**
+
+| Scene | Aspect Ratio | Prompt suffix |
+|-------|-------------|---------------|
+| Produto Estúdio | 4:5 | floating jersey on white background, studio lighting |
+| Modelo em Campo | 4:5 | worn by professional athlete standing on football pitch |
+| Patrocinador no Peito | 1:1 | close up of chest showing sponsor placement area |
+| Dia de Jogo | 16:9 | worn by player running in stadium during match |
+| Manequim Frontal | 3:4 | on mannequin, front view, neutral grey gradient background |
+
+**Prompt format:**
 ```
+coritiba_jersey green football kit with {companyName} sponsor brand on chest, {customNote}, {scene prompt}
+```
+
+**Pages integrated:**
+- `frontend/app/proposals/[id]/page.tsx` — "Mockup de Camisa — IA" card
+- `frontend/app/media-generation/page.tsx` — standalone section
+
+**Live validation (27 May):**
+
+| Scene | Prediction ID | URL | Result |
+|-------|---------------|-----|--------|
+| Produto Estúdio (Sicredi sponsor) | `4bvnfjs7y5rmr0cyd10b29zfn4` | https://replicate.delivery/xezq/X9BNWV4fKa2pBSXdJHr3dfEOBZnMQwr5G0vkwLtV1tggmEpWA/out-0.webp | ✅ |
+| Patrocinador no Peito (Sicredi) | `x8va02c445rmy0cyd109jypg68` | https://replicate.delivery/xezq/vXKEIJ39oYLhJZ3nM9U9iYmtW9jOKEEQYe058eRdoq84mEpWA/out-0.webp | ✅ |
+
+All 4 phases of the Replicate integration plan are now complete.
 

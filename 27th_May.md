@@ -32,7 +32,7 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 
 ---
 
-### ✅ D2 — Replicate LoRA Training — Phase 1 + 2 + 3 COMPLETE
+### ✅ D2 — Replicate LoRA Training — Phase 1 + 2 + 3 + 4 COMPLETE
 
 **Full execution summary:**
 
@@ -90,6 +90,37 @@ Updated env vars:
 - `REPLICATE_MODEL_VERSION` added to `.env`, `.env.local`, `.env.example`
 - Health check now reports: model version hash + trigger word + training date
 
+#### Phase 4 — UI for Sponsor Mockups (wired ✅)
+
+New component + integrations:
+
+| File | Purpose |
+|------|---------|
+| `frontend/components/proposals/replicate-jersey-generator.tsx` | `<ReplicateJerseyGenerator>` — prompt builder, scene selector, progressive image grid, download |
+| `frontend/app/proposals/[id]/page.tsx` | New "Mockup de Camisa — IA" card added after campaign image generator |
+| `frontend/app/media-generation/page.tsx` | Standalone Replicate generator section added to the page |
+
+**Features of the UI component:**
+- 5 scene presets: Produto Estúdio (4:5), Modelo em Campo (4:5), Patrocinador no Peito (1:1), Dia de Jogo (16:9), Manequim Frontal (3:4)
+- Multi-scene selection with checkboxes (default: Studio + Chest Close-up)
+- Custom prompt note field (e.g. "logo vermelho e branco, fundo verde")
+- Auto-builds prompt: `coritiba_jersey green football kit with {sponsor} sponsor brand on chest, {scene prompt}`
+- Live status display: shows which scene is generating
+- Progressive image grid (images appear as each scene completes)
+- Per-image: Open link + Download button (auto-named with sponsor+scene)
+- Cost estimate shown before generation (~$0.06/scene)
+- FLUX LoRA badge with trigger word display
+- Tip linking to `/mockup-editor` for logo overlay
+
+**Phase 4 live validation (27 May):**
+
+| Scene | Prompt | Prediction ID | Result |
+|-------|--------|---------------|--------|
+| Produto Estúdio (4:5) | `coritiba_jersey …with Sicredi sponsor brand on chest, floating jersey on white background…` | `4bvnfjs7y5rmr0cyd10b29zfn4` | ✅ Perfect studio shot |
+| Patrocinador no Peito (1:1) | `coritiba_jersey …close up of chest showing sponsor placement area…` | `x8va02c445rmy0cyd109jypg68` | ✅ Clear sponsor area visible |
+
+Both scenes generated in ~10s. Sponsor branding placement confirmed.
+
 ---
 
 ## Previous Sprint (26 May) — All Confirmed Live
@@ -143,7 +174,7 @@ Updated env vars:
 
 | # | Task | Est. | Priority |
 |---|------|------|----------|
-| C5 | **Phase 4 — UI for Replicate mockups** (sponsor placement overlay prompt builder) | 1 day | HIGH |
+| ~~C5~~ | ~~**Phase 4 — UI for Replicate mockups**~~ | ~~1 day~~ | ✅ Done (27 May) |
 | B6 | **Asana integration** — tasks from execution brief | 1 day | Medium |
 | B7 | **News/articles** on public landing page | 3–4h | Low |
 | — | **Intern test round** (17-point checklist + T18 Replicate image) | Half day | REQUIRED gate |
@@ -175,6 +206,7 @@ Updated env vars:
 | T16 | Landing page: Próximas Partidas visible | [ ] |
 | T17 | **CRM Sync page**: green banner "Pipedrive Conectado" | [ ] |
 | T18 | **Replicate image**: `POST /api/media/replicate` returns jersey mockup URL | [ ] |
+| T19 | **Jersey mockup UI**: open proposal → "Mockup de Camisa — IA" card → generate 2 scenes → images appear | [ ] |
 
 ---
 
@@ -211,9 +243,8 @@ Updated env vars:
 
 | Day | Task |
 |-----|------|
-| **28 May** | Phase 4: UI for Replicate — add jersey mockup generator to proposal/mockup pages with sponsor placement prompt builder |
-| **28–29 May** | Asana integration (tasks from execution brief) |
-| **29 May** | Intern full test round (18-point checklist). Fix bugs. Regression. Loom for James. |
+| **28 May** | Asana integration (tasks from execution brief) |
+| **28–29 May** | Intern full test round (19-point checklist). Fix bugs. Regression. Loom for James. |
 
 ---
 
