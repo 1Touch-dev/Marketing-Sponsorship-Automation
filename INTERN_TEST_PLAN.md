@@ -1,415 +1,595 @@
 # Coritiba FC Platform — Intern End-to-End Test Plan
-**Version:** 1.0 | **Date:** 27 May 2026  
+
+**Version:** 2.0 | **Date:** 27 May 2026  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login credentials:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
-**Pre-test report:** See `E2E_PRE_INTERN_TEST_RESULTS.md` (Abhishek ran smoke tests 27 May — 22 pass, intern completes remaining AI flows)  
-**Rule:** Do NOT demo to James until every test below has a ✅
+**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
+**Pre-test:** Abhishek smoke-tested 27 May — see `E2E_PRE_INTERN_TEST_RESULTS.md`  
+**Rule:** Do **not** demo to James until every test below is marked ✅
+
+---
+
+## Before you start
+
+| Item | Detail |
+|------|--------|
+| Browser | Chrome or Edge, latest version |
+| Window | Use **Incognito** for auth tests (T-01–T-03, T-14) |
+| DevTools | Keep open (F12) — screenshot any console errors |
+| AI waits | Campaign/proposal/email: 30–90s · Jersey mockup: 20–50s · DALL-E: ~30s |
+| Test company name | Use **"Test Intern SA"** only in T-05 (will be archived after testing) |
+| Email delivery | **Pipedrive only** — no Gmail send. Draft here → log Activity in Pipedrive → rep sends manually |
+
+**Public health checks (no login):**
+
+- `GET /api/health` → `{ "status": "ok", "checks": { "database": { "ok": true } } }`
+- `GET /api/system/health` → all services `healthy`
 
 ---
 
 ## How to use this doc
-1. Work through each section top-to-bottom.
-2. Mark `[ ]` → `[x]` as you pass each step.
-3. If a step fails, write the error in the "Notes" column and stop that flow — report to Abhishek.
-4. Screenshot failures.
+
+1. Work sections **top to bottom** (later tests depend on earlier data).
+2. Change `[ ]` → `[x]` as you pass each step.
+3. On failure: **stop that flow**, note step number + error + screenshot, report to Abhishek.
+4. Fill the **Summary Scorecard** at the end.
 
 ---
 
 ## SECTION 1 — Auth & Security
 
 ### T-01 · Login flow
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open https://eligibly-facing-unloved.ngrok-free.dev (incognito) | Redirected to `/login` | [ ] |
-| 2 | Enter correct credentials and click Sign In | Lands on dashboard / home page, no error | [ ] |
-| 3 | Open any protected page URL directly (e.g. `/companies`) | Page loads normally (already logged in) | [ ] |
 
-### T-02 · Protected routes redirect
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open a new incognito window | Not logged in | [ ] |
-| 2 | Navigate directly to `/proposals` | Redirected to `/login` | [ ] |
-| 3 | Navigate directly to `/companies` | Redirected to `/login` | [ ] |
-| 4 | Navigate directly to `/api/system/health` | Returns JSON (public endpoint, allowed) | [ ] |
+| 1 | Open platform URL in **Incognito** | Redirect to `/login` | [ ] |
+| 2 | Sign in with credentials above | Dashboard loads, no error toast | [ ] |
+| 3 | Open `/companies` in same session | List loads (no re-login) | [ ] |
+
+### T-02 · Protected routes
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | New Incognito, go to `/proposals` | Redirect to `/login` | [ ] |
+| 2 | Same window, go to `/companies` | Redirect to `/login` | [ ] |
+| 3 | Open `/api/health` (no login) | HTTP 200, `"status": "ok"` | [ ] |
+| 4 | Open `/api/system/health` (no login) | HTTP 200, `"status": "healthy"` | [ ] |
 
 ### T-03 · Logout
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Click the user menu / logout button | Redirected to `/login` | [ ] |
-| 2 | Press back button or navigate to `/proposals` | Redirected to `/login` (session cleared) | [ ] |
+| 1 | Log out from user menu | Land on `/login` | [ ] |
+| 2 | Navigate to `/proposals` | Redirect to `/login` | [ ] |
 
 ---
 
-## SECTION 2 — Companies
+## SECTION 2 — Dashboard & Navigation
 
-### T-04 · Company list & search
+### T-04 · Dashboard
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/companies` | List loads, shows 500+ companies | [ ] |
-| 2 | Type a company name in search box | List filters in real time | [ ] |
-| 3 | Click a company | Company detail page opens | [ ] |
+| 1 | Go to `/` (home) | Dashboard loads with stats/cards | [ ] |
+| 2 | Confirm **0 failed workflows** (or no red workflow alert) | Clean dashboard — pre-demo fixes applied | [ ] |
 
-### T-05 · Create a new company
+### T-05 · Sidebar — every link loads
+
+Click each link; page must load (no blank screen, no 404):
+
+| Route | Pass |
+|-------|------|
+| `/` Dashboard | [ ] |
+| `/companies` | [ ] |
+| `/pipeline` | [ ] |
+| `/reports` | [ ] |
+| `/proposals/new` | [ ] |
+| `/campaigns` | [ ] |
+| `/campaigns/bulk` | [ ] |
+| `/proposals` | [ ] |
+| `/approvals` | [ ] |
+| `/emails` | [ ] |
+| `/threads` | [ ] |
+| `/followups` | [ ] |
+| `/coritiba-intelligence` | [ ] |
+| `/inventory` | [ ] |
+| `/barter` | [ ] |
+| `/lei-de-incentivo` | [ ] |
+| `/brand-assets` | [ ] |
+| `/media-generation` | [ ] |
+| `/mockup-editor` | [ ] |
+| `/assets` | [ ] |
+| `/crm-sync` | [ ] |
+| `/workflow-events` | [ ] |
+| `/audit` | [ ] |
+| `/system` | [ ] |
+| `/settings` | [ ] |
+| `/users` | [ ] |
+
+### T-06 · Mobile layout
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/companies/new` | Form page loads | [ ] |
-| 2 | Fill in: Name = "Test Intern SA", Industry = "Tecnologia", Website = "https://test.com" | Fields accept input | [ ] |
-| 3 | Submit | Company created, redirected to company detail | [ ] |
-| 4 | Verify company appears in the list | New entry visible | [ ] |
-
-### T-06 · Run AI Intelligence on a company
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open an existing company (use "Sicredi" or any real one) | Detail page loads | [ ] |
-| 2 | Click "Run Intelligence" / "Analyze" button | Spinner appears | [ ] |
-| 3 | Wait for completion (~30–60s) | Intelligence panel fills in: overview, competitors, news, fit score | [ ] |
-| 4 | Verify "Competitors" section shows at least 2 results | Competitor names displayed | [ ] |
-
-### T-07 · Edit a company
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open company created in T-05 | Detail page | [ ] |
-| 2 | Click Edit, change the notes field | Input accepts changes | [ ] |
-| 3 | Save | Changes persisted, page reflects update | [ ] |
+| 1 | DevTools → 375px width | Hamburger / collapsible sidebar works | [ ] |
+| 2 | Open `/companies` on mobile width | Usable layout | [ ] |
 
 ---
 
-## SECTION 3 — Campaigns
+## SECTION 3 — Companies
 
-### T-08 · Single AI campaign generation
+### T-07 · List & search
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/campaigns` | List loads | [ ] |
-| 2 | Click "New Campaign" or AI generate button | Form / dialog appears | [ ] |
-| 3 | Select a company, enter a context / campaign title | Fields filled | [ ] |
-| 4 | Click Generate | Spinner visible; campaign appears in list within ~30s | [ ] |
-| 5 | Open the campaign | Shows title, summary, strategy | [ ] |
+| 1 | `/companies` | List loads (500+ companies) | [ ] |
+| 2 | Search **"Sicredi"** or **"Heineken"** | Results filter | [ ] |
+| 3 | Open one result | Company detail page | [ ] |
 
-### T-09 · Bulk campaign generation
+### T-08 · Create company
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/campaigns/bulk` | Bulk generation page loads | [ ] |
-| 2 | Select industry "Automotivo", set count to 5 | Selection confirmed | [ ] |
-| 3 | Click Generate | Progress indicator shows; completes in ~2–3 min | [ ] |
-| 4 | Check `/campaigns` list | 5 new campaigns appear | [ ] |
+| 1 | `/companies/new` | Form loads | [ ] |
+| 2 | Name: **Test Intern SA**, Industry: **Tecnologia**, Website: `https://test-intern.example` | Fields accept input | [ ] |
+| 3 | Submit | Redirect to detail; status prospect | [ ] |
+| 4 | `/companies` — search **Test Intern** | New company visible | [ ] |
+
+### T-09 · AI intelligence
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Open **Sicredi** or **Positivo Tecnologia** | Detail page | [ ] |
+| 2 | Run **Intelligence** / **Analyze** | Spinner ~30–60s | [ ] |
+| 3 | Panel fills | Overview, fit, competitors (≥2), news | [ ] |
+
+### T-10 · Edit company
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Open **Test Intern SA** from T-08 | Detail | [ ] |
+| 2 | Edit notes, save | Persists after refresh | [ ] |
 
 ---
 
-## SECTION 4 — Proposals (Core flow)
+## SECTION 4 — Campaigns
 
-### T-10 · Create a new proposal (wizard)
+### T-11 · Single AI campaign
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/proposals/new` | Wizard step 1 loads | [ ] |
-| 2 | Select a company, select a campaign | Fields confirmed | [ ] |
-| 3 | Click through wizard steps, fill required fields | Steps progress | [ ] |
-| 4 | Submit / Generate | Proposal created; lands on proposal detail | [ ] |
-| 5 | Verify proposal has: title, company name, status = "draft" | All fields present | [ ] |
+| 1 | `/campaigns` | List loads | [ ] |
+| 2 | Create / generate for **Test Intern SA** | Form works | [ ] |
+| 3 | Generate | Completes ~30s; appears in list | [ ] |
+| 4 | Open campaign | Title, summary, strategy visible | [ ] |
 
-### T-11 · Full approval flow
+### T-12 · Bulk campaigns
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open the proposal from T-10 | Detail page | [ ] |
-| 2 | Submit for review | Status → `under_review` | [ ] |
-| 3 | Navigate to `/approvals` | Proposal appears in pending list | [ ] |
-| 4 | Approve it | Status → `approved` | [ ] |
-| 5 | On proposal page: click "Mark as Active Contract" (or equivalent) | Status → `active_contract` | [ ] |
-
-### T-12 · Revision loop
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Create a fresh proposal and submit for review | Status = `under_review` | [ ] |
-| 2 | From `/approvals`, click "Request Revision" | Status → `revision_requested`; banner appears on proposal | [ ] |
-| 3 | Open proposal, click "Edit now" | Edit page loads | [ ] |
-| 4 | Change proposal title, save | Version number increments by 1 | [ ] |
-| 5 | Re-submit for review | Status → `under_review` | [ ] |
-| 6 | Approve | Status → `approved` | [ ] |
-
-### T-13 · AI Enhancement (strategy variants + pricing tiers)
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open any draft/approved proposal | Detail page | [ ] |
-| 2 | Click "Enhance" button | Spinner; takes ~30–60s | [ ] |
-| 3 | After completion: verify "Apresentação Premium" section appears | Strategy cards (A/B/C) visible | [ ] |
-| 4 | Verify pricing tiers are shown (Bronze/Silver/Gold or similar) | Tier cards visible | [ ] |
-| 5 | Verify visual prompt suggestions are listed | At least 1 visual prompt shown | [ ] |
-
-### T-14 · Public share link
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open an enhanced proposal | Detail page | [ ] |
-| 2 | Click "Share" / generate share link | Share URL appears (contains token) | [ ] |
-| 3 | Open the URL in a **new incognito window** | Landing page loads — no login required | [ ] |
-| 4 | Verify landing page shows: company name, strategy cards, pricing | Content visible | [ ] |
-| 5 | Verify "Próximas Partidas" (upcoming matches) section appears | Match dates shown | [ ] |
-
-### T-15 · Brand asset upload
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open a proposal detail page | Detail page | [ ] |
-| 2 | Scroll to "Brand Assets" card | Uploader visible | [ ] |
-| 3 | Upload a PNG/JPG file (any small logo) | Upload progress shows; file listed | [ ] |
-| 4 | Refresh page | Asset still present | [ ] |
-
-### T-16 · Proposal duplication
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Open a proposal | Detail page | [ ] |
-| 2 | Click "Duplicate" button | New proposal created with "(copy)" suffix | [ ] |
-| 3 | Verify new proposal is in `draft` status | Status badge correct | [ ] |
+| 1 | `/campaigns/bulk` | Page loads | [ ] |
+| 2 | Industry **Automotivo**, count **3** | Selected | [ ] |
+| 3 | Generate | Progress; ~2–3 min | [ ] |
+| 4 | `/campaigns` | 3 new campaigns visible | [ ] |
 
 ---
 
-## SECTION 5 — AI Image Generation (DALL-E pipeline)
+## SECTION 5 — Proposals (core flow)
 
-### T-17 · Campaign image generation
+### T-13 · Proposal wizard
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open a proposal that has strategy variants | Detail page | [ ] |
-| 2 | Scroll to "Imagens de Campanha" card | Card visible | [ ] |
-| 3 | Click "Gerar Criativos" | Spinner; images generated within ~30s | [ ] |
-| 4 | Verify image(s) appear in the card | At least 1 image visible | [ ] |
-| 5 | Navigate to `/media-generation` | Jobs appear in the list | [ ] |
+| 1 | `/proposals/new` | Wizard step 1 | [ ] |
+| 2 | Company: **Test Intern SA**, campaign from T-11 | Selected | [ ] |
+| 3 | Complete wizard → Generate | Proposal detail; status **draft** | [ ] |
+| 4 | Content sections present | Executive summary or rationale visible | [ ] |
 
-### T-18 · Media generation page — full job view
+### T-14 · Approval workflow
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/media-generation` | Page loads; stats cards visible | [ ] |
-| 2 | Verify job table shows jobs from T-17 | Jobs listed with status "completed" | [ ] |
-| 3 | Check stat counters (pending / approved / completed) | Numbers match visible rows | [ ] |
+| 1 | Proposal from T-13 → Submit for review | **under_review** | [ ] |
+| 2 | `/approvals` | Proposal in queue | [ ] |
+| 3 | Approve | **approved** | [ ] |
+| 4 | Mark active contract (if available) | **active_contract** | [ ] |
+
+### T-15 · Revision loop
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | New proposal → submit for review | **under_review** | [ ] |
+| 2 | `/approvals` → Request revision | **revision_requested** | [ ] |
+| 3 | Edit title on proposal, save | Version increments | [ ] |
+| 4 | Re-submit → approve | **approved** | [ ] |
+
+### T-16 · AI enhance (strategies + pricing)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Open draft or approved proposal | Detail | [ ] |
+| 2 | **Enhance** | ~30–60s | [ ] |
+| 3 | Strategy variants A/B/C | Cards visible | [ ] |
+| 4 | Pricing tiers | Bronze/Silver/Gold or similar | [ ] |
+| 5 | Visual prompt suggestions | ≥1 listed | [ ] |
+
+### T-17 · Execution brief
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Enhanced proposal → **Execution Brief** card | Card visible | [ ] |
+| 2 | Generate brief | ~30–60s | [ ] |
+| 3 | Brief content | Action items, resources, risks per strategy | [ ] |
+
+### T-18 · Public share link
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Enhanced proposal → Share | URL with token | [ ] |
+| 2 | Open URL in **Incognito** | No login; landing loads | [ ] |
+| 3 | Content | Company, strategies, pricing | [ ] |
+| 4 | **Próximas Partidas** (if shown) | Match section OK or empty — not an error | [ ] |
+
+### T-19 · Brand assets on proposal
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Proposal detail → **Brand Assets** | Uploader visible | [ ] |
+| 2 | Upload small PNG/JPG logo | Listed after upload | [ ] |
+| 3 | Refresh | Asset still there | [ ] |
+
+### T-20 · Proposal duplication
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Duplicate any proposal | Copy created | [ ] |
+| 2 | New proposal status | **draft** | [ ] |
+
+### T-21 · Proposal block editor (optional)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/proposals/[id]/blocks` from proposal menu | Block editor loads | [ ] |
+| 2 | Edit a text block, save | Saves without error | [ ] |
 
 ---
 
-## SECTION 6 — Replicate Jersey Mockups (FLUX LoRA)
+## SECTION 6 — AI images (DALL-E)
 
-### T-19 · API smoke test
+### T-22 · Campaign creatives on proposal
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open browser DevTools → Network tab, or use Postman | — | [ ] |
-| 2 | POST to `/api/media/replicate` with body: `{"prompt": "coritiba_jersey studio product shot with sponsor logo", "num_outputs": 1}` | HTTP 200 with `output_urls`, `prediction_id`, `duration_ms` | [ ] |
-| 3 | Copy the `output_urls[0]` URL and open it | Photo-realistic Coritiba jersey image visible | [ ] |
+| 1 | Enhanced proposal → **Imagens de Campanha** | Card visible | [ ] |
+| 2 | **Gerar Criativos** | ~30s; ≥1 image | [ ] |
+| 3 | `/media-generation` | Job listed **completed** | [ ] |
 
-### T-20 · Jersey mockup UI on proposal page
+### T-23 · Media generation page
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open any proposal detail page | Detail page loads | [ ] |
-| 2 | Scroll down to "Mockup de Camisa — IA" card | Card visible with FLUX LoRA badge | [ ] |
-| 3 | Click the scene selector toggle | 5 scene presets shown as checkboxes | [ ] |
-| 4 | Select 2 scenes (e.g. "Produto Estúdio" + "Patrocinador no Peito") | Checkboxes selected | [ ] |
-| 5 | (Optional) Type a custom note in the text field | Input accepts text | [ ] |
-| 6 | Click "Gerar Mockups de Camisa" | Button shows spinner; "Gerando: Produto Estúdio…" | [ ] |
-| 7 | Wait ~20s | First image appears while second is generating | [ ] |
-| 8 | Wait for completion | Both images visible in grid with labels | [ ] |
-| 9 | Click "Abrir" link on first image | Image opens in new tab | [ ] |
-| 10 | Click "Download" | Browser downloads the .webp file | [ ] |
+| 1 | `/media-generation` | Stats + job table | [ ] |
+| 2 | Counters match rows | Consistent | [ ] |
 
-### T-21 · Standalone mockup generator on media-generation page
+### T-24 · Visual mockups page (`/media`)
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/media-generation` | Page loads | [ ] |
-| 2 | Scroll to "Mockup de Camisa — FLUX LoRA" section | Section visible | [ ] |
-| 3 | Select 1 scene, click generate | Image generated and displayed | [ ] |
+| 1 | `/media` | Mockup types: jersey, LED, banner, etc. | [ ] |
+| 2 | Create one mockup entry (form) | Saved in list | [ ] |
 
 ---
 
-## SECTION 7 — Mockup Editor
+## SECTION 7 — Replicate jersey mockups (FLUX LoRA)
 
-### T-22 · Konva canvas editor
+### T-25 · Jersey UI on proposal
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/mockup-editor` | Editor canvas loads | [ ] |
-| 2 | Select a template (jersey or stadium) | Template appears on canvas | [ ] |
-| 3 | Add a text element | Text layer appears on canvas | [ ] |
-| 4 | Move/resize an element | Dragging works | [ ] |
-| 5 | Click Export / Download | PNG downloaded | [ ] |
+| 1 | Proposal detail → **Mockup de Camisa — IA** | FLUX LoRA card | [ ] |
+| 2 | Select 2 scenes (e.g. Produto Estúdio + Patrocinador no Peito) | Checked | [ ] |
+| 3 | **Gerar Mockups de Camisa** | Progressive loading | [ ] |
+| 4 | Both images in grid | Download + Abrir work | [ ] |
+
+### T-26 · Standalone generator
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/media-generation` → FLUX LoRA section | Visible | [ ] |
+| 2 | 1 scene, generate | Image ~20–50s | [ ] |
+
+### T-27 · API smoke (optional — DevTools)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | While logged in: POST `/api/media/replicate` body `{"prompt":"coritiba_jersey studio shot","num_outputs":1}` | 200 + `output_urls` | [ ] |
+| 2 | Open first URL | Jersey image loads | [ ] |
 
 ---
 
-## SECTION 8 — Inventory
+## SECTION 8 — Mockup editor (Konva)
 
-### T-23 · Inventory management
+### T-28 · Canvas editor
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/inventory` | Inventory items listed | [ ] |
-| 2 | Click "Add item" or equivalent | Form appears | [ ] |
-| 3 | Create a **digital** item (e.g. "Social Post — Instagram") with a price | Item saved | [ ] |
-| 4 | Create a **physical** item (e.g. "Placa LED — Beira Campo") with dimensions | Item saved | [ ] |
-| 5 | Verify both items appear in the list with correct type | Digital / Physical badges visible | [ ] |
+| 1 | `/mockup-editor` | Canvas loads | [ ] |
+| 2 | Pick jersey or stadium template | On canvas | [ ] |
+| 3 | Add text, drag/resize | Works | [ ] |
+| 4 | Export PNG | File downloads | [ ] |
 
 ---
 
-## SECTION 9 — Pipeline (Sales Pipeline)
+## SECTION 9 — Inventory
 
-### T-24 · Pipeline leads board
+### T-29 · Inventory CRUD
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/pipeline` | Kanban-style board loads with stage columns | [ ] |
-| 2 | Click "Add Lead" / new lead button | Form opens | [ ] |
-| 3 | Create a lead: company = any, stage = "Prospect" | Lead card appears in Prospect column | [ ] |
-| 4 | Drag the lead card to "Qualified" | Card moves to Qualified column | [ ] |
+| 1 | `/inventory` | ~26 items listed | [ ] |
+| 2 | Add **digital** item (e.g. Instagram Post) with price range | Saved | [ ] |
+| 3 | Add **physical** item (e.g. Placa LED) with placement | Saved | [ ] |
+| 4 | Both in list with correct type/category | Visible | [ ] |
+
+### T-30 · Inventory on proposal wizard (optional)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/proposals/new` — inventory step | Lines selectable | [ ] |
+| 2 | Select 2 lines, generate proposal | Lines attached to proposal | [ ] |
 
 ---
 
-## SECTION 10 — CRM Sync (Pipedrive)
+## SECTION 10 — Pipeline
 
-### T-25 · Pipedrive connection status
+### T-31 · Pipeline board
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/crm-sync` | Page loads | [ ] |
-| 2 | Check the banner at top | **Green banner: "✓ Pipedrive Conectado — Coritiba FC"** | [ ] |
-| 3 | Verify sync queue table shows recent entries | Rows with statuses: synced / pending / failed | [ ] |
-
-### T-26 · Live Pipedrive sync triggered by proposal approval
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Approve a proposal (or use one approved in T-11) | Status = `approved` | [ ] |
-| 2 | Navigate to `/crm-sync` | New entry appears in sync queue | [ ] |
-| 3 | Status column shows "synced" for that proposal | No error | [ ] |
+| 1 | `/pipeline` | Kanban columns load | [ ] |
+| 2 | Add lead: **Test Intern SA**, stage Prospect | Card in column | [ ] |
+| 3 | Move to Qualified | Card moves | [ ] |
 
 ---
 
-## SECTION 11 — Reports
+## SECTION 11 — CRM / Pipedrive
 
-### T-27 · Monthly sponsor report generation
+### T-32 · CRM sync page
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Ensure at least 1 proposal has status `active_contract` (from T-11) | — | [ ] |
-| 2 | Navigate to `/reports` | Active sponsors listed | [ ] |
-| 3 | Click "Generate Report" for an active sponsor | Spinner; completes in ~30s | [ ] |
-| 4 | Report appears with: KPIs, campaign summary, ROI estimate | Content rendered | [ ] |
-| 5 | Click Download (PDF or share link) | File downloads or link opens | [ ] |
+| 1 | `/crm-sync` | Page loads | [ ] |
+| 2 | Banner | **Pipedrive connected** (green) | [ ] |
+| 3 | Queue table | Rows: synced / pending | [ ] |
+
+### T-33 · Sync on approval
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Approve proposal (T-14) | **approved** | [ ] |
+| 2 | `/crm-sync` | New row for proposal/deal | [ ] |
+| 3 | Status | **synced** (not failed) | [ ] |
 
 ---
 
-## SECTION 12 — Barter
+## SECTION 12 — Reports
 
-### T-28 · Barter item management
+### T-34 · Sponsor report
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/barter` | Page loads; stats cards visible | [ ] |
-| 2 | Click "Add Item" | Form appears | [ ] |
-| 3 | Fill in: vendor = "Test Vendor", current price = 1000, target price = 800, priority = Medium | — | [ ] |
-| 4 | Submit | Item appears in "Open" column with potential savings = R$200 | [ ] |
-| 5 | Change status to "In Negotiation" | Item moves to In Negotiation section | [ ] |
+| 1 | Use proposal with **active_contract** (e.g. Heineken — or from T-14) | — | [ ] |
+| 2 | `/reports` | Active sponsors listed | [ ] |
+| 3 | Generate report | ~30s; KPIs + summary | [ ] |
+| 4 | Download / open | PDF or share works | [ ] |
 
 ---
 
-## SECTION 13 — Lei de Incentivo
+## SECTION 13 — Barter
 
-### T-29 · Social project creation
+### T-35 · Barter items
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/lei-de-incentivo` | Page loads | [ ] |
-| 2 | Click "Add Project" | Form opens | [ ] |
-| 3 | Fill: name = "Projeto Esporte Intern", type = "Esporte", budget = 50000 | — | [ ] |
-| 4 | Submit | Project card appears on page | [ ] |
+| 1 | `/barter` | Stats + list | [ ] |
+| 2 | Add item: name, current price 1000, target 800, priority Medium | Form fields match UI labels | [ ] |
+| 3 | Submit | Open / savings shown | [ ] |
+| 4 | Status → In negotiation | Updates | [ ] |
 
 ---
 
-## SECTION 14 — Outreach Emails
+## SECTION 14 — Lei de Incentivo
 
-### T-30 · Generate outreach email
+### T-36 · Social project
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Open an **approved** proposal | Detail page | [ ] |
-| 2 | Scroll to "Outreach" section | "Generate Email" panel visible (not grayed out) | [ ] |
-| 3 | Enter recipient email + contact name, click "Generate Email" | AI drafts an outreach email in ~15s | [ ] |
-| 4 | Email body displayed | Professional Portuguese-language email mentioning the sponsor and Coritiba | [ ] |
-| 5 | Navigate to `/emails` | Email appears in the list with status "draft" | [ ] |
-| 6 | Open the email, click **"Approve & log to Pipedrive"** | Green banner: "Logged in Pipedrive · Activity #XXX created" | [ ] |
-| 7 | Click **"Mark as Sent in Pipedrive"** | Status → "sent"; Pipedrive Activity marked done | [ ] |
-
-> **Note on email delivery:** This platform does **NOT** use Gmail/SMTP. Outreach emails are AI-drafted here, then logged as **Pipedrive Activities (type: email)**. The actual email is sent by the sales rep manually from their email client. This is by design — James requested all outreach tracking go through Pipedrive CRM.
+| 1 | `/lei-de-incentivo` | Page loads | [ ] |
+| 2 | Add project: name, type **Esporte**, budget 50000 | Form OK | [ ] |
+| 3 | Submit | Card on page | [ ] |
 
 ---
 
-## SECTION 15 — Audit Log
+## SECTION 15 — Outreach emails (Pipedrive)
 
-### T-31 · Audit trail
+> **Important:** Emails are **not** sent via Gmail. Flow: AI draft → **Approve & log to Pipedrive** → rep sends from their mail client.
+
+### T-37 · Generate & Pipedrive log
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/audit` | Audit log table loads | [ ] |
-| 2 | Verify entries from today's testing session appear | Actions like "proposal_created", "approval_decision" visible | [ ] |
-| 3 | Use search/filter to find a specific entity | Filter works correctly | [ ] |
+| 1 | **Approved** proposal | Detail | [ ] |
+| 2 | Outreach panel active (not grayed) | Generate Email visible | [ ] |
+| 3 | Recipient + contact → Generate | Draft ~15s; PT-BR body | [ ] |
+| 4 | `/emails` | Status draft | [ ] |
+| 5 | **Approve & log to Pipedrive** | Green: Activity #… | [ ] |
+| 6 | **Mark as Sent in Pipedrive** | Status **sent** | [ ] |
+
+### T-38 · Follow-up
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Sent email → Generate follow-up | New draft | [ ] |
+| 2 | `/followups` | Entry listed | [ ] |
+
+### T-39 · Settings — Gmail card (expect optional)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/settings` | Gmail card says **optional**; Pipedrive handles outreach | [ ] |
+| 2 | Do **not** require Gmail connect for T-37 | T-37 still passes | [ ] |
+
+### T-40 · Threads page
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/threads` | Loads; description mentions optional Gmail sync | [ ] |
+| 2 | Empty state OK if no threads | No crash | [ ] |
 
 ---
 
-## SECTION 16 — System Health
+## SECTION 16 — Brand assets library
 
-### T-32 · Health check API
+### T-41 · Brand assets page
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/api/system/health` | JSON response displayed | [ ] |
-| 2 | Check `status` field | `"healthy"` | [ ] |
-| 3 | Check `services.database.healthy` | `true` | [ ] |
-| 4 | Check `services.pipedrive.healthy` | `true` | [ ] |
-| 5 | Check `services.replicate.configured` | `true`, model hash visible | [ ] |
+| 1 | `/brand-assets` | Coritiba asset types (jersey, LED, etc.) | [ ] |
+| 2 | Copy / view guidance text | Readable | [ ] |
 
-### T-33 · System page
+### T-42 · Asset library
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Navigate to `/system` | System page loads with service statuses | [ ] |
-| 2 | All service indicators show green | No red/amber alerts | [ ] |
+| 1 | `/assets` | Library loads | [ ] |
+| 2 | Filter or list jobs/assets | No error | [ ] |
 
 ---
 
-## SECTION 17 — Navigation & UI Polish
+## SECTION 17 — Coritiba intelligence
 
-### T-34 · Sidebar navigation
+### T-43 · Metrics dashboard
+
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Click through every sidebar link | All pages load without blank screen or 404 | [ ] |
-| 2 | Check on mobile viewport (375px width in DevTools) | Sidebar collapses / hamburger menu works | [ ] |
-
-### T-35 · No broken pages
-| Step | Action | Expected | Pass |
-|------|--------|----------|------|
-| 1 | Visit `/approvals` | Page loads, shows queue | [ ] |
-| 2 | Visit `/assets` | Page loads | [ ] |
-| 3 | Visit `/followups` | Page loads | [ ] |
-| 4 | Visit `/workflow-events` | Page loads | [ ] |
-| 5 | Visit `/users` | Page loads | [ ] |
-| 6 | Visit `/settings` | Page loads | [ ] |
-| 7 | Visit `/coritiba-intelligence` | Intelligence dashboard loads | [ ] |
+| 1 | `/coritiba-intelligence` | Categories: city, club, fanbase, stadium, etc. | [ ] |
+| 2 | Add or edit one metric (if form shown) | Saves | [ ] |
 
 ---
 
-## Summary Scorecard
+## SECTION 18 — Audit & workflows
+
+### T-44 · Audit log
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/audit` | Table loads | [ ] |
+| 2 | Today's actions visible | proposal, email, company events | [ ] |
+| 3 | Filter/search | Works | [ ] |
+
+### T-45 · Workflow events
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/workflow-events` | List loads | [ ] |
+| 2 | No **failed** rows from old Gmail/Bedrock errors | 0 failed (or only new failures you caused) | [ ] |
+
+---
+
+## SECTION 19 — System health & maintenance
+
+### T-46 · Health APIs
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/api/health` | `"status": "ok"`, database ok | [ ] |
+| 2 | `/api/system/health` | `"status": "healthy"` | [ ] |
+| 3 | `services.database`, `bedrock_ai`, `openai`, `pipedrive`, `replicate` | all healthy / configured | [ ] |
+| 4 | Replicate note | LoRA model `396810db` mentioned | [ ] |
+
+### T-47 · System maintenance page
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/system` | All services green | [ ] |
+| 2 | Failed workflows count | **0** | [ ] |
+| 3 | Test companies visible | **0** (Test Intern archived) | [ ] |
+
+### T-48 · Team & users
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/users` | `patrocinios@coritiba.com.br` admin, active | [ ] |
+
+---
+
+## SECTION 20 — End-to-end golden path (James demo script)
+
+Run this **once** as a single story after individual tests pass:
+
+| # | Step | Pass |
+|---|------|------|
+| 1 | Login → Dashboard clean (0 failed workflows) | [ ] |
+| 2 | Companies → open **Heineken** or **Positivo** → show intelligence | [ ] |
+| 3 | Campaigns → show one AI campaign | [ ] |
+| 4 | Proposals → open **approved** proposal → Enhance + Execution brief | [ ] |
+| 5 | Generate DALL-E creatives + Replicate jersey mockup (2 scenes) | [ ] |
+| 6 | Share link → open in Incognito | [ ] |
+| 7 | Approve flow on **new** test proposal → CRM sync row **synced** | [ ] |
+| 8 | Email: generate → Pipedrive approve → sent | [ ] |
+| 9 | `/crm-sync` green + `/system` all green | [ ] |
+| 10 | `/reports` generate for active sponsor | [ ] |
+
+---
+
+## Summary scorecard
 
 | Section | Tests | Pass | Fail |
 |---------|-------|------|------|
-| Auth & Security | T01–T03 | | |
-| Companies | T04–T07 | | |
-| Campaigns | T08–T09 | | |
-| Proposals | T10–T16 | | |
-| DALL-E Image Gen | T17–T18 | | |
-| Replicate LoRA | T19–T21 | | |
-| Mockup Editor | T22 | | |
-| Inventory | T23 | | |
-| Pipeline | T24 | | |
-| CRM Sync / Pipedrive | T25–T26 | | |
-| Reports | T27 | | |
-| Barter | T28 | | |
-| Lei de Incentivo | T29 | | |
-| Emails | T30 | | |
-| Audit Log | T31 | | |
-| System Health | T32–T33 | | |
-| Navigation / UI | T34–T35 | | |
-| **TOTAL** | **35 tests** | | |
+| Auth & Security | T-01–T-03 | | |
+| Dashboard & Nav | T-04–T-06 | | |
+| Companies | T-07–T-10 | | |
+| Campaigns | T-11–T-12 | | |
+| Proposals | T-13–T-21 | | |
+| DALL-E / Media | T-22–T-24 | | |
+| Replicate LoRA | T-25–T-27 | | |
+| Mockup Editor | T-28 | | |
+| Inventory | T-29–T-30 | | |
+| Pipeline | T-31 | | |
+| CRM / Pipedrive | T-32–T-33 | | |
+| Reports | T-34 | | |
+| Barter | T-35 | | |
+| Lei de Incentivo | T-36 | | |
+| Emails / Pipedrive | T-37–T-40 | | |
+| Brand / Assets | T-41–T-42 | | |
+| Coritiba Intel | T-43 | | |
+| Audit / Workflows | T-44–T-45 | | |
+| System Health | T-46–T-48 | | |
+| Golden path | T-49 (demo script) | | |
+| **TOTAL** | **49 test groups** | | |
 
 ---
 
-## Common failure patterns to watch for
+## Common failures
 
 | Symptom | Likely cause | Action |
 |---------|-------------|--------|
-| Page loads blank / white screen | JS error | Open DevTools console, screenshot error, report |
-| "Failed to fetch" error | API route down | Check `/api/system/health` |
-| Spinner never stops | Timeout or missing API key | Check network tab, report endpoint + status code |
-| Image generation returns error | OpenAI or Replicate rate limit | Wait 1 min and retry once |
-| Pipedrive sync shows "failed" | Token issue | Check `/crm-sync`, report row details |
-| 500 error on approval | DB issue | Screenshot full error, report |
+| White / blank page | JS error | Console screenshot → Abhishek |
+| Spinner never ends | AI timeout / rate limit | Wait 1 min, retry once; note endpoint |
+| 401 on API | Not logged in | Re-login |
+| Pipedrive sync failed | Deal/org missing | Check `/crm-sync` row error |
+| Image gen failed | OpenAI/Replicate limit | Retry; check `/api/system/health` |
+| "Approve email" grayed | Proposal not **approved** | Complete T-14 first |
+| Gmail connect suggested | Optional only | Skip — use Pipedrive buttons on email page |
+| Old failed workflows on dashboard | Stale UI | Hard refresh; confirm `/system` shows 0 failed |
 
 ---
 
-*Report all failures to Abhishek with: screenshot + URL + error message + step number.*
+## After testing — cleanup
+
+Ask Abhishek to run on `/system` (if test data left behind):
+
+- **Archive Test Companies** (Test Intern SA, etc.)
+- **Resolve Failed Workflows** (only if you created new failures)
+
+---
+
+*Report failures: screenshot + URL + step ID (e.g. T-25-3) + error message.*
