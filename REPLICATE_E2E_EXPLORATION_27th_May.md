@@ -157,22 +157,26 @@ Using the logged-in dashboard tab, the following areas were verified:
 | Expected time | ~15–20 min |
 | Monitor URL | https://replicate.com/p/ddhg24v8fnrmy0cyd0fbr8cz84 |
 
-### ⏳ Awaiting completion...
+### ⏳ ~~Awaiting completion...~~  ✅ COMPLETED
 
-When training completes:
-- Record: output model version hash
-- Record: actual duration + cost
-- Test with prompts in Phase 2
+**Training completed in 1 min 44 sec (predict_time: 104.5s / total: 220.6s)**
 
 ---
 
-## Phase 1 Deliverable (pending)
+## Phase 1 Deliverable — ACHIEVED ✅
 
-- [ ] Training status: `succeeded`
-- [ ] Output version hash: TBD
-- [ ] Duration: TBD
-- [ ] Cost: TBD
-- [ ] Testable via: `https://replicate.com/abhishek9302/coritiba-jersey-lora`
+- [x] Training status: `succeeded`
+- [x] Output version: `abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c`
+- [x] Duration: ~1 min 44 sec (104.5s predict, 220.6s total)
+- [x] Estimated cost: ~$1.27 (104.5s × $0.0122/sec)
+- [x] Weights: `https://replicate.delivery/xezq/RqWqQ5VwHjbiAV6yRGvMer5K2FlGi8ykLWeAefbege8tzBRqF/flux-lora.tar`
+- [x] Model testable at: `https://replicate.com/abhishek9302/coritiba-jersey-lora`
+
+### Training log summary
+- 20 epochs, 1000 steps
+- Loss started at ~0.5, converged to ~0.28–0.38 range (clean convergence)
+- 15 images processed and autocaptioned
+- No errors or anomalies in logs
 
 ---
 
@@ -296,17 +300,31 @@ Deliverable of Phase 5:
 
 ---
 
-## 6) Next action (after training completes)
+## 6) Next action — Phase 2 (Quality Validation)
 
-Phase 1 training is running. Once `succeeded`:
+Phase 1 is complete. The model is now live at:  
+`abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c`
 
-1. Record output version hash from training result
-2. Test the trained model with 5 controlled prompts (Phase 2):
-   - `a person wearing coritiba_jersey green football kit with sponsor logo, product photo`
-   - `coritiba_jersey football shirt floating on white background, studio light`
-   - `coritiba_jersey worn by athlete running in stadium, broadcast angle`
-3. If outputs are clean → proceed to Phase 3 (app wiring)
-4. If outputs are weak → re-train with adjusted steps (1500) or curated captions
+**Phase 2 test prompts to run:**
 
-Training is live at: https://replicate.com/p/ddhg24v8fnrmy0cyd0fbr8cz84
+1. `a person wearing coritiba_jersey green football kit with sponsor logo area, product photo, studio lighting`
+2. `coritiba_jersey football shirt floating on white background, clean product shot`
+3. `coritiba_jersey worn by athlete running in stadium, broadcast angle, action shot`
+4. `close up of coritiba_jersey chest area showing sponsor placement zone, clean textile detail`
+5. `coritiba_jersey on mannequin, front view, clean background, commercial photography`
+
+**API call to test:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version": "abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c",
+    "input": {
+      "prompt": "a person wearing coritiba_jersey green football kit, studio product photo",
+      "num_outputs": 1
+    }
+  }' \
+  https://api.replicate.com/v1/predictions
+```
 
