@@ -1,5 +1,5 @@
 # Coritiba FC Platform — Sprint Report (27 May 2026)
-**Updated:** 27 May 2026 | **By:** Abhishek  
+**Updated:** 27 May 2026 (evening) | **By:** Abhishek  
 **Branch:** `feature/apify-commercial-intelligence`  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Login:** `patrocinios@coritiba.com.br`
@@ -30,14 +30,65 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | Status change (approved) | ✓ Deal 976 stage updated correctly |
 | CRM queue | ✓ 35 synced jobs logged |
 
-**What Pipedrive integration does (live now):**
-- New company → creates Pipedrive **Organization**
-- New/updated proposal → creates **Deal** in correct pipeline
-- Proposal type determines pipeline: Patrocínios (3), Lei Incentivo (5), Mídias (2), Licenciamento (4)
-- Status changes → auto-updates deal stage (`draft/review` → Elaborar Proposta, `approved` → Negociação, `rejected` → Lost)
-- Active contract → deal marked as Won
-- All actions logged in `crm_sync_queue` table with audit trail
-- Retry failed jobs via `/api/crm` PATCH endpoint
+---
+
+### ✅ D2 — Replicate LoRA Training — Phase 1 + 2 + 3 COMPLETE
+
+**Full execution summary:**
+
+#### Phase 1 — Training (completed ~12:31 PM)
+- **Dataset cleaned:** 3 grayscale mask artifacts removed from original 18 → 15 clean color JPGs
+- **Model chosen:** `replicate/fast-flux-trainer` (official Replicate trainer, 8x H100, ~$1.27/run)
+- **Destination model created:** `abhishek9302/coritiba-jersey-lora` (private, warm)
+- **Training kicked off via API** — Training ID: `ddhg24v8fnrmy0cyd0fbr8cz84`
+- **Training completed in 1 min 44 sec** (104.5s predict, 220.6s total)
+- **Final loss:** ~0.28–0.38 (clean 20-epoch convergence)
+- **Cost:** ~$1.27
+
+**Trained model:**
+| Field | Value |
+|-------|-------|
+| Model | `abhishek9302/coritiba-jersey-lora` |
+| Version hash | `396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c` |
+| Trigger word | `coritiba_jersey` |
+| Status | **Warm** (fast-boot H100, ready now) |
+| URL | https://replicate.com/abhishek9302/coritiba-jersey-lora |
+
+#### Phase 2 — Quality Validation (5/5 passed ✅)
+
+All 5 test prompts generated high-quality, consistent Coritiba jersey images:
+
+| Prompt type | Result | Prediction ID |
+|-------------|--------|---------------|
+| Studio product shot (model wearing jersey) | ✅ Green kit, white collar, Diadora + Coritiba badge clearly rendered | `9nvd4ay0jdrmw0cyd0pb09qchw` |
+| Flat-lay floating shirt on white BG | ✅ Perfect ecommerce product shot, badge + stars + Diadora visible | `nz95qvp15hrmy0cyd0p8mcdtvc` |
+| Athlete running in stadium | ✅ Photorealistic match-day broadcast shot, sponsor text on sleeve | `rkkebme1nsrmy0cyd0pazj2894` |
+| Macro close-up of chest/badge | ✅ Detailed textile macro, "CORITIBA" legible on badge | `6ceag2626srmt0cyd0p8wgbke4` |
+| Mannequin front view (ecommerce) | ✅ Clean grey BG, white stripes, badge+stars+Diadora, sleeve patches | `3bwj8jy2p9rmy0cyd0pb6dzmdr` |
+
+**Verdict:** Model is production-ready. Consistent jersey identity across all 5 scene types.
+
+#### Phase 3 — App Integration (wired ✅)
+
+New files created:
+
+| File | Purpose |
+|------|---------|
+| `frontend/lib/replicate/client.ts` | Replicate API client — `startPrediction`, `getPrediction`, `generateImage` (with polling + timeout), `estimateCost` |
+| `frontend/app/api/media/replicate/route.ts` | `POST /api/media/replicate` — generate image; `GET /api/media/replicate?prediction_id=` — poll |
+
+Features of the integration:
+- Auto-injects `coritiba_jersey` trigger word into every prompt
+- Cost guard: hard cap at $0.50/request
+- Rate limiting: 10 req/min per IP
+- Async: returns immediately with `prediction_id` or waits up to 120s
+- Full audit logging via `recordAudit`
+- Structured error taxonomy: timeout / configuration / generation_failed
+- Health check updated: shows model version + trigger word when configured
+
+Updated env vars:
+- `REPLICATE_MODEL_VERSION` added to `.env`, `.env.local`, `.env.example`
+- Health check now reports: model version hash + trigger word + training date
 
 ---
 
@@ -51,7 +102,7 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | Monthly sponsor reports (`/reports` page) | ✅ Live |
 | Upcoming matches on public landing page | ✅ Live |
 | Replicate API token live + health check | ✅ Live |
-| Jersey LoRA training zip ready (18 images) | ✅ Ready |
+| Jersey LoRA training zip ready (18→15 cleaned images) | ✅ Trained |
 | Auth hardening (login/logout/middleware) | ✅ Live |
 | Bulk API parallelised (3× faster) | ✅ Live |
 
@@ -70,7 +121,7 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | **Inventory** | Digital + physical fields, execution briefs |
 | **Mockups** | Konva editor, Coritiba jersey template |
 | **Landing page** | Public share links, KPIs, upcoming matches section |
-| **Media** | Image generation, modal |
+| **Media** | Image generation (OpenAI gpt-image-1 + **Replicate FLUX LoRA**) |
 | **Barter** | Barter workflow |
 | **Lei de Incentivo** | Dedicated pipeline |
 | **Health** | `/api/system/health` — DB, Bedrock, Pipedrive, Replicate all healthy |
@@ -82,26 +133,25 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | # | Blocker | Owner | Status |
 |---|---------|-------|--------|
 | 1 | **Pipedrive API token** | James | ✅ RESOLVED (27 May) |
-| 2 | **Replicate LoRA training** | Abhishek | Token live; jersey zip ready; need to upload & train |
-| 3 | **Dropbox jersey video** | James | Link restricted; PDF images extracted instead (18 imgs) |
+| 2 | **Replicate LoRA training + integration** | Abhishek | ✅ RESOLVED (27 May) |
+| 3 | **Dropbox jersey video** | James | Link restricted; PDF images extracted instead |
 | 4 | **Intern E2E testing** | Interns | Not started — required before James demo |
 
 ---
 
-## Pending Tasks (no blockers)
+## Pending Tasks
 
 | # | Task | Est. | Priority |
 |---|------|------|----------|
-| C3 | **Train FLUX LoRA on Replicate** | 30 min, ~$2 | HIGH — next dev task |
-| C4 | **Wire Replicate image generation** into mockup flow | 1 day | HIGH |
+| C5 | **Phase 4 — UI for Replicate mockups** (sponsor placement overlay prompt builder) | 1 day | HIGH |
 | B6 | **Asana integration** — tasks from execution brief | 1 day | Medium |
 | B7 | **News/articles** on public landing page | 3–4h | Low |
-| — | **Intern test round** (17-point checklist) | Half day | REQUIRED gate |
-| — | **Regression after Pipedrive** | 2h | Recommended |
+| — | **Intern test round** (17-point checklist + T18 Replicate image) | Half day | REQUIRED gate |
+| — | **Regression after Pipedrive + Replicate** | 2h | Recommended |
 
 ---
 
-## Intern Test Checklist (updated — 17 tests)
+## Intern Test Checklist (updated — 18 tests)
 
 **No demo to James until all pass.**
 
@@ -124,6 +174,7 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | T15 | Monthly report: active contract → generate → download | [ ] |
 | T16 | Landing page: Próximas Partidas visible | [ ] |
 | T17 | **CRM Sync page**: green banner "Pipedrive Conectado" | [ ] |
+| T18 | **Replicate image**: `POST /api/media/replicate` returns jersey mockup URL | [ ] |
 
 ---
 
@@ -133,10 +184,17 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 {
   "status": "healthy",
   "services": {
-    "database": { "healthy": true, "latency_ms": ~280 },
+    "database": { "healthy": true, "latency_ms": "~280ms" },
     "bedrock_ai": { "configured": true },
+    "openai": { "configured": true },
     "pipedrive": { "configured": true, "healthy": true },
-    "replicate": { "configured": true, "healthy": true }
+    "replicate": {
+      "configured": true,
+      "healthy": true,
+      "model": "abhishek9302/coritiba-jersey-lora:396810db",
+      "trigger_word": "coritiba_jersey",
+      "note": "LoRA trained 27 May 2026 — jersey/stadium mockup generation ready"
+    }
   },
   "platform": {
     "companies": 513,
@@ -149,23 +207,24 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 
 ---
 
-## Suggested Next Steps (3-day plan)
+## Suggested Next Steps
 
 | Day | Task |
 |-----|------|
-| **Today (27 May)** | ✅ Pipedrive live. Next: Upload jersey zip → train FLUX LoRA on Replicate (~20 min, ~$2) |
-| **28 May** | Wire Replicate generation into mockup flow; Asana integration |
-| **29 May** | Intern testing round. Fix bugs. Final regression. Loom for James. |
+| **28 May** | Phase 4: UI for Replicate — add jersey mockup generator to proposal/mockup pages with sponsor placement prompt builder |
+| **28–29 May** | Asana integration (tasks from execution brief) |
+| **29 May** | Intern full test round (18-point checklist). Fix bugs. Regression. Loom for James. |
 
 ---
 
-## API Keys Status (27 May)
+## API Keys Status (27 May — end of day)
 
 | Key | Status |
 |-----|--------|
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | ✅ Live (Bedrock) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | ✅ Live |
-| `REPLICATE_API_TOKEN` | ✅ Live (model not trained yet) |
+| `REPLICATE_API_TOKEN` | ✅ Live — model trained + wired |
+| `REPLICATE_MODEL_VERSION` | ✅ `abhishek9302/coritiba-jersey-lora:396810db...` |
 | `PIPEDRIVE_API_KEY` | ✅ Live — verified 27 May |
 | `OPENAI_API_KEY` | ✅ Live |
 | `APIFY_API_TOKEN` | ✅ Live |
@@ -173,6 +232,43 @@ James provided the new API token (`c07f34a697f7551fe9c54cda9653903dc0155cf2`).
 | Hunter.io | ⏳ Not obtained (Ruhani, low priority) |
 | ZeroBounce | ⏳ Not obtained (Ruhani, low priority) |
 | Placid | ⏳ Not obtained (Ruhani, low priority) |
+
+---
+
+## Replicate Integration — Technical Reference
+
+**Generate a jersey image:**
+```bash
+curl -X POST https://<your-domain>/api/media/replicate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "sponsor logo on chest of coritiba_jersey green football kit, product shot",
+    "num_outputs": 1,
+    "aspect_ratio": "1:1"
+  }'
+```
+
+**Poll async prediction:**
+```bash
+curl "https://<your-domain>/api/media/replicate?prediction_id=<id>"
+```
+
+**Direct Replicate API:**
+```bash
+curl -X POST https://api.replicate.com/v1/predictions \
+  -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+  -d '{
+    "version": "abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c",
+    "input": { "prompt": "coritiba_jersey green football kit studio photo" }
+  }'
+```
+
+**Model details:**
+- Trigger word: `coritiba_jersey` (auto-injected by client)
+- Hardware: H100 (fast-boot, warm)
+- Generation time: ~25–50s per image
+- Cost: ~$0.04–0.08 per image
+- Training cost: $1.27 (1000 steps, 15 images, 1m 44s)
 
 ---
 
@@ -205,7 +301,9 @@ Flush pending          → PATCH /api/crm { action: "flush_pending" }
 ## References
 
 - `26th_May.md` — previous sprint details
+- `REPLICATE_E2E_EXPLORATION_27th_May.md` — full training log, Phase 1–6 plan
+- `jersey-assets/README.md` — training dataset notes
 - `22nd_May.md` — intern test script
 - `E2E_REGRESSION_REPORT.md` — regression notes
 - `USER_GUIDE.md` — user-facing guide
-- `jersey-assets/README.md` — LoRA training steps
+
