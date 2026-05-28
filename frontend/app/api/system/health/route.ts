@@ -28,6 +28,7 @@ export async function GET() {
   const openaiConfigured = !!process.env.OPENAI_API_KEY;
   const pipedriveConfigured = !!process.env.PIPEDRIVE_API_KEY;
   const replicateConfigured = !!process.env.REPLICATE_API_TOKEN;
+  const hunterConfigured = !!process.env.HUNTER_API_KEY;
 
   // Queue stats
   let queueStats: Record<string, number> = {};
@@ -77,6 +78,11 @@ export async function GET() {
         model: replicateConfigured ? "abhishek9302/coritiba-jersey-lora:396810db" : null,
         trigger_word: replicateConfigured ? "coritiba_jersey" : null,
         note: replicateConfigured ? "LoRA trained 27 May 2026 — jersey/stadium mockup generation ready" : "Awaiting REPLICATE_API_TOKEN",
+      },
+      hunter: {
+        healthy: hunterConfigured,
+        configured: hunterConfigured,
+        note: hunterConfigured ? "Contact enrichment active" : "Awaiting HUNTER_API_KEY — email/contact discovery disabled",
       },
     },
     environment: { healthy: envHealthy, vars: envStatus },
