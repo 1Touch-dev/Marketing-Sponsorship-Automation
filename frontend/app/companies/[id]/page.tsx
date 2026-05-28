@@ -15,6 +15,7 @@ import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
+import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,9 @@ export default async function CompanyDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column — details + edit */}
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Outreach Agent */}
+          <OutreachAgentPanel companyId={company.id} companyName={company.company_name} />
 
           {/* Company info cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

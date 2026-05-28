@@ -22,28 +22,46 @@
 
 ## Today's To-Do List (28 May)
 
-### 🔴 P1 — Agents Sprint (James's top priority)
+### 🔴 P1 — Agents Sprint ✅ DONE (28 May)
 
 **Goal:** One-click outreach loop — select a company → everything happens automatically.
 
-```
-Company selected
-  → Hunter enriches decision maker emails
-  → Apify scrapes active campaigns / social signals
-  → Bedrock generates tailored proposal + email
-  → Email auto-sent to decision maker
-  → Pipedrive deal created + activity logged
-  → Audit trail recorded
-```
+**Delivered:**
 
-**Tasks:**
-- [ ] Design agent architecture (route + orchestrator)
-- [ ] Build `POST /api/agents/outreach` — single endpoint that runs the full loop
-- [ ] Wire into company page: "Run Outreach Agent" button
-- [ ] Handle partial failures gracefully (enrich fails → still generate proposal)
-- [ ] Show progress steps in UI (streaming or polling)
+**New files (all on `feature/agents-sprint` branch):**
+| File | Purpose |
+|------|---------|
+| `frontend/lib/agents/types.ts` | AgentRun, AgentStep, SSEEvent TypeScript types |
+| `frontend/lib/agents/tool-definitions.ts` | 5 tool JSON Schema defs for ConverseCommand |
+| `frontend/lib/agents/tools.ts` | Tool implementations (Hunter, Apify, Supabase, Bedrock, Pipedrive) |
+| `frontend/lib/agents/orchestrator.ts` | ConverseCommand multi-turn loop + SSE emitter |
+| `frontend/app/api/agents/outreach/route.ts` | POST — start agent run, returns SSE stream |
+| `frontend/app/api/agents/outreach/[runId]/route.ts` | GET status / DELETE cancel |
+| `frontend/app/api/agents/outreach/[runId]/approve/route.ts` | POST — approve email in supervised mode |
+| `frontend/components/agents/outreach-agent-panel.tsx` | Full UI panel with live step progress |
+| `frontend/lib/bedrock/client.ts` | Extended with `converseWithTools()` (ConverseCommand wrapper) |
+| `frontend/app/companies/[id]/page.tsx` | OutreachAgentPanel wired in at top of company page |
 
-**Est:** 2–3 days (start today, finish 30 May)
+**Technology used:**
+- **ConverseCommand** (AWS Bedrock SDK) — Claude's native tool-use API, no new packages needed
+- **SSE ReadableStream** — zero-polling live step updates to browser
+- **`agent_runs` Supabase table** — full run audit trail (you already ran the migration)
+
+**Live test results (28 May, Red Bull Brasil, Supervised mode):**
+| Step | Result |
+|------|--------|
+| enrich_contacts | ✅ 8 decision makers, 10 contacts (Hunter.io) |
+| scrape_company_intelligence | ✅ LinkedIn found, social score 2.6/10, ads: unknown |
+| get_or_create_proposal | ✅ Reused existing proposal "Red Bull Brasil × Coritiba FC" |
+| generate_outreach_email | ✅ Draft: "Red Bull Brasil × Coritiba FC: Uma Parceria…" |
+| Supervised mode pause | ✅ Email preview shown with "Approve & Send" |
+| send_email (after approval) | ✅ Pipedrive activity **#1574** created |
+
+**Modes available:**
+- **Supervised** (default) — agent pauses after email draft for user approval
+- **Auto** — all 5 steps run without interruption
+
+**Est:** ~~2–3 days~~ **Done in 1 day**
 
 ---
 

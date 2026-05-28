@@ -1,10 +1,68 @@
-# Market Sponsorship Automation (Phase 1 MVP)
+# Coritiba FC — Sponsorship Automation Platform
 
-AI-assisted, **approval-first** workflow platform for sponsorship campaigns, proposals, Gmail outreach, and audit trails. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet)**, **Gmail API**, optional **n8n** orchestration on **EC2**.
+AI-powered sponsorship platform with one-click outreach automation. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apify**, **Replicate LoRA**, **OpenAI DALL-E**.
+
+## What's Live (as of 28 May 2026)
+
+| Feature | Status |
+|---------|--------|
+| Company intelligence & enrichment (Hunter.io + LinkedIn + Apify) | ✅ |
+| Proposal generation (Bedrock) + approval workflow | ✅ |
+| Jersey mockup generation (Replicate LoRA, 5 placements) | ✅ |
+| Campaign creative generation (OpenAI gpt-image-1) | ✅ |
+| Email drafting → Pipedrive Activity logging | ✅ |
+| Pipedrive CRM sync (orgs, deals, stages, activities) | ✅ |
+| **🤖 Outreach Agent — one-click full outreach pipeline** | ✅ NEW |
+| Monthly reports, audit trail, RBAC | ✅ |
+
+## Outreach Agent (agents sprint — 28 May 2026)
+
+One "Run Agent" button on any company page triggers a fully automated 5-step pipeline:
+
+```
+1. enrich_contacts     → Hunter.io finds decision maker emails
+2. scrape_intelligence → LinkedIn + Google Ads signals (Apify)
+3. get_proposal        → Finds or auto-approves existing proposal
+4. generate_email      → Bedrock drafts personalised PT-BR email
+5. send_email          → Pipedrive Activity created + deal stage updated
+```
+
+**Modes:**
+- **Supervised** (default) — agent pauses after email draft; user reviews + clicks "Approve & Send"
+- **Auto** — all 5 steps run without interruption
+
+**Technical stack:**
+- `ConverseCommand` from `@aws-sdk/client-bedrock-runtime` — native Claude tool-use loop
+- SSE streaming (`ReadableStream`) — live step updates to browser, no polling
+- `agent_runs` Supabase table — full audit trail per run with all steps + results
+
+**New files:**
+```
+frontend/lib/agents/types.ts           ← AgentRun, SSEEvent types
+frontend/lib/agents/tool-definitions.ts ← 5 Zod/JSON Schema tool specs
+frontend/lib/agents/tools.ts           ← Tool implementations
+frontend/lib/agents/orchestrator.ts    ← ConverseCommand loop + SSE emitter
+frontend/app/api/agents/outreach/      ← POST (start), GET (status), POST approve
+frontend/components/agents/outreach-agent-panel.tsx ← UI component
+```
+
+**Supabase migration required (run once):**
+```sql
+CREATE TABLE agent_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES auth.users(id),
+  status TEXT NOT NULL DEFAULT 'running',
+  mode TEXT NOT NULL DEFAULT 'supervised',
+  steps JSONB NOT NULL DEFAULT '[]',
+  result JSONB,
+  error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
 
 ## Quick start
-
-See **[docs/SETUP.md](docs/SETUP.md)** and **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ```bash
 cp .env.example .env
@@ -13,16 +71,24 @@ cp .env frontend/.env.local
 cd frontend && npm ci && npm run dev
 ```
 
-Production build (do not set `NODE_ENV=development` when building):
-
+Production build:
 ```bash
 cd frontend && npm run build && npm start
 ```
 
-Validate required env keys (names only):
+## Key environment variables
 
-```bash
-node scripts/verify-env.mjs .env
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+AWS_ACCESS_KEY_ID=...          # Bedrock (Claude Sonnet 4)
+AWS_SECRET_ACCESS_KEY=...
+BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
+PIPEDRIVE_API_KEY=...          # CRM sync
+HUNTER_API_KEY=...             # Decision maker email discovery
+APIFY_API_TOKEN=...            # LinkedIn + ads scraping
+OPENAI_API_KEY=...             # Campaign creatives
+REPLICATE_API_TOKEN=...        # Jersey mockup LoRA
 ```
 
 ## Repository layout
@@ -30,32 +96,17 @@ node scripts/verify-env.mjs .env
 | Path | Purpose |
 |------|---------|
 | `frontend/` | Next.js app (UI + `/api` Route Handlers) |
-| `supabase/migrations/` | Postgres schema, RLS, storage buckets |
-| `workflows/n8n/` | Importable n8n JSON + README |
-| `prompts/` | Prompt specs (implementations in `frontend/lib/bedrock/prompts.ts`) |
+| `frontend/lib/agents/` | Outreach Agent logic |
+| `frontend/lib/intelligence/` | Hunter.io, Apify scrapers |
+| `frontend/lib/bedrock/` | Bedrock/Claude client |
+| `frontend/lib/pipedrive/` | Pipedrive API client |
+| `supabase/migrations/` | Postgres schema, RLS |
 | `docs/` | Architecture & setup |
-| `database/` | Pointer to migrations |
-| `backend/` | Explains API surface (no separate server) |
-| `scripts/` | `verify-env.mjs` |
-
-Root `components/`, `lib/`, `hooks/`, `services/`, `utils/`, `types/` hold **README** placeholders for future workspace splits.
-
-## Phase boundary
-
-**In scope:** Phase 1 operational workflows only (see `Project Scope.md`).
-
-**Out of scope:** OpenClaw, autonomous agent swarms, competitor intelligence, Phase 2+ features.
-
-## Gmail OAuth redirect
-
-Register in Google Cloud **Authorized redirect URIs**:
-
-`{YOUR_PUBLIC_APP_URL}/api/auth/gmail/callback`
-
-## n8n
-
-Set environment variable `MSA_APP_URL` in n8n to the same base URL as this Next app, then import workflows from `workflows/n8n/`.
+| `27th_May.md` / `28th_May.md` | Sprint logs |
+| `AGENTS_SPRINT_IMPL.md` | Agent sprint implementation plan |
 
 ## License
+
+MIT
 
 Private / all rights reserved unless otherwise stated by the repository owner.

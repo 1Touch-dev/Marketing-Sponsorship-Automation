@@ -1,6 +1,7 @@
 import {
   BedrockRuntimeClient,
   InvokeModelCommand,
+  ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { serverEnv } from "@/lib/env";
 
@@ -131,5 +132,93 @@ export async function invokeClaude<T = unknown>(
     json: parsed,
     usage: raw?.usage ?? null,
     raw,
+  };
+}
+
+// ── Converse API (tool use) ────────────────────────────────────────────────────
+
+export type ToolDefinition = {
+  toolSpec: {
+    name: string;
+    description: string;
+    inputSchema: { json: Record<string, unknown> };
+  };
+};
+
+export type ConverseMessage = {
+  role: "user" | "assistant";
+  content: Array<
+    | { text: string }
+    | { toolUse: { toolUseId: string; name: string; input: Record<string, unknown> } }
+    | { toolResult: { toolUseId: string; content: Array<{ text?: string; json?: unknown }>; status?: "success" | "error" } }
+  >;
+};
+
+export type ConverseTool = {
+  name: string;
+  input: Record<string, unknown>;
+  toolUseId: string;
+};
+
+export type ConverseResult = {
+  stopReason: string;
+  message: ConverseMessage;
+  toolCalls: ConverseTool[];
+  text: string;
+  usage: { inputTokens: number; outputTokens: number } | null;
+};
+
+/**
+ * Claude Converse API — supports multi-turn tool use (agentic loops).
+ * Uses ConverseCommand which natively handles tool_use / tool_result turns.
+ */
+export async function converseWithTools(opts: {
+  system: string;
+  messages: ConverseMessage[];
+  tools: ToolDefinition[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<ConverseResult> {
+  const env = serverEnv();
+
+  // ConverseCommand SDK types use nested generics that don't align cleanly with our custom message types.
+  // Using 'as any' casts here is safe — the runtime values are correctly shaped for the API.
+  const cmd = new ConverseCommand({
+    modelId: env.BEDROCK_MODEL_ID,
+    system: [{ text: opts.system }],
+    messages: opts.messages as any,
+    toolConfig: { tools: opts.tools as any },
+    inferenceConfig: {
+      maxTokens: opts.maxTokens ?? 4096,
+      temperature: opts.temperature ?? 0.3,
+    },
+  } as any);
+
+  const response = await client().send(cmd);
+  const msg = (response.output?.message ?? { role: "assistant", content: [] }) as ConverseMessage;
+
+  const toolCalls: ConverseTool[] = [];
+  let text = "";
+
+  for (const block of msg.content) {
+    if ("text" in block && block.text) {
+      text += block.text;
+    } else if ("toolUse" in block && block.toolUse) {
+      toolCalls.push({
+        name: block.toolUse.name,
+        input: block.toolUse.input as Record<string, unknown>,
+        toolUseId: block.toolUse.toolUseId,
+      });
+    }
+  }
+
+  return {
+    stopReason: response.stopReason ?? "end_turn",
+    message: msg,
+    toolCalls,
+    text,
+    usage: response.usage
+      ? { inputTokens: response.usage.inputTokens ?? 0, outputTokens: response.usage.outputTokens ?? 0 }
+      : null,
   };
 }
