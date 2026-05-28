@@ -340,16 +340,89 @@ export async function toolSendEmail(input: {
     if (email.proposal_id) {
       const { data: proposal } = await sb
         .from("proposals")
-        .select("content, companies(full_intelligence)")
+        .select("id, title, content, company_id, companies(id, company_name, website, industry, full_intelligence)")
         .eq("id", email.proposal_id)
         .maybeSingle();
 
       if (proposal) {
         const proposalContent = proposal.content as Record<string, unknown> | null;
         pipedriveDealId = (proposalContent?.pipedrive_deal_id as number) ?? null;
+
         const companyData = (proposal as Record<string, unknown>).companies as Record<string, unknown> | null;
         const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
         pipedriveOrgId = (fullIntel?.pipedrive_org_id as number) ?? null;
+
+        // If no org ID stored locally, search Pipedrive by company name
+        if (!pipedriveOrgId && companyData?.company_name) {
+          const apiKey = process.env.PIPEDRIVE_API_KEY ?? "";
+          if (apiKey) {
+            try {
+              const searchRes = await fetch(
+                `https://api.pipedrive.com/v1/organizations/search?term=${encodeURIComponent(String(companyData.company_name))}&limit=3&api_token=${apiKey}`
+              );
+              const searchJson = await searchRes.json() as { data?: { items?: Array<{ item: { id: number } }> } };
+              const foundOrg = searchJson.data?.items?.[0]?.item?.id ?? null;
+
+              if (foundOrg) {
+                pipedriveOrgId = foundOrg;
+              } else {
+                // Create the org in Pipedrive
+                const createRes = await fetch(
+                  `https://api.pipedrive.com/v1/organizations?api_token=${apiKey}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: companyData.company_name,
+                      visible_to: "3",
+                      fbd322ead72aa689d82c6eec5a4df360273c4925: "Plataforma",
+                    }),
+                  }
+                );
+                const createJson = await createRes.json() as { data?: { id: number } };
+                pipedriveOrgId = createJson.data?.id ?? null;
+              }
+
+              // Persist org ID back to DB
+              if (pipedriveOrgId && proposal.company_id) {
+                const updatedIntel = { ...(fullIntel ?? {}), pipedrive_org_id: pipedriveOrgId };
+                await sb.from("companies").update({ full_intelligence: updatedIntel }).eq("id", proposal.company_id as string);
+              }
+            } catch { /* non-fatal */ }
+          }
+        }
+
+        // If we have an org but no deal, create the deal
+        if (pipedriveOrgId && !pipedriveDealId) {
+          const apiKey = process.env.PIPEDRIVE_API_KEY ?? "";
+          if (apiKey) {
+            try {
+              const dealRes = await fetch(
+                `https://api.pipedrive.com/v1/deals?api_token=${apiKey}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: `${companyData?.company_name ?? "Company"} — ${proposal.title ?? "Proposta"}`,
+                    org_id: pipedriveOrgId,
+                    pipeline_id: 3,   // Patrocínios
+                    stage_id: 20,     // Negociação (email sent)
+                    currency: "BRL",
+                    visible_to: "3",
+                  }),
+                }
+              );
+              const dealJson = await dealRes.json() as { data?: { id: number } };
+              pipedriveDealId = dealJson.data?.id ?? null;
+
+              // Persist deal ID back to proposal content
+              if (pipedriveDealId) {
+                const updatedContent = { ...(proposalContent ?? {}), pipedrive_deal_id: pipedriveDealId };
+                await sb.from("proposals").update({ content: updatedContent }).eq("id", email.proposal_id as string);
+              }
+            } catch { /* non-fatal */ }
+          }
+        }
       }
     }
 
