@@ -2,7 +2,8 @@
  * POST /api/agents/outreach
  * Starts a new agent run for a company. Streams progress as SSE.
  *
- * Body: { company_id: string, mode?: "supervised" | "auto" }
+ * Body: { company_id: string }
+ * Always runs in supervised mode (proposal + email require human approval).
  * Returns: text/event-stream of SSEEvent JSON lines
  */
 
@@ -12,20 +13,20 @@ import type { AgentMode, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
-  const body = await req.json().catch(() => ({})) as { company_id?: string; mode?: string };
-  const { company_id, mode = "supervised" } = body;
+  const body = await req.json().catch(() => ({})) as { company_id?: string };
+  const { company_id } = body;
 
   if (!company_id) {
     return new Response(JSON.stringify({ error: "company_id is required" }), { status: 400 });
   }
 
-  const agentMode: AgentMode = mode === "auto" ? "auto" : "supervised";
+  const agentMode: AgentMode = "supervised";
   const sb = supabaseAdmin();
 
   // Load company details
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     .from("agent_runs" as "companies")
     .select("id, status")
     .eq("company_id", company_id)
-    .in("status", ["running", "paused_for_approval"])
+    .in("status", ["running", "paused_for_approval", "paused_for_proposal_approval"])
     .limit(1)
     .maybeSingle() as unknown as { data: { id: string; status: string } | null };
 

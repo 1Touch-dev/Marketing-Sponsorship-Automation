@@ -17,19 +17,21 @@ AI-powered sponsorship platform with one-click outreach automation. Stack: **Nex
 
 ## Outreach Agent (agents sprint — 28 May 2026)
 
-One "Run Agent" button on any company page triggers a fully automated 5-step pipeline:
+One "Run Agent" button on any company page triggers a dual-approval outreach pipeline:
 
 ```
-1. enrich_contacts     → Hunter.io emails + Apollo.io company intelligence
-2. scrape_intelligence → LinkedIn + Google Ads signals (Apify)
-3. get_proposal        → Finds or auto-approves existing proposal
-4. generate_email      → Bedrock drafts personalised PT-BR email
-5. send_email          → Pipedrive Activity created + deal stage updated
+1. enrich_contacts              → Hunter.io + Apollo decision makers
+2. scrape_company_intelligence  → LinkedIn + ad signals (Apify)
+3. generate_personalized_proposal → NEW AI proposal tailored to this company (Bedrock)
+   ⏸ APPROVE PROPOSAL — human reviews full proposal
+4. generate_outreach_email      → Personalised PT-BR email draft
+   ⏸ APPROVE & SEND — human reviews before Pipedrive
+5. send_email                   → Pipedrive activity + deal linked
 ```
 
-**Modes:**
-- **Supervised** (default) — agent pauses after email draft; user reviews + clicks "Approve & Send"
-- **Auto** — all 5 steps run without interruption
+**Approval gates (always on):**
+- Step 1: Review & approve the **personalized proposal** (never reuses/auto-approves old decks)
+- Step 2: Review & approve the **email** before it is logged to Pipedrive
 
 **Technical stack:**
 - `ConverseCommand` from `@aws-sdk/client-bedrock-runtime` — native Claude tool-use loop

@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { searchDomain } from "@/lib/intelligence/hunter";
 import { enrichCompanyApollo } from "@/lib/intelligence/apollo";
 import { enrichCompanySocial } from "@/lib/intelligence/social-scraper";
+import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
@@ -95,6 +96,14 @@ export async function toolEnrichContacts(input: {
     if (org?.marketing_team_size) parts.push(`~${org.marketing_team_size} marketing staff (Apollo)`);
     if (apolloPeople.length) parts.push(`${apolloPeople.length} decision makers (Apollo)`);
 
+    // Persist for personalized proposal generation
+    if (hunterResult || apolloResult) {
+      await mergeCompanyEnrichment(input.company_id, {
+        hunter: hunterResult,
+        apollo: apolloResult,
+      });
+    }
+
     return {
       success: true,
       data,
@@ -134,6 +143,12 @@ export async function toolScrapeIntelligence(input: {
 
     const result = await enrichCompanySocial(input.company_name, input.domain, scrapeData);
 
+    await mergeCompanyEnrichment(input.company_id, {
+      social: result,
+      enriched_at: new Date().toISOString(),
+      domain: input.domain,
+    });
+
     const data: Record<string, unknown> = {
       found: true,
       linkedin_found: !!result.linkedin,
@@ -163,79 +178,33 @@ export async function toolScrapeIntelligence(input: {
   }
 }
 
-// ── Tool 3: Get or Create Proposal ───────────────────────────────────────────
+// ── Tool 3: Generate Personalized Proposal ───────────────────────────────────
 
-export async function toolGetOrCreateProposal(input: {
+export async function toolGeneratePersonalizedProposal(input: {
   company_id: string;
 }): Promise<ToolResult> {
-  const sb = supabaseAdmin();
-
   try {
-    // 1. Look for an already-approved proposal
-    const { data: approved } = await sb
-      .from("proposals")
-      .select("id, title, status, content, pricing_tiers")
-      .eq("company_id", input.company_id)
-      .eq("status", "approved")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (approved) {
-      const tiers = (approved.pricing_tiers as Array<Record<string, unknown>>) ?? [];
-      const packages = tiers.slice(0, 3).map((t) => `${t.name ?? t.tier}: R$${t.price ?? "?"}`);
-      return {
-        success: true,
-        data: {
-          found: true,
-          proposal_id: approved.id,
-          proposal_title: approved.title,
-          was_created: false,
-          key_packages: packages,
-        },
-        summary: `Reusing approved proposal: "${approved.title}"`,
-      };
-    }
-
-    // 2. Look for a draft and auto-approve it
-    const { data: draft } = await sb
-      .from("proposals")
-      .select("id, title, status, content, pricing_tiers")
-      .eq("company_id", input.company_id)
-      .in("status", ["draft", "under_review", "pending"])
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (draft) {
-      await sb.from("proposals").update({ status: "approved" }).eq("id", draft.id);
-      const tiers = (draft.pricing_tiers as Array<Record<string, unknown>>) ?? [];
-      const packages = tiers.slice(0, 3).map((t) => `${t.name ?? t.tier}: R$${t.price ?? "?"}`);
-      return {
-        success: true,
-        data: {
-          found: true,
-          proposal_id: draft.id,
-          proposal_title: draft.title,
-          was_created: false,
-          auto_approved: true,
-          key_packages: packages,
-        },
-        summary: `Auto-approved draft proposal: "${draft.title}"`,
-      };
-    }
+    const generated = await generatePersonalizedProposalForCompany(input.company_id);
 
     return {
-      success: false,
-      data: { found: false },
-      summary: "No proposal found for this company. Please create a campaign and generate a proposal first.",
+      success: true,
+      data: {
+        found: true,
+        proposal_id: generated.proposal_id,
+        proposal_title: generated.title,
+        executive_summary: generated.executive_summary,
+        status: generated.status,
+        was_created: true,
+        requires_approval: true,
+      },
+      summary: `Generated personalized proposal: "${generated.title}" (awaiting your approval)`,
     };
   } catch (err) {
-    logger.warn("Agent tool get_or_create_proposal failed", { error: String(err) });
+    logger.warn("Agent tool generate_personalized_proposal failed", { error: String(err) });
     return {
       success: false,
       data: { found: false },
-      summary: `Proposal lookup failed: ${err instanceof Error ? err.message : String(err)}`,
+      summary: `Proposal generation failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -262,8 +231,11 @@ export async function toolGenerateOutreachEmail(input: {
       return { success: false, data: {}, summary: "Proposal not found" };
     }
     if (proposal.status !== "approved") {
-      // Auto-approve it for the agent
-      await sb.from("proposals").update({ status: "approved" }).eq("id", proposal.id);
+      return {
+        success: false,
+        data: {},
+        summary: "Proposal must be approved before generating outreach email",
+      };
     }
 
     const company = (proposal as unknown as { companies: Record<string, unknown> | null }).companies;
@@ -506,4 +478,29 @@ export async function toolSendEmail(input: {
       summary: `Send failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
+}
+
+async function mergeCompanyEnrichment(
+  companyId: string,
+  patch: Record<string, unknown>
+): Promise<void> {
+  const sb = supabaseAdmin();
+  const { data: company } = await sb
+    .from("companies")
+    .select("full_intelligence")
+    .eq("id", companyId)
+    .maybeSingle();
+
+  const existing = (company?.full_intelligence as Record<string, unknown>) ?? {};
+  const enrichment = {
+    ...((existing.enrichment as Record<string, unknown>) ?? {}),
+    ...patch,
+  };
+
+  await sb
+    .from("companies")
+    .update({
+      full_intelligence: { ...existing, enrichment },
+    })
+    .eq("id", companyId);
 }

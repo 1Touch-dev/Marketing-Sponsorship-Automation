@@ -8,6 +8,7 @@ export type AgentStatus =
   | "running"
   | "completed"
   | "failed"
+  | "paused_for_proposal_approval"
   | "paused_for_approval"
   | "cancelled";
 
@@ -40,11 +41,15 @@ export type AgentRun = {
 export type AgentResult = {
   proposal_id?: string;
   proposal_title?: string;
+  proposal_executive_summary?: string;
+  proposal_status?: string;
+  recipient_email?: string;
+  recipient_name?: string;
+  domain?: string;
   email_id?: string;
   email_subject?: string;
   email_preview?: string;
   recipient?: string;
-  recipient_name?: string;
   pipedrive_activity_id?: number | null;
   contacts_found?: number;
   decision_makers?: number;
@@ -58,6 +63,21 @@ export type AgentResult = {
 export type SSEEvent =
   | { type: "started"; run_id: string; company_name: string; mode: AgentMode }
   | { type: "step"; step: number; tool: string; status: "running" | "done" | "error" | "skipped"; label: string; result?: Record<string, unknown>; error?: string }
-  | { type: "paused"; reason: "email_review"; email_id: string; email_subject: string; email_preview: string; recipient: string; recipient_name: string }
+  | {
+      type: "paused";
+      reason: "proposal_review";
+      proposal_id: string;
+      proposal_title: string;
+      proposal_executive_summary: string;
+    }
+  | {
+      type: "paused";
+      reason: "email_review";
+      email_id: string;
+      email_subject: string;
+      email_preview: string;
+      recipient: string;
+      recipient_name: string;
+    }
   | { type: "done"; run_id: string; summary: string; result: AgentResult }
   | { type: "error"; message: string; run_id?: string };

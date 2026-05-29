@@ -22,7 +22,15 @@
 
 ## Today's To-Do List (28 May)
 
-### 🔴 P1 — Agents Sprint ✅ DONE (28 May)
+### 🔴 P1 — Agents Sprint ✅ DONE (28 May) — Updated per James (29 May)
+
+**James requirements:** (1) agents must request approval, (2) individual personalized proposals per company.
+
+**29 May update:**
+- `generate_personalized_proposal` replaces reuse/auto-approve — fresh Bedrock proposal per company using Hunter+Apollo+Apify intelligence
+- **Dual approval:** proposal review → `POST /approve-proposal` → email draft → `POST /approve` → Pipedrive send
+- Auto mode removed — always supervised
+- New: `lib/proposals/generate-for-company.ts`, `lib/agents/resume.ts`, `approve-proposal` route
 
 **Goal:** One-click outreach loop — select a company → everything happens automatically.
 

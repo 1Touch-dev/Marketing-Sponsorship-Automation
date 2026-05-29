@@ -8,11 +8,11 @@
 
 import { converseWithTools, type ConverseMessage } from "@/lib/bedrock/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { AGENT_TOOLS, TOOL_LABELS, TOOL_DONE_LABELS } from "@/lib/agents/tool-definitions";
+import { PHASE1_AGENT_TOOLS, TOOL_LABELS, TOOL_DONE_LABELS } from "@/lib/agents/tool-definitions";
 import {
   toolEnrichContacts,
   toolScrapeIntelligence,
-  toolGetOrCreateProposal,
+  toolGeneratePersonalizedProposal,
   toolGenerateOutreachEmail,
   toolSendEmail,
 } from "@/lib/agents/tools";
@@ -21,22 +21,19 @@ import { logger } from "@/lib/monitoring/logger";
 
 export type SSEEmitter = (event: SSEEvent) => void;
 
-const SYSTEM_PROMPT = `You are the Coritiba FC Sponsorship Outreach Agent. Your job is to run a complete personalised sponsorship outreach workflow for a potential sponsor company.
+const SYSTEM_PROMPT = `You are the Coritiba FC Sponsorship Outreach Agent (phase 1 — research + proposal).
 
-Execute steps in this order using the available tools:
-1. enrich_contacts — find decision makers at the company via Hunter.io
-2. scrape_company_intelligence — scrape LinkedIn, social signals, and active ad campaigns
-3. get_or_create_proposal — find an approved proposal or auto-approve a draft
-4. generate_outreach_email — create a personalised PT-BR email for the top decision maker
-5. send_email — only call this in auto mode; skip in supervised mode
+Execute EXACTLY these 3 tools in order:
+1. enrich_contacts — Hunter.io + Apollo for decision makers
+2. scrape_company_intelligence — LinkedIn, ads, social score
+3. generate_personalized_proposal — create a NEW proposal tailored to this company
 
 Rules:
-- Always call all 4 initial tools even if one fails — partial data is fine
-- If enrich_contacts finds no contacts, use "contato@{domain}" as recipient
-- If get_or_create_proposal returns found=false, STOP and do not call generate_outreach_email or send_email
-- In supervised mode, NEVER call send_email — it will be called after user approval
-- Incorporate scrape data (industry, campaigns, social score) into email context when calling generate_outreach_email
-- After all steps complete, provide a concise English summary of what was accomplished (1-2 sentences)`;
+- Call all 3 tools even if one fails partially
+- ALWAYS call generate_personalized_proposal — never skip or reuse old proposals
+- NEVER call generate_outreach_email or send_email — humans approve the proposal first, then the system continues
+- If proposal generation fails (found=false), stop and explain what is missing
+- After step 3, give a 1-sentence summary of what was prepared for human review`;
 
 export type OrchestratorInput = {
   run_id: string;
@@ -73,7 +70,7 @@ export async function runAgentOrchestrator(
       role: "user",
       content: [
         {
-          text: `Run full outreach for company:\n- company_id: ${input.company_id}\n- company_name: ${input.company_name}\n- domain: ${input.domain}\n- mode: ${input.mode}\n\nStart with enrich_contacts, then proceed through all steps.`,
+          text: `Run phase-1 outreach for:\n- company_id: ${input.company_id}\n- company_name: ${input.company_name}\n- domain: ${input.domain}\n\nCall enrich_contacts, scrape_company_intelligence, then generate_personalized_proposal. Do not draft email yet.`,
         },
       ],
     },
@@ -91,7 +88,7 @@ export async function runAgentOrchestrator(
       converseResult = await converseWithTools({
         system: SYSTEM_PROMPT,
         messages,
-        tools: AGENT_TOOLS,
+        tools: PHASE1_AGENT_TOOLS,
         maxTokens: 4096,
         temperature: 0.3,
       });
@@ -148,7 +145,10 @@ export async function runAgentOrchestrator(
               const tc = toolResult.data.top_contact as Record<string, unknown>;
               agentResult.contacts_found = toolResult.data.contacts_found as number;
               agentResult.decision_makers = toolResult.data.decision_makers as number;
+              agentResult.recipient_email = tc.email as string;
+              agentResult.recipient_name = (tc.name as string) ?? undefined;
             }
+            agentResult.domain = input.domain;
             break;
 
           case "scrape_company_intelligence":
@@ -156,11 +156,13 @@ export async function runAgentOrchestrator(
             agentResult.social_score = toolResult.data.social_score as number;
             break;
 
-          case "get_or_create_proposal":
-            toolResult = await toolGetOrCreateProposal(toolInput as { company_id: string });
+          case "generate_personalized_proposal":
+            toolResult = await toolGeneratePersonalizedProposal(toolInput as { company_id: string });
             if (toolResult.data.proposal_id) {
               agentResult.proposal_id = toolResult.data.proposal_id as string;
               agentResult.proposal_title = toolResult.data.proposal_title as string;
+              agentResult.proposal_executive_summary = toolResult.data.executive_summary as string;
+              agentResult.proposal_status = toolResult.data.status as string;
             }
             break;
 
@@ -229,29 +231,25 @@ export async function runAgentOrchestrator(
         result: toolResult.data,
       });
 
-      // Supervised mode pause after email is drafted
+      // Pause after personalized proposal — human approves before email
       if (
-        toolCall.name === "generate_outreach_email" &&
-        input.mode === "supervised" &&
+        toolCall.name === "generate_personalized_proposal" &&
         toolResult.success &&
-        agentResult.email_id
+        agentResult.proposal_id
       ) {
         await persistSteps({
-          status: "paused_for_approval",
+          status: "paused_for_proposal_approval",
           result: agentResult,
         });
 
         emit({
           type: "paused",
-          reason: "email_review",
-          email_id: agentResult.email_id,
-          email_subject: agentResult.email_subject ?? "",
-          email_preview: agentResult.email_preview ?? "",
-          recipient: agentResult.recipient ?? "",
-          recipient_name: agentResult.recipient_name ?? "",
+          reason: "proposal_review",
+          proposal_id: agentResult.proposal_id,
+          proposal_title: agentResult.proposal_title ?? "Proposal",
+          proposal_executive_summary: agentResult.proposal_executive_summary ?? "",
         });
 
-        // Return early — approval route will handle send_email
         return agentResult;
       }
 
