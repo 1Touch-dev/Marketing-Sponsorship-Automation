@@ -6,6 +6,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { searchDomain } from "@/lib/intelligence/hunter";
+import { enrichCompanyApollo } from "@/lib/intelligence/apollo";
 import { enrichCompanySocial } from "@/lib/intelligence/social-scraper";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
@@ -22,30 +23,48 @@ export type ToolResult = {
   summary: string;
 };
 
-// ── Tool 1: Enrich Contacts (Hunter.io) ──────────────────────────────────────
+// ── Tool 1: Enrich Contacts (Hunter.io + Apollo.io) ─────────────────────────
 
 export async function toolEnrichContacts(input: {
   company_id: string;
   domain: string;
 }): Promise<ToolResult> {
   try {
-    const hunterResult = await searchDomain(input.domain, 10);
+    const [hunterResult, apolloResult] = await Promise.all([
+      searchDomain(input.domain, 10).catch((err) => {
+        logger.warn("Agent Hunter enrich failed", { error: String(err) });
+        return null;
+      }),
+      enrichCompanyApollo(input.domain).catch((err) => {
+        logger.warn("Agent Apollo enrich failed", { error: String(err) });
+        return null;
+      }),
+    ]);
 
-    const decisionMakers = hunterResult.decision_makers ?? [];
-    const allContacts = hunterResult.emails ?? [];
-    const topContact = decisionMakers[0] ?? allContacts[0] ?? null;
+    const hunterDecisionMakers = hunterResult?.decision_makers ?? [];
+    const allContacts = hunterResult?.emails ?? [];
+    const apolloPeople = apolloResult?.decision_makers ?? [];
+    const topHunter = hunterDecisionMakers[0] ?? allContacts[0] ?? null;
+    const topApollo = apolloPeople[0] ?? null;
 
+    const topContactEmail = topHunter?.email ?? topApollo?.email ?? null;
+    const topContactName = topHunter?.full_name ?? topApollo?.name ?? null;
+    const topContactPosition = topHunter?.position ?? topApollo?.title ?? null;
+    const topContactSeniority = topHunter?.seniority ?? topApollo?.seniority ?? null;
+    const topContactConfidence = topHunter?.confidence ?? 0;
+
+    const org = apolloResult?.organization;
     const data: Record<string, unknown> = {
-      found: allContacts.length > 0,
+      found: allContacts.length > 0 || apolloPeople.length > 0 || !!org,
       contacts_found: allContacts.length,
-      decision_makers: decisionMakers.length,
-      top_contact: topContact
+      decision_makers: hunterDecisionMakers.length + apolloPeople.length,
+      top_contact: topContactEmail
         ? {
-            email: topContact.email,
-            name: topContact.full_name || null,
-            position: topContact.position || null,
-            confidence: topContact.confidence,
-            seniority: topContact.seniority || null,
+            email: topContactEmail,
+            name: topContactName,
+            position: topContactPosition,
+            confidence: topContactConfidence,
+            seniority: topContactSeniority,
           }
         : null,
       all_contacts: allContacts.slice(0, 5).map((c) => ({
@@ -54,21 +73,43 @@ export async function toolEnrichContacts(input: {
         position: c.position || null,
         confidence: c.confidence,
       })),
+      apollo: org
+        ? {
+            industry: org.industry,
+            employees: org.estimated_num_employees,
+            marketing_team_size: org.marketing_team_size,
+            revenue: org.annual_revenue_printed,
+            funding_stage: org.latest_funding_stage,
+          }
+        : null,
+      apollo_people: apolloPeople.slice(0, 5).map((p) => ({
+        name: p.name,
+        title: p.title,
+        email: p.email,
+        linkedin_url: p.linkedin_url,
+      })),
     };
+
+    const parts: string[] = [];
+    if (allContacts.length) parts.push(`${allContacts.length} emails (Hunter)`);
+    if (org?.marketing_team_size) parts.push(`~${org.marketing_team_size} marketing staff (Apollo)`);
+    if (apolloPeople.length) parts.push(`${apolloPeople.length} decision makers (Apollo)`);
 
     return {
       success: true,
       data,
-      summary: topContact
-        ? `Found ${allContacts.length} contacts (${decisionMakers.length} decision makers). Top: ${topContact.full_name || topContact.email}`
-        : "No contacts found via Hunter.io",
+      summary: parts.length
+        ? parts.join(" · ")
+        : topContactEmail
+          ? `Top contact: ${topContactName || topContactEmail}`
+          : "No contacts found — check Hunter/Apollo API keys",
     };
   } catch (err) {
     logger.warn("Agent tool enrich_contacts failed", { error: String(err) });
     return {
       success: false,
       data: { found: false, contacts_found: 0, decision_makers: 0, top_contact: null },
-      summary: `Hunter.io enrichment failed: ${err instanceof Error ? err.message : String(err)}`,
+      summary: `Contact enrichment failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }

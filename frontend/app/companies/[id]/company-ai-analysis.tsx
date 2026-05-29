@@ -458,6 +458,9 @@ export function CompanyAIAnalysis({
                 </div>
               ) : (() => {
                 const hunter = enrichData.hunter as HunterResult | null;
+                const apollo = enrichData.apollo as ApolloEnrichment | null;
+                const apolloOrg = apollo?.organization ?? null;
+                const apolloPeople = (apollo?.decision_makers ?? []) as ApolloPersonRow[];
                 const social = (enrichData.social as Record<string, unknown>) ?? null;
                 const ads = social?.ads as AdsResult | null;
                 const socialPresence = social?.social as SocialResult | null;
@@ -468,11 +471,78 @@ export function CompanyAIAnalysis({
 
                 return (
                   <>
-                    {/* Decision makers */}
+                    {/* Apollo company intelligence */}
+                    {apolloOrg && (
+                      <div className="p-3 rounded-lg border bg-violet-50 dark:bg-violet-900/10 space-y-2">
+                        <p className="text-xs font-semibold text-violet-700 dark:text-violet-400 uppercase tracking-wide flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5" /> Apollo Company Intelligence
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {apolloOrg.industry && <div><span className="text-muted-foreground">Industry:</span> <span className="font-medium capitalize">{apolloOrg.industry}</span></div>}
+                          {apolloOrg.estimated_num_employees != null && <div><span className="text-muted-foreground">Employees:</span> <span className="font-medium">{apolloOrg.estimated_num_employees.toLocaleString()}</span></div>}
+                          {apolloOrg.marketing_team_size != null && <div><span className="text-muted-foreground">Marketing team:</span> <span className="font-medium">~{apolloOrg.marketing_team_size.toLocaleString()}</span></div>}
+                          {apolloOrg.annual_revenue_printed && <div><span className="text-muted-foreground">Revenue:</span> <span className="font-medium">{apolloOrg.annual_revenue_printed}</span></div>}
+                          {apolloOrg.latest_funding_stage && <div><span className="text-muted-foreground">Funding:</span> <span className="font-medium capitalize">{apolloOrg.latest_funding_stage}</span></div>}
+                          {(apolloOrg.city || apolloOrg.country) && <div><span className="text-muted-foreground">HQ:</span> <span className="font-medium">{[apolloOrg.city, apolloOrg.country].filter(Boolean).join(", ")}</span></div>}
+                        </div>
+                        {Object.keys(apolloOrg.departmental_head_count ?? {}).length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Department headcount (top)</p>
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(apolloOrg.departmental_head_count ?? {})
+                                .sort(([, a], [, b]) => b - a)
+                                .slice(0, 6)
+                                .map(([dept, count]) => (
+                                  <Badge key={dept} variant="outline" className="text-xs capitalize">{dept.replace(/_/g, " ")}: {count}</Badge>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                        {apollo?.people_search_note && !apollo.people_search_available && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">{apollo.people_search_note}</p>
+                        )}
+                        {apolloOrg.linkedin_url && (
+                          <a href={apolloOrg.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-xs text-violet-600 hover:underline flex items-center gap-1">
+                            <Linkedin className="h-3 w-3" /> Company LinkedIn
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Apollo decision makers (paid plan) */}
+                    {apolloPeople.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                          <UserCheck className="h-3.5 w-3.5 text-violet-500" /> Apollo Decision Makers ({apolloPeople.length})
+                        </p>
+                        <div className="space-y-2">
+                          {apolloPeople.map((p, i) => (
+                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-violet-50/50 dark:bg-violet-900/10">
+                              <UserCheck className="h-4 w-4 text-violet-400 mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-semibold">{p.name}</span>
+                                  {p.title && <Badge variant="outline" className="text-xs">{p.title}</Badge>}
+                                  {p.seniority && <Badge variant="secondary" className="text-xs capitalize">{p.seniority}</Badge>}
+                                </div>
+                                {p.email && <p className="text-xs text-violet-700 dark:text-violet-300 mt-0.5">{p.email}</p>}
+                              </div>
+                              {p.linkedin_url && (
+                                <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-violet-600 shrink-0">
+                                  <Linkedin className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hunter decision makers */}
                     {decisionMakers.length > 0 && (
                       <div>
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <UserCheck className="h-3.5 w-3.5 text-blue-500" /> Decision Makers ({decisionMakers.length})
+                          <UserCheck className="h-3.5 w-3.5 text-blue-500" /> Hunter Decision Makers ({decisionMakers.length})
                         </p>
                         <div className="space-y-2">
                           {decisionMakers.map((c, i) => (
@@ -606,9 +676,9 @@ export function CompanyAIAnalysis({
                       </div>
                     )}
 
-                    {decisionMakers.length === 0 && !linkedin && (
+                    {decisionMakers.length === 0 && apolloPeople.length === 0 && !apolloOrg && !linkedin && (
                       <div className="text-center py-4 text-muted-foreground text-sm">
-                        <p>No decision maker emails found. Add <code className="text-xs bg-muted px-1 py-0.5 rounded">HUNTER_API_KEY</code> to unlock contact discovery.</p>
+                        <p>No enrichment data yet. Configure <code className="text-xs bg-muted px-1 py-0.5 rounded">HUNTER_API_KEY</code> and <code className="text-xs bg-muted px-1 py-0.5 rounded">APOLLO_API_KEY</code>.</p>
                       </div>
                     )}
                   </>
@@ -672,6 +742,34 @@ type LinkedInResult = {
   industry?: string | null;
   specialties?: string[];
   leadership?: Array<{ name: string; title: string; linkedin_url?: string }>;
+};
+
+type ApolloEnrichment = {
+  organization?: ApolloOrgRow | null;
+  decision_makers?: ApolloPersonRow[];
+  people_search_available?: boolean;
+  people_search_note?: string | null;
+};
+
+type ApolloOrgRow = {
+  name?: string | null;
+  industry?: string | null;
+  estimated_num_employees?: number | null;
+  marketing_team_size?: number | null;
+  annual_revenue_printed?: string | null;
+  latest_funding_stage?: string | null;
+  city?: string | null;
+  country?: string | null;
+  linkedin_url?: string | null;
+  departmental_head_count?: Record<string, number>;
+};
+
+type ApolloPersonRow = {
+  name: string;
+  title?: string | null;
+  email?: string | null;
+  linkedin_url?: string | null;
+  seniority?: string | null;
 };
 
 function IntelSection({

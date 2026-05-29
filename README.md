@@ -1,12 +1,12 @@
 # Coritiba FC — Sponsorship Automation Platform
 
-AI-powered sponsorship platform with one-click outreach automation. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apify**, **Replicate LoRA**, **OpenAI DALL-E**.
+AI-powered sponsorship platform with one-click outreach automation. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apollo.io**, **Apify**, **Replicate LoRA**, **OpenAI DALL-E**.
 
 ## What's Live (as of 28 May 2026)
 
 | Feature | Status |
 |---------|--------|
-| Company intelligence & enrichment (Hunter.io + LinkedIn + Apify) | ✅ |
+| Company intelligence & enrichment (Hunter.io + Apollo.io + LinkedIn + Apify) | ✅ |
 | Proposal generation (Bedrock) + approval workflow | ✅ |
 | Jersey mockup generation (Replicate LoRA, 5 placements) | ✅ |
 | Campaign creative generation (OpenAI gpt-image-1) | ✅ |
@@ -20,7 +20,7 @@ AI-powered sponsorship platform with one-click outreach automation. Stack: **Nex
 One "Run Agent" button on any company page triggers a fully automated 5-step pipeline:
 
 ```
-1. enrich_contacts     → Hunter.io finds decision maker emails
+1. enrich_contacts     → Hunter.io emails + Apollo.io company intelligence
 2. scrape_intelligence → LinkedIn + Google Ads signals (Apify)
 3. get_proposal        → Finds or auto-approves existing proposal
 4. generate_email      → Bedrock drafts personalised PT-BR email
@@ -86,6 +86,7 @@ AWS_SECRET_ACCESS_KEY=...
 BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
 PIPEDRIVE_API_KEY=...          # CRM sync
 HUNTER_API_KEY=...             # Decision maker email discovery
+APOLLO_API_KEY=...             # Company intelligence (org enrich, dept headcount)
 APIFY_API_TOKEN=...            # LinkedIn + ads scraping
 OPENAI_API_KEY=...             # Campaign creatives
 REPLICATE_API_TOKEN=...        # Jersey mockup LoRA
@@ -97,7 +98,7 @@ REPLICATE_API_TOKEN=...        # Jersey mockup LoRA
 |------|---------|
 | `frontend/` | Next.js app (UI + `/api` Route Handlers) |
 | `frontend/lib/agents/` | Outreach Agent logic |
-| `frontend/lib/intelligence/` | Hunter.io, Apify scrapers |
+| `frontend/lib/intelligence/` | Hunter.io, Apollo.io, Apify scrapers |
 | `frontend/lib/bedrock/` | Bedrock/Claude client |
 | `frontend/lib/pipedrive/` | Pipedrive API client |
 | `supabase/migrations/` | Postgres schema, RLS |

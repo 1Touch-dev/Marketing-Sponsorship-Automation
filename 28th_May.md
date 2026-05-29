@@ -105,16 +105,20 @@
 
 ---
 
-### 🟡 P4 — Apollo vs Hunter Decision (Pending James reply)
+### ✅ P4 — Apollo.io Integration (DONE)
 
-**Context:** James asked for founders/directors/org chart data. Hunter gives emails only. Apollo gives full company intelligence.
+**Approach:** Hunter for fast email discovery + Apollo for deeper company intelligence (complementary, not either/or).
 
-**Waiting for:** James to confirm if Apollo is needed on top of Hunter.
+**Implemented:**
+- `frontend/lib/intelligence/apollo.ts` — org enrich, people search (paid), health check
+- `POST /api/intelligence/enrich` — runs Hunter + Apollo + Apify in parallel
+- Contacts tab UI — Apollo org card (employees, marketing team size, dept headcount, funding, revenue)
+- Outreach Agent `enrich_contacts` tool — Hunter + Apollo combined
+- `/api/system/health` — `apollo` service status
 
-**If yes:** Integrate Apollo API (1 day)  
-**If no:** Hunter is sufficient, skip Apollo entirely.
+**Free plan note:** Org enrich works (tested Red Bull: 22k employees, ~4.5k marketing). People search / email reveal require Apollo Basic+ — graceful fallback with UI message.
 
-**Action:** Chase James for reply to message sent this morning.
+**Env:** `APOLLO_API_KEY` in `.env` + `frontend/.env.local` (not committed).
 
 ---
 

@@ -29,6 +29,7 @@ export async function GET() {
   const pipedriveConfigured = !!process.env.PIPEDRIVE_API_KEY;
   const replicateConfigured = !!process.env.REPLICATE_API_TOKEN;
   const hunterConfigured = !!process.env.HUNTER_API_KEY;
+  const apolloConfigured = !!process.env.APOLLO_API_KEY;
 
   // Queue stats
   let queueStats: Record<string, number> = {};
@@ -83,6 +84,13 @@ export async function GET() {
         healthy: hunterConfigured,
         configured: hunterConfigured,
         note: hunterConfigured ? "Contact enrichment active" : "Awaiting HUNTER_API_KEY — email/contact discovery disabled",
+      },
+      apollo: {
+        healthy: apolloConfigured,
+        configured: apolloConfigured,
+        note: apolloConfigured
+          ? "Company intelligence active (org enrich); people search needs Basic+ plan"
+          : "Awaiting APOLLO_API_KEY — org intelligence disabled",
       },
     },
     environment: { healthy: envHealthy, vars: envStatus },
