@@ -564,7 +564,28 @@ Run this **once** as a single story after individual tests pass:
 | Audit / Workflows | T-44–T-45 | | |
 | System Health | T-46–T-48 | | |
 | Golden path | T-49 (demo script) | | |
-| **TOTAL** | **49 test groups** | | |
+| Outreach Agent | T-50 | | |
+| **TOTAL** | **50 test groups** | | |
+
+---
+
+## SECTION 10 — Outreach Agent (James requirements)
+
+**Where:** Any company page with a website (e.g. Red Bull Brasil) → **Outreach Agent** panel at top.
+
+**Expected flow (dual approval):**
+
+| Step | Action | Pass? |
+|------|--------|-------|
+| T-50-1 | Click **Run Agent** — steps show: enrich → scrape → generate proposal | [ ] |
+| T-50-2 | Wait 1–3 min — panel pauses with **Personalized Proposal Ready** (blue box) | [ ] |
+| T-50-3 | Click **Open full proposal** — new tab shows proposal with company-specific content (not generic) | [ ] |
+| T-50-4 | Click **Approve Proposal & Draft Email** — wait ~30s — panel shows **Email Draft Ready** (amber box) | [ ] |
+| T-50-5 | Review To/Subject/Preview — click **Approve & Send** | [ ] |
+| T-50-6 | Panel shows **Outreach Complete** + Pipedrive activity ID | [ ] |
+| T-50-7 | In Pipedrive, find activity linked to company org/deal (not floating) | [ ] |
+
+**Notes:** No Auto mode — both proposal and email require human approval. If proposal step fails, run **Enrich Contacts** first on that company.
 
 ---
 
