@@ -2,7 +2,7 @@
 **Coritiba FC Sponsorship Automation**  
 **Date:** 28 May 2026 | **Branch:** `feature/agents-sprint`  
 **Forked from:** `feature/apify-commercial-intelligence` @ `248d77c`  
-**Status:** ✅ IMPLEMENTED AND E2E TESTED — 28 May 2026
+**Status:** ✅ IMPLEMENTED — dual approval + personalized proposals per company (29 May 2026). See `29th_May.md`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 AI-powered sponsorship platform with one-click outreach automation. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apollo.io**, **Apify**, **Replicate LoRA**, **OpenAI DALL-E**.
 
-## What's Live (as of 28 May 2026)
+## What's Live (as of 29 May 2026)
 
 | Feature | Status |
 |---------|--------|
@@ -105,7 +105,7 @@ REPLICATE_API_TOKEN=...        # Jersey mockup LoRA
 | `frontend/lib/pipedrive/` | Pipedrive API client |
 | `supabase/migrations/` | Postgres schema, RLS |
 | `docs/` | Architecture & setup |
-| `27th_May.md` / `28th_May.md` | Sprint logs |
+| `27th_May.md` / `28th_May.md` / `29th_May.md` | Sprint logs |
 | `AGENTS_SPRINT_IMPL.md` | Agent sprint implementation plan |
 
 ## License

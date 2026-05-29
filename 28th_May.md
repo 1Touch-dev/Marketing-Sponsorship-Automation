@@ -1,6 +1,6 @@
 # Coritiba FC Platform — Sprint Plan (28 May 2026)
 **Date:** 28 May 2026 | **By:** Abhishek  
-**Branch:** `feature/apify-commercial-intelligence`  
+**Branch:** `feature/agents-sprint` (see **`29th_May.md`** for 29 May updates)  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Login:** `patrocinios@coritiba.com.br`
 
@@ -22,17 +22,13 @@
 
 ## Today's To-Do List (28 May)
 
-### 🔴 P1 — Agents Sprint ✅ DONE (28 May) — Updated per James (29 May)
+### 🔴 P1 — Agents Sprint ✅ DONE (28 May) → **Finalized 29 May** (see `29th_May.md`)
 
-**James requirements:** (1) agents must request approval, (2) individual personalized proposals per company.
+**28 May:** Initial agent (ConverseCommand + SSE + 5 tools + supervised email pause).
 
-**29 May update:**
-- `generate_personalized_proposal` replaces reuse/auto-approve — fresh Bedrock proposal per company using Hunter+Apollo+Apify intelligence
-- **Dual approval:** proposal review → `POST /approve-proposal` → email draft → `POST /approve` → Pipedrive send
-- Auto mode removed — always supervised
-- New: `lib/proposals/generate-for-company.ts`, `lib/agents/resume.ts`, `approve-proposal` route
+**29 May (James requirements):** Dual approval + personalized proposals per company — **fully implemented**. Details in `29th_May.md`.
 
-**Goal:** One-click outreach loop — select a company → everything happens automatically.
+**Goal:** One-click outreach loop — select a company → enrich → personalized proposal → human approvals → Pipedrive.
 
 **Delivered:**
 
@@ -65,11 +61,9 @@
 | Supervised mode pause | ✅ Email preview shown with "Approve & Send" |
 | send_email (after approval) | ✅ Pipedrive activity **#1574** created |
 
-**Modes available:**
-- **Supervised** (default) — agent pauses after email draft for user approval
-- **Auto** — all 5 steps run without interruption
+**Modes (28 May v1):** Supervised + Auto — **Auto removed 29 May**; dual approval only.
 
-**Est:** ~~2–3 days~~ **Done in 1 day**
+**Est:** ~~2–3 days~~ **Done in 1 day** (+ 29 May hardening)
 
 ---
 
@@ -154,13 +148,14 @@ LinkedIn scraper returned `social_score: 0` yesterday — root cause was `voyage
 
 ---
 
-### 🟢 P6 — Minor / Housekeeping ✅ IN PROGRESS
+### 🟢 P6 — Minor / Housekeeping ✅ DONE (28–29 May)
 
 | Task | Status |
 |------|--------|
-| Commit all 27 + 28 May changes to git + push | ✅ Done (see below) |
+| Commit all 27 + 28 May changes to git + push | ✅ Done |
+| PM2 + systemd 24/7 persistence | ✅ Done (29 May) |
+| Apollo.io integrated | ✅ Done (29 May) |
 | Update `E2E_INTERN_TEST_RESULTS.md` summary counts after intern run | ⏳ After intern test |
-| Remove Apollo from pending tasks if James confirms not needed | ⏳ Waiting on James |
 | News/articles section on public landing page | Low priority — 3–4h |
 | Asana integration (tasks from execution brief) | Low priority — 1 day |
 
@@ -171,7 +166,7 @@ LinkedIn scraper returned `social_score: 0` yesterday — root cause was `voyage
 | Item | What's Needed | Impact |
 |------|--------------|--------|
 | Kit photos (shorts, socks, sleeve) | James to email photos | Can't unlock full kit placements or retrain LoRA |
-| Apollo decision | James to confirm yes/no | Determines if Apollo integration is built |
+| Apollo paid tier | Optional — confirm Basic plan | People search API (org enrich already live) |
 
 ---
 
@@ -192,10 +187,13 @@ LinkedIn scraper returned `social_score: 0` yesterday — root cause was `voyage
 
 All 6 services healthy. No failed workflows. 511 active companies. 48 Hunter searches remaining (free plan, resets 27 Jun).
 
+**29 May:** 7 services healthy (added Apollo). See `29th_May.md`.
+
 ---
 
 ## References
 
-- `27th_May.md` — full log of everything done yesterday
-- `INTERN_TEST_PLAN.md` v2.0 — intern checklist
+- `29th_May.md` — **29 May sprint report (latest)**
+- `27th_May.md` — full log of everything done 27 May
+- `INTERN_TEST_PLAN.md` v2.0 + T-50 — intern checklist
 - `E2E_INTERN_TEST_RESULTS.md` — current test results (41 pass / 5 partial / 0 fail)
