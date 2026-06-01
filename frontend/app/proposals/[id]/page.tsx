@@ -338,18 +338,20 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <span className="text-lg">👕</span> Mockup de Camisa — IA
-                <span className="ml-auto text-xs font-normal text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">FLUX LoRA</span>
+                <span className="text-lg">👕</span> Mockup de Camisa
+                <span className="ml-auto text-xs font-normal text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Oficial + IA</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Gera mockups fotorrealistas da Camisa Coritiba 2026 com a marca do patrocinador.
-                Modelo treinado com fotos reais da coleção — trigger: <code className="font-mono bg-slate-100 px-1 rounded">coritiba_jersey</code>
+                Mockup oficial com escudo fixo e patrocinador no peito oposto. Cenas criativas via FLUX LoRA (
+                <code className="font-mono bg-slate-100 px-1 rounded">coritiba_jersey</code>).
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ReplicateJerseyGenerator
                 proposalId={proposal.id}
+                companyId={p.companies?.id}
                 companyName={p.companies?.company_name ?? ""}
+                sponsorLogoUrl={p.companies?.logo_url}
                 campaignTitle={p.campaigns?.title}
               />
             </CardContent>

@@ -533,10 +533,19 @@ export function ProposalLandingPage({
 
         {/* AI Generated Images + Video */}
         {approvedImages.length > 0 && (
-          <Section id="generated-images" title="Imagens Geradas" badge="AI Visual Assets"
-            subtitle="Imagens criadas por inteligência artificial aprovadas para esta proposta">
+          <Section id="generated-images" title="Mockups de Camisa" badge="Visual Assets"
+            subtitle="Escudo oficial Coritiba no peito esquerdo do atleta (fixo) · Patrocinador no peito direito (lado oposto)">
+            <p className="text-xs text-slate-500 mb-4 -mt-2">
+              O escudo do clube não é alterado. O branding do patrocinador aparece apenas na zona contrária ao escudo.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {approvedImages.map((img, idx) => (
+              {[...approvedImages]
+                .sort((a, b) => {
+                  const aOff = a.job_type === "jersey_mockup_official" ? 0 : 1;
+                  const bOff = b.job_type === "jersey_mockup_official" ? 0 : 1;
+                  return aOff - bOff;
+                })
+                .map((img, idx) => (
                 <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -545,11 +554,18 @@ export function ProposalLandingPage({
                     className="w-full object-cover"
                     style={{ maxHeight: 400 }}
                   />
-                  {img.job_type && (
-                    <div className="px-4 py-2 border-t border-slate-100">
-                      <span className="text-xs text-slate-500 capitalize">{img.job_type.replace(/_/g, " ")}</span>
-                    </div>
-                  )}
+                  <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-xs text-slate-500">
+                      {img.job_type === "jersey_mockup_official"
+                        ? "Mockup oficial — escudo fixo"
+                        : (img.job_type?.replace(/_/g, " ") ?? "Visual")}
+                    </span>
+                    {img.job_type === "jersey_mockup_official" && (
+                      <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                        Recomendado
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

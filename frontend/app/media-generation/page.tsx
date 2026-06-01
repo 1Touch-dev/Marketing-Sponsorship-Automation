@@ -95,7 +95,7 @@ export default async function MediaGenerationPage() {
         <CardContent>
           <ReplicateJerseyGenerator
             proposalId=""
-            companyName="Patrocinador"
+            companyName="Patrocinador Exemplo"
             campaignTitle="Geração Standalone"
           />
         </CardContent>

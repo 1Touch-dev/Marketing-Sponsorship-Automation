@@ -350,7 +350,7 @@ export function visualPromptsPrompt(args: {
       "id": "jersey_front",
       "label": "Coritiba Jersey Brand Placement",
       "type": "jersey",
-      "prompt": "Detailed prompt: Coritiba FC green and white jersey, sponsor logo on chest, photorealistic, professional sports photography, Curitiba stadium background...",
+      "prompt": "Detailed prompt: Coritiba FC green and white jersey, authentic club crest unchanged on wearer's left chest, sponsor logo only on wearer's right chest opposite crest, photorealistic, professional sports photography, Curitiba stadium background...",
       "style_notes": "Photorealistic, Coritiba Verde e Branco theme",
       "aspect_ratio": "1:1",
       "placeholder_description": "Sponsor logo on Coritiba FC jersey front"
