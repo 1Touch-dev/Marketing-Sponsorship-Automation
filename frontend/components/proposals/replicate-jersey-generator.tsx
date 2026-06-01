@@ -19,6 +19,7 @@ import {
   JERSEY_PLACEMENTS,
   type JerseyPlacementId,
 } from "@/lib/media/jersey-placements";
+import { JerseyPlacementPreview } from "./jersey-placement-preview";
 
 interface ReplicateJerseyGeneratorProps {
   proposalId: string;
@@ -26,6 +27,9 @@ interface ReplicateJerseyGeneratorProps {
   companyName: string;
   sponsorLogoUrl?: string | null;
   campaignTitle?: string;
+  showPlacementPreview?: boolean;
+  onPlacementChange?: (placement: JerseyPlacementId) => void;
+  onGenerated?: () => void;
 }
 
 type GeneratedImage = {
@@ -46,9 +50,16 @@ export function ReplicateJerseyGenerator({
   companyName,
   sponsorLogoUrl,
   campaignTitle,
+  showPlacementPreview = false,
+  onPlacementChange,
+  onGenerated,
 }: ReplicateJerseyGeneratorProps) {
   const [mode, setMode] = useState<MockupMode>("official");
-  const [placement, setPlacement] = useState<JerseyPlacementId>("chest_sponsor");
+  const [placement, setPlacementState] = useState<JerseyPlacementId>("chest_sponsor");
+  const setPlacement = (p: JerseyPlacementId) => {
+    setPlacementState(p);
+    onPlacementChange?.(p);
+  };
   const [selectedScenes, setSelectedScenes] = useState<number[]>([0, 2]);
   const [customNote, setCustomNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -98,6 +109,7 @@ export function ReplicateJerseyGenerator({
           placement,
         },
       ]);
+      onGenerated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro desconhecido");
     } finally {
@@ -154,6 +166,7 @@ export function ReplicateJerseyGenerator({
 
         setImages([...results]);
       }
+      onGenerated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro desconhecido");
     } finally {
@@ -226,6 +239,10 @@ export function ReplicateJerseyGenerator({
             <strong>Mockup oficial</strong>.
           </span>
         </div>
+      )}
+
+      {showPlacementPreview && (
+        <JerseyPlacementPreview placement={placement} className="max-w-sm" />
       )}
 
       {/* Placement selector */}

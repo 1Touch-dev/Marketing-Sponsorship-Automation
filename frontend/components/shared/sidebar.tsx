@@ -72,6 +72,7 @@ const NAV: NavItem[] = [
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
   { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
   { href: "/campaigns/bulk", label: "Bulk Campaigns", icon: Zap, group: "proposals" },
+  { href: "/proposals/bulk-approve", label: "Bulk Approve", icon: CheckSquare, group: "proposals" },
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },

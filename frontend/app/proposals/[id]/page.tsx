@@ -15,8 +15,8 @@ import { ProposalLandingPage } from "@/components/proposals/proposal-landing-pag
 import { ProposalShareButton } from "./proposal-share-button";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
-import { CampaignImageGenerator } from "@/components/proposals/campaign-image-generator";
-import { ReplicateJerseyGenerator } from "@/components/proposals/replicate-jersey-generator";
+import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-panel";
+import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { AssetUploader } from "@/components/proposals/asset-uploader";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import type { ProposalContent } from "@/types/database";
@@ -45,31 +45,8 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     .eq("proposal_id", proposal.id)
     .order("created_at", { ascending: false });
 
-  // Fetch approved/completed images for the flow panel and inline preview
-  const { data: imageJobs } = await (sb as any)
-    .from("image_generation_jobs")
-    .select("id, status, job_type, prompt, output_urls, selected_url")
-    .eq("proposal_id", proposal.id)
-    .in("status", ["completed", "approved"])
-    .order("created_at", { ascending: false });
-  const hasImages = Array.isArray(imageJobs) && imageJobs.length > 0;
-
-  // Build a flat list of preview image URLs for inline display
-  const inlineImages: Array<{ url: string; job_type?: string; prompt?: string }> = [];
-  for (const job of (imageJobs ?? [])) {
-    const selected = job.selected_url;
-    if (selected) {
-      inlineImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
-    } else {
-      const urls: Array<{ url?: string }> = job.output_urls ?? [];
-      for (const u of urls) {
-        if (u?.url && !u.url.startsWith("data:")) {
-          inlineImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
-          break;
-        }
-      }
-    }
-  }
+  const inlineImages = await fetchProposalImagesForLanding(proposal.id);
+  const hasImages = inlineImages.length > 0;
 
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null } | null;
@@ -319,40 +296,20 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <span className="text-lg">🎨</span> Imagens de Campanha
-                <span className="ml-auto text-xs font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">AI</span>
-              </CardTitle>
-              <CardDescription className="text-xs">Gera criativos visuais para cada estratégia de campanha. Aparecem na proposta e landing page.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CampaignImageGenerator
-                proposalId={proposal.id}
-                companyName={p.companies?.company_name ?? ""}
-                strategyVariants={p.strategy_variants}
-                campaignTitle={p.campaigns?.title}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Replicate jersey mockup generator — FLUX LoRA trained on Coritiba 2026 Away Kit */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <span className="text-lg">👕</span> Mockup de Camisa
-                <span className="ml-auto text-xs font-normal text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">Oficial + IA</span>
+                <span className="text-lg">🖼</span> Visuais da proposta
               </CardTitle>
               <CardDescription className="text-xs">
-                Mockup oficial com escudo fixo e patrocinador no peito oposto. Cenas criativas via FLUX LoRA (
-                <code className="font-mono bg-slate-100 px-1 rounded">coritiba_jersey</code>).
+                Mockup de camisa, criativos de campanha, seleção de imagem e vínculo a estratégias — aparece na landing do patrocinador.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ReplicateJerseyGenerator
+              <ProposalGraphicsPanel
                 proposalId={proposal.id}
                 companyId={p.companies?.id}
                 companyName={p.companies?.company_name ?? ""}
                 sponsorLogoUrl={p.companies?.logo_url}
                 campaignTitle={p.campaigns?.title}
+                strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
               />
             </CardContent>
           </Card>

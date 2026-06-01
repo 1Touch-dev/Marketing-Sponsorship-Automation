@@ -3,12 +3,13 @@
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
-import type { PricingTier, StrategyVariant, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
+import type { PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 import { PricingTiers } from "./pricing-tiers";
-import { StrategyCards } from "./strategy-cards";
-import { VisualMockupGrid } from "./visual-mockup-grid";
 import { IntelligencePanel } from "./intelligence-panel";
+import { ProposalLandingVisuals } from "./proposal-landing-visuals";
+import { resolveKpiTemplate } from "@/lib/proposals/kpi-templates";
+import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
 import {
   TrendingUp, Users, MapPin, Target, CheckCircle2, Building2,
   ArrowRight, Trophy, Tv2, Zap, Globe, Megaphone, BarChart3,
@@ -39,9 +40,11 @@ interface ProposalLandingPageProps {
     industry?: string | null;
     website?: string | null;
     country?: string | null;
+    logo_url?: string | null;
   };
   campaign?: { title: string; summary?: string | null } | null;
-  approvedImages?: Array<{ url: string; job_type: string; prompt?: string }>;
+  approvedImages?: ProposalImageAsset[];
+  kpiTemplateId?: string | null;
   adminMode?: boolean;
   onPrint?: () => void;
   onShare?: () => void;
@@ -240,7 +243,14 @@ type SV = {
 };
 
 export function ProposalLandingPage({
-  proposal, company, campaign, approvedImages = [], adminMode = false, onPrint, onShare,
+  proposal,
+  company,
+  campaign,
+  approvedImages = [],
+  kpiTemplateId,
+  adminMode = false,
+  onPrint,
+  onShare,
 }: ProposalLandingPageProps) {
   const content = proposal.content as unknown as {
     title: string;
@@ -252,13 +262,14 @@ export function ProposalLandingPage({
     investment_note: string;
     cta: string;
     campaign_video_url?: string;
+    kpi_template_id?: string;
   };
 
   const intelligence = proposal.intelligence as CompanyIntelligence | null | undefined;
   const hasIntelligence = intelligence != null;
   const strategyVariants = (proposal.strategy_variants ?? []) as SV[];
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
-  const visualPrompts = (proposal.visual_prompts ?? []) as VisualPrompt[];
+  const kpi = resolveKpiTemplate(kpiTemplateId ?? content?.kpi_template_id);
 
   const statusColor =
     proposal.status === "approved" ? "bg-emerald-500 text-white" :
@@ -306,18 +317,32 @@ export function ProposalLandingPage({
           </div>
 
           {/* Club + Sponsor lockup */}
-          <div className="flex items-center gap-4 mb-5">
-            <div className="flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-4 mb-5">
+            <div className="flex items-center gap-3">
               <Image
                 src="/brand/coritiba-logo.svg"
                 alt="Coritiba FC"
-                width={64}
-                height={64}
+                width={56}
+                height={56}
                 className="rounded-full border-2 border-white/30"
               />
+              <span className="text-white/50 text-2xl font-light">×</span>
+              {company.logo_url ? (
+                <div className="w-14 h-14 rounded-xl bg-white p-1.5 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={company.logo_url}
+                    alt={company.company_name}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white text-xs font-bold text-center px-1">
+                  {company.company_name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
             </div>
-            <div className="h-12 w-px bg-white/20" />
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight min-w-0">
               {content?.title || proposal.title}
             </h1>
           </div>
@@ -333,12 +358,18 @@ export function ProposalLandingPage({
             </div>
           )}
 
-          {/* Hero stats — real Coritiba FC facts */}
+          {/* Hero stats — template KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <HeroStat icon={Trophy}      label="Fundado em"          value={CORITIBA_FACTS.founded}    sub={`${CORITIBA_FACTS.stadium} · ${CORITIBA_FACTS.city}`}  color="green" />
-            <HeroStat icon={Users}       label="Sócios + Seguidores"  value={CORITIBA_FACTS.socialFollowers} sub={`${CORITIBA_FACTS.members} sócios torcedores`} color="emerald" />
-            <HeroStat icon={Tv2}         label="Transmissão"          value="3 torneios"  sub={CORITIBA_FACTS.broadcasts}    color="white" />
-            <HeroStat icon={MapPin}      label="Couto Pereira"        value={CORITIBA_FACTS.capacity}   sub="torcedores por partida"       color="amber" />
+            {kpi.heroStats.map((s, i) => (
+              <HeroStat
+                key={i}
+                icon={[Trophy, Users, Tv2, MapPin][i] ?? Trophy}
+                label={s.label}
+                value={s.value}
+                sub={s.sub}
+                color={(["green", "emerald", "white", "amber"] as const)[i] ?? "green"}
+              />
+            ))}
           </div>
 
           {/* Meta */}
@@ -380,12 +411,25 @@ export function ProposalLandingPage({
                 </div>
               )}
             </div>
-            {/* Real audience KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <MetricCard icon={Users}      value={CORITIBA_FACTS.avgAttendance} label="Média Público/Jogo" color="bg-green-100 text-green-700" />
-              <MetricCard icon={Globe}      value={CORITIBA_FACTS.socialFollowers} label="Seguidores Digitais" color="bg-blue-100 text-blue-600" />
-              <MetricCard icon={MapPin}     value={CORITIBA_FACTS.curitibaMetro} label="Metro Curitiba" color="bg-amber-100 text-amber-600" />
-              <MetricCard icon={Shield}     value={CORITIBA_FACTS.members} label="Sócios Torcedores" color="bg-violet-100 text-violet-600" />
+              {kpi.metrics.map((m, i) => {
+                const Icon = { users: Users, globe: Globe, mappin: MapPin, shield: Shield, tv: Tv2, trophy: Trophy }[m.icon] ?? Users;
+                const colors = [
+                  "bg-green-100 text-green-700",
+                  "bg-blue-100 text-blue-600",
+                  "bg-amber-100 text-amber-600",
+                  "bg-violet-100 text-violet-600",
+                ];
+                return (
+                  <MetricCard
+                    key={m.label}
+                    icon={Icon}
+                    value={m.value}
+                    label={m.label}
+                    color={colors[i] ?? colors[0]}
+                  />
+                );
+              })}
             </div>
             {/* Curitiba positioning */}
             <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -420,17 +464,23 @@ export function ProposalLandingPage({
 
 
         {hasIntelligence ? (
-          <Section id="intelligence" title="Inteligência Comercial" badge="Análise IA"
-            subtitle="Análise estratégica do fit entre sua marca e o futebol paranaense">
+          <Section id="intelligence" title="Por que esta parceria" badge="Fit comercial"
+            subtitle="Contexto de mercado e alinhamento entre sua marca e o Coritiba FC">
             <IntelligencePanel intelligence={intelligence!} />
           </Section>
         ) : null}
 
 
 
+        <ProposalLandingVisuals
+          images={approvedImages}
+          strategies={strategyVariants as import("@/lib/ai/schemas").StrategyVariant[]}
+          companyName={company.company_name}
+        />
+
         {strategyVariants.length > 0 && (
-          <Section id="strategies" title="Estratégias de Patrocínio" badge="Direções Estratégicas"
-            subtitle="Cada estratégia inclui ativações detalhadas, fit de público e diferencial competitivo — clique para expandir">
+          <Section id="strategies" title="Estratégias de Patrocínio" badge="Plano de campanha"
+            subtitle="Direções de ativação personalizadas para sua marca — clique para ver detalhes">
             <div className="space-y-3">
               {strategyVariants.map((v, i) => (
                 <ExpandableStrategyCard key={v.id} variant={v} index={i} />
@@ -523,55 +573,6 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* Visual mockups */}
-        {visualPrompts.length > 0 && (
-          <Section id="visuals" title="Conceitos Visuais" badge="Identidade Visual"
-            subtitle="Mockups e prompts de geração de imagem criados especificamente para sua marca">
-            <VisualMockupGrid visuals={visualPrompts} companyName={company.company_name} />
-          </Section>
-        )}
-
-        {/* AI Generated Images + Video */}
-        {approvedImages.length > 0 && (
-          <Section id="generated-images" title="Mockups de Camisa" badge="Visual Assets"
-            subtitle="Escudo oficial Coritiba no peito esquerdo do atleta (fixo) · Patrocinador no peito direito (lado oposto)">
-            <p className="text-xs text-slate-500 mb-4 -mt-2">
-              O escudo do clube não é alterado. O branding do patrocinador aparece apenas na zona contrária ao escudo.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[...approvedImages]
-                .sort((a, b) => {
-                  const aOff = a.job_type === "jersey_mockup_official" ? 0 : 1;
-                  const bOff = b.job_type === "jersey_mockup_official" ? 0 : 1;
-                  return aOff - bOff;
-                })
-                .map((img, idx) => (
-                <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.url}
-                    alt={img.prompt ?? `Generated visual ${idx + 1}`}
-                    className="w-full object-cover"
-                    style={{ maxHeight: 400 }}
-                  />
-                  <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-500">
-                      {img.job_type === "jersey_mockup_official"
-                        ? "Mockup oficial — escudo fixo"
-                        : (img.job_type?.replace(/_/g, " ") ?? "Visual")}
-                    </span>
-                    {img.job_type === "jersey_mockup_official" && (
-                      <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                        Recomendado
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
         {/* Investment note */}
         {content?.investment_note && (
           <Section id="investment" title="Sobre o Investimento">
@@ -591,9 +592,33 @@ export function ProposalLandingPage({
           subtitle="Oportunidades de ativação ao vivo no Estádio Couto Pereira — seu logo diante de milhares de torcedores">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
-              { opponent: "Atlético-PR", competition: "Campeonato Brasileiro", date: "Próxima rodada", venue: "Couto Pereira", attendance: "~35.000", type: "home" },
-              { opponent: "Fluminense", competition: "Copa do Brasil", date: "Em breve", venue: "Couto Pereira", attendance: "~40.000", type: "home" },
-              { opponent: "Athletico-PR", competition: "Clássico Estadual", date: "A definir", venue: "Couto Pereira", attendance: "~42.000", type: "home" },
+              {
+                opponent: "Atlético-PR",
+                competition: "Campeonato Brasileiro",
+                date: "Próxima rodada",
+                venue: "Couto Pereira",
+                attendance: "~35.000",
+                tvViewers: "~2,4 mi",
+                type: "home",
+              },
+              {
+                opponent: "Fluminense",
+                competition: "Copa do Brasil",
+                date: "Em breve",
+                venue: "Couto Pereira",
+                attendance: "~40.000",
+                tvViewers: "~1,9 mi",
+                type: "home",
+              },
+              {
+                opponent: "Athletico-PR",
+                competition: "Clássico Estadual",
+                date: "A definir",
+                venue: "Couto Pereira",
+                attendance: "~42.000",
+                tvViewers: "~950 mil",
+                type: "home",
+              },
             ].map((match, i) => (
               <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 hover:border-green-300 transition-colors">
                 <div className="flex items-center justify-between">
@@ -606,8 +631,22 @@ export function ProposalLandingPage({
                   <div className="text-xs font-semibold text-slate-900">{match.opponent}</div>
                 </div>
                 <div className="flex items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100 pt-2 mt-1">
-                  <span>🏟 {match.venue}</span>
-                  <span>👥 {match.attendance}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    {match.venue}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Users className="h-3 w-3 shrink-0" />
+                    {match.attendance}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 rounded-lg px-2 py-1.5">
+                  <Tv2 className="h-3.5 w-3.5 shrink-0 text-green-700" />
+                  <span>
+                    <span className="font-semibold text-slate-800">{match.tvViewers}</span>
+                    {" "}
+                    telespectadores TV (média, ambas torcidas)
+                  </span>
                 </div>
               </div>
             ))}

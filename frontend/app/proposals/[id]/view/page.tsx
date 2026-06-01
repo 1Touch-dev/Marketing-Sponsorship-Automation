@@ -4,7 +4,8 @@ import { ProposalCMSEditor } from "@/components/proposals/proposal-cms-editor";
 import { PrintButton } from "./print-button";
 import { ShareLinkDisplay } from "./share-link-display";
 import type { ProposalContent } from "@/types/database";
-import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
+import type { StrategyVariant, PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
+import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -15,35 +16,13 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
 
   const { data: proposal } = await sb
     .from("proposals")
-    .select("*, companies(*), campaigns(title, summary)")
+    .select("*, companies(id, company_name, industry, website, country, logo_url), campaigns(title, summary)")
     .eq("id", params.id)
     .maybeSingle();
 
   if (!proposal) notFound();
 
-  // Fetch approved/completed images for this proposal
-  const { data: imageJobs } = await (sb as any)
-    .from("image_generation_jobs")
-    .select("id, job_type, prompt, output_urls, selected_url, status")
-    .eq("proposal_id", proposal.id)
-    .in("status", ["completed", "approved"])
-    .order("created_at", { ascending: false });
-
-  const approvedImages: Array<{ url: string; job_type: string; prompt?: string }> = [];
-  for (const job of (imageJobs ?? [])) {
-    const selected = job.selected_url;
-    if (selected) {
-      approvedImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
-    } else {
-      const urls: Array<{ url?: string }> = job.output_urls ?? [];
-      for (const u of urls) {
-        if (u?.url && !u.url.startsWith("data:")) {
-          approvedImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
-          break;
-        }
-      }
-    }
-  }
+  const approvedImages = await fetchProposalImagesForLanding(proposal.id);
 
   type EnrichedProposal = typeof proposal & {
     companies: {
@@ -51,11 +30,13 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
       industry?: string | null;
       website?: string | null;
       country?: string | null;
+      logo_url?: string | null;
+      id?: string;
     } | null;
     campaigns: { title: string; summary?: string | null } | null;
     strategy_variants?: StrategyVariant[] | null;
     pricing_tiers?: PricingTier[] | null;
-    visual_prompts?: VisualPrompt[] | null;
+    visual_prompts?: unknown[] | null;
     intelligence?: CompanyIntelligence | null;
     share_token?: string | null;
   };
@@ -100,9 +81,11 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
           industry: company?.industry,
           website: company?.website,
           country: company?.country,
+          logo_url: company?.logo_url,
         }}
         campaign={p.campaigns}
         approvedImages={approvedImages}
+        companyId={company?.id as string | undefined}
       />
     </div>
   );

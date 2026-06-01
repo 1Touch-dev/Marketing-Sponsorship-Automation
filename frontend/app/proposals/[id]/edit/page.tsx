@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ProposalEditor } from "./proposal-editor";
+import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-panel";
+import type { StrategyVariant } from "@/lib/ai/schemas";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ProposalContent } from "@/types/database";
@@ -17,7 +19,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
   const [{ data: proposal }, { data: versions }] = await Promise.all([
     sb
       .from("proposals")
-      .select("*, companies(company_name, industry), campaigns(title)")
+      .select("*, companies(id, company_name, industry, logo_url), campaigns(title), strategy_variants")
       .eq("id", params.id)
       .maybeSingle(),
     sb
@@ -31,8 +33,9 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
   if (!proposal) notFound();
 
   const p = proposal as typeof proposal & {
-    companies: { company_name: string; industry: string | null } | null;
+    companies: { id: string; company_name: string; industry: string | null; logo_url?: string | null } | null;
     campaigns: { title: string } | null;
+    strategy_variants?: StrategyVariant[] | null;
   };
 
   return (
@@ -75,6 +78,25 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
             companyName={p.companies?.company_name}
             industry={p.companies?.industry ?? undefined}
             campaignTitle={p.campaigns?.title}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">Visuais da proposta</CardTitle>
+          <CardDescription>
+            Mockup de camisa, criativos e seleção de imagens — mesmas ferramentas da página da proposta.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProposalGraphicsPanel
+            proposalId={proposal.id}
+            companyId={p.companies?.id}
+            companyName={p.companies?.company_name ?? ""}
+            sponsorLogoUrl={p.companies?.logo_url}
+            campaignTitle={p.campaigns?.title}
+            strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
           />
         </CardContent>
       </Card>

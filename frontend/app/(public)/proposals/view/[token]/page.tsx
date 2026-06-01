@@ -2,7 +2,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import type { ProposalContent } from "@/types/database";
-import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
+import type { StrategyVariant, PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
+import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 
 export const dynamic = "force-dynamic";
@@ -26,29 +27,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   // Only show approved or draft proposals publicly
   if (proposal.status === "rejected") notFound();
 
-  // Fetch approved/completed image generation jobs for this proposal
-  const { data: imageJobs } = await (sb as any)
-    .from("image_generation_jobs")
-    .select("id, job_type, prompt, output_urls, selected_url, status, created_at")
-    .eq("proposal_id", proposal.id)
-    .in("status", ["completed", "approved"])
-    .order("created_at", { ascending: false });
-
-  const approvedImages: Array<{ url: string; job_type: string; prompt?: string }> = [];
-  for (const job of (imageJobs ?? [])) {
-    const urls: Array<{ url?: string }> = job.output_urls ?? [];
-    const selected = job.selected_url;
-    if (selected) {
-      approvedImages.push({ url: selected, job_type: job.job_type, prompt: job.prompt });
-    } else {
-      for (const u of urls) {
-        if (u?.url && !u.url.startsWith("data:")) {
-          approvedImages.push({ url: u.url, job_type: job.job_type, prompt: job.prompt });
-          break;
-        }
-      }
-    }
-  }
+  const approvedImages = await fetchProposalImagesForLanding(proposal.id);
 
   type EnrichedProposal = typeof proposal & {
     companies: {
@@ -60,7 +39,6 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
     campaigns: { title: string; summary?: string | null } | null;
     strategy_variants?: StrategyVariant[] | null;
     pricing_tiers?: PricingTier[] | null;
-    visual_prompts?: VisualPrompt[] | null;
     intelligence?: CompanyIntelligence | null;
     share_token?: string | null;
   };
@@ -102,6 +80,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
           industry: company?.industry,
           website: company?.website,
           country: company?.country,
+          logo_url: company?.logo_url,
         }}
         campaign={p.campaigns}
         approvedImages={approvedImages}

@@ -61,6 +61,11 @@ export async function POST(req: Request) {
       quality?: string;
       n_images?: number;
       triggered_by?: string;
+      strategy_variant_id?: string;
+      strategy_label?: string;
+      placement_zone?: string;
+      inventory_label?: string;
+      display_label?: string;
     };
 
     if (!body.prompt || body.prompt.length < 10) {
@@ -85,6 +90,11 @@ export async function POST(req: Request) {
         quality:         body.quality ?? "standard",
         n_images:        body.n_images ?? 1,
         triggered_by:    body.triggered_by ?? "manual",
+        strategy_variant_id: body.strategy_variant_id?.trim() || null,
+        strategy_label: body.strategy_label?.trim() || null,
+        placement_zone: body.placement_zone?.trim() || null,
+        inventory_label: body.inventory_label?.trim() || null,
+        display_label: body.display_label?.trim() || null,
       })
       .select()
       .single();
@@ -111,11 +121,24 @@ export async function PATCH(req: Request) {
   try {
     const body = await req.json() as {
       job_id: string;
-      action: "approve" | "reject" | "generate" | "select_image" | "link_proposal";
+      action:
+        | "approve"
+        | "reject"
+        | "generate"
+        | "select_image"
+        | "link_proposal"
+        | "update_metadata"
+        | "bulk_approve";
       approved_by?: string;
       rejection_reason?: string;
       selected_url?: string;
       proposal_id?: string;
+      strategy_variant_id?: string | null;
+      strategy_label?: string | null;
+      placement_zone?: string | null;
+      inventory_label?: string | null;
+      display_label?: string | null;
+      job_ids?: string[];
     };
 
     const sb = supabaseAdmin();
@@ -157,6 +180,36 @@ export async function PATCH(req: Request) {
         } as unknown as Record<string, unknown>)
         .eq("id", body.job_id);
       return NextResponse.json({ success: true, status: "approved" });
+    }
+
+    // ── Update metadata (strategy / inventory links) ─────────────────
+    if (body.action === "update_metadata") {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (body.strategy_variant_id !== undefined) patch.strategy_variant_id = body.strategy_variant_id;
+      if (body.strategy_label !== undefined) patch.strategy_label = body.strategy_label;
+      if (body.placement_zone !== undefined) patch.placement_zone = body.placement_zone;
+      if (body.inventory_label !== undefined) patch.inventory_label = body.inventory_label;
+      if (body.display_label !== undefined) patch.display_label = body.display_label;
+      await sb.from("image_generation_jobs" as "companies")
+        .update(patch as unknown as Record<string, unknown>)
+        .eq("id", body.job_id);
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Bulk approve jobs ─────────────────────────────────────────────
+    if (body.action === "bulk_approve") {
+      const ids = body.job_ids ?? [];
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "job_ids required" }, { status: 400 });
+      }
+      await sb.from("image_generation_jobs" as "companies")
+        .update({
+          status: "completed",
+          approved_by: body.approved_by ?? "admin",
+          approved_at: new Date().toISOString(),
+        } as unknown as Record<string, unknown>)
+        .in("id", ids);
+      return NextResponse.json({ success: true, count: ids.length });
     }
 
     // ── Select image ──────────────────────────────────────────────────

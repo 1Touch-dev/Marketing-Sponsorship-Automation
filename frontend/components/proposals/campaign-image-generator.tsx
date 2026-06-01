@@ -71,6 +71,9 @@ export function CampaignImageGenerator({
     try {
       for (const p of prompts) {
         // Step 1: Create job
+        const strategyId =
+          strategyVariants?.find((s) => s.label === p.strategy_label)?.id ?? undefined;
+
         const res1 = await fetch("/api/image-generation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,6 +84,9 @@ export function CampaignImageGenerator({
             size: "1792x1024",
             quality: "standard",
             triggered_by: "campaign_generator",
+            strategy_variant_id: strategyId,
+            strategy_label: p.strategy_label ?? null,
+            display_label: p.strategy_label ? `Campanha — ${p.strategy_label}` : "Campanha",
           }),
         });
         const d1 = await res1.json();

@@ -18,8 +18,9 @@ export async function GET(req: Request) {
       "0016": "Role-based users: platform_users table, role enum (admin/sales_rep/approver/viewer)",
       "0017": "Inventory operational fields: avg_views, content_hours, team_required, production_cost, setup_hours, line_items",
       "0018": "Add active_contract to proposal_status enum",
+      "0020": "Image job links: strategy, placement, inventory labels",
     },
-    usage: "POST with { migration: '0009' | '0010' | '0011' | '0014' | '0015' | '0016' | '0017' | '0018' }",
+    usage: "POST with { migration: '0009' | ... | '0020' }",
   });
 }
 
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
     "0016": SQL_0016,
     "0017": SQL_0017,
     "0018": SQL_0018,
+    "0020": SQL_0020,
   };
 
   const sql = sqlMap[migration];

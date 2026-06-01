@@ -6,7 +6,9 @@ import type { ProposalContent } from "@/types/database";
 import type { PricingTier, StrategyVariant, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
 import { ProposalLandingPage } from "./proposal-landing-page";
 import { InlineEdit } from "./inline-edit";
+import { ProposalGraphicsPanel } from "./proposal-graphics-panel";
 import { cn } from "@/lib/utils";
+import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
 
 interface ProposalCMSEditorProps {
   proposal: {
@@ -27,9 +29,11 @@ interface ProposalCMSEditorProps {
     industry?: string | null;
     website?: string | null;
     country?: string | null;
+    logo_url?: string | null;
   };
   campaign?: { title: string; summary?: string | null } | null;
-  approvedImages?: Array<{ url: string; job_type: string; prompt?: string }>;
+  approvedImages?: ProposalImageAsset[];
+  companyId?: string;
 }
 
 type ContentFields = {
@@ -58,7 +62,7 @@ const CMS_FIELDS: Array<{
 ];
 
 export function ProposalCMSEditor({
-  proposal, company, campaign, approvedImages = [],
+  proposal, company, campaign, approvedImages = [], companyId,
 }: ProposalCMSEditorProps) {
   const [editMode, setEditMode] = useState(false);
   const [localContent, setLocalContent] = useState<ContentFields>(
@@ -162,6 +166,18 @@ export function ProposalCMSEditor({
                 );
               })}
             </div>
+          </div>
+          <div className="mt-6 pt-6 border-t border-green-200">
+            <h3 className="text-sm font-semibold text-green-900 mb-3">Visuais — gerar, selecionar e vincular campanhas</h3>
+            <ProposalGraphicsPanel
+              proposalId={proposal.id}
+              companyId={companyId}
+              companyName={company.company_name}
+              sponsorLogoUrl={company.logo_url}
+              campaignTitle={campaign?.title}
+              strategyVariants={(proposal.strategy_variants ?? null) as StrategyVariant[] | null}
+              compact
+            />
           </div>
         </div>
       )}
