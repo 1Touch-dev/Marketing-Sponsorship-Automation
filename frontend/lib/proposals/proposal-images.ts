@@ -2,6 +2,8 @@
  * Proposal image assets — shared parsing and grouping for landing + admin UI.
  */
 
+import { JERSEY_PLACEMENTS, type JerseyPlacementId } from "@/lib/media/jersey-placements";
+
 export type ProposalImageAsset = {
   id: string;
   url: string;
@@ -116,3 +118,51 @@ export const INVENTORY_ASSIGN_OPTIONS = [
   { id: "vip_hospitality", label: "Hospitality / VIP" },
   { id: "other", label: "Outro inventário" },
 ] as const;
+
+const JOB_TYPE_LABELS: Record<string, string> = {
+  campaign_creative: "Campanha criativa",
+  jersey_mockup: "Mockup da camisa",
+  jersey_mockup_official: "Mockup oficial da camisa",
+  led_board: "LED Couto Pereira",
+  stadium_banner: "Banner estádio",
+  social_post: "Redes sociais",
+  press_backdrop: "Backdrop imprensa",
+  scoreboard: "Painel LED",
+};
+
+/** Human-readable caption for landing, bulk approve, and image manager. */
+export function resolveProposalImageLabel(
+  img: Pick<
+    ProposalImageAsset,
+    "display_label" | "placement_zone" | "inventory_label" | "strategy_label" | "job_type"
+  >
+): string {
+  const isJersey = img.job_type.includes("jersey");
+  const placement = img.placement_zone as JerseyPlacementId | null | undefined;
+  if (isJersey || placement) {
+    const pt = placement
+      ? JERSEY_PLACEMENTS.find((p) => p.id === placement)?.labelPt
+      : null;
+    if (pt) return `Camisa — ${pt}`;
+  }
+
+  if (img.strategy_label?.trim()) {
+    return `Campanha — ${img.strategy_label.trim()}`;
+  }
+
+  if (img.inventory_label) {
+    const inv = INVENTORY_ASSIGN_OPTIONS.find((o) => o.id === img.inventory_label);
+    if (inv) return inv.label;
+  }
+
+  if (img.display_label) {
+    const legacy = img.display_label.match(/^Camisa — ([\w_]+)$/);
+    if (legacy) {
+      const pt = JERSEY_PLACEMENTS.find((p) => p.id === legacy[1])?.labelPt;
+      if (pt) return `Camisa — ${pt}`;
+    }
+    return img.display_label;
+  }
+
+  return JOB_TYPE_LABELS[img.job_type] ?? img.job_type.replace(/_/g, " ");
+}

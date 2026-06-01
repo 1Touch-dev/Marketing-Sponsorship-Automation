@@ -4,7 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, ExternalLink, Loader2, ImageIcon, FileText } from "lucide-react";
-import { resolveJobImageUrl, type ImageJobRow } from "@/lib/proposals/proposal-images";
+import {
+  resolveJobImageUrl,
+  resolveProposalImageLabel,
+  type ImageJobRow,
+} from "@/lib/proposals/proposal-images";
 
 type JobRow = ImageJobRow & { proposal_id?: string | null };
 
@@ -132,7 +136,7 @@ export function BulkApproveClient({
                   <div className="flex-1 min-w-0 text-xs">
                     <div className="font-semibold text-slate-800">{company}</div>
                     <div className="text-slate-500 truncate">
-                      {job.display_label || job.job_type}
+                      {resolveProposalImageLabel(job)}
                     </div>
                     {job.proposal_id && (
                       <Link

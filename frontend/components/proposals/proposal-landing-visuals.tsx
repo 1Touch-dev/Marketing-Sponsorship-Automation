@@ -3,27 +3,24 @@
 import React from "react";
 import {
   groupProposalImages,
+  resolveProposalImageLabel,
   type ProposalImageAsset,
 } from "@/lib/proposals/proposal-images";
 import type { StrategyVariant } from "@/lib/ai/schemas";
 
 function ImageCard({ img, caption }: { img: ProposalImageAsset; caption?: string }) {
+  const label = resolveProposalImageLabel(img);
   return (
     <figure className="rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={img.url}
-        alt={caption ?? img.display_label ?? "Visual da proposta"}
+        alt={caption ?? label}
         className="w-full object-cover"
         style={{ maxHeight: 320 }}
       />
       <figcaption className="px-4 py-3 border-t border-slate-100">
-        <p className="text-sm font-semibold text-slate-800">
-          {img.display_label ||
-            img.strategy_label ||
-            img.inventory_label?.replace(/_/g, " ") ||
-            img.job_type.replace(/_/g, " ")}
-        </p>
+        <p className="text-sm font-semibold text-slate-800">{label}</p>
         {caption && <p className="text-xs text-slate-500 mt-1">{caption}</p>}
       </figcaption>
     </figure>

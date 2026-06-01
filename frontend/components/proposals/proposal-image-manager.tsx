@@ -9,6 +9,7 @@ import {
   type ProposalImageAsset,
   buildProposalImagesFromJobs,
   resolveJobImageUrl,
+  resolveProposalImageLabel,
 } from "@/lib/proposals/proposal-images";
 
 type Props = {
@@ -114,7 +115,7 @@ export function ProposalImageManager({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-medium text-slate-700 capitalize">
-                  {job.display_label || job.job_type.replace(/_/g, " ")}
+                  {resolveProposalImageLabel(job)}
                 </span>
                 {selected && (
                   <span className="text-[10px] text-green-700 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">

@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { compositeJerseyMockup } from "@/lib/media/jersey-composite";
 import type { JerseyPlacementId } from "@/lib/media/jersey-placements";
-import { isPlacementAvailable } from "@/lib/media/jersey-placements";
+import { getPlacement, isPlacementAvailable } from "@/lib/media/jersey-placements";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
@@ -76,6 +76,10 @@ export async function POST(req: Request) {
     }
 
     const durationMs = Date.now() - startMs;
+    const placementMeta = getPlacement(placement);
+    const displayLabel = placementMeta
+      ? `Camisa — ${placementMeta.labelPt}`
+      : `Camisa — ${placement}`;
     const promptNote = `Official kit mockup — ${sponsorName} on ${placement}. Crest unchanged (wearer's left).`;
 
     let jobId: string | null = null;
@@ -90,7 +94,7 @@ export async function POST(req: Request) {
           prompt: promptNote,
           placement_zone: placement,
           inventory_label: placement.startsWith("chest") ? "jersey_chest" : placement.includes("sleeve") ? "jersey_sleeve" : "jersey_chest",
-          display_label: `Camisa — ${placement}`,
+          display_label: displayLabel,
           provider: "jersey_composite",
           model: "official-kit-overlay",
           output_urls: [{ url: publicUrl, index: 0 }],
