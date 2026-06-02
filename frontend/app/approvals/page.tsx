@@ -32,8 +32,8 @@ type ApprovalEmail = {
   subject: string;
   status: string;
   created_at: string;
-  company_id: string | null;
-  companies: { company_name: string } | null;
+  proposal_id: string | null;
+  proposals: { id: string; title: string; companies: { company_name: string } | null } | null;
 };
 
 export default async function ApprovalsPage({
@@ -53,12 +53,12 @@ export default async function ApprovalsPage({
     sb
       .from("campaigns")
       .select("id, title, status, created_at, company_id, companies(company_name)")
-      .in("status", ["draft", "selected", "under_review"])
+      .in("status", ["draft", "selected"])
       .order("created_at", { ascending: false })
       .limit(50),
     sb
       .from("emails")
-      .select("id, subject, status, created_at, company_id, companies(company_name)")
+      .select("id, subject, status, created_at, proposal_id, proposals(id, title, companies(company_name))")
       .in("status", ["draft", "pending_approval", "approved"])
       .order("created_at", { ascending: false })
       .limit(50),
@@ -216,7 +216,7 @@ export default async function ApprovalsPage({
                     <div>
                       <div className="font-medium text-sm">{truncate(e.subject ?? "No subject", 90)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {e.companies?.company_name ?? "—"} · {formatDate(e.created_at)}
+                        {e.proposals?.companies?.company_name ?? "—"} · {formatDate(e.created_at)}
                       </div>
                     </div>
                     <StatusBadge status={e.status} />

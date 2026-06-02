@@ -85,13 +85,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               </Link>
             </Button>
             <DuplicateProposalButton proposalId={proposal.id} />
-            {p.share_token ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/proposals/${proposal.id}/view`} target="_blank">
-                  Landing Page ↗
-                </Link>
-              </Button>
-            ) : null}
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/proposals/${proposal.id}/view`} target="_blank">
+                Landing Page ↗
+              </Link>
+            </Button>
             <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={hasIntelligenceLayer} />
             <ProposalShareButton proposalId={proposal.id} shareToken={p.share_token ?? null} />
             <Button asChild size="sm" className="gap-1.5">

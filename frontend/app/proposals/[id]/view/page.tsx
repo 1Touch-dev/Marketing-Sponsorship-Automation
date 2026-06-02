@@ -45,7 +45,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
   const company = p.companies;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 pb-20">{/* pb-20 reserves space for fixed bottom CTA */}
       {/* Admin controls bar — print:hidden so it never shows on PDF */}
       <div className="sticky top-0 z-[60] flex items-center justify-between bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-2 print:hidden">
         <Link
