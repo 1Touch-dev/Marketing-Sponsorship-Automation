@@ -13,6 +13,8 @@ import {
   ExternalLink,
   Shield,
   AlertCircle,
+  Eye,
+  X,
 } from "lucide-react";
 import { SCENE_PRESETS, buildReplicatePrompt } from "@/lib/media/jersey-prompts";
 import {
@@ -67,6 +69,9 @@ export function ReplicateJerseyGenerator({
   const [error, setError] = useState<string | null>(null);
   const [showPresets, setShowPresets] = useState(false);
   const [generatingScene, setGeneratingScene] = useState<string | null>(null);
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [previewPrompt, setPreviewPrompt] = useState<string>("");
+  const [pendingGeneration, setPendingGeneration] = useState<"official" | "creative" | null>(null);
 
   const toggleScene = (idx: number) => {
     setSelectedScenes((prev) =>
@@ -176,8 +181,27 @@ export function ReplicateJerseyGenerator({
   };
 
   const generate = () => {
-    if (mode === "official") return generateOfficial();
-    return generateCreative();
+    // Show prompt preview before firing
+    if (mode === "official") {
+      setPreviewPrompt(`Mockup oficial — ${companyName} · colocação da camisa. Escudo Coritiba intacto.`);
+    } else {
+      if (selectedScenes.length === 0) return setError("Selecione ao menos 1 cena para gerar.");
+      const firstScene = SCENE_PRESETS[selectedScenes[0]];
+      const samplePrompt = buildReplicatePrompt(companyName, firstScene, customNote, placement);
+      setPreviewPrompt(selectedScenes.length > 1
+        ? `${selectedScenes.length} cenas selecionadas. Exemplo de prompt (cena 1):\n\n${samplePrompt}`
+        : samplePrompt
+      );
+    }
+    setPendingGeneration(mode);
+    setShowPromptPreview(true);
+  };
+
+  const confirmGeneration = () => {
+    setShowPromptPreview(false);
+    setPendingGeneration(null);
+    if (pendingGeneration === "official") generateOfficial();
+    else generateCreative();
   };
 
   const totalEstSec = mode === "official" ? 3 : selectedScenes.length * 40;
@@ -454,6 +478,46 @@ export function ReplicateJerseyGenerator({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Prompt Preview Modal */}
+      {showPromptPreview && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-green-600" />
+                <h3 className="font-semibold text-sm">Confirmar geração</h3>
+              </div>
+              <button onClick={() => { setShowPromptPreview(false); setPendingGeneration(null); }}>
+                <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              </button>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide">Prompt que será usado</p>
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg border p-3 text-xs font-mono leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {previewPrompt}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Você pode editar a nota adicional abaixo para personalizar o prompt antes de confirmar.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowPromptPreview(false); setPendingGeneration(null); }}
+                className="rounded-lg border px-4 py-2 text-sm hover:bg-accent transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmGeneration}
+                className="rounded-lg bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-2"
+              >
+                <Shirt className="h-3.5 w-3.5" /> Confirmar e gerar
+              </button>
+            </div>
           </div>
         </div>
       )}

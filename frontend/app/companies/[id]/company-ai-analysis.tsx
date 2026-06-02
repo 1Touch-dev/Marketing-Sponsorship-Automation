@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,8 +9,10 @@ import {
   Trophy, RotateCcw, Globe, Search, Building2, CheckCircle,
   AlertCircle, Loader2, ExternalLink, Mail, Linkedin,
   Instagram, Twitter, Youtube, Facebook, Megaphone, UserCheck,
+  UserPlus, CheckCheck,
 } from "lucide-react";
 import { ApifyDiscoveryPanel } from "@/components/intelligence/apify-discovery-panel";
+import { useToast } from "@/components/ui/toaster";
 
 interface Props {
   companyId: string;
@@ -26,6 +28,7 @@ interface Props {
 export function CompanyAIAnalysis({
   companyId, companyName, industry, website, notes, intelligence, competitors: rawCompetitors,
 }: Props) {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [serpLoading, setSerpLoading] = useState(false);
@@ -40,6 +43,42 @@ export function CompanyAIAnalysis({
     (intelligence?.enrichment as Record<string, unknown>) ?? null
   );
   const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp" | "discover" | "contacts">("intelligence");
+  const [savedContactEmails, setSavedContactEmails] = useState<Set<string>>(new Set());
+  const [savingContacts, setSavingContacts] = useState(false);
+
+  const saveContacts = useCallback(async (contacts: Array<{ email: string; full_name?: string; title?: string; department?: string; seniority?: string; confidence?: number; source: string }>) => {
+    setSavingContacts(true);
+    try {
+      const res = await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contacts: contacts.map((c) => ({
+            company_id: companyId,
+            email: c.email,
+            full_name: c.full_name ?? null,
+            title: c.title ?? null,
+            department: c.department ?? null,
+            seniority: c.seniority ?? null,
+            source: c.source,
+            confidence: c.confidence ?? null,
+          })),
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Save failed");
+      setSavedContactEmails((prev) => {
+        const next = new Set(prev);
+        contacts.forEach((c) => next.add(c.email));
+        return next;
+      });
+      toast({ variant: "success", title: `${j.saved} contact${j.saved !== 1 ? "s" : ""} saved!` });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to save contacts", description: err instanceof Error ? err.message : "Unknown" });
+    } finally {
+      setSavingContacts(false);
+    }
+  }, [companyId, toast]);
 
   const scrapeMetadata = data?.scrape_metadata as Record<string, unknown> | null;
   const sponsorshipProfile = (data?.sponsorship_profile as Record<string, unknown>) ?? {};
@@ -291,6 +330,7 @@ export function CompanyAIAnalysis({
                     {comp.website && (
                       <a href={`https://${comp.website}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3.5 w-3.5" /></a>
                     )}
+                    <AddCompetitorButton name={comp.name} website={comp.website} industry={industry} />
                   </div>
                 ))
               )}
@@ -541,9 +581,20 @@ export function CompanyAIAnalysis({
                     {/* Hunter decision makers */}
                     {decisionMakers.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <UserCheck className="h-3.5 w-3.5 text-blue-500" /> Hunter Decision Makers ({decisionMakers.length})
-                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            <UserCheck className="h-3.5 w-3.5 text-blue-500" /> Hunter Decision Makers ({decisionMakers.length})
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs gap-1 text-green-700 border-green-300"
+                            disabled={savingContacts}
+                            onClick={() => saveContacts(decisionMakers.map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
+                          >
+                            <UserPlus className="h-3 w-3" /> Save all
+                          </Button>
+                        </div>
                         <div className="space-y-2">
                           {decisionMakers.map((c, i) => (
                             <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-900/10">
@@ -563,6 +614,13 @@ export function CompanyAIAnalysis({
                                   <Linkedin className="h-3.5 w-3.5" />
                                 </a>
                               )}
+                              <button
+                                onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
+                                className="text-xs rounded px-2 py-1 border transition-colors shrink-0"
+                                title="Save contact"
+                              >
+                                {savedContactEmails.has(c.email) ? <CheckCheck className="h-3.5 w-3.5 text-green-600" /> : <UserPlus className="h-3.5 w-3.5 text-muted-foreground hover:text-green-600" />}
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -572,9 +630,20 @@ export function CompanyAIAnalysis({
                     {/* Other contacts */}
                     {otherContacts.length > 0 && (
                       <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                          <Mail className="h-3.5 w-3.5" /> All Contacts ({allContacts.length} found via Hunter.io)
-                        </p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                            <Mail className="h-3.5 w-3.5" /> All Contacts ({allContacts.length} found via Hunter.io)
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs gap-1 text-green-700 border-green-300"
+                            disabled={savingContacts}
+                            onClick={() => saveContacts(otherContacts.map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
+                          >
+                            <UserPlus className="h-3 w-3" /> Save all
+                          </Button>
+                        </div>
                         <div className="space-y-1.5 max-h-48 overflow-y-auto">
                           {otherContacts.map((c, i) => (
                             <div key={i} className="flex items-center gap-2 p-2 rounded border text-sm bg-muted/20">
@@ -583,6 +652,13 @@ export function CompanyAIAnalysis({
                               {c.full_name && <span className="text-xs text-muted-foreground truncate max-w-[120px]">{c.full_name}</span>}
                               {c.position && <span className="text-xs text-muted-foreground truncate max-w-[100px]">{c.position}</span>}
                               <span className="text-xs text-muted-foreground shrink-0">{c.confidence}%</span>
+                              <button
+                                onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
+                                className="text-xs rounded px-1.5 py-0.5 border transition-colors shrink-0 ml-1"
+                                title="Save contact"
+                              >
+                                {savedContactEmails.has(c.email) ? <CheckCheck className="h-3 w-3 text-green-600" /> : <UserPlus className="h-3 w-3 text-muted-foreground hover:text-green-600" />}
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -792,5 +868,47 @@ function IntelSection({
       </div>
       <p className="text-sm leading-relaxed whitespace-pre-line">{text}</p>
     </div>
+  );
+}
+
+function AddCompetitorButton({ name, website, industry }: { name: string; website?: string; industry: string | null }) {
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function addToDb() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/companies", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          company_name: name,
+          website: website ? `https://${website}` : undefined,
+          industry: industry ?? undefined,
+          status: "prospect",
+          notes: `Added from competitor analysis`,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Failed");
+      setSaved(true);
+      toast({ variant: "success", title: `${name} added to companies!` });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to add competitor", description: err instanceof Error ? err.message : "Unknown" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={addToDb}
+      disabled={saving || saved}
+      className={`text-xs rounded px-2 py-1 border transition-colors shrink-0 flex items-center gap-1 ${saved ? "text-green-700 border-green-300 bg-green-50" : "text-muted-foreground hover:text-primary hover:border-primary/50"}`}
+      title="Add to company database"
+    >
+      {saved ? <><CheckCircle className="h-3 w-3" /> Added</> : saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Building2 className="h-3 w-3" /> Add to DB</>}
+    </button>
   );
 }

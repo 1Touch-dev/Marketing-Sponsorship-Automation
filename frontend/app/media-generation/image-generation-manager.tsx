@@ -247,12 +247,42 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
 
   return (
     <div className="space-y-4">
-      {/* New Job Button */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">{localJobs.length} job{localJobs.length !== 1 ? "s" : ""} · Approval-first pipeline</div>
-        <Button size="sm" onClick={() => setShowNew(v => !v)} className="gap-1.5">
-          <Plus className="h-3.5 w-3.5" /> New Generation Job
-        </Button>
+      {/* New Job Button + Reset Stuck */}
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <div className="text-sm text-muted-foreground">
+          {localJobs.length} job{localJobs.length !== 1 ? "s" : ""} · Approval-first pipeline
+          {localJobs.filter(j => (j.status as string) === "generating").length > 0 && (
+            <span className="ml-2 text-amber-600 font-medium">
+              · {localJobs.filter(j => (j.status as string) === "generating").length} stuck in &quot;generating&quot;
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {localJobs.some(j => (j.status as string) === "generating") && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"
+              onClick={async () => {
+                const stuckIds = localJobs.filter(j => (j.status as string) === "generating").map(j => j.id as string);
+                for (const id of stuckIds) {
+                  await fetch("/api/image-generation", {
+                    method: "PATCH",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ job_id: id, action: "approve", approved_by: "admin" }),
+                  });
+                }
+                setLocalJobs(prev => prev.map(j => (j.status as string) === "generating" ? { ...j, status: "approved" } : j));
+                toast({ title: `${stuckIds.length} stuck jobs reset to approved — ready to retry` });
+              }}
+            >
+              Reset {localJobs.filter(j => (j.status as string) === "generating").length} stuck jobs
+            </Button>
+          )}
+          <Button size="sm" onClick={() => setShowNew(v => !v)} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> New Generation Job
+          </Button>
+        </div>
       </div>
 
       {/* New job form */}

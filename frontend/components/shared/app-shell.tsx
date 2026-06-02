@@ -8,11 +8,14 @@ import { GlobalSearch } from "@/components/shared/global-search";
 import { QuickActionsFAB } from "@/components/shared/quick-actions";
 import { UserRoleProvider } from "@/lib/auth/use-user-role";
 
-const PUBLIC_PREFIXES = ["/proposals/view/"];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
+  // /proposals/view/* lives in the (public) route group (no sidebar by design)
+  // /proposals/[id]/view is the admin-linked landing page — strip sidebar so
+  // sponsors don't see internal navigation when we share the direct link
+  const isPublicView =
+    pathname.startsWith("/proposals/view/") ||
+    /^\/proposals\/[^/]+\/view$/.test(pathname);
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {
@@ -21,10 +24,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("open-global-search", onOpen);
   }, []);
 
-  if (isPublic || isLoginPage) {
-    // Login page renders without any wrapper; public proposals use ContentWrapper
+  if (isPublicView || isLoginPage) {
     if (isLoginPage) return <>{children}</>;
-    return <ContentWrapper>{children}</ContentWrapper>;
+    return <>{children}</>;
   }
 
   return (

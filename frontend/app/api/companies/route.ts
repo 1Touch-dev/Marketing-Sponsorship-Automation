@@ -5,11 +5,29 @@ import { recordAudit } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
   const sb = supabaseAdmin();
-  const { data, error } = await sb.from("companies").select("*").order("created_at", { ascending: false });
+  const { searchParams } = new URL(req.url);
+  const q = searchParams.get("q")?.trim() ?? "";
+  const industry = searchParams.get("industry")?.trim() ?? "";
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "500", 10), 500);
+
+  let query = sb
+    .from("companies")
+    .select("id, company_name, industry, website, country, status, contact_email, contact_name, logo_url, created_at")
+    .order("company_name", { ascending: true })
+    .limit(limit);
+
+  if (industry) {
+    query = query.ilike("industry", `%${industry}%`);
+  }
+  if (q) {
+    query = query.ilike("company_name", `%${q}%`);
+  }
+
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: Request) {

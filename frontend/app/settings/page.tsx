@@ -112,6 +112,10 @@ export default async function SettingsPage({
   const gmailConnected = !!(tokens?.access_token && tokens?.refresh_token);
   const connectedEmail = tokens?.connected_email ?? (gmailConnected ? configuredSender : null);
   const expiresAt = tokens?.expiry_date ? new Date(tokens.expiry_date).toLocaleString() : null;
+  const isTokenExpired = tokens?.expiry_date ? tokens.expiry_date < Date.now() : false;
+  const isTokenExpiringSoon = tokens?.expiry_date
+    ? tokens.expiry_date < Date.now() + 7 * 24 * 60 * 60 * 1000 && !isTokenExpired
+    : false;
 
   // Mismatch warning — connected account differs from configured sender
   const senderMismatch =
@@ -134,6 +138,28 @@ export default async function SettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Configure integrations and platform options." />
+
+      {/* Gmail expired warning banner */}
+      {gmailConnected && isTokenExpired && (
+        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm font-semibold text-red-800 dark:text-red-300">
+            🚨 Gmail token EXPIRED (since {expiresAt}) — outgoing emails may be silently failing!
+          </p>
+          <Button size="sm" variant="destructive" asChild>
+            <a href="/api/auth/gmail">Reconnect Gmail now</a>
+          </Button>
+        </div>
+      )}
+      {gmailConnected && isTokenExpiringSoon && !isTokenExpired && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+            ⚠ Gmail token expires soon ({expiresAt}). Reconnect before it expires.
+          </p>
+          <Button size="sm" variant="outline" asChild>
+            <a href="/api/auth/gmail">Reconnect Gmail</a>
+          </Button>
+        </div>
+      )}
 
       {searchParams.gmail === "connected" ? (
         <div className="mb-4 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -178,7 +204,10 @@ export default async function SettingsPage({
                   <div className="text-muted-foreground">Configured sender: {configuredSender}</div>
                 )}
                 {expiresAt && (
-                  <div className="text-xs text-muted-foreground">Token expires: {expiresAt}</div>
+                  <div className={`text-xs ${isTokenExpired ? "text-red-600 font-semibold" : isTokenExpiringSoon ? "text-amber-600" : "text-muted-foreground"}`}>
+                    Token {isTokenExpired ? "EXPIRED" : isTokenExpiringSoon ? "expires soon" : "expires"}: {expiresAt}
+                    {isTokenExpired && " — Emails may be silently failing. Reconnect now!"}
+                  </div>
                 )}
               </div>
             ) : configuredSender ? (

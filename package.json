@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "pm2:setup": "bash scripts/pm2-production-setup.sh",
+    "pm2:status": "pm2 list && curl -s -o /dev/null -w 'ngrok health: %{http_code}\\n' https://eligibly-facing-unloved.ngrok-free.dev/api/health"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "puppeteer": "^24.43.1"

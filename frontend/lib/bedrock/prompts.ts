@@ -415,25 +415,39 @@ export function outreachEmailPrompt(args: {
   proposalTitle: string;
   proposalSummary: string;
   contactName?: string | null;
+  contactTitle?: string | null;
+  proposalLink?: string | null;
+  senderName?: string | null;
+  senderTitle?: string | null;
 }) {
+  const senderBlock = args.senderName
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
+    : "Sender: Departamento Comercial, Coritiba FC";
+
   return {
     system: [
-      "You write concise, warm B2B outreach emails for Coritiba FC sponsorship deals.",
+      "You write concise, compelling B2B sponsorship pitch emails in Brazilian Portuguese for Coritiba FC.",
       "Emails represent Coritiba FC's commercial department.",
-      "Tone: confident, professional, no fluff. Keep under 180 words.",
+      "Tone: warm, confident, direct, exciting — make the sponsor feel the opportunity is unique.",
+      "Keep under 200 words. No fluff. Include a clear CTA.",
+      "ALWAYS include the proposal link in the email body as a prominent CTA button/line.",
+      "NEVER use [Nome] or [placeholder] — use the actual names provided.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
       `Company: ${args.company.company_name}`,
-      args.contactName ? `Contact: ${args.contactName}` : null,
+      args.contactName ? `Contact name: ${args.contactName}` : null,
+      args.contactTitle ? `Contact title: ${args.contactTitle}` : null,
       `Proposal title: ${args.proposalTitle}`,
       `Proposal summary: ${args.proposalSummary}`,
+      args.proposalLink ? `Proposal link (MUST appear in body): ${args.proposalLink}` : null,
+      senderBlock,
       "",
-      "Write a Coritiba FC outreach email. Return JSON:",
+      "Write a compelling Coritiba FC sponsorship pitch email in Portuguese (Brazilian). Return JSON:",
       `{
-  "subject": "short subject line mentioning Coritiba FC partnership",
-  "body_text": "plain text body",
-  "body_html": "same body, simple HTML (<p>...</p>)"
+  "subject": "subject line — mention Coritiba FC and the opportunity",
+  "body_text": "plain text body — include CTA with proposal link",
+  "body_html": "HTML version with <p> tags, include a prominent 'Ver Proposta →' link"
 }`,
     ]
       .filter(Boolean)

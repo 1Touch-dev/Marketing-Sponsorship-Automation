@@ -19,6 +19,7 @@ export async function GET(req: Request) {
       "0017": "Inventory operational fields: avg_views, content_hours, team_required, production_cost, setup_hours, line_items",
       "0018": "Add active_contract to proposal_status enum",
       "0020": "Image job links: strategy, placement, inventory labels",
+      "0021": "Contacts table: save Hunter.io / Apollo contacts",
     },
     usage: "POST with { migration: '0009' | ... | '0020' }",
   });
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
     "0017": SQL_0017,
     "0018": SQL_0018,
     "0020": SQL_0020,
+    "0021": SQL_0021,
   };
 
   const sql = sqlMap[migration];
@@ -559,5 +561,33 @@ ALTER TABLE public.image_generation_jobs
   ADD COLUMN IF NOT EXISTS display_label TEXT;
 CREATE INDEX IF NOT EXISTS idx_img_jobs_strategy ON public.image_generation_jobs(strategy_variant_id);
 CREATE INDEX IF NOT EXISTS idx_img_jobs_placement ON public.image_generation_jobs(placement_zone);
+NOTIFY pgrst, 'reload schema';
+`;
+
+const SQL_0021 = `
+CREATE TABLE IF NOT EXISTS public.contacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  full_name TEXT,
+  email TEXT NOT NULL,
+  title TEXT,
+  department TEXT,
+  seniority TEXT,
+  phone TEXT,
+  linkedin_url TEXT,
+  source TEXT NOT NULL DEFAULT 'manual',
+  confidence INTEGER,
+  notes TEXT,
+  added_by TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(company_id, email)
+);
+CREATE INDEX IF NOT EXISTS contacts_company_id_idx ON public.contacts(company_id);
+CREATE INDEX IF NOT EXISTS contacts_email_idx ON public.contacts(email);
+ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  CREATE POLICY "Service role full access on contacts" ON public.contacts FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 NOTIFY pgrst, 'reload schema';
 `;

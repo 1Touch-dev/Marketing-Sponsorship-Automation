@@ -215,6 +215,7 @@ export async function toolGenerateOutreachEmail(input: {
   proposal_id: string;
   recipient_email: string;
   recipient_name?: string;
+  recipient_title?: string;
   intelligence_context?: Record<string, unknown>;
 }): Promise<ToolResult> {
   const sb = supabaseAdmin();
@@ -223,7 +224,7 @@ export async function toolGenerateOutreachEmail(input: {
   try {
     const { data: proposal } = await sb
       .from("proposals")
-      .select("id, title, status, content, company_id, companies(id, company_name, industry, website, country)")
+      .select("id, title, status, content, company_id, share_token, companies(id, company_name, industry, website, country)")
       .eq("id", input.proposal_id)
       .single();
 
@@ -250,6 +251,12 @@ export async function toolGenerateOutreachEmail(input: {
       proposalTitle: proposal.title,
       proposalSummary: summary,
       contactName: input.recipient_name,
+      contactTitle: input.recipient_title ?? null,
+      proposalLink: proposal.share_token
+        ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
+        : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}/view`,
+      senderName: process.env.SENDER_NAME ?? "Departamento Comercial",
+      senderTitle: process.env.SENDER_TITLE ?? null,
     });
 
     let emailOutput = null;
