@@ -23,7 +23,7 @@ export const runtime = "nodejs";
 export const maxDuration = 900;
 
 const bulkSchema = z.object({
-  industry: z.string().min(1, "Industry is required"),
+  industry: z.string().optional().default(""),
   objective: z.string().optional().default("brand awareness"),
   company_ids: z.array(z.string().uuid()).optional(),
   max_companies: z.number().int().min(1).max(20).optional().default(10),
@@ -146,6 +146,11 @@ export async function POST(req: Request) {
   }
 
   const { industry, objective, company_ids, max_companies } = parsed.data;
+
+  if ((!company_ids || company_ids.length === 0) && !industry) {
+    return NextResponse.json({ error: "Provide company_ids or an industry filter" }, { status: 400 });
+  }
+
   const sb = supabaseAdmin();
 
   let query = sb
