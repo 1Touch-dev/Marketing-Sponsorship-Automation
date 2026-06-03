@@ -11,7 +11,8 @@ import { Building2, Globe, Calendar, Filter, Plus } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 const INDUSTRIES = [
-  "Automotivo", "Financeiro", "Alimentos e Bebidas", "Saúde",
+  "Automotivo", "Financeiro", "Alimentos e Bebidas", "Alimentação / Bebidas",
+  "Alimentação / Restaurantes", "Saúde",
   "Construção e Imobiliário", "Comércio - Atacado e Varejo", "Energia",
   "Educação", "Transporte e Logística", "Eletroeletrônicos",
   "Papel e Celulose", "Química", "Agropecuária",
@@ -19,6 +20,7 @@ const INDUSTRIES = [
   "Máquinas e Equipamentos", "Saneamento e Serviços Públicos",
   "Madeira e Cultivo Florestal", "Açúcar e Álcool",
   "Material de Construção", "Tecnologia", "Bebidas / FMCG",
+  "Beleza / Cosméticos / ESG", "Moda Esportiva",
 ];
 
 export default async function CompaniesPage({
@@ -55,7 +57,7 @@ export default async function CompaniesPage({
         (c.country ?? "").toLowerCase().includes(q),
     );
   }
-  if (searchParams.industry) {
+  if (searchParams.industry && !searchParams.q) {
     const ind = searchParams.industry.toLowerCase();
     companies = companies.filter((c) => (c.industry ?? "").toLowerCase().includes(ind));
   }

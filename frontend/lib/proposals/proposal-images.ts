@@ -24,6 +24,7 @@ export type ImageJobRow = {
   job_type: string;
   prompt?: string | null;
   status?: string;
+  approved_at?: string | null;
   output_urls?: Array<{ url?: string; index?: number }> | null;
   selected_url?: string | null;
   strategy_variant_id?: string | null;
@@ -32,6 +33,61 @@ export type ImageJobRow = {
   inventory_label?: string | null;
   display_label?: string | null;
 };
+
+/** Jobs that still need a bulk-approve pass before landing publication. */
+export function jobNeedsBulkReview(job: ImageJobRow): boolean {
+  const status = job.status ?? "";
+  if (status === "pending_approval" && resolveJobImageUrl(job)) return true;
+  if (status === "completed" && !job.approved_at && resolveJobImageUrl(job)) return true;
+  return false;
+}
+
+export function resolveJobStatusDisplay(
+  status: string | undefined,
+  approvedAt?: string | null
+): { label: string; className: string } {
+  const s = status ?? "";
+  if (s === "completed") {
+    if (approvedAt) {
+      return {
+        label: "Publicado na landing",
+        className: "bg-green-100 text-green-800",
+      };
+    }
+    return {
+      label: "Gerado — aguardando aprovação",
+      className: "bg-amber-100 text-amber-800",
+    };
+  }
+  const map: Record<string, { label: string; className: string }> = {
+    pending_approval: {
+      label: "Aguardando aprovação",
+      className: "bg-amber-100 text-amber-800",
+    },
+    approved: {
+      label: "Aprovado (aguardando geração)",
+      className: "bg-blue-100 text-blue-800",
+    },
+    generating: {
+      label: "Gerando imagem…",
+      className: "bg-purple-100 text-purple-800",
+    },
+    failed: {
+      label: "Falhou",
+      className: "bg-red-100 text-red-800",
+    },
+    rejected: {
+      label: "Rejeitado",
+      className: "bg-slate-100 text-slate-700",
+    },
+  };
+  return (
+    map[s] ?? {
+      label: s.replace(/_/g, " ") || "Desconhecido",
+      className: "bg-slate-100 text-slate-700",
+    }
+  );
+}
 
 export function resolveJobImageUrl(job: ImageJobRow): string | null {
   if (job.selected_url && !job.selected_url.startsWith("data:")) return job.selected_url;

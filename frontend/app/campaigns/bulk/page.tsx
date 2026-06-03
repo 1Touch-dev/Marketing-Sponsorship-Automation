@@ -14,30 +14,34 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Labels match ACTUAL Portuguese values stored in the `companies.industry` column
+// Labels match ACTUAL Portuguese values stored in the `companies.industry` column.
+// The API uses ilike(%pt%), so partial match works across variants.
 const COMMON_INDUSTRIES: { label: string; pt: string }[] = [
   { label: "Automotivo", pt: "Automotivo" },
   { label: "Financeiro", pt: "Financeiro" },
-  { label: "Alimentos e Bebidas", pt: "Alimentos e Bebidas" },
+  { label: "Alimentos e Bebidas", pt: "Alimentos" },
+  { label: "Alimentação / Restaurantes", pt: "Alimenta" },
   { label: "Saúde", pt: "Saúde" },
-  { label: "Construção e Imobiliário", pt: "Construção e Imobiliário" },
-  { label: "Comércio / Varejo", pt: "Comércio - Atacado e Varejo" },
+  { label: "Construção e Imobiliário", pt: "Construção" },
+  { label: "Comércio / Varejo", pt: "Comércio" },
   { label: "Energia", pt: "Energia" },
   { label: "Educação", pt: "Educação" },
-  { label: "Transporte e Logística", pt: "Transporte e Logística" },
+  { label: "Transporte e Logística", pt: "Transporte" },
   { label: "Eletroeletrônicos", pt: "Eletroeletrônicos" },
   { label: "Papel e Celulose", pt: "Papel e Celulose" },
   { label: "Química", pt: "Química" },
   { label: "Agropecuária", pt: "Agropecuária" },
-  { label: "Siderurgia e Mineração", pt: "Siderurgia e Mineração" },
-  { label: "Informática e Automação", pt: "Informática e Automação" },
-  { label: "Máquinas e Equipamentos", pt: "Máquinas e Equipamentos" },
-  { label: "Saneamento e Serviços", pt: "Saneamento e Serviços Públicos" },
-  { label: "Madeira e Florestal", pt: "Madeira e Cultivo Florestal" },
-  { label: "Açúcar e Álcool", pt: "Açúcar e Álcool" },
+  { label: "Siderurgia e Mineração", pt: "Siderurgia" },
+  { label: "Informática e Automação", pt: "Informática" },
+  { label: "Máquinas e Equipamentos", pt: "Máquinas" },
+  { label: "Saneamento e Serviços", pt: "Saneamento" },
+  { label: "Madeira e Florestal", pt: "Madeira" },
+  { label: "Açúcar e Álcool", pt: "Açúcar" },
   { label: "Material de Construção", pt: "Material de Construção" },
-  { label: "Bebidas / FMCG", pt: "Bebidas / FMCG" },
+  { label: "Bebidas / FMCG", pt: "Bebidas" },
   { label: "Tecnologia", pt: "Tecnologia" },
+  { label: "Beleza / Cosméticos", pt: "Beleza" },
+  { label: "Moda Esportiva", pt: "Moda" },
 ];
 
 type FoundCompany = {
@@ -75,8 +79,8 @@ export default function BulkCampaignsPage() {
   const [summary, setSummary] = useState<{ message: string; successful: number; failed: number } | null>(null);
   const [progress, setProgress] = useState("");
 
-  const searchCompanies = useCallback(async () => {
-    if (!industryFilter.trim() && !companySearch.trim()) {
+  const runSearch = useCallback(async (industry: string, q: string) => {
+    if (!industry.trim() && !q.trim()) {
       toast({ variant: "destructive", title: "Enter an industry or company name to search" });
       return;
     }
@@ -84,11 +88,16 @@ export default function BulkCampaignsPage() {
     setHasSearched(true);
     try {
       const params = new URLSearchParams();
-      if (industryFilter.trim()) params.set("industry", industryFilter.trim());
-      if (companySearch.trim()) params.set("q", companySearch.trim());
+      if (industry.trim()) params.set("industry", industry.trim());
+      if (q.trim()) params.set("q", q.trim());
       params.set("limit", "50");
       const res = await fetch(`/api/companies?${params}`);
       const j = await res.json();
+      if (!res.ok) {
+        toast({ variant: "destructive", title: j?.error ?? "Search failed" });
+        setFoundCompanies([]);
+        return;
+      }
       const companies: FoundCompany[] = Array.isArray(j) ? j : (j.data ?? []);
       setFoundCompanies(companies);
       if (companies.length === 0) {
@@ -99,7 +108,11 @@ export default function BulkCampaignsPage() {
     } finally {
       setSearchLoading(false);
     }
-  }, [industryFilter, companySearch, toast]);
+  }, [toast]);
+
+  const searchCompanies = useCallback(() => {
+    return runSearch(industryFilter, companySearch);
+  }, [industryFilter, companySearch, runSearch]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -188,7 +201,11 @@ export default function BulkCampaignsPage() {
                   <button
                     key={ind.pt}
                     type="button"
-                    onClick={() => setIndustryFilter(ind.pt)}
+                    onClick={() => {
+                      setIndustryFilter(ind.pt);
+                      setCompanySearch("");
+                      void runSearch(ind.pt, "");
+                    }}
                     className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                       industryFilter === ind.pt
                         ? "bg-primary text-primary-foreground border-primary"

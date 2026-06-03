@@ -48,9 +48,14 @@ export function InlineIndustryEdit({ companyId, currentIndustry }: { companyId: 
   }
 
   return (
-    <span className="inline-flex items-center gap-1 group cursor-pointer" onClick={() => setEditing(true)}>
+    <span
+      className="inline-flex items-center gap-1.5 group cursor-pointer rounded px-1.5 py-0.5 hover:bg-slate-100 transition-colors"
+      onClick={() => setEditing(true)}
+      title="Clique para editar a indústria"
+    >
       <span className="text-sm text-muted-foreground">{display || "Sem indústria"}</span>
-      <Pencil className="h-3 w-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Pencil className="h-3 w-3 text-slate-400 group-hover:text-slate-600 transition-colors" />
+      <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">editar</span>
     </span>
   );
 }

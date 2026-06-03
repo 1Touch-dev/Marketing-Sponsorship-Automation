@@ -58,7 +58,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
               <span className="hidden sm:inline">Voltar para proposta</span>
             </Link>
             <div className="hidden sm:block h-4 w-px bg-slate-700" />
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <Shield className="h-3 w-3" />
               <span>Modo Interno</span>
             </div>

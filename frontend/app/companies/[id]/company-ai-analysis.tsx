@@ -752,7 +752,7 @@ export function CompanyAIAnalysis({
 
                     {decisionMakers.length === 0 && apolloPeople.length === 0 && !apolloOrg && !linkedin && (
                       <div className="text-center py-4 text-muted-foreground text-sm">
-                        <p>No enrichment data yet. Configure <code className="text-xs bg-muted px-1 py-0.5 rounded">HUNTER_API_KEY</code> and <code className="text-xs bg-muted px-1 py-0.5 rounded">APOLLO_API_KEY</code>.</p>
+                        <p>No enrichment data yet. Click <strong>&quot;Enrich Contacts&quot;</strong> above to fetch contacts via Hunter &amp; Apollo.</p>
                       </div>
                     )}
                   </>

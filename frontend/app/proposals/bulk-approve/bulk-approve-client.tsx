@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, ExternalLink, Loader2, ImageIcon, FileText } from "lucide-react";
+import { CheckCircle2, ExternalLink, Loader2, ImageIcon, FileText, Trash2 } from "lucide-react";
 import {
+  jobNeedsBulkReview,
   resolveJobImageUrl,
+  resolveJobStatusDisplay,
   resolveProposalImageLabel,
   type ImageJobRow,
 } from "@/lib/proposals/proposal-images";
@@ -31,7 +33,12 @@ export function BulkApproveClient({
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const pending = jobs.filter((j) => j.status === "pending_approval" || j.status === "approved");
+  const pending = jobs.filter(jobNeedsBulkReview);
+  const deadJobs = jobs.filter(
+    (j) =>
+      (j.status === "pending_approval" || j.status === "approved") &&
+      !resolveJobImageUrl(j)
+  );
   const stuck = jobs.filter((j) => j.status === "generating");
 
   async function resetStuck() {
@@ -56,6 +63,25 @@ export function BulkApproveClient({
     }
   }
 
+  async function cleanupDead() {
+    if (deadJobs.length === 0) return;
+    setLoading(true);
+    try {
+      const ids = deadJobs.map((j) => j.id);
+      await fetch("/api/image-generation", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cleanup_dead", job_ids: ids }),
+      });
+      setJobs((prev) => prev.filter((j) => !ids.includes(j.id)));
+      setMsg(`${ids.length} job(s) sem imagem removido(s).`);
+    } catch {
+      setMsg("Erro ao limpar jobs.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -70,7 +96,11 @@ export function BulkApproveClient({
   }
 
   async function bulkApprove() {
-    if (selected.size === 0) return;
+    const ids = Array.from(selected).filter((id) => {
+      const job = jobs.find((j) => j.id === id);
+      return job && jobNeedsBulkReview(job);
+    });
+    if (ids.length === 0) return;
     setLoading(true);
     setMsg(null);
     try {
@@ -79,19 +109,27 @@ export function BulkApproveClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "bulk_approve",
-          job_ids: Array.from(selected),
+          job_ids: ids,
           approved_by: "bulk_ui",
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
+      const now = new Date().toISOString();
       setJobs((prev) =>
         prev.map((j) =>
-          selected.has(j.id) ? { ...j, status: "completed" as const } : j
+          ids.includes(j.id)
+            ? {
+                ...j,
+                status: "completed",
+                approved_at: now,
+                approved_by: "bulk_ui",
+              }
+            : j
         )
       );
       setSelected(new Set());
-      setMsg(`${data.count ?? selected.size} imagem(ns) aprovada(s).`);
+      setMsg(`${data.count ?? ids.length} imagem(ns) aprovada(s).`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Erro");
     } finally {
@@ -137,11 +175,12 @@ export function BulkApproveClient({
 
         <div className="space-y-3 max-h-[480px] overflow-y-auto">
           {pending.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhuma imagem pendente.</p>
+            <p className="text-sm text-slate-500">Nenhuma imagem pendente com thumbnail.</p>
           ) : (
             pending.map((job) => {
               const url = resolveJobImageUrl(job);
               const company = job.proposal_id ? `Proposta ${job.proposal_id.slice(0, 8)}…` : "—";
+              const statusDisplay = resolveJobStatusDisplay(job.status, job.approved_at);
               return (
                 <label
                   key={job.id}
@@ -175,14 +214,29 @@ export function BulkApproveClient({
                       </Link>
                     )}
                   </div>
-                  <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded h-fit">
-                    {job.status}
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded h-fit font-medium ${statusDisplay.className}`}
+                  >
+                    {statusDisplay.label}
                   </span>
                 </label>
               );
             })
           )}
         </div>
+
+        {deadJobs.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-500">
+                {deadJobs.length} job(s) sem imagem gerada (geração falhou ou nunca completou)
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={cleanupDead} disabled={loading} className="text-red-600 border-red-200 hover:bg-red-50 gap-1">
+                <Trash2 className="h-3 w-3" /> Limpar {deadJobs.length} morto(s)
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">

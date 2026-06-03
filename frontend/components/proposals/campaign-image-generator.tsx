@@ -104,12 +104,7 @@ export function CampaignImageGenerator({
         const jobId = d1.job?.id;
         if (!jobId) throw new Error("No job ID returned");
 
-        await fetch("/api/image-generation", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
-        });
-
+        // Generate directly from pending_approval (no auto-approve needed)
         const res3 = await fetch("/api/image-generation", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -121,7 +116,7 @@ export function CampaignImageGenerator({
         created.push({
           id: jobId,
           prompt: p.prompt,
-          status: "completed",
+          status: "pending_approval",
           output_urls: d3.output_urls ?? [],
           job_type: p.job_type,
           strategy_label: p.strategy_label,
@@ -213,18 +208,18 @@ export function CampaignImageGenerator({
                   <div className="text-xs font-medium text-slate-700 truncate">
                     Criativo {idx + 1}{job.strategy_label ? ` — ${job.strategy_label}` : ""}
                   </div>
-                  <div className={`text-xs mt-0.5 ${job.status === "completed" ? "text-green-600" : "text-amber-600"}`}>
-                    {job.status === "completed" ? "✓ Gerado com sucesso" : "⏳ Processando…"}
+                  <div className={`text-xs mt-0.5 ${(job.status === "completed" || job.status === "pending_approval") ? "text-green-600" : "text-amber-600"}`}>
+                    {(job.status === "completed" || job.status === "pending_approval") ? "✓ Gerado — aguardando aprovação em lote" : "⏳ Processando…"}
                   </div>
                 </div>
                 <a
-                  href="/media-generation"
+                  href="/proposals/bulk-approve"
                   className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 shrink-0"
                 >
-                  Ver todos <ExternalLink className="h-3 w-3" />
+                  Aprovar <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
-              {job.status === "completed" && job.output_urls && job.output_urls.length > 0 && (
+              {(job.status === "completed" || job.status === "pending_approval") && job.output_urls && job.output_urls.length > 0 && (
                 <img
                   src={job.output_urls[0].url}
                   alt={`Criativo ${idx + 1}`}
@@ -234,7 +229,7 @@ export function CampaignImageGenerator({
             </div>
           ))}
           <p className="text-xs text-slate-400">
-            As imagens também aparecem na aba &quot;Imagens Geradas&quot; e na landing page da proposta.
+            Imagens aguardam aprovação em <a href="/proposals/bulk-approve" className="underline text-indigo-500">Aprovação em lote</a> antes de aparecer na landing page.
           </p>
         </div>
       )}

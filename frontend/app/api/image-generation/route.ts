@@ -129,7 +129,8 @@ export async function PATCH(req: Request) {
         | "link_proposal"
         | "update_metadata"
         | "bulk_approve"
-        | "reset_stuck";
+        | "reset_stuck"
+        | "cleanup_dead";
       approved_by?: string;
       rejection_reason?: string;
       selected_url?: string;
@@ -143,6 +144,33 @@ export async function PATCH(req: Request) {
     };
 
     const sb = supabaseAdmin();
+
+    // ── Bulk actions that don't need a single job lookup ─────────────
+    if (body.action === "bulk_approve") {
+      const ids = body.job_ids ?? [];
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "job_ids required" }, { status: 400 });
+      }
+      await sb.from("image_generation_jobs" as "companies")
+        .update({
+          status: "completed",
+          approved_by: body.approved_by ?? "admin",
+          approved_at: new Date().toISOString(),
+        } as unknown as Record<string, unknown>)
+        .in("id", ids);
+      return NextResponse.json({ success: true, count: ids.length });
+    }
+
+    if (body.action === "cleanup_dead") {
+      const ids = body.job_ids ?? [];
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "job_ids required" }, { status: 400 });
+      }
+      await sb.from("image_generation_jobs" as "companies")
+        .update({ status: "failed", rejection_reason: "Cleaned up — no image generated" } as unknown as Record<string, unknown>)
+        .in("id", ids);
+      return NextResponse.json({ success: true, count: ids.length });
+    }
 
     const { data: job } = await sb
       .from("image_generation_jobs" as "companies")
@@ -197,22 +225,6 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // ── Bulk approve jobs ─────────────────────────────────────────────
-    if (body.action === "bulk_approve") {
-      const ids = body.job_ids ?? [];
-      if (ids.length === 0) {
-        return NextResponse.json({ error: "job_ids required" }, { status: 400 });
-      }
-      await sb.from("image_generation_jobs" as "companies")
-        .update({
-          status: "completed",
-          approved_by: body.approved_by ?? "admin",
-          approved_at: new Date().toISOString(),
-        } as unknown as Record<string, unknown>)
-        .in("id", ids);
-      return NextResponse.json({ success: true, count: ids.length });
-    }
-
     // ── Reset stuck generating job ──────────────────────────────────────
     if (body.action === "reset_stuck") {
       await sb.from("image_generation_jobs" as "companies")
@@ -236,8 +248,8 @@ export async function PATCH(req: Request) {
 
     // ── Generate ──────────────────────────────────────────────────────
     if (body.action === "generate") {
-      if (j.status !== "approved") {
-        return NextResponse.json({ error: "Job must be approved before generating" }, { status: 400 });
+      if (j.status !== "approved" && j.status !== "pending_approval") {
+        return NextResponse.json({ error: "Job must be in approved or pending_approval status to generate" }, { status: 400 });
       }
 
       const apiKey = process.env.OPENAI_API_KEY;
@@ -344,10 +356,10 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: "No images could be processed" }, { status: 500 });
       }
 
-      // ── Persist results ────────────────────────────────────────────
+      // ── Persist results — set pending_approval so images go to bulk approve ──
       await sb.from("image_generation_jobs" as "companies")
         .update({
-          status: "completed",
+          status: "pending_approval",
           output_urls: outputUrls,
           selected_url: outputUrls[0]?.url ?? null,
           generation_ms: generationMs,

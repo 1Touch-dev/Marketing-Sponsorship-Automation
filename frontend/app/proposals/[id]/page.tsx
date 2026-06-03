@@ -141,13 +141,16 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         const missing = ["executive_summary", "campaign_rationale", "activation_plan", "deliverables", "investment_note"]
           .filter(k => !c[k] || (Array.isArray(c[k]) && (c[k] as unknown[]).length === 0) || (typeof c[k] === "string" && (c[k] as string).length < 20));
         return missing.length > 0 ? (
-          <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 px-4 py-3 flex items-center justify-between gap-4">
+          <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
             <p className="text-sm text-orange-700">
-              ⚠️ Proposta incompleta — seções faltando: <strong>{missing.join(", ")}</strong>. Edite ou regenere.
+              ⚠️ Proposta incompleta — seções faltando: <strong>{missing.join(", ")}</strong>.
             </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/proposals/${proposal.id}/edit`}>Completar</Link>
-            </Button>
+            <div className="flex gap-2">
+              <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={!!p.intelligence} />
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/proposals/${proposal.id}/edit`}>Editar manualmente</Link>
+              </Button>
+            </div>
           </div>
         ) : null;
       })()}

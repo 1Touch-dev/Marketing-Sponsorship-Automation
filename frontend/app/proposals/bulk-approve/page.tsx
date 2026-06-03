@@ -7,14 +7,34 @@ export const dynamic = "force-dynamic";
 export default async function BulkApprovePage() {
   const sb = supabaseAdmin();
 
-  const { data: pendingJobs } = await (sb as ReturnType<typeof supabaseAdmin>)
-    .from("image_generation_jobs")
-    .select(
-      "id, job_type, prompt, status, proposal_id, company_id, output_urls, selected_url, strategy_label, display_label, created_at"
-    )
-    .in("status", ["pending_approval", "approved"])
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const jobSelect =
+    "id, job_type, prompt, status, proposal_id, company_id, output_urls, selected_url, strategy_label, display_label, approved_at, approved_by, created_at";
+
+  const [activeRes, legacyRes] = await Promise.all([
+    (sb as ReturnType<typeof supabaseAdmin>)
+      .from("image_generation_jobs")
+      .select(jobSelect)
+      .in("status", ["pending_approval", "approved", "generating"])
+      .order("created_at", { ascending: false })
+      .limit(100),
+    (sb as ReturnType<typeof supabaseAdmin>)
+      .from("image_generation_jobs")
+      .select(jobSelect)
+      .eq("status", "completed")
+      .is("approved_at", null)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
+
+  const seen = new Set<string>();
+  const pendingJobs = [...(activeRes.data ?? []), ...(legacyRes.data ?? [])].filter(
+    (row) => {
+      const id = (row as { id: string }).id;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }
+  );
 
   const { data: draftProposals } = await sb
     .from("proposals")
