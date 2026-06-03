@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
+import { resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -47,23 +48,18 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   let pipedrivePersonId: number | null = null;
 
   if (email.proposal_id) {
+    const ids = await resolveProposalPipedriveIds(sb, email.proposal_id);
+    pipedriveDealId = ids.dealId;
+    pipedriveOrgId = ids.orgId;
+
     const { data: proposal } = await sb
       .from("proposals")
-      .select("content, companies(full_intelligence)")
+      .select("companies(full_intelligence)")
       .eq("id", email.proposal_id)
       .maybeSingle();
-
-    if (proposal) {
-      // Try proposal content first
-      const proposalContent = proposal.content as Record<string, unknown> | null;
-      pipedriveDealId = (proposalContent?.pipedrive_deal_id as number) ?? null;
-
-      // Try company full_intelligence
-      const companyData = (proposal as Record<string, unknown>).companies as Record<string, unknown> | null;
-      const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
-      pipedriveOrgId = (fullIntel?.pipedrive_org_id as number) ?? null;
-      pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
-    }
+    const companyData = (proposal as Record<string, unknown> | null)?.companies as Record<string, unknown> | null;
+    const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
+    pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
   }
 
   // Log to Pipedrive Activities

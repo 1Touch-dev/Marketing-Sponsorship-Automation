@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalStatus } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
+import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -83,23 +84,25 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
 
   // ── Fire-and-forget: sync status change to Pipedrive ─────────────────────
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const p = proposal as Record<string, unknown>;
-  fetch(`${appUrl}/api/crm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  void (async () => {
+    const ids = await resolveProposalPipedriveIds(sb, parsed.data.proposal_id);
+    const p = proposal as Record<string, unknown>;
+    const content = (p.content as Record<string, unknown>) ?? {};
+    const dealId = ids.dealId ?? (p.pipedrive_deal_id as number) ?? (content.pipedrive_deal_id as number) ?? null;
+    const pipelineId = ids.pipelineId ?? (p.pipedrive_pipeline_id as number) ?? (content.pipedrive_pipeline_id as number) ?? null;
+
+    await enqueueCrmSync({
       entity_type: "proposal",
       entity_id: parsed.data.proposal_id,
-      operation: p.pipedrive_deal_id ? "status_change" : "create",
+      operation: dealId ? "status_change" : "create",
       payload: {
-        pipedrive_deal_id: p.pipedrive_deal_id ?? null,
-        pipedrive_pipeline_id: p.pipedrive_pipeline_id ?? null,
+        pipedrive_deal_id: dealId,
+        pipedrive_pipeline_id: pipelineId,
         new_status: newStatus,
         status_reason: parsed.data.comments ?? null,
       },
-    }),
-  }).catch(() => {});
+    });
+  })().catch(err => console.error("[CRM] proposal approve sync failed", err));
 
   return NextResponse.json({ data: proposal });
 }

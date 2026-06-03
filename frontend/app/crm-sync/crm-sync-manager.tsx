@@ -12,7 +12,7 @@ const STATUS_COLORS: Record<string, string> = {
   pending:  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
   synced:   "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
   failed:   "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  skipped:  "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+  skipped:  "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
   archived: "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
 };
 
@@ -118,7 +118,10 @@ export function CrmSyncManager({ queue }: { queue: QueueItem[] }) {
             const pipelineId = payload.pipedrive_pipeline_id as number | undefined;
             const dealId = payload.pipedrive_deal_id as number | undefined;
             const orgId = payload.pipedrive_org_id as number | undefined;
-            const pipedriveId = dealId ?? orgId;
+            const pipedriveId =
+              dealId ?? orgId
+              ?? (payload.pipedrive_result as Record<string, unknown> | undefined)?.pipedrive_deal_id as number | undefined
+              ?? (payload.pipedrive_result as Record<string, unknown> | undefined)?.pipedrive_org_id as number | undefined;
 
             return (
               <div key={item.id as string} className="flex items-start gap-3 rounded-lg border bg-card p-3 text-sm">

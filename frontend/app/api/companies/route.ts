@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { companyCreateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
+import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 
 export const runtime = "nodejs";
 
@@ -79,22 +80,18 @@ export async function POST(req: Request) {
   });
 
   // ── Fire-and-forget: sync to Pipedrive as Organization ───────────────────
-  fetch(`${appUrl}/api/crm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      entity_type: "company",
-      entity_id: data.id,
-      operation: "create",
-      payload: {
-        company_name: data.company_name,
-        website: data.website,
-        industry: data.industry,
-        segment: data.segment,
-        city: null,
-      },
-    }),
-  }).catch(() => {});
+  void enqueueCrmSync({
+    entity_type: "company",
+    entity_id: data.id,
+    operation: "create",
+    payload: {
+      company_name: data.company_name,
+      website: data.website,
+      industry: data.industry,
+      segment: data.segment,
+      city: null,
+    },
+  }).catch(err => console.error("[CRM] company sync failed", err));
 
   return NextResponse.json({ data, discovery_triggered: true }, { status: 201 });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
+import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { proposalPrompt } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 90;
@@ -163,6 +164,12 @@ export async function POST(req: Request) {
       entity_id: proposal.id,
       metadata: { company: company.company_name, type: body.proposal_type, strategies: selectedStrategies.length, components: selectedComponents.length },
     });
+
+    void enqueueCrmSync({
+      entity_type: "proposal",
+      entity_id: proposal.id,
+      operation: "create",
+    }).catch(err => console.error("[CRM] wizard proposal sync failed", err));
 
     return NextResponse.json({ proposal_id: proposal.id });
   } catch (err) {

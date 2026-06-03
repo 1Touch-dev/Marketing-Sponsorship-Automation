@@ -9,6 +9,7 @@ import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
+import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { logger } from "@/lib/monitoring/logger";
 import type { ProposalContent } from "@/types/database";
 
@@ -223,6 +224,12 @@ export async function generatePersonalizedProposalForCompany(
     entity_id: proposal.id,
     metadata: { company_id: companyId, campaign_id: campaignId, agent: true },
   });
+
+  void enqueueCrmSync({
+    entity_type: "proposal",
+    entity_id: proposal.id,
+    operation: "create",
+  }).catch(err => console.error("[CRM] agent proposal sync failed", err));
 
   const content = proposal.content as Record<string, string> | null;
 
