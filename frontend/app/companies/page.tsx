@@ -11,11 +11,14 @@ import { Building2, Globe, Calendar, Filter, Plus } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 const INDUSTRIES = [
-  "Automóveis / Mobilidade", "Bebidas / FMCG", "Bebidas Energéticas / Lifestyle",
-  "Construção / Imóveis", "Cosméticos / Beleza", "Educação", "Energia / Utilities",
-  "Financeiro / Bancos", "Logística / Transporte", "Saúde / Bem-estar",
-  "Tecnologia", "Tecnologia / Educação", "Telecomunicações", "Varejo / E-commerce",
-  "Outros",
+  "Automotivo", "Financeiro", "Alimentos e Bebidas", "Saúde",
+  "Construção e Imobiliário", "Comércio - Atacado e Varejo", "Energia",
+  "Educação", "Transporte e Logística", "Eletroeletrônicos",
+  "Papel e Celulose", "Química", "Agropecuária",
+  "Siderurgia e Mineração", "Informática e Automação",
+  "Máquinas e Equipamentos", "Saneamento e Serviços Públicos",
+  "Madeira e Cultivo Florestal", "Açúcar e Álcool",
+  "Material de Construção", "Tecnologia", "Bebidas / FMCG",
 ];
 
 export default async function CompaniesPage({
@@ -29,7 +32,7 @@ export default async function CompaniesPage({
     .select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type")
     .neq("status", "closed")
     .order("created_at", { ascending: false })
-    .limit(300);
+    .limit(600);
 
   let companies = (rawCompanies ?? []) as Array<{
     id: string;
@@ -53,7 +56,8 @@ export default async function CompaniesPage({
     );
   }
   if (searchParams.industry) {
-    companies = companies.filter((c) => c.industry === searchParams.industry);
+    const ind = searchParams.industry.toLowerCase();
+    companies = companies.filter((c) => (c.industry ?? "").toLowerCase().includes(ind));
   }
   if (searchParams.status) {
     companies = companies.filter((c) => c.status === searchParams.status);

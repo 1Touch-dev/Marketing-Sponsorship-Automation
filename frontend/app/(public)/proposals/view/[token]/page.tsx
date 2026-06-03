@@ -5,6 +5,8 @@ import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { PrintButton } from "@/app/proposals/[id]/view/print-button";
+import { PhoneCall, Calendar, ThumbsUp } from "lucide-react";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +26,6 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
 
   if (!proposal) notFound();
 
-  // Only show approved or draft proposals publicly
   if (proposal.status === "rejected") notFound();
 
   const approvedImages = await fetchProposalImagesForLanding(proposal.id);
@@ -35,6 +36,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
       industry?: string | null;
       website?: string | null;
       country?: string | null;
+      logo_url?: string | null;
     } | null;
     campaigns: { title: string; summary?: string | null } | null;
     strategy_variants?: StrategyVariant[] | null;
@@ -47,20 +49,34 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   const company = p.companies;
 
   return (
-    <div className="min-h-screen w-full bg-slate-50">
-      {/* Minimal public header */}
-      <div className="w-full bg-white border-b border-slate-200 px-6 py-3 print:hidden">
+    <div className="min-h-screen w-full bg-white pb-24">
+      {/* ─── Minimal branded header — print:hidden ─── */}
+      <div className="sticky top-0 z-[60] w-full bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-3 print:hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="text-sm font-semibold text-slate-700">
-            Proposta de Patrocínio
-            {company?.company_name && (
-              <span className="ml-2 text-slate-400 font-normal">— {company.company_name}</span>
-            )}
+          <div className="flex items-center gap-3">
+            <Image
+              src="/brand/coritiba-logo.svg"
+              alt="Coritiba FC"
+              width={28}
+              height={28}
+              className="rounded-full"
+            />
+            <div>
+              <div className="text-sm font-bold text-slate-800 tracking-tight">
+                Proposta de Patrocínio
+              </div>
+              {company?.company_name && (
+                <div className="text-xs text-slate-400 font-medium">
+                  Preparado para {company.company_name}
+                </div>
+              )}
+            </div>
           </div>
-          <PrintButton label="Imprimir / Salvar como PDF" />
+          <PrintButton label="Salvar como PDF" />
         </div>
       </div>
 
+      {/* ─── Main landing page content ─── */}
       <ProposalLandingPage
         proposal={{
           id: p.id,
@@ -86,6 +102,38 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
         approvedImages={approvedImages}
         adminMode={false}
       />
+
+      {/* ─── Sponsor CTA strip — fixed at bottom ─── */}
+      <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003300] via-[#006B3F] to-[#004d00] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">
+        <span className="text-white/80 text-sm font-medium mr-2 hidden sm:inline">
+          Interessado nesta proposta?
+        </span>
+        <a
+          href="https://wa.me/5541999999999?text=Olá!%20Tenho%20interesse%20na%20proposta%20de%20patrocínio%20do%20Coritiba%20FC."
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full bg-white text-[#006B3F] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
+        >
+          <ThumbsUp className="h-4 w-4" />
+          Tenho Interesse
+        </a>
+        <a
+          href="mailto:patrocinios@coritiba.com.br?subject=Interesse%20em%20Patrocínio%20Coritiba%20FC"
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
+        >
+          <PhoneCall className="h-4 w-4" />
+          Falar com nossa equipe
+        </a>
+        <a
+          href="https://calendly.com/coritiba-patrocinios"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
+        >
+          <Calendar className="h-4 w-4" />
+          Agendar Reunião
+        </a>
+      </div>
     </div>
   );
 }

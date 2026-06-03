@@ -232,15 +232,16 @@ export function proposalPrompt(args: {
       strategyNote,
       "",
       "Write a full Coritiba FC sponsorship proposal. Reference Couto Pereira, Verde e Branco, Coxa-Branca fans.",
+      "Keep it CONCISE and impactful. Each section should be sharp — no filler text or generic marketing language.",
       "Return JSON:",
       `{
   "title": "Proposal title (must include Coritiba FC or Coxa reference)",
-  "executive_summary": "~120 words — powerful opening about [company] × Coritiba FC partnership",
-  "campaign_rationale": "~150 words — why this sponsorship at Coritiba FC makes business sense",
-  "sponsorship_value": "~120 words — concrete Coritiba FC value delivered to the sponsor",
-  "activation_plan": "~200 words — specific phased activation at Couto Pereira with Coritiba milestones",
+  "executive_summary": "~80 words — powerful opening about [company] × Coritiba FC partnership",
+  "campaign_rationale": "~100 words — why this sponsorship at Coritiba FC makes business sense",
+  "sponsorship_value": "~80 words — concrete Coritiba FC value delivered to the sponsor",
+  "activation_plan": "~120 words — specific phased activation at Couto Pereira with Coritiba milestones",
   "deliverables": ["Coritiba deliverable 1", "Couto Pereira deliverable 2", "3", "4", "5"],
-  "investment_note": "High-level Coritiba FC investment framing (aspirational, no specific currency)",
+  "investment_note": "1-2 sentences — Coritiba FC investment framing (aspirational, no specific currency)",
   "cta": "Single compelling call to action to partner with Coritiba FC"
 }`,
     ]

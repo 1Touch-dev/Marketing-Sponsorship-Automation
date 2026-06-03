@@ -450,8 +450,11 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
                   )
                 ) : null}
                 {status === "completed" && !!job.proposal_id && (
-                  <div className="mt-2 text-xs text-emerald-600">
-                    ✓ Linked to proposal — visible on landing page
+                  <div className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
+                    ✓ Linked — 
+                    <a href={`/proposals/${job.proposal_id}`} className="underline hover:text-emerald-800 font-medium">
+                      View Proposal →
+                    </a>
                   </div>
                 )}
 

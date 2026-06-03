@@ -107,6 +107,27 @@ export async function POST(req: Request) {
     );
   }
 
+  // Fetch proposal images to embed in email
+  const { data: imageJobs } = await sb
+    .from("image_generation_jobs")
+    .select("selected_url, output_urls, status, display_label")
+    .eq("proposal_id", proposal.id)
+    .in("status", ["completed", "approved"])
+    .limit(3);
+
+  const imageUrls: string[] = [];
+  for (const job of imageJobs ?? []) {
+    const url = (job as Record<string, unknown>).selected_url as string
+      || ((job as Record<string, unknown>).output_urls as Array<{url: string}>)?.[0]?.url;
+    if (url && !url.startsWith("data:")) imageUrls.push(url);
+  }
+
+  let bodyHtml = validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`;
+  if (imageUrls.length > 0) {
+    const imgSection = `<br/><table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px"><tr>${imageUrls.slice(0, 2).map(u => `<td style="padding:4px"><img src="${u}" alt="Coritiba FC" style="max-width:100%;border-radius:8px" /></td>`).join("")}</tr></table>`;
+    bodyHtml += imgSection;
+  }
+
   const { data: row, error: insErr } = await sb
     .from("emails")
     .insert(
@@ -115,7 +136,7 @@ export async function POST(req: Request) {
         recipient: parsed.data.recipient,
         subject: validated.subject,
         body_text: validated.body_text,
-        body_html: validated.body_html ?? `<p>${validated.body_text.replace(/\n/g, "</p><p>")}</p>`,
+        body_html: bodyHtml,
         status: "pending_approval",
         generated_by: "bedrock-claude",
         sender: env.DEFAULT_FROM_EMAIL ?? null,

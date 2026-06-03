@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
+import { InlineIndustryEdit } from "@/components/companies/inline-industry-edit";
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
@@ -73,7 +74,7 @@ export default async function CompanyDetailPage({
     <div className="space-y-6">
       <PageHeader
         title={company.company_name}
-        description={company.industry || "Company details"}
+        description={<InlineIndustryEdit companyId={company.id} currentIndustry={company.industry} />}
         actions={
           <div className="flex items-center gap-2">
             <Link href="/companies">

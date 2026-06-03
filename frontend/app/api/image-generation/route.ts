@@ -128,7 +128,8 @@ export async function PATCH(req: Request) {
         | "select_image"
         | "link_proposal"
         | "update_metadata"
-        | "bulk_approve";
+        | "bulk_approve"
+        | "reset_stuck";
       approved_by?: string;
       rejection_reason?: string;
       selected_url?: string;
@@ -210,6 +211,14 @@ export async function PATCH(req: Request) {
         } as unknown as Record<string, unknown>)
         .in("id", ids);
       return NextResponse.json({ success: true, count: ids.length });
+    }
+
+    // ── Reset stuck generating job ──────────────────────────────────────
+    if (body.action === "reset_stuck") {
+      await sb.from("image_generation_jobs" as "companies")
+        .update({ status: "pending_approval" } as unknown as Record<string, unknown>)
+        .eq("id", body.job_id);
+      return NextResponse.json({ success: true });
     }
 
     // ── Select image ──────────────────────────────────────────────────

@@ -14,23 +14,30 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Labels match the Portuguese values stored in the database
+// Labels match ACTUAL Portuguese values stored in the `companies.industry` column
 const COMMON_INDUSTRIES: { label: string; pt: string }[] = [
   { label: "Automotivo", pt: "Automotivo" },
-  { label: "Bancos / Finanças", pt: "Bancos / Finanças" },
-  { label: "Bebidas / FMCG", pt: "Bebidas / FMCG" },
+  { label: "Financeiro", pt: "Financeiro" },
+  { label: "Alimentos e Bebidas", pt: "Alimentos e Bebidas" },
   { label: "Saúde", pt: "Saúde" },
-  { label: "Seguros", pt: "Seguros" },
-  { label: "Imobiliário", pt: "Imobiliário" },
-  { label: "Varejo", pt: "Varejo" },
-  { label: "Tecnologia", pt: "Tecnologia" },
-  { label: "Telecomunicações", pt: "Telecomunicações" },
-  { label: "Turismo / Hospitalidade", pt: "Turismo / Hospitalidade" },
-  { label: "Alimentação", pt: "Alimentação" },
-  { label: "Entretenimento", pt: "Entretenimento" },
-  { label: "Educação", pt: "Educação" },
-  { label: "Indústria", pt: "Indústria" },
+  { label: "Construção e Imobiliário", pt: "Construção e Imobiliário" },
+  { label: "Comércio / Varejo", pt: "Comércio - Atacado e Varejo" },
   { label: "Energia", pt: "Energia" },
+  { label: "Educação", pt: "Educação" },
+  { label: "Transporte e Logística", pt: "Transporte e Logística" },
+  { label: "Eletroeletrônicos", pt: "Eletroeletrônicos" },
+  { label: "Papel e Celulose", pt: "Papel e Celulose" },
+  { label: "Química", pt: "Química" },
+  { label: "Agropecuária", pt: "Agropecuária" },
+  { label: "Siderurgia e Mineração", pt: "Siderurgia e Mineração" },
+  { label: "Informática e Automação", pt: "Informática e Automação" },
+  { label: "Máquinas e Equipamentos", pt: "Máquinas e Equipamentos" },
+  { label: "Saneamento e Serviços", pt: "Saneamento e Serviços Públicos" },
+  { label: "Madeira e Florestal", pt: "Madeira e Cultivo Florestal" },
+  { label: "Açúcar e Álcool", pt: "Açúcar e Álcool" },
+  { label: "Material de Construção", pt: "Material de Construção" },
+  { label: "Bebidas / FMCG", pt: "Bebidas / FMCG" },
+  { label: "Tecnologia", pt: "Tecnologia" },
 ];
 
 type FoundCompany = {

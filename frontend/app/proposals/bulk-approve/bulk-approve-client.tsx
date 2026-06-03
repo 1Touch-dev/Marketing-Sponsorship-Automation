@@ -32,6 +32,29 @@ export function BulkApproveClient({
   const [msg, setMsg] = useState<string | null>(null);
 
   const pending = jobs.filter((j) => j.status === "pending_approval" || j.status === "approved");
+  const stuck = jobs.filter((j) => j.status === "generating");
+
+  async function resetStuck() {
+    if (stuck.length === 0) return;
+    setLoading(true);
+    try {
+      for (const j of stuck) {
+        await fetch("/api/image-generation", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ job_id: j.id, action: "reset_stuck" }),
+        });
+      }
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.status === "generating" ? { ...j, status: "pending_approval" as const } : j
+        )
+      );
+      setMsg(`${stuck.length} job(s) resetado(s).`);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -86,6 +109,11 @@ export function BulkApproveClient({
             <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{pending.length}</span>
           </div>
           <div className="flex gap-2">
+            {stuck.length > 0 && (
+              <Button type="button" variant="outline" size="sm" onClick={resetStuck} disabled={loading} className="text-amber-700 border-amber-200">
+                Resetar {stuck.length} travado(s)
+              </Button>
+            )}
             <Button type="button" variant="outline" size="sm" onClick={selectAll}>
               Selecionar todas
             </Button>

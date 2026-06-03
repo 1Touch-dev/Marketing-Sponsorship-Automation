@@ -48,13 +48,10 @@ export async function POST(req: Request) {
     }
 
     const domain = extractDomain(company.website ?? "");
-    if (!domain) {
-      return NextResponse.json({ error: "Company has no website/domain configured" }, { status: 400 });
-    }
 
     logger.info("Starting company enrichment", {
       company: company.company_name,
-      domain,
+      domain: domain || "(no domain)",
       include_hunter,
       include_apollo,
       include_social,
@@ -65,13 +62,13 @@ export async function POST(req: Request) {
       apollo: null,
       social: null,
       enriched_at: new Date().toISOString(),
-      domain,
+      domain: domain || "",
     };
 
     // ── Run Hunter, Apollo, and social in parallel ───────────────────────
     const tasks: Promise<void>[] = [];
 
-    if (include_hunter) {
+    if (include_hunter && domain) {
       tasks.push(
         searchDomain(domain, 10)
           .then((r) => { results.hunter = r; })
@@ -80,11 +77,13 @@ export async function POST(req: Request) {
             results.hunter_error = err instanceof Error ? err.message : String(err);
           })
       );
+    } else if (include_hunter && !domain) {
+      results.hunter_error = "No website/domain — Hunter requires a domain to search";
     }
 
     if (include_apollo) {
       tasks.push(
-        enrichCompanyApollo(domain, company.company_name)
+        enrichCompanyApollo(domain || company.company_name, company.company_name)
           .then((r) => { results.apollo = r; })
           .catch((err) => {
             logger.warn("Apollo enrichment failed (non-fatal)", { error: String(err) });
@@ -93,7 +92,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (include_social) {
+    if (include_social && domain) {
       const existingIntel = (company.full_intelligence ?? {}) as Record<string, unknown>;
       const scrapeData = (existingIntel.scrape_metadata as Record<string, unknown>) ?? {};
       tasks.push(
@@ -104,6 +103,8 @@ export async function POST(req: Request) {
             results.social_error = err instanceof Error ? err.message : String(err);
           })
       );
+    } else if (include_social && !domain) {
+      results.social_error = "No website/domain — social enrichment skipped";
     }
 
     await Promise.all(tasks);

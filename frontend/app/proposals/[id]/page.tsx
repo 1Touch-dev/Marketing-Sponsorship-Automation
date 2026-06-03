@@ -135,6 +135,23 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         </div>
       )}
 
+      {/* Completeness check */}
+      {(() => {
+        const c = (p.content ?? {}) as Record<string, unknown>;
+        const missing = ["executive_summary", "campaign_rationale", "activation_plan", "deliverables", "investment_note"]
+          .filter(k => !c[k] || (Array.isArray(c[k]) && (c[k] as unknown[]).length === 0) || (typeof c[k] === "string" && (c[k] as string).length < 20));
+        return missing.length > 0 ? (
+          <div className="mb-4 rounded-md border border-orange-200 bg-orange-50 px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-orange-700">
+              ⚠️ Proposta incompleta — seções faltando: <strong>{missing.join(", ")}</strong>. Edite ou regenere.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/proposals/${proposal.id}/edit`}>Completar</Link>
+            </Button>
+          </div>
+        ) : null;
+      })()}
+
       {/* Premium Landing Page Presentation */}
       {hasIntelligenceLayer ? (
         <div className="mb-8">

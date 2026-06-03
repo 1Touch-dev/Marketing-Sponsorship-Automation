@@ -44,13 +44,11 @@ export function CampaignImageGenerator({
   const [jobs, setJobs] = useState<GeneratedJob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [pendingPrompts, setPendingPrompts] = useState<Array<{ prompt: string; job_type: string; strategy_label?: string }>>([]);
 
-  const generate = async () => {
-    setLoading(true);
-    setError(null);
-
+  const buildPrompts = () => {
     const prompts: Array<{ prompt: string; job_type: string; strategy_label?: string }> = [];
-
     if (strategyVariants && strategyVariants.length > 0) {
       for (const v of strategyVariants.slice(0, 3)) {
         prompts.push({
@@ -65,12 +63,24 @@ export function CampaignImageGenerator({
         job_type: "campaign_creative",
       });
     }
+    return prompts;
+  };
+
+  const handleGenerateClick = () => {
+    const prompts = buildPrompts();
+    setPendingPrompts(prompts);
+    setShowPreview(true);
+  };
+
+  const confirmGenerate = async () => {
+    setShowPreview(false);
+    setLoading(true);
+    setError(null);
 
     const created: GeneratedJob[] = [];
 
     try {
-      for (const p of prompts) {
-        // Step 1: Create job
+      for (const p of pendingPrompts) {
         const strategyId =
           strategyVariants?.find((s) => s.label === p.strategy_label)?.id ?? undefined;
 
@@ -94,14 +104,12 @@ export function CampaignImageGenerator({
         const jobId = d1.job?.id;
         if (!jobId) throw new Error("No job ID returned");
 
-        // Step 2: Auto-approve
         await fetch("/api/image-generation", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
         });
 
-        // Step 3: Generate image
         const res3 = await fetch("/api/image-generation", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -146,7 +154,7 @@ export function CampaignImageGenerator({
           )}
         </div>
         <button
-          onClick={generate}
+          onClick={handleGenerateClick}
           disabled={loading}
           className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-3 py-2 text-xs font-semibold transition-colors"
         >
@@ -159,6 +167,37 @@ export function CampaignImageGenerator({
           )}
         </button>
       </div>
+
+      {/* Prompt preview modal */}
+      {showPreview && (
+        <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4 space-y-3">
+          <div className="text-xs font-semibold text-indigo-700">
+            Revise os prompts antes de gerar ({pendingPrompts.length} imagem{pendingPrompts.length > 1 ? "ns" : ""}):
+          </div>
+          {pendingPrompts.map((p, i) => (
+            <div key={i} className="rounded border border-indigo-100 bg-white p-2">
+              <div className="text-xs font-medium text-slate-600 mb-1">
+                {p.strategy_label ? `Estratégia: ${p.strategy_label}` : `Imagem ${i + 1}`}
+              </div>
+              <p className="text-xs text-slate-500 whitespace-pre-wrap leading-relaxed">{p.prompt}</p>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <button
+              onClick={confirmGenerate}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 text-xs font-semibold"
+            >
+              <Sparkles className="h-3 w-3" /> Confirmar e Gerar
+            </button>
+            <button
+              onClick={() => setShowPreview(false)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">{error}</div>

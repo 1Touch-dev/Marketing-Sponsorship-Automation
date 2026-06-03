@@ -6,266 +6,274 @@
 **Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
 **Server:** AWS EC2 — app runs 24/7 via PM2 + systemd  
 
+**Audit source:** `Coritiba_Platform_Issues_Report_EN.pdf` (Perplexity, June 2026) — 15 bugs + 10 feature requests  
+
 ---
 
-## Platform Health (Live — 2 June 2026, ~08:16 UTC)
+## Executive Summary
 
-All services confirmed healthy:
+Today focused on **persistent bugs** from the PDF audit + James WhatsApp feedback. **Not** the full feature roadmap.
+
+### Verdict vs PDF audit
+
+| Category | PDF total | ✅ Done | ⚠️ Partial | ❌ Not done |
+|----------|-----------|---------|------------|-------------|
+| P0 bugs | 8 | 3 | 5 | 0 |
+| P1 bugs | 4 | 4 | 0 | 0 |
+| P2 bugs | 1 | 0 | 1 | 0 |
+| Feature requests (FR) | 10 | 2 | 1 | 7 |
+| Ops / executive items | 4 | 1 | 3 | 0 |
+
+**Bottom line:** Audit **blocking bugs are largely fixed or improved**; the PDF is **not 100% closed**. Remaining work is mostly **feature builds** (templates, bulk personalization, landing redesign, newsletter, enrichment automation) plus several **partial** items (full image library, team sender DB, images in emails, inline industry edit).
+
+### E2E flow (PDF Section 5) — status after 2 June
+
+| Step | Action | Was (audit) | Now |
+|------|--------|-------------|-----|
+| 1 | Identify company | OK | ✅ OK |
+| 2 | Enrich + save contacts | BUG-11 | ✅ Save / Save all |
+| 3 | Review competitors | BUG-12 | ✅ Add to DB |
+| 4 | Create campaign | BUG-14 | ✅ Searchable company |
+| 5 | Build proposal | OK | ✅ OK |
+| 6 | Generate creatives | BUG-08 | ⚠️ Prompt confirm + reset stuck; no full image library |
+| 7 | Approve content | BUG-04 | ✅ Approvals populated |
+| 8 | Edit proposal | BUG-01 | ✅ Edit → `/edit` |
+| 9 | Send email | BUG-09/10 | ⚠️ Link + no `[Nome]` in AI emails; no embedded images |
+| 10 | Sponsor views proposal | BUG-15 | ⚠️ No sidebar + CTA strip; not full FR-04 redesign |
+
+**Audit said 6/10 steps fail → now ~7–8 workable; full “sales-ready” flow still needs FR work.**
+
+---
+
+## Platform Health (Live — 2 June 2026)
 
 | Service | Status | Notes |
 |---------|--------|-------|
-| Database (Supabase) | ✅ healthy | 163ms latency |
-| Bedrock AI (AWS) | ✅ configured | Claude 3.5 Sonnet |
-| OpenAI | ✅ configured | GPT-4o |
-| Pipedrive CRM | ✅ configured | API key valid |
+| Database (Supabase) | ✅ healthy | ~163ms latency |
+| Bedrock AI | ✅ configured | |
+| OpenAI | ✅ configured | |
+| Pipedrive CRM | ✅ connected | James verified: **0 pending, 35 synced** on `/crm-sync` |
 | Replicate (LoRA) | ✅ configured | `coritiba-jersey-lora:396810db` |
-| Hunter.io | ✅ configured | Contact enrichment active |
-| Apollo.io | ✅ configured | Org enrich active; people search needs Basic+ |
-| ngrok tunnel | ✅ online | `eligibly-facing-unloved.ngrok-free.dev` |
+| Hunter.io | ✅ configured | |
+| Apollo.io | ✅ configured | People search needs Basic+ |
+| ngrok | ✅ online | `eligibly-facing-unloved.ngrok-free.dev` |
 
 **Platform stats:** 512 companies · 64 proposals (63 active) · 79 campaigns
 
-**⚠️ Gmail token expired** since 22 May 2026 — go to `/settings` → Reconnect Gmail immediately.  
-The warning banner is now live on the settings page so you'll always see it.
+**Gmail:** Token expired 22 May 2026 — **warning banner** on `/settings`. App **send** logs to **Pipedrive activities**, not Gmail inbox. Gmail is for **reply/thread sync** only; reconnect if you want that tracking back.
+
+---
+
+## PDF Audit Cross-Check (complete)
+
+Legend: ✅ Resolved · ⚠️ Partial · ❌ Not done (feature or out of scope for 2 June)
+
+### Executive summary items (PDF p.3)
+
+| Item | PDF state | Status | Notes |
+|------|-----------|--------|-------|
+| 300+ companies, PT industry labels | EN/PT mismatch in bulk | ✅ | Bulk chips + API search aligned to PT |
+| Gmail OAuth expired 22 May | Silent email failures | ⚠️ | Banner added; token not reconnected; send path is Pipedrive |
+| 28 jobs stuck in `generating` | No recovery | ⚠️ | "Reset N stuck jobs" on media page; run if any remain |
+| CRM 35 pending, 0 synced | Broken | ✅ | **Resolved** — James: 35 synced, 0 pending, 0 failed |
+
+---
+
+### P0 — Critical bugs (8)
+
+| PDF ID | Page | Issue | Status | What we did / gap |
+|--------|------|-------|--------|-------------------|
+| **BUG-01** | `/proposals/{id}` | Edit → `/mockup-editor` | ✅ | Edit → `/proposals/{id}/edit` verified |
+| **BUG-03** | `/campaigns/bulk` | EN labels vs PT DB, 100% fail | ✅ | PT chips, `?q=` + `?industry=` search, multi-select |
+| **BUG-08** | Visuals | Generate without prompt; 28 stuck | ⚠️ | Prompt confirm on **official jersey mockup**; reset stuck jobs. **Gap:** filter/sort image library by proposal/campaign/company |
+| **BUG-09** | `/emails/{id}` | `[Nome]` literal | ⚠️ | AI prompt + `SENDER_NAME` / `recipient_title`. **Gap:** full **FR-02** team DB (5–10 senders) |
+| **BUG-10** | `/emails/{id}` | No proposal link or images | ⚠️ | Mandatory proposal link/CTA in **AI-generated** emails. **Gap:** embedded **images** in body |
+| **BUG-11** | Contacts tab | Cannot save Hunter/Apollo contacts | ✅ | Save / Save all, `/api/contacts`, migration `0021` |
+| **BUG-IMAGES** | Bulk approve | No image mgmt; Sem img | ⚠️ | Reset stuck + prompt preview. **Gap:** dedicated workspace + filters; Sem img when job never completed |
+| **BUG-15** | `/proposals/{id}/view` | Admin sidebar + no CTA | ⚠️ | Sidebar stripped; bottom CTA (WhatsApp, email, Calendly). **Gap:** **FR-04** full redesign |
+
+*Sprint IDs: P0-01=BUG-01, P0-02=BUG-03, P0-03=BUG-08, P0-04=BUG-09, P0-05=BUG-10, P0-06=BUG-11, P0-07=BUG-IMAGES, P0-08=BUG-15*
+
+---
+
+### P1 — High bugs (4)
+
+| PDF ID | Page | Issue | Status | What we did / gap |
+|--------|------|-------|--------|-------------------|
+| **BUG-04** | `/approvals` | Empty + no filter | ✅ | Proposals + Campaigns + Emails; type/status filters |
+| **BUG-06** | `/crm-sync` | 0 synced, 35 pending | ✅ | Queue healthy on James account (35 synced) |
+| **BUG-12** | Competitors | No Add to DB | ✅ | Add to DB per row, pre-filled create |
+| **BUG-14** | `/campaigns` | Company dropdown no search | ✅ | Searchable input + live dropdown |
+
+*Sprint: P1-01=BUG-04, P1-02=BUG-06, P1-03=BUG-12, P1-04=BUG-14*
+
+---
+
+### P2 — Medium (1)
+
+| PDF ID | Page | Issue | Status | What we did / gap |
+|--------|------|-------|--------|-------------------|
+| **BUG-13** | `/companies/{id}` | No inline industry edit + auto-label | ⚠️ | API `?industry=` search; edit via company form. **Gap:** click-to-edit chip; auto-label on enrich |
+
+*Sprint: P2-01=BUG-13*
+
+---
+
+### Feature requests (10) — PDF Section 6
+
+| PDF ID | Feature | Status | Notes |
+|--------|---------|--------|-------|
+| **FR-01** | Bulk: search companies + unique proposal/email per contact + swipe approve | ❌ | Only search/select fixed (part of BUG-03) |
+| **FR-02** | Team sender profile DB (5–10 people) | ❌ | `SENDER_NAME` env only |
+| **FR-03** | Email/proposal templates, placeholders, CTA, images | ❌ | Prompt-level CTA/link only |
+| **FR-04** | Sponsor landing full redesign | ❌ | CTA strip + no sidebar only (BUG-15 partial) |
+| **FR-05** | Tinder-style approval UI | ❌ | List + filters on `/approvals` only |
+| **FR-06** | Auto enrichment (logo, social, ads, score, auto industry) | ❌ | Hunter/Apollo/Apify as before |
+| **FR-07** | Weekly newsletter by segment | ❌ | Not started |
+| **FR-08** | Save Hunter/Apollo contacts | ✅ | Same as BUG-11 |
+| **FR-09** | Add competitors to DB | ⚠️ | Add to DB done; **gap:** create proposal from competitor, list badge |
+| **FR-10** | Bilingual admin PT/EN | ❌ | PDF = low priority |
+
+**James WhatsApp (not in PDF FR list):** video generation demo on landing — ❌ not started (tracked as future / F-video in earlier notes).
 
 ---
 
 ## What Was Done Today (2 June 2026)
 
-Two bug-fix rounds were completed today, all committed to `feature/bug-fixes-2june`.
+Two bug-fix rounds on `feature/bug-fixes-2june`, E2E-tested in browser.
 
-### Round 1 — All P0/P1/P2 Bugs + F-11 (commit `9bd2801`)
+### Round 1 — `9bd2801` (P0–P2 + ops banner)
 
-#### ✅ P0-01 — Edit button routing
-- Verified `/proposals/{id}/edit` already correctly routed
-- Confirmed button shows "Edit" and lands on the correct edit page
+- **BUG-01 / P0-01:** Edit routing correct  
+- **BUG-03 / P0-02:** PT bulk industries, company search, multi-select, companies API  
+- **BUG-08 / P0-03:** Jersey prompt confirm modal; reset stuck jobs  
+- **BUG-09,10 / P0-04,05:** Email prompts — real names, proposal link, PT tone, `recipient_title`  
+- **BUG-11 / P0-06:** Contacts save + `0021_contacts_table.sql` (applied in Supabase)  
+- **BUG-IMAGES / P0-07:** Stuck reset + prompt preview on media flow  
+- **BUG-15 / P0-08:** Public `/view` without sidebar; sponsor CTA strip  
+- **BUG-04 / P1-01:** Approvals triple-section + filters  
+- **BUG-12 / P1-03:** Competitors Add to DB  
+- **BUG-14 / P1-04:** Campaign company search  
+- **BUG-13 / P2-01:** Companies API search params  
+- **Ops:** Gmail expiry warning on Settings (clarify: reply sync, not send)
 
-#### ✅ P0-02 — Bulk Campaigns: English labels → Portuguese + company search
-- All industry chips now show Portuguese labels: Automotivo, Bancos / Finanças, Bebidas / FMCG, Saúde, Seguros, Imobiliário, Varejo, Tecnologia, Telecomunicações, Turismo / Hospitalidade, Alimentação, Entretenimento, Educação, Indústria, Energia
-- Added company name search input with live API search (`/api/companies?q=&industry=`)
-- Added multi-select checkboxes to cherry-pick specific companies or select all in an industry
-- Companies API now supports `?q=` and `?industry=` query params (ilike search)
-- **Verified: 21 companies found when searching "Automotivo"** ✅
-- Files: `frontend/app/campaigns/bulk/page.tsx`, `frontend/app/api/companies/route.ts`
+### Round 2 — `622daf0` (post E2E)
 
-#### ✅ P0-03 — Generate Creatives prompt preview modal + stuck jobs reset
-- Prompt preview/confirm modal added — shows the full prompt before firing; user must click "Confirmar e gerar"
-- "Reset N stuck jobs" button added to media-generation header (only appears when stuck jobs exist)
-- Stuck jobs can be reset from `generating` → `approved` for retry
-- Files: `frontend/components/proposals/replicate-jersey-generator.tsx`, `frontend/app/media-generation/image-generation-manager.tsx`
+- Approvals emails query: `proposals(companies)` join (emails have no `company_id`)  
+- Campaigns filter: `draft | selected` only  
+- **Landing Page ↗** always visible on proposal detail  
+- `/view` `pb-20` so CTA does not overlap content  
 
-#### ✅ P0-04 — [Nome] placeholder eliminated from emails
-- Email AI prompt now injects real sender name from `SENDER_NAME` env var (defaults to "Departamento Comercial")
-- `recipient_title` (contact's job title) added to outreach email tool schema — pitch is now role-personalised
-- Portuguese tone enforced in system prompt; no placeholders allowed
-- `senderTitle` env var supported
-- Files: `frontend/lib/bedrock/prompts.ts`, `frontend/lib/agents/tools.ts`
+### Docs — `6466388`, `9cddc4f`
 
-#### ✅ P0-05 — Proposal link + CTA injected in every email
-- Email AI prompt now includes share token link (or `/proposals/{id}/view` as fallback) as a mandatory CTA line
-- Prompt rewritten for concise, compelling Brazilian Portuguese sponsorship pitch tone
-- `recipient_title` added so pitch can be role-personalised by contact's title
-- Files: `frontend/lib/agents/tools.ts`, `frontend/lib/bedrock/prompts.ts`
+- Sprint report updates  
 
-#### ✅ P0-06 — Save contacts from Hunter/Apollo
-- Individual "Save contact" button on every contact row (Hunter decision makers + all contacts sections)
-- "Save all" bulk button on each section header
-- New `/api/contacts` REST endpoint with upsert on `(company_id, email)` — no duplicates
-- `supabase/migrations/0021_contacts_table.sql` created and **applied manually in Supabase SQL editor** ✅
-- Graceful 503 error if table not yet created
-- Files: `frontend/app/companies/[id]/company-ai-analysis.tsx`, `frontend/app/api/contacts/route.ts` (new), `supabase/migrations/0021_contacts_table.sql` (new)
-
-#### ✅ P0-07 — Image management / bulk approve
-- "Sem img" shows correctly for jobs not yet completed (expected UI behaviour)
-- "Reset N stuck jobs" button added for jobs stuck in `generating` status
-- Prompt preview modal added before any generation fires
-- Files: `frontend/app/media-generation/image-generation-manager.tsx`
-
-#### ✅ P0-08 — Sponsor landing page: sidebar hidden + CTA strip added
-- `app-shell.tsx` updated to match `/proposals/[id]/view` pattern via regex — sidebar fully stripped
-- Fixed green CTA strip at bottom: "Tenho Interesse" (WhatsApp), "Falar com nossa equipe" (email), "Agendar Reunião" (Calendly)
-- Admin back-link bar retained at top (`Voltar para proposta`) for internal navigation
-- All admin controls are `print:hidden` so PDF export is clean
-- Files: `frontend/app/proposals/[id]/view/page.tsx`, `frontend/components/shared/app-shell.tsx`
-
-#### ✅ P1-01 — Approvals page empty
-- Page now queries proposals, campaigns, AND emails in parallel — 3 sections rendered
-- Filter dropdowns: "All types" (proposals/campaigns/emails) + "All statuses"
-- Item counts shown per section
-- Files: `frontend/app/approvals/page.tsx`
-
-#### ⚠️ P1-02 — Pipedrive CRM: 35 pending, 0 synced (PARTIAL)
-- The CRM sync code is correct and includes retry logic
-- Root cause: `PIPEDRIVE_API_KEY` may have expired — API key is configured but sync still showing 0
-- **Action required by James:** Go to `/crm-sync` → click "Retry All Pending", or get a fresh Pipedrive API key if the current one expired
-- This cannot be fixed in code — it's an API credentials/account issue
-
-#### ✅ P1-03 — Competitors tab: Add to DB button
-- "Add to DB" button added to every competitor row in the AI analysis
-- Click creates a company record pre-filled with name, website, industry
-- Shows "✓ Added" feedback on success
-- Files: `frontend/app/companies/[id]/company-ai-analysis.tsx`
-
-#### ✅ P1-04 — Campaign company selector has no search
-- Plain `<select>` dropdown replaced with a searchable text input + live dropdown
-- Shows up to 20 filtered results as you type
-- Shows "✓ Company name" confirmation when a company is selected
-- Files: `frontend/app/campaigns/campaign-generator.tsx`
-
-#### ✅ P2-01 — Company industry / category field searchable
-- Companies API GET now supports `?q=` and `?industry=` params (ilike search)
-- Bulk campaigns page uses these params for live company+industry search
-- Files: `frontend/app/api/companies/route.ts`
-
-#### ✅ F-11 — Gmail token expiry warning banner
-- Settings page calculates `isTokenExpired` and `isTokenExpiringSoon` (< 7 days)
-- **Red banner** shown when token is expired: "🚨 Gmail token EXPIRED (since 5/22/2026) — outgoing emails may be silently failing!"
-- **Amber banner** shown when expiring within 7 days
-- Token expiry date shown in red/amber/grey text depending on urgency
-- Files: `frontend/app/settings/page.tsx`
-
----
-
-### Round 2 — Follow-up fixes after E2E browser verification (commit `622daf0`)
-
-After E2E testing in the Cursor browser, 3 additional issues were found and fixed:
-
-#### ✅ Fix 1 — Approvals page: Campaigns and Emails sections not rendering
-- Root cause: `emails` table has no `company_id` column — the query join was failing silently
-- Fixed: emails query now uses `proposals(companies)` nested join
-- Fixed: campaigns status filter corrected to valid values (`draft | selected`)
-- Fixed: `ApprovalEmail` TypeScript type updated to use `proposals.companies` nested structure
-- **Result: Proposals (61) + Campaigns (50) + Emails (8) all showing** ✅
-
-#### ✅ Fix 2 — "Landing Page ↗" button only showed when share_token existed
-- Fixed: button is now always visible regardless of whether a share token has been created
-- Users can always preview the public landing page for any proposal
-- Files: `frontend/app/proposals/[id]/page.tsx`
-
-#### ✅ Fix 3 — Proposal /view page content padding
-- Added `pb-20` to main wrapper so the fixed bottom CTA strip never overlaps page content
-- Files: `frontend/app/proposals/[id]/view/page.tsx`
+**Key files:** `app/campaigns/bulk/page.tsx`, `app/approvals/page.tsx`, `app/proposals/[id]/view/page.tsx`, `app/proposals/[id]/page.tsx`, `components/shared/app-shell.tsx`, `companies/[id]/company-ai-analysis.tsx`, `app/api/contacts/route.ts`, `lib/bedrock/prompts.ts`, `lib/agents/tools.ts`, `replicate-jersey-generator.tsx`, `media-generation/image-generation-manager.tsx`
 
 ---
 
 ## E2E Browser Test Results (2 June 2026)
 
-Tested live on https://eligibly-facing-unloved.ngrok-free.dev using Cursor browser:
-
-| # | Feature | Result | Notes |
-|---|---------|--------|-------|
-| T1 | Proposal `/view` landing — no sidebar | ✅ PASS | Clean public layout |
-| T2 | Bulk Campaigns — Portuguese chips + company search | ✅ PASS | 21 companies found for "Automotivo" |
-| T3 | Approvals — Proposals + Campaigns + Emails sections | ✅ PASS | 61 proposals, 50 campaigns, 8 emails |
-| T4 | Campaign generator — searchable company input | ✅ PASS | Live dropdown as you type |
-| T5 | Company contacts — Save + Save all buttons | ✅ PASS | 9 Hunter contacts saveable |
-| T6 | Competitors — "Add to DB" button on each row | ✅ PASS | 11 competitors found for Ambev |
-| T7 | Settings — Gmail EXPIRED red banner | ✅ PASS | Banner shows since 5/22/2026 |
-| T8 | Image generation — form + stuck jobs reset | ✅ PASS | 0 stuck jobs currently |
-| T-A | "Landing Page ↗" button on proposal detail | ✅ PASS | Visible in top-right action bar |
-| T-B | `/view` page green CTA strip at bottom | ✅ PASS | DOM confirmed; 3 CTA buttons present |
-
-**All 10 tests pass.** Platform is working correctly on every tested flow.
+| # | Test | Result |
+|---|------|--------|
+| T1 | `/view` — no sidebar | ✅ |
+| T2 | Bulk campaigns PT + search | ✅ |
+| T3 | Approvals — 61 / 50 / 8 | ✅ |
+| T4 | Campaign company search | ✅ |
+| T5 | Contacts Save / Save all | ✅ |
+| T6 | Competitors Add to DB | ✅ |
+| T7 | Settings Gmail warning | ✅ |
+| T8 | Media gen + stuck reset | ✅ |
+| T-A | Landing Page ↗ button | ✅ |
+| T-B | `/view` CTA strip | ✅ |
 
 ---
 
-## What Is Pending (Not Done Yet)
+## Still Pending (from PDF + James)
 
-### P1-02 — Pipedrive CRM sync (needs James action)
-- Code is correct; 35 companies queued but not syncing
-- Likely cause: Pipedrive API key expired
-- **James needs to:** go to `/crm-sync` → click "Retry All Pending", or renew the API key
+### Partial bugs — finish in next sprint
 
-### Gmail reconnect (needs James action)
-- Token expired 22 May 2026 — all outgoing emails failing silently
-- **James needs to:** go to `/settings` → Sender Configuration → click "Reconnect Gmail"
+1. **BUG-08 / BUG-IMAGES** — Image library with filter/sort by company, campaign, proposal  
+2. **BUG-09 / FR-02** — `team_members` table + per-sender injection  
+3. **BUG-10** — Embedded images in email HTML  
+4. **BUG-13** — Inline industry edit + auto-label on enrichment  
+5. **BUG-15 / FR-04** — Full landing redesign (hero, assets, lead form, PDF)  
 
----
+### Feature requests — not started (ordered by PDF impact)
 
-## New Features — NOT YET BUILT (James Requirements)
+1. **FR-04** — Landing redesign (CRITICAL)  
+2. **FR-03** — Email templates + placeholders + images (HIGH)  
+3. **FR-01** — Bulk personalized proposals + per-contact emails (HIGH)  
+4. **FR-05** — Tinder-style approval (HIGH)  
+5. **FR-02** — Team sender DB (HIGH)  
+6. **FR-06** — Full enrichment automation (MEDIUM)  
+7. **FR-09** — Competitor extras (proposal from competitor, badge) (MEDIUM)  
+8. **FR-07** — Newsletter (MEDIUM)  
+9. **FR-10** — Bilingual admin (LOW)  
+10. **James extra** — Video demo on landing (exploratory)  
 
-These are from the James WhatsApp + Perplexity Audit. None started yet. Estimated ~77h of work.
+**Estimated remaining:** ~58–77h (features + partial bug completions)
 
-| ID | Feature | Est. | Priority |
-|----|---------|------|----------|
-| F-01 | Bulk personalized proposals — unique proposal + unique email per company per contact | 8h | High |
-| F-02 | Team sender profile database — 5–10 team members, auto-inject into emails | 4h | High |
-| F-03 | Email & proposal templates with placeholder variables + CTA block | 6h | High |
-| F-04 | Sponsor landing page full redesign — hero, asset blocks, lead capture form, PDF download | 6h | High |
-| F-05 | Automated company enrichment — logo, social presence, ad signals, sponsorships, score | 8h | Medium |
-| F-06 | Tinder-style approval UI — card-by-card review for campaigns, emails, proposals | 5h | Medium |
-| F-07 | Weekly newsletter module — block builder, industry segments, Gmail scheduled send | 10h | Medium |
-| F-08 | Video generation demo — Coritiba player/jersey clip + sponsor logo reveal | 6h | Low |
-| F-09 | Contacts list page `/contacts` — search, filter by company/role/source, CSV export | 3h | Medium |
-| F-10 | After adding competitor, option to immediately run outreach agent for that competitor | 2h | Low |
+### Optional ops
 
-**Total remaining feature work: ~58h**
+- Reconnect Gmail in Settings (reply tracking only)  
+- Run **Reset stuck jobs** on `/media-generation` if any jobs still show `generating`  
+- **Archive Synced** on `/crm-sync` to tidy queue UI  
 
 ---
 
 ## Blocked — Waiting on James
 
-| Item | What's Needed | Impact |
-|------|--------------|--------|
-| **Gmail reconnect** | James clicks "Reconnect Gmail" in Settings | All outreach emails currently failing |
-| **Pipedrive API key** | Renew/verify key in Settings | 35 companies not syncing to CRM |
-| **Kit photos** | Shorts, socks, back template, extra sleeve angles | Unlock disabled jersey placements + LoRA retrain |
-| **Apollo Basic tier** | Confirm ~$49/mo plan | Unlocks API people search (CMOs, directors) |
-| **Agent sign-off** | James to review outreach agent on 1–2 real prospects | Before merge to `main` |
-| **Brand assets** | Emails, images, logo files | Required for email templates + company logos |
+| Item | Needed | Impact |
+|------|--------|--------|
+| Kit photos | Shorts, socks, back angles | Jersey placements + LoRA |
+| Brand assets | Email/creative templates | FR-03, logos |
+| Apollo Basic | ~$49/mo confirm | API people search |
+| Agent sign-off | 1–2 real prospects on outreach agent | Merge to `main` |
 
 ---
 
 ## Migrations Applied
 
-| Migration | Table | Status |
-|-----------|-------|--------|
-| `0020_image_job_proposal_links.sql` | `image_generation_jobs` — new cols: `strategy_variant_id`, `placement_zone`, `inventory_label`, `display_label` | ✅ Applied (1 June) |
-| `0021_contacts_table.sql` | `contacts` — company_id, email, full_name, title, department, seniority, phone, linkedin_url, source, confidence | ✅ Applied manually today (2 June) |
+| Migration | Purpose | Status |
+|-----------|---------|--------|
+| `0020_image_job_proposal_links.sql` | Image job metadata for landing/bulk approve | ✅ 1 June |
+| `0021_contacts_table.sql` | Saved Hunter/Apollo contacts | ✅ 2 June (Supabase SQL editor) |
+
+**Future (from PDF):** `0022` email_templates, `0023` company enrichment cols, `0024` newsletters, team_members for FR-02
 
 ---
 
 ## Git / Branch Status
 
 ```
-Branch: feature/bug-fixes-2june (from feature/agents-sprint)
+Branch: feature/bug-fixes-2june
 Remote: origin/feature/bug-fixes-2june (pushed ✅)
 
-2 June commits:
-  622daf0  fix: approvals campaigns/emails sections, Landing Page button always visible, view page CTA spacing
-  6466388  docs: update 2nd_June.md with completed bug status
-  9bd2801  fix(bugs): P0–P2 bug fixes + F-11 — 2nd June sprint
+2 June:
+  9cddc4f  docs: complete 2nd_June sprint report + PDF cross-check
+  622daf0  fix: approvals sections, Landing Page button, view padding
+  6466388  docs: update 2nd_June.md
+  9bd2801  fix(bugs): P0–P2 + F-11
 
-1 June commits (still on branch):
-  3932d42  fix: Portuguese labels for proposal images
-  7b9fc07  Overhaul proposal visuals, landing story, and bulk approval
-  83db561  Fix jersey mockups: official composite, crest fixed
+1 June (on branch):
+  3932d42  Portuguese image labels
+  7b9fc07  Proposal visuals, landing, bulk approve
+  83db561  Official jersey composite
 ```
 
 ---
 
-## Ops Runbook (if site goes down)
+## Ops Runbook
 
 ```bash
-# SSH into AWS server
 pm2 list
 pm2 restart sponsorship-platform
-pm2 status
-
-# Health check
-curl -s https://eligibly-facing-unloved.ngrok-free.dev/api/health
 curl -s https://eligibly-facing-unloved.ngrok-free.dev/api/system/health | python3 -m json.tool
 
-# If ngrok tunnel down:
-pm2 restart ngrok-tunnel
-
-# After code changes:
 cd ~/Market_Sponsorship_Automation/frontend && npm run build
-pm2 restart sponsorship-platform
-pm2 save
+pm2 restart sponsorship-platform && pm2 save
 ```
-
-Ngrok domain is pinned: `--url=https://eligibly-facing-unloved.ngrok-free.dev`
 
 ---
 
@@ -273,9 +281,8 @@ Ngrok domain is pinned: `--url=https://eligibly-facing-unloved.ngrok-free.dev`
 
 | Doc | Purpose |
 |-----|---------|
-| `1st_June.md` | 1 June — jersey mockups, landing redesign, bulk approve |
-| `29th_May.md` | 29 May — outreach agent dual approval, Apollo, PM2 24/7 |
-| `28th_May.md` | 28 May — original sprint plan |
-| `AGENTS_SPRINT_IMPL.md` | Agent architecture & definition of done |
-| `INTERN_TEST_PLAN.md` | Intern E2E test plan (617 lines) |
-| `README.md` | Setup, env vars, outreach agent overview |
+| `Coritiba_Platform_Issues_Report_EN.pdf` | Full audit — this cross-check |
+| `1st_June.md` | Jersey mockups, landing visuals, bulk approve |
+| `29th_May.md` | Outreach agent, Apollo, PM2 |
+| `INTERN_TEST_PLAN.md` | Intern E2E |
+| `README.md` | Setup, env vars |

@@ -7,7 +7,7 @@ import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import Link from "next/link";
-import { ArrowLeft, PhoneCall, Calendar, ThumbsUp } from "lucide-react";
+import { ArrowLeft, PhoneCall, Calendar, ThumbsUp, Shield } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -45,66 +45,77 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
   const company = p.companies;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">{/* pb-20 reserves space for fixed bottom CTA */}
-      {/* Admin controls bar — print:hidden so it never shows on PDF */}
-      <div className="sticky top-0 z-[60] flex items-center justify-between bg-white/95 backdrop-blur border-b border-slate-200 px-4 py-2 print:hidden">
-        <Link
-          href={`/proposals/${proposal.id}`}
-          className="flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar para proposta
-        </Link>
-        <div className="flex items-center gap-2">
-          <ShareLinkDisplay proposalId={proposal.id} shareToken={p.share_token ?? null} />
-          <PrintButton proposalId={proposal.id} exportType="pdf_print" />
+    <div className="min-h-screen bg-white pb-24">
+      {/* ─── Admin controls bar — print:hidden, sticky ─── */}
+      <div className="sticky top-0 z-[60] print:hidden">
+        <div className="flex items-center justify-between bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 px-5 py-2.5">
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/proposals/${proposal.id}`}
+              className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Voltar para proposta</span>
+            </Link>
+            <div className="hidden sm:block h-4 w-px bg-slate-700" />
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400">
+              <Shield className="h-3 w-3" />
+              <span>Modo Interno</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <ShareLinkDisplay proposalId={proposal.id} shareToken={p.share_token ?? null} />
+            <PrintButton proposalId={proposal.id} exportType="pdf_print" />
+          </div>
         </div>
       </div>
 
-      {/* CMS editor wraps the landing page — edit mode toggle is inside */}
-      <ProposalCMSEditor
-        proposal={{
-          id: p.id,
-          title: p.title,
-          status: p.status,
-          version: p.version,
-          created_at: p.created_at,
-          content: p.content as ProposalContent,
-          strategy_variants: p.strategy_variants,
-          pricing_tiers: p.pricing_tiers,
-          visual_prompts: p.visual_prompts,
-          intelligence: p.intelligence,
-          share_token: p.share_token,
-        }}
-        company={{
-          company_name: company?.company_name ?? "",
-          industry: company?.industry,
-          website: company?.website,
-          country: company?.country,
-          logo_url: company?.logo_url,
-        }}
-        campaign={p.campaigns}
-        approvedImages={approvedImages}
-        companyId={company?.id as string | undefined}
-      />
+      {/* ─── Main content: CMS editor wraps the professional landing page ─── */}
+      <div className="w-full">
+        <ProposalCMSEditor
+          proposal={{
+            id: p.id,
+            title: p.title,
+            status: p.status,
+            version: p.version,
+            created_at: p.created_at,
+            content: p.content as ProposalContent,
+            strategy_variants: p.strategy_variants,
+            pricing_tiers: p.pricing_tiers,
+            visual_prompts: p.visual_prompts,
+            intelligence: p.intelligence,
+            share_token: p.share_token,
+          }}
+          company={{
+            company_name: company?.company_name ?? "",
+            industry: company?.industry,
+            website: company?.website,
+            country: company?.country,
+            logo_url: company?.logo_url,
+          }}
+          campaign={p.campaigns}
+          approvedImages={approvedImages}
+          companyId={company?.id as string | undefined}
+        />
+      </div>
 
-      {/* Sponsor CTA strip — fixed at bottom so sponsor always sees a call to action */}
-      <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-green-900/95 backdrop-blur border-t border-green-700 px-4 py-3 flex flex-wrap items-center justify-center gap-3 shadow-2xl">
-        <span className="text-white/80 text-sm font-medium mr-2">
+      {/* ─── Sponsor CTA strip — fixed at bottom ─── */}
+      <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003300] via-[#006B3F] to-[#004d00] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">
+        <span className="text-white/80 text-sm font-medium mr-2 hidden sm:inline">
           Interessado nesta proposta?
         </span>
         <a
           href="https://wa.me/5541999999999?text=Olá!%20Tenho%20interesse%20na%20proposta%20de%20patrocínio%20do%20Coritiba%20FC."
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl bg-green-500 hover:bg-green-400 text-white px-4 py-2 text-sm font-semibold transition-all shadow"
+          className="inline-flex items-center gap-2 rounded-full bg-white text-[#006B3F] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
         >
           <ThumbsUp className="h-4 w-4" />
           Tenho Interesse
         </a>
         <a
           href="mailto:patrocinios@coritiba.com.br?subject=Interesse%20em%20Patrocínio%20Coritiba%20FC"
-          className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 text-sm font-semibold transition-all"
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
         >
           <PhoneCall className="h-4 w-4" />
           Falar com nossa equipe
@@ -113,14 +124,12 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
           href="https://calendly.com/coritiba-patrocinios"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 text-sm font-semibold transition-all"
+          className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
         >
           <Calendar className="h-4 w-4" />
           Agendar Reunião
         </a>
       </div>
-      {/* Spacer so content is not hidden behind CTA strip */}
-      <div className="h-16 print:hidden" />
     </div>
   );
 }

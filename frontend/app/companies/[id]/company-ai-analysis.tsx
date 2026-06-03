@@ -208,11 +208,9 @@ export function CompanyAIAnalysis({
             <Button variant="outline" size="sm" onClick={runSerp} disabled={serpLoading || loading} className="gap-1.5 text-xs">
               {serpLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Discovering…</> : <><Search className="h-3 w-3" /> Find Competitors</>}
             </Button>
-            {website && (
-              <Button variant="outline" size="sm" onClick={runEnrich} disabled={enrichLoading || loading} className="gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
-                {enrichLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Enriching…</> : <><UserCheck className="h-3 w-3" /> Enrich Contacts</>}
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={runEnrich} disabled={enrichLoading || loading} className="gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50">
+              {enrichLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Enriching…</> : <><UserCheck className="h-3 w-3" /> Enrich Contacts</>}
+            </Button>
             <Button variant={data ? "outline" : "default"} size="sm" onClick={runAnalysis} disabled={loading || scraping} className="gap-1.5">
               {loading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…</> :
                data ? <><RotateCcw className="h-3.5 w-3.5" /> Re-analyze</> :
