@@ -82,6 +82,26 @@ type LogoItem = {
   imgElement?: HTMLImageElement;
 };
 
+const DEMO_LOGOS = [
+  { name: "Heineken", url: "/demo-logos/heineken.svg" },
+  { name: "Positivo", url: "/demo-logos/positivo.svg" },
+  { name: "Natura", url: "/demo-logos/natura.svg" },
+] as const;
+
+/** Same-origin URL so Konva export stays untainted and CORS does not block loads. */
+function resolveLogoUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.startsWith("blob:") || trimmed.startsWith("data:")) return trimmed;
+  if (trimmed.startsWith("/")) return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.origin === window.location.origin) return trimmed;
+    return `/api/mockup-editor/proxy-image?url=${encodeURIComponent(trimmed)}`;
+  } catch {
+    return trimmed;
+  }
+}
+
 export function MockupEditorClient() {
   const { toast } = useToast();
 
@@ -97,7 +117,7 @@ export function MockupEditorClient() {
   const loadLogoImage = useCallback((url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
-      img.crossOrigin = "anonymous";
+      // Same-origin + blob loads only; do not set crossOrigin (breaks auth cookies on /api proxy).
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error("Failed to load image"));
       img.src = url;
@@ -105,15 +125,16 @@ export function MockupEditorClient() {
   }, []);
 
   async function addLogo(url?: string) {
-    const targetUrl = url ?? logoUrl.trim();
-    if (!targetUrl) return;
+    const rawUrl = url ?? logoUrl.trim();
+    if (!rawUrl) return;
+    const targetUrl = resolveLogoUrl(rawUrl);
     try {
       const img = await loadLogoImage(targetUrl);
       const maxW = Math.min(120, selectedTemplate.width * 0.3);
       const scale = maxW / img.naturalWidth;
       const newLogo: LogoItem = {
         id: crypto.randomUUID(),
-        url: targetUrl,
+        url: rawUrl,
         x: selectedTemplate.width / 2 - (img.naturalWidth * scale) / 2,
         y: selectedTemplate.height / 2 - (img.naturalHeight * scale) / 2,
         scaleX: scale,
@@ -161,7 +182,7 @@ export function MockupEditorClient() {
   const tmpl = selectedTemplate;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
+    <div className="flex flex-col-reverse lg:flex-row gap-6">
       {/* Sidebar */}
       <div className="lg:w-72 space-y-4">
         {/* Template picker */}
@@ -192,7 +213,7 @@ export function MockupEditorClient() {
               <Input
                 value={logoUrl}
                 onChange={e => setLogoUrl(e.target.value)}
-                placeholder="https://img.logo.dev/company.com"
+                placeholder="https://example.com/logo.png"
                 className="text-xs flex-1"
                 onKeyDown={e => e.key === "Enter" && addLogo()}
               />
@@ -212,11 +233,7 @@ export function MockupEditorClient() {
           <div>
             <Label className="text-xs mb-1 block">Quick add (demo logos)</Label>
             <div className="flex gap-2 flex-wrap">
-              {[
-                { name: "Heineken", url: "https://img.logo.dev/heineken.com?format=png&size=128" },
-                { name: "Positivo", url: "https://img.logo.dev/positivo.com.br?format=png&size=128" },
-                { name: "Natura", url: "https://img.logo.dev/natura.com.br?format=png&size=128" },
-              ].map(l => (
+              {DEMO_LOGOS.map(l => (
                 <button key={l.name} onClick={() => addLogo(l.url)} className="text-xs border rounded px-2 py-1 hover:bg-accent transition-colors">
                   {l.name}
                 </button>

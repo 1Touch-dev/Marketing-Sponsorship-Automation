@@ -246,11 +246,11 @@ export function MobileNav() {
   return (
     <>
       {/* Top bar */}
-      <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3 sticky top-0 z-30">
-        <span className="text-sm font-semibold tracking-tight">Market Sponsorship</span>
+      <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3 sticky top-0 z-30 pointer-events-none">
+        <span className="text-sm font-semibold tracking-tight pointer-events-none">Market Sponsorship</span>
         <button
           aria-label="Toggle menu"
-          className="rounded-md p-1.5 hover:bg-accent transition-colors"
+          className="rounded-md p-1.5 hover:bg-accent transition-colors pointer-events-auto"
           onClick={() => setOpen((v) => !v)}
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

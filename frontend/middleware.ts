@@ -18,6 +18,7 @@ const PUBLIC_PREFIXES = [
   "/images/",
   "/icons/",
   "/mockups/",
+  "/demo-logos/",
   "/api/internal/",   // secured by INTERNAL_API_SECRET instead of session
   "/api/system/",     // health checks — secured at route level if needed
 ];
