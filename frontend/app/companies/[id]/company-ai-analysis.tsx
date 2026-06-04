@@ -50,6 +50,9 @@ export function CompanyAIAnalysis({
   const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp" | "discover" | "contacts">("intelligence");
   const [savedContactEmails, setSavedContactEmails] = useState<Set<string>>(new Set());
   const [savingContacts, setSavingContacts] = useState(false);
+  const [needsManualDomain, setNeedsManualDomain] = useState(false);
+  const [manualDomain, setManualDomain] = useState("");
+  const [manualDomainLoading, setManualDomainLoading] = useState(false);
 
   const saveContacts = useCallback(async (contacts: Array<{ email: string; full_name?: string; title?: string; department?: string; seniority?: string; confidence?: number; source: string }>) => {
     setSavingContacts(true);
@@ -184,7 +187,7 @@ export function CompanyAIAnalysis({
       const j = await res.json() as {
         enrichment: Record<string, unknown>;
         domain_resolution?: { final_domain?: string; source?: string };
-        summary?: Record<string, unknown>;
+        summary?: { needs_manual_domain?: boolean; domain_resolved?: boolean };
         error?: string;
       };
       if (!res.ok) throw new Error(j?.error ?? "Enrichment failed");
@@ -193,11 +196,44 @@ export function CompanyAIAnalysis({
         domain: j.domain_resolution?.final_domain ?? (j.enrichment?.domain as string | undefined),
         source: j.domain_resolution?.source ?? undefined,
       });
+      setNeedsManualDomain(!!j.summary?.needs_manual_domain);
       setActiveTab("contacts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enrichment failed");
     } finally {
       setEnrichLoading(false);
+    }
+  }
+
+  async function applyManualDomain() {
+    const domain = manualDomain.trim();
+    if (!domain) return;
+    setManualDomainLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/intelligence/enrich", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ company_id: companyId, manual_domain: domain }),
+      });
+      const j = await res.json() as {
+        enrichment: Record<string, unknown>;
+        domain_resolution?: { final_domain?: string; source?: string };
+        summary?: { needs_manual_domain?: boolean };
+        error?: string;
+      };
+      if (!res.ok) throw new Error(j?.error ?? "Enrichment failed");
+      setEnrichData(j.enrichment);
+      setEnrichDomainInfo({
+        domain: j.domain_resolution?.final_domain ?? domain,
+        source: "manual",
+      });
+      setNeedsManualDomain(!!j.summary?.needs_manual_domain);
+      toast({ variant: "success", title: "Domain saved — enrichment complete" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Manual enrichment failed");
+    } finally {
+      setManualDomainLoading(false);
     }
   }
 
@@ -342,7 +378,7 @@ export function CompanyAIAnalysis({
                     {comp.website && (
                       <a href={`https://${comp.website}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3.5 w-3.5" /></a>
                     )}
-                    <AddCompetitorButton name={comp.name} website={comp.website} industry={industry} />
+                    <CompetitorActions name={comp.name} website={comp.website} industry={industry} />
                   </div>
                 ))
               )}
@@ -498,6 +534,33 @@ export function CompanyAIAnalysis({
           {/* Tab: Contacts (Hunter.io + Social + Ads) */}
           {activeTab === "contacts" && (
             <div className="space-y-4">
+              {needsManualDomain && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                    Could not determine company domain. Enter website or domain manually.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={manualDomain}
+                      onChange={(e) => setManualDomain(e.target.value)}
+                      placeholder="cresol.com.br"
+                      className="flex-1 min-w-[200px] rounded-md border px-3 py-2 text-sm"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={applyManualDomain}
+                      disabled={manualDomainLoading || !manualDomain.trim()}
+                    >
+                      {manualDomainLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Save & Re-enrich"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
               {!enrichData ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <UserCheck className="h-8 w-8 mx-auto mb-2 opacity-20" />
@@ -919,28 +982,37 @@ function IntelSection({
   );
 }
 
-function AddCompetitorButton({ name, website, industry }: { name: string; website?: string; industry: string | null }) {
+function CompetitorActions({ name, website, industry }: { name: string; website?: string; industry: string | null }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [proposing, setProposing] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+
+  async function ensureCompany(): Promise<string> {
+    if (companyId) return companyId;
+    const res = await fetch("/api/companies", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        company_name: name,
+        website: website ? (website.startsWith("http") ? website : `https://${website}`) : undefined,
+        industry: industry ?? undefined,
+        status: "prospect",
+        notes: "Added from competitor analysis",
+      }),
+    });
+    const j = await res.json() as { data?: { id: string }; error?: string };
+    if (!res.ok) throw new Error(j?.error ?? "Failed to create company");
+    const id = j.data?.id;
+    if (!id) throw new Error("No company id returned");
+    setCompanyId(id);
+    return id;
+  }
 
   async function addToDb() {
     setSaving(true);
     try {
-      const res = await fetch("/api/companies", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          company_name: name,
-          website: website ? `https://${website}` : undefined,
-          industry: industry ?? undefined,
-          status: "prospect",
-          notes: `Added from competitor analysis`,
-        }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error ?? "Failed");
-      setSaved(true);
+      await ensureCompany();
       toast({ variant: "success", title: `${name} added to companies!` });
     } catch (err) {
       toast({ variant: "destructive", title: "Failed to add competitor", description: err instanceof Error ? err.message : "Unknown" });
@@ -949,14 +1021,56 @@ function AddCompetitorButton({ name, website, industry }: { name: string; websit
     }
   }
 
+  async function createProposal() {
+    setProposing(true);
+    try {
+      const id = await ensureCompany();
+      const res = await fetch("/api/proposals/generate-for-company", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ company_id: id }),
+      });
+      const j = await res.json() as { data?: { proposal_id: string }; error?: string };
+      if (!res.ok) throw new Error(j?.error ?? "Proposal generation failed");
+      const proposalId = j.data?.proposal_id;
+      if (!proposalId) throw new Error("No proposal id returned");
+      toast({ variant: "success", title: "Proposal created" });
+      window.location.href = `/proposals/${proposalId}`;
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Create proposal failed",
+        description: err instanceof Error ? err.message : "Unknown",
+      });
+    } finally {
+      setProposing(false);
+    }
+  }
+
   return (
-    <button
-      onClick={addToDb}
-      disabled={saving || saved}
-      className={`text-xs rounded px-2 py-1 border transition-colors shrink-0 flex items-center gap-1 ${saved ? "text-green-700 border-green-300 bg-green-50" : "text-muted-foreground hover:text-primary hover:border-primary/50"}`}
-      title="Add to company database"
-    >
-      {saved ? <><CheckCircle className="h-3 w-3" /> Added</> : saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Building2 className="h-3 w-3" /> Add to DB</>}
-    </button>
+    <div className="flex flex-col gap-1 shrink-0">
+      <button
+        onClick={addToDb}
+        disabled={saving || !!companyId}
+        className="text-xs rounded px-2 py-1 border transition-colors flex items-center gap-1 text-muted-foreground hover:text-primary hover:border-primary/50"
+        title="Add to company database"
+      >
+        {companyId ? (
+          <><CheckCircle className="h-3 w-3" /> In DB</>
+        ) : saving ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <><Building2 className="h-3 w-3" /> Add to DB</>
+        )}
+      </button>
+      <button
+        onClick={createProposal}
+        disabled={proposing}
+        className="text-xs rounded px-2 py-1 border border-indigo-200 bg-indigo-50 text-indigo-800 hover:bg-indigo-100 transition-colors flex items-center gap-1"
+        title="Create company and generate proposal"
+      >
+        {proposing ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Sparkles className="h-3 w-3" /> Create Proposal</>}
+      </button>
+    </div>
   );
 }

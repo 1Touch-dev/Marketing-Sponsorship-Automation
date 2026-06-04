@@ -30,6 +30,13 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
 
   const approvedImages = await fetchProposalImagesForLanding(proposal.id);
 
+  const { data: packages } = await sb
+    .from("proposal_packages")
+    .select("id, name, description, price_brl, benefits, inventory_items, sort_order")
+    .eq("proposal_id", proposal.id)
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+
   type EnrichedProposal = typeof proposal & {
     companies: {
       company_name: string;
@@ -101,6 +108,14 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
         campaign={p.campaigns}
         approvedImages={approvedImages}
         adminMode={false}
+        packages={(packages ?? []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          price_brl: p.price_brl,
+          benefits: Array.isArray(p.benefits) ? p.benefits : [],
+          inventory_items: (p.inventory_items as Record<string, unknown>[]) ?? [],
+        }))}
       />
 
       {/* ─── Sponsor CTA strip — fixed at bottom ─── */}

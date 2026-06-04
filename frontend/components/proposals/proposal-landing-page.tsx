@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/utils";
 import type { PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 import { PricingTiers } from "./pricing-tiers";
+import { ProposalPackageSwitcher, type LandingPackage } from "./proposal-package-switcher";
 import { IntelligencePanel } from "./intelligence-panel";
 import { ProposalLandingVisuals } from "./proposal-landing-visuals";
 import { resolveKpiTemplate } from "@/lib/proposals/kpi-templates";
@@ -44,6 +45,7 @@ interface ProposalLandingPageProps {
   };
   campaign?: { title: string; summary?: string | null } | null;
   approvedImages?: ProposalImageAsset[];
+  packages?: LandingPackage[];
   kpiTemplateId?: string | null;
   adminMode?: boolean;
   onPrint?: () => void;
@@ -247,6 +249,7 @@ export function ProposalLandingPage({
   company,
   campaign,
   approvedImages = [],
+  packages = [],
   kpiTemplateId,
   adminMode = false,
   onPrint,
@@ -565,8 +568,18 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* Pricing tiers */}
-        {pricingTiers.length > 0 && (
+        {/* DB proposal packages (Prata / Ouro / Diamante) */}
+        {packages.length > 0 && (
+          <Section id="packages" title="Pacotes de Patrocínio" badge="Escolha seu nível"
+            subtitle="Selecione o pacote que melhor se adapta aos seus objetivos">
+            <ProposalPackageSwitcher packages={packages}>
+              {() => null}
+            </ProposalPackageSwitcher>
+          </Section>
+        )}
+
+        {/* Pricing tiers (AI-generated legacy) */}
+        {pricingTiers.length > 0 && packages.length === 0 && (
           <Section id="pricing" title="Opções de Investimento" badge="Pacotes de Patrocínio"
             subtitle="Três níveis de parceria para se adaptar ao seu orçamento e objetivos estratégicos">
             <PricingTiers tiers={pricingTiers} />
