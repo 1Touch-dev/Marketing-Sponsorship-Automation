@@ -42,6 +42,11 @@ export function CompanyAIAnalysis({
   const [enrichData, setEnrichData] = useState<Record<string, unknown> | null>(
     (intelligence?.enrichment as Record<string, unknown>) ?? null
   );
+  const [enrichDomainInfo, setEnrichDomainInfo] = useState<{ domain?: string; source?: string } | null>(
+    enrichData
+      ? { domain: enrichData.domain as string | undefined, source: (enrichData.domain_resolution as Record<string, unknown> | null)?.source as string | undefined }
+      : null
+  );
   const [activeTab, setActiveTab] = useState<"intelligence" | "competitors" | "scrape" | "serp" | "discover" | "contacts">("intelligence");
   const [savedContactEmails, setSavedContactEmails] = useState<Set<string>>(new Set());
   const [savingContacts, setSavingContacts] = useState(false);
@@ -176,9 +181,18 @@ export function CompanyAIAnalysis({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ company_id: companyId }),
       });
-      const j = await res.json() as { enrichment: Record<string, unknown>; summary?: Record<string, unknown>; error?: string };
+      const j = await res.json() as {
+        enrichment: Record<string, unknown>;
+        domain_resolution?: { final_domain?: string; source?: string };
+        summary?: Record<string, unknown>;
+        error?: string;
+      };
       if (!res.ok) throw new Error(j?.error ?? "Enrichment failed");
       setEnrichData(j.enrichment);
+      setEnrichDomainInfo({
+        domain: j.domain_resolution?.final_domain ?? (j.enrichment?.domain as string | undefined),
+        source: j.domain_resolution?.source ?? undefined,
+      });
       setActiveTab("contacts");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enrichment failed");
@@ -488,11 +502,14 @@ export function CompanyAIAnalysis({
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <UserCheck className="h-8 w-8 mx-auto mb-2 opacity-20" />
                   <p>No contact data yet.</p>
-                  {website && (
-                    <Button size="sm" variant="outline" onClick={runEnrich} disabled={enrichLoading} className="mt-3 gap-1.5 text-blue-600 border-blue-200">
-                      {enrichLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Enriching…</> : <><UserCheck className="h-3 w-3" /> Enrich {website}</>}
-                    </Button>
-                  )}
+                  <p className="text-xs mt-1 opacity-70">
+                    {website
+                      ? `Will search using domain: ${website}`
+                      : "No website set — will try to discover domain automatically via Apollo, CRM contacts, and Hunter."}
+                  </p>
+                  <Button size="sm" variant="outline" onClick={runEnrich} disabled={enrichLoading} className="mt-3 gap-1.5 text-blue-600 border-blue-200">
+                    {enrichLoading ? <><Loader2 className="h-3 w-3 animate-spin" /> Enriching…</> : <><UserCheck className="h-3 w-3" /> Enrich Contacts</>}
+                  </Button>
                 </div>
               ) : (() => {
                 const hunter = enrichData.hunter as HunterResult | null;
@@ -507,8 +524,34 @@ export function CompanyAIAnalysis({
                 const allContacts = (hunter?.emails ?? []) as ContactRow[];
                 const otherContacts = allContacts.filter((e) => !decisionMakers.some((d) => d.email === e.email));
 
+                const domainSource = enrichDomainInfo?.source ?? (enrichData.domain_resolution as Record<string, unknown> | null)?.source as string | undefined;
+                const domainUsed = enrichDomainInfo?.domain ?? enrichData.domain as string | undefined;
+
+                const SOURCE_LABELS: Record<string, string> = {
+                  website: "from website",
+                  apollo: "via Apollo",
+                  hunter: "via Hunter",
+                  crm_contact: "from CRM contact",
+                  email_inference: "from email",
+                  discovery: "auto-discovered",
+                  manual: "manually set",
+                };
+
                 return (
                   <>
+                    {/* Domain resolution banner */}
+                    {domainUsed && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 text-xs text-blue-700 dark:text-blue-300">
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        <span>Domain: <strong>{domainUsed}</strong></span>
+                        {domainSource && (
+                          <Badge variant="outline" className="text-xs border-blue-200 text-blue-600 dark:text-blue-400 ml-1">
+                            {SOURCE_LABELS[domainSource] ?? domainSource}
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
                     {/* Apollo company intelligence */}
                     {apolloOrg && (
                       <div className="p-3 rounded-lg border bg-violet-50 dark:bg-violet-900/10 space-y-2">

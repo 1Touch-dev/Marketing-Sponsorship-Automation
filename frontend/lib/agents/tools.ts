@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { searchDomain } from "@/lib/intelligence/hunter";
 import { enrichCompanyApollo } from "@/lib/intelligence/apollo";
 import { enrichCompanySocial } from "@/lib/intelligence/social-scraper";
+import { resolveCompanyDomain, extractDomainFromWebsite } from "@/lib/intelligence/domain-resolution";
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
@@ -29,15 +30,53 @@ export type ToolResult = {
 
 export async function toolEnrichContacts(input: {
   company_id: string;
-  domain: string;
+  domain?: string;
 }): Promise<ToolResult> {
   try {
+    // Resolve domain via fallback chain so enrichment works even without a website
+    const sb = supabaseAdmin();
+    const { data: company } = await sb
+      .from("companies")
+      .select("id, company_name, website, country")
+      .eq("id", input.company_id)
+      .maybeSingle();
+
+    let resolvedDomain = input.domain || extractDomainFromWebsite(company?.website ?? "") || "";
+
+    if (!resolvedDomain && company) {
+      const resolution = await resolveCompanyDomain({
+        id: company.id,
+        company_name: company.company_name,
+        website: company.website,
+        country: company.country,
+      });
+      resolvedDomain = resolution.final_domain ?? "";
+
+      if (resolvedDomain && !company.website) {
+        // Write discovered domain back so future enrichments and proposals can use it
+        try {
+          await sb
+            .from("companies")
+            .update({
+              website: `https://${resolvedDomain}`,
+              domain_source: resolution.source,
+              domain_updated_at: new Date().toISOString(),
+            })
+            .eq("id", company.id);
+        } catch {
+          // non-fatal
+        }
+      }
+    }
+
     const [hunterResult, apolloResult] = await Promise.all([
-      searchDomain(input.domain, 10).catch((err) => {
-        logger.warn("Agent Hunter enrich failed", { error: String(err) });
-        return null;
-      }),
-      enrichCompanyApollo(input.domain).catch((err) => {
+      resolvedDomain
+        ? searchDomain(resolvedDomain, 10).catch((err) => {
+            logger.warn("Agent Hunter enrich failed", { error: String(err) });
+            return null;
+          })
+        : Promise.resolve(null),
+      enrichCompanyApollo(resolvedDomain || (company?.company_name ?? "")).catch((err) => {
         logger.warn("Agent Apollo enrich failed", { error: String(err) });
         return null;
       }),
@@ -97,11 +136,14 @@ export async function toolEnrichContacts(input: {
     if (org?.marketing_team_size) parts.push(`~${org.marketing_team_size} marketing staff (Apollo)`);
     if (apolloPeople.length) parts.push(`${apolloPeople.length} decision makers (Apollo)`);
 
+    if (resolvedDomain) data.domain = resolvedDomain;
+
     // Persist for personalized proposal generation
     if (hunterResult || apolloResult) {
       await mergeCompanyEnrichment(input.company_id, {
         hunter: hunterResult,
         apollo: apolloResult,
+        domain: resolvedDomain || undefined,
       });
     }
 
@@ -112,7 +154,9 @@ export async function toolEnrichContacts(input: {
         ? parts.join(" · ")
         : topContactEmail
           ? `Top contact: ${topContactName || topContactEmail}`
-          : "No contacts found — check Hunter/Apollo API keys",
+          : resolvedDomain
+            ? `No contacts found for ${resolvedDomain} — API keys may need checking`
+            : "No contacts found — domain could not be resolved (website, Apollo, CRM, Hunter all tried)",
     };
   } catch (err) {
     logger.warn("Agent tool enrich_contacts failed", { error: String(err) });

@@ -157,6 +157,59 @@ export async function searchDecisionMakers(
   }
 }
 
+// ── Organization search by name ───────────────────────────────────────────────
+
+/**
+ * Find an organization by company name alone (no domain required).
+ * Uses Apollo's organization search endpoint — works on Free tier.
+ * Returns the best matching org, or null if none found.
+ */
+export async function searchOrganizationByName(
+  companyName: string,
+  country?: string
+): Promise<ApolloOrganization | null> {
+  if (!companyName?.trim()) return null;
+
+  try {
+    const body: Record<string, unknown> = {
+      q_organization_name: companyName.trim(),
+      page: 1,
+      per_page: 5,
+    };
+    if (country) body.organization_locations = [country];
+
+    const json = await apolloPost<{
+      organizations?: RawApolloOrg[];
+      pagination?: { total_entries?: number };
+    }>("/organizations/search", body);
+
+    const orgs = json.organizations ?? [];
+    if (orgs.length === 0) return null;
+
+    // Return the first result — closest name match
+    const first = orgs[0];
+    const domain = first.website_url
+      ? first.website_url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0].toLowerCase()
+      : companyName.toLowerCase().replace(/\s+/g, "") + ".com";
+
+    logger.info("Apollo org search by name complete", {
+      query: companyName,
+      found: orgs.length,
+      top: first.name ?? "(unnamed)",
+      domain,
+    });
+
+    return normalizeOrganization(first, domain);
+  } catch (err) {
+    if (err instanceof ApolloPlanError) {
+      logger.warn("Apollo org search not available on this plan", { company: companyName });
+      return null;
+    }
+    logger.warn("Apollo org search by name failed", { company: companyName, error: String(err) });
+    return null;
+  }
+}
+
 // ── Health check ──────────────────────────────────────────────────────────────
 
 export async function checkApolloHealth(): Promise<ApolloHealthStatus> {

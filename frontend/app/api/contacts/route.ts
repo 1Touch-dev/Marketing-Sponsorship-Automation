@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { z } from "zod";
+import { extractDomainFromEmail } from "@/lib/intelligence/domain-resolution";
 
 export const runtime = "nodejs";
 
@@ -78,9 +79,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // ── CRM-contact-driven enrichment ────────────────────────────────────────
+  // For each unique company whose contacts we just saved, if the company has no
+  // website, extract a domain from the saved emails and trigger enrichment.
+  void triggerContactDrivenEnrichment(contactsToInsert).catch(() => {});
+
   return NextResponse.json({
     saved: data?.length ?? 0,
     contacts: data,
     message: `${data?.length ?? 0} contact${(data?.length ?? 0) !== 1 ? "s" : ""} saved successfully`,
   });
+}
+
+async function triggerContactDrivenEnrichment(
+  contacts: Array<{ company_id: string; email: string }>
+): Promise<void> {
+  const sb = supabaseAdmin();
+
+  // Collect unique company IDs
+  const companyIds = [...new Set(contacts.map((c) => c.company_id).filter(Boolean))];
+  if (companyIds.length === 0) return;
+
+  // For each company, check if it has a website; if not, enrich
+  const { data: companies } = await sb
+    .from("companies")
+    .select("id, website")
+    .in("id", companyIds);
+
+  for (const company of companies ?? []) {
+    if (company.website) continue; // Already has domain
+
+    // Check if any of the new contacts for this company has a corporate domain
+    const companyContacts = contacts.filter((c) => c.company_id === company.id);
+    const hasCorporateDomain = companyContacts.some(
+      (c) => !!extractDomainFromEmail(c.email)
+    );
+
+    if (!hasCorporateDomain) continue;
+
+    // Fire-and-forget enrich call
+    await fetch(
+      new URL("/api/intelligence/enrich", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString(),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_id: company.id }),
+        signal: AbortSignal.timeout(5_000),
+      }
+    ).catch(() => {});
+  }
 }

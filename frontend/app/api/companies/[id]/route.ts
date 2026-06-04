@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { extractDomainFromWebsite } from "@/lib/intelligence/domain-resolution";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
+  // Capture previous website before update (for re-enrich detection)
+  const { data: existing } = await sb
+    .from("companies")
+    .select("website")
+    .eq("id", params.id)
+    .maybeSingle();
+
   const { data, error } = await sb
     .from("companies")
     .update(updates)
@@ -49,7 +57,27 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     metadata: { fields: Object.keys(updates) },
   });
 
-  return NextResponse.json({ data });
+  // ── Re-enrich when website/domain changes ────────────────────────────────
+  if ("website" in updates && updates.website !== existing?.website) {
+    const oldDomain = extractDomainFromWebsite(existing?.website ?? "");
+    const newDomain = extractDomainFromWebsite(updates.website as string ?? "");
+    if (newDomain && newDomain !== oldDomain) {
+      // Fire-and-forget: do not await — client gets response immediately
+      void fetch(
+        new URL(`/api/intelligence/enrich`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company_id: params.id }),
+          signal: AbortSignal.timeout(5_000),
+        }
+      ).catch(() => {
+        // Non-fatal — enrichment will run next time user clicks Enrich
+      });
+    }
+  }
+
+  return NextResponse.json({ data, re_enriching: "website" in updates });
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {

@@ -116,6 +116,44 @@ export async function searchDomain(
 }
 
 /**
+ * Find the corporate domain for a company by name alone.
+ * Uses Hunter's domain-search endpoint with the `company` parameter.
+ * Returns the domain string (e.g. "redbull.com") or null if not found.
+ */
+export async function findDomainByCompanyName(companyName: string): Promise<string | null> {
+  const apiKey = process.env.HUNTER_API_KEY ?? "";
+  if (!apiKey) return null;
+  if (!companyName?.trim()) return null;
+
+  try {
+    const url = new URL(`${HUNTER_BASE}/domain-search`);
+    url.searchParams.set("company", companyName.trim());
+    url.searchParams.set("limit", "1");
+    url.searchParams.set("api_key", apiKey);
+
+    logger.info("Hunter.io domain search by company name", { company: companyName });
+
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(12_000),
+    });
+
+    if (!res.ok) return null;
+
+    const json = await res.json() as HunterDomainResponse;
+    const domain = json.data?.domain ?? null;
+
+    if (domain) {
+      logger.info("Hunter.io found domain for company", { company: companyName, domain });
+    }
+
+    return domain ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Verify a single email address via Hunter.io.
  * Returns confidence score 0–100.
  */
