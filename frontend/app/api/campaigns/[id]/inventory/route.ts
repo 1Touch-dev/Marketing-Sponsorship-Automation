@@ -18,7 +18,7 @@ export async function GET(
     .order("sort_order")
     .order("created_at");
 
-  if (error?.code === "42P01") {
+  if (error?.code === "42P01" || error?.code === "PGRST205") {
     // Table not yet migrated — return empty (migration 0024 pending)
     return NextResponse.json({ data: [], migration_pending: true });
   }

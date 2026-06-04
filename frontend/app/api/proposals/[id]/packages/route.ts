@@ -17,7 +17,7 @@ export async function GET(
     .order("sort_order")
     .order("created_at");
 
-  if (error?.code === "42P01") return NextResponse.json({ data: [], migration_pending: true });
+  if (error?.code === "42P01" || error?.code === "PGRST205") return NextResponse.json({ data: [], migration_pending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data ?? [] });
 }
