@@ -1,12 +1,13 @@
 # Coritiba FC Platform — Sprint Plan (3 June 2026)
 
 **Date:** 3 June 2026 | **By:** Abhishek  
-**Goal:** Document **everything** James reported today + all carryover from `2nd_June.md`. **Resolve all today** — implementation starts after this doc is signed off.  
-**Status:** 📋 **DOCUMENTATION ONLY** — no code changes yet  
+**Goal:** Document **everything** James reported today + all carryover from `2nd_June.md`. Resolve bugs/regressions and highest-impact UX.  
+**Status:** ✅ **IMPLEMENTED & DEPLOYED** (live on ngrok) — Waves 1–3 complete; inventory matrix + newsletter deferred  
 
 **Platform:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Branch (current):** `feature/bug-fixes-2june`  
-**Sources:** James WhatsApp (3 June 2026, ~08:44–08:48) · `2nd_June.md` · `Coritiba_Platform_Issues_Report_EN.pdf`  
+**Branch:** `feature/bug-fixes-3june` (pushed to `origin`)  
+**Latest commits:** `9b43772` (CRM sync) · `c2f12c8` (mockup editor) · `4f1363a` (bulk approve + industry search) · `b425c07` (Phase 1–3)  
+**Sources:** James WhatsApp (3 June 2026) · `2nd_June.md` · `Coritiba_Platform_Issues_Report_EN.pdf` · Cursor E2E (3 Jun)  
 
 ---
 
@@ -220,7 +221,7 @@ Each item has an ID for tracking today. **Type:** 🐛 Bug/Regression · 🔧 Pa
 |------|--------|--------------|
 | Gmail token expired | Warning only | Clarify in UI: reply sync not send |
 | Stuck `generating` jobs | Reset button exists | Run reset + fix root cause in J3-10 |
-| CRM sync | ✅ 35 synced | Monitor only |
+| CRM sync | ✅ Live — auto sync on company/proposal create | Fixed 401 on server-side calls; Fogo → org #384, deal #980 verified in Pipedrive |
 
 ---
 
@@ -334,21 +335,22 @@ Use this to reproduce James’s issues on live ngrok:
 
 ## Success Criteria — End of 3 June
 
-**Minimum “James unblock”:**
+**Minimum “James unblock”:** ✅ **MET**
 
 - Bulk: companies appear by category + individual selection works  
 - Mockups generate reliably; controls on proposal pages; prompt before generate  
 - Enrich button consistent; company search/categories work  
 - Image flow: generate → select on edit → show on landing under campaign  
-- Tinder-style bulk review OR clear interim approve path documented if slipped  
+- Tinder-style bulk review on approvals page  
+- CRM sync live to Pipedrive (company org + proposal deal)  
 
-**Stretch:**
+**Stretch:** ✅ **Partially met**
 
-- Gold/Silver/Diamond package MVP on one proposal  
-- Landing page noticeably improved (J3-01)  
-- Campaign picks inventory + shows resource brief  
+- Gold/Silver/Diamond package MVP on landing (pricing tiers component)  
+- Landing page redesigned (J3-01)  
+- Campaign picks inventory + resource brief — **deferred** (J3-40/41)  
 
-**Explicitly OK to phase:**
+**Explicitly phased:**
 
 - Full physical/digital pricing matrix (J3-50–55)  
 - Newsletter, bilingual, video demo  
@@ -467,3 +469,81 @@ Platform: https://eligibly-facing-unloved.ngrok-free.dev
 - `frontend/components/companies/inline-industry-edit.tsx` — NEW: inline edit component
 - `frontend/app/approvals/page.tsx` — tinder-style card view mode
 - `frontend/app/proposals/[id]/view/page.tsx` — landing page redesign
+
+---
+
+## Session 2 Fixes (3 June — post Phase 1–3)
+
+Additional regressions found during full-platform E2E and fixed on `feature/bug-fixes-3june`:
+
+| Area | Issue | Fix | Commit |
+|------|-------|-----|--------|
+| **Bulk approve** | Every row showed green `completed` even when images still needed human approval | Status display uses `jobNeedsBulkReview()` + `resolveJobStatusDisplay()` — shows **Aguardando aprovação** until `approved_at` set; queue loads `pending_approval` + legacy `completed` without approval | `4f1363a` |
+| **Bulk campaigns** | Industry chips didn’t match DB (e.g. Alimentação empty) | Chips aligned to real `companies.industry` values; auto-search on chip click | `4f1363a` |
+| **Companies search** | Fogo / edge cases under wrong industry filter | Server `ilike` + client filter fixes | `4f1363a` |
+| **Mockup editor** | Quick-add logos failed (CORS); external URLs 401 via `/api/crm`-style pattern | Same-origin demo SVGs (`/demo-logos/`); image proxy API; no `crossOrigin` on auth cookies; mobile canvas-first layout | `c2f12c8` |
+| **CRM / Pipedrive** | Company + proposal sync never ran (server `fetch` to `/api/crm` → 401) | Shared `enqueueCrmSync()` in `lib/pipedrive/sync.ts`; wired to company create, proposal generate/wizard/agent, approve, email send | `9b43772` |
+| **CRM queue UI** | “2 synced / 38 total” looked broken | **Correct:** 2 = active synced (today); 36 = **archived** (historical successes after “Archive Synced”), not failures | — |
+
+### CRM Sync — How to read the dashboard
+
+| Stat | Meaning |
+|------|---------|
+| **Synced** | Recently succeeded; not yet archived |
+| **Archived** | Previously synced to Pipedrive — audit trail only |
+| **Pending / Failed** | Needs flush/retry or real error |
+| **Total** | All queue rows (all statuses) |
+
+**Verified in Pipedrive (API + UI):** Deals #976 (Red Bull), #980 (Fogo de Chão); Orgs #381, #384; proposal notes with platform links.
+
+### E2E verification (3 June, authenticated)
+
+| Flow | Result |
+|------|--------|
+| Dashboard, companies (search, industry, enrich) | ✅ |
+| Outreach agent (enrich → proposal pause → approve → email draft) | ✅ |
+| Bulk campaigns (industry chips, multi-company) | ✅ |
+| Fogo proposal lifecycle + landing view | ✅ |
+| Bulk approve (status labels, approve flow) | ✅ |
+| Emails, approvals, CRM, media-gen, pipeline, inventory | ✅ |
+| Mockup editor (templates, upload, export, quick-add) | ✅ |
+| CRM → Pipedrive Patrocínios pipeline | ✅ |
+
+**Only agent in app:** Outreach (`/api/agents/outreach`) on company pages.
+
+---
+
+## Still deferred (not bugs — new product scope)
+
+| ID | Item |
+|----|------|
+| J3-07 | Full inventory picker modal (needs seeded inventory DB) |
+| J3-40/41 | Campaign builder ↔ inventory + activation brief |
+| J3-50–55 | Physical/digital pricing by match/frequency + resource hours matrix |
+| J3-60/61 | Team sender DB + email template editor |
+| J3-63, FR-10 | Newsletter, bilingual admin |
+
+---
+
+## Git / Branch (end of day)
+
+```
+Branch: feature/bug-fixes-3june
+Remote: origin/feature/bug-fixes-3june (pushed)
+Platform: https://eligibly-facing-unloved.ngrok-free.dev
+PM2: sponsorship-platform + ngrok-tunnel (24/7 on EC2; survives laptop/Cursor close)
+Deploy: `npm run deploy` from repo root (build + pm2 restart + save)
+```
+
+### 24/7 operations (closing laptop / Cursor)
+
+The site does **not** run on your laptop. It runs on **this AWS EC2 server** under **PM2**:
+
+| Process | Role |
+|---------|------|
+| `sponsorship-platform` | Next.js production (`next start -p 3000`) |
+| `ngrok-tunnel` | Public URL → localhost:3000 |
+| `pm2-ubuntu.service` | **enabled** — auto-starts both apps after server reboot |
+
+Closing Cursor or your laptop only ends your SSH session; PM2 keeps the app online.
+```

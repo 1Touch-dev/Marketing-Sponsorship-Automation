@@ -12,7 +12,7 @@ module.exports = {
       name: "sponsorship-platform",
       cwd: "/home/ubuntu/Market_Sponsorship_Automation/frontend",
       script: "npm",
-      args: "start -- -p 3000",
+      args: "start",
       interpreter: "none",
       env: {
         NODE_ENV: "production",
