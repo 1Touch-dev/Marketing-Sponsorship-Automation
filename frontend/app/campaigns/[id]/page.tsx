@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
 import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
+import { ActivationBriefPanel } from "@/components/campaigns/activation-brief-panel";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import {
@@ -242,6 +243,8 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           <CampaignInventoryTable campaignId={campaign.id} />
         </CardContent>
       </Card>
+
+      <ActivationBriefPanel campaignId={campaign.id} />
     </>
   );
 }
