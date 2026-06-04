@@ -794,8 +794,15 @@ export function CompanyAIAnalysis({
                     )}
 
                     {decisionMakers.length === 0 && apolloPeople.length === 0 && !apolloOrg && !linkedin && (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        <p>No enrichment data yet. Click <strong>&quot;Enrich Contacts&quot;</strong> above to fetch contacts via Hunter &amp; Apollo.</p>
+                      <div className="text-center py-4 text-muted-foreground text-sm space-y-2">
+                        {(enrichData.hunter_error as string | undefined) ? (
+                          <>
+                            <p className="text-amber-700 dark:text-amber-400">{enrichData.hunter_error as string}</p>
+                            <p className="text-xs">Add a website manually or save a contact with a corporate email, then try again.</p>
+                          </>
+                        ) : (
+                          <p>No enrichment data yet. Click <strong>&quot;Enrich Contacts&quot;</strong> above to fetch contacts via Hunter &amp; Apollo.</p>
+                        )}
                       </div>
                     )}
                   </>

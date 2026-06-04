@@ -78,22 +78,26 @@ export async function POST(req: Request) {
     // ── Step 2: If we discovered a better domain, update company record ───
     const storedDomain = extractDomain(company.website ?? "");
     if (domain && domain !== storedDomain) {
-      const domainUpdates: Record<string, unknown> = {
-        domain_source: domainResolution.source,
-        domain_updated_at: new Date().toISOString(),
-      };
-      // If company has no website at all, write discovered domain as website too
-      if (!company.website && domain) {
-        domainUpdates.website = `https://${domain}`;
-      }
-      // Write to domain columns if they exist (migration 0022); ignore if columns absent
-      try {
+      // Backfill website first (always works — no migration 0022 required)
+      if (!company.website) {
         await sb
           .from("companies")
-          .update(domainUpdates)
+          .update({ website: `https://${domain}` })
           .eq("id", company_id);
-      } catch {
-        // non-fatal — migration may not be applied yet
+      }
+      // Domain tracking columns (migration 0022) — separate update so missing columns don't block website
+      const { error: domainColError } = await sb
+        .from("companies")
+        .update({
+          domain,
+          domain_source: domainResolution.source,
+          domain_updated_at: new Date().toISOString(),
+        })
+        .eq("id", company_id);
+      if (domainColError?.message?.includes("does not exist") || domainColError?.code === "42703") {
+        logger.warn("Domain tracking columns not applied yet — run migration 0022", {
+          company_id,
+        });
       }
     }
 

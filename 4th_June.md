@@ -493,57 +493,110 @@ Deploy:           npm run deploy  (on server, after ops files committed)
 
 ## 4 June Implementation — E2E Results
 
-**Branch:** `feature/4th-june-enrichment`  
-**Deployed:** ✅ `localhost:3000 => 200` · `ngrok public => 200`  
-**Build:** `npm run build` — zero type errors  
-**PM2:** `sponsorship-platform` online · `ngrok-tunnel` online  
+**Verified:** 4 June 2026 (Cursor browser + Supabase API checks on live ngrok)  
+**Branch:** `feature/4th-june-enrichment` @ `ffafcf4` (+ post-verify fixes pending push)  
+**URL:** https://eligibly-facing-unloved.ngrok-free.dev  
+**Health:** `localhost:3000 => 200` · `ngrok => 200` · PM2 online  
 
-### Enrichment E2E (P1)
+### Enrichment E2E — browser verified (4 June 2026)
 
-| Test | Scenario | Result | Evidence |
-|------|----------|--------|----------|
-| **E1** | Name-only enrich — UNICRED Curitiba (no website) | ✅ PASS | 10 Hunter contacts found · domain `unimedcuritiba.com.br` discovered via Hunter name search · `domain_source: hunter` · `enriched_at` set |
-| **E2** | Domain fallback chain logged | ✅ PASS | Steps: website(fail) → apollo(fail, 0 results) → crm_contact(fail, no saved contacts) → hunter(✅ SUCCESS) |
-| **E3** | Domain change re-enrich — Positivo Tecnologia | ✅ PASS | PATCH `/api/companies/{id}` with new website → server detects domain change → async enrich triggered |
-| **E4** | CRM contact → enrichment | ✅ PASS (code) | `contacts/route.ts` triggers enrichment on save when company lacks website and contact has corporate email |
-| **E5** | `toolEnrichContacts` without domain | ✅ PASS (code) | Agent tool now calls `resolveCompanyDomain()` first; writes backfilled website to DB |
+| Test | Scenario | Result | Evidence (live) |
+|------|----------|--------|-----------------|
+| **E1** | Name-only enrich — UNICRED Curitiba (no website) | ✅ **PASS** | Browser: **Contacts (10)**, Hunter decision makers (`@unimedcuritiba.com.br`), Apollo org intel. DB: `domain: unimedcuritiba.com.br`, `source: hunter`, fallback steps all tried. |
+| **E1b** | Name-only — Cresol Confederação (no website) | ⚠️ **Expected fail** | Hunter/Apollo could not resolve domain for this name. API completes; UI should show resolution error (not “click Enrich”). **Not a regression** — data/API coverage limit. |
+| **E2** | Website path — Positivo Tecnologia (`positivo.com.br`) | ✅ **PASS** | Browser: **Contacts (10)**, `llima@positivo.com.br`. DB: `domain: positivo.com.br`, `source: website`. |
+| **E3** | Domain change re-enrich | ✅ **PASS** (API) | PATCH company website triggers async `POST /api/intelligence/enrich` when domain changes. |
+| **E4** | CRM contact → enrich — Sicoob Paraná | ✅ **PASS** | Pre-inserted contact `joao.silva@sicoob.com.br` (no website). Browser: **Contacts (10)** after Enrich. DB: `domain: sicoob.com.br`, `source: crm_contact`, crm step `success: true`. |
+| **E5** | Outreach agent `enrich_contacts` — Positivo | ✅ **PASS** | PM2 log: `tool: enrich_contacts`, `success: true`, summary `10 emails (Hunter) · ~10 marketing staff (Apollo)`. Proposal step failed separately (unrelated `campaigns.strategy` column — see migrations). |
 
-**Apollo org search by name:** returns 0 results for small Brazilian cooperatives (Apollo free tier / data coverage). Domain found via Hunter fallback instead — correct behavior.
+**Resolution paths confirmed:**
 
-**Domain tracking (Req 4):** `domain_source`, `domain_updated_at`, `domain_confidence`, `domain` columns in migration `0022_company_domain_tracking.sql` — apply in Supabase SQL editor before production data queries.
+| Source | When it works | Verified on |
+|--------|----------------|-------------|
+| `website` | Company has valid URL | Positivo |
+| `hunter` | Hunter company-name search finds domain | UNICRED |
+| `crm_contact` | Saved contact with corporate email | Sicoob |
+| `apollo` | Name search (free tier) | Often 0 for small BR co-ops — fallback continues |
 
-### Regression (3 June fixes)
+### Regression — browser verified (4 June 2026)
 
 | Area | Route | Result |
 |------|-------|--------|
-| Dashboard | `/` | ✅ Loads, all stats present |
-| Companies list | `/companies` | ✅ Search + industry filter |
-| Bulk campaigns | `/campaigns` | ✅ Proposals listed |
-| Bulk approve | `/proposals/bulk-approve` | ✅ Status labels correct, proposals in queue |
-| CRM sync | `/crm-sync` | ✅ Page loads, Archive Synced button |
-| Mockup editor | `/mockup-editor` | ✅ Jersey/templates load, demo logos visible |
+| Login / Dashboard | `/login` → `/` | ✅ PASS |
+| Companies list | `/companies` | ✅ PASS — search, industry filter, 500+ companies |
+| Bulk campaigns | `/campaigns` | ✅ PASS |
+| Bulk approve | `/proposals/bulk-approve` | ✅ PASS — proposals in queue |
+| CRM sync | `/crm-sync` | ✅ PASS — Pipedrive queue UI |
+| Mockup editor | `/mockup-editor` | ✅ PASS — templates + demo logos |
+
+### Post-verify fixes (same branch)
+
+| Fix | Why |
+|-----|-----|
+| Split `website` backfill from `domain_source` DB update | Without migration 0022, combined update blocked `website` backfill on name-only companies |
+| Show `hunter_error` in Contacts tab when resolution fails | Cresol previously showed misleading “No enrichment data yet” after a completed API run |
+
+### Supabase migrations — what you need to run
+
+Checked live DB (`lmjwjztokzombtstmume.supabase.co`):
+
+| Migration | Status | Required? | What it enables |
+|-----------|--------|-----------|-----------------|
+| **0021** `contacts_table.sql` | ✅ **Already applied** | Was applied earlier | Save Hunter/Apollo contacts; CRM-contact domain step; E4 |
+| **0022** `company_domain_tracking.sql` | ❌ **Not applied** | **Recommended** | `companies.domain`, `domain_source`, `domain_confidence`, `domain_updated_at` columns + index |
+
+**Enrichment works without 0022** — domain resolution is stored in `full_intelligence.enrichment.domain_resolution` JSON. **Apply 0022** so domain source is queryable on the company row and backfill is reliable.
+
+#### Steps to apply migration 0022 (Supabase SQL Editor)
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → project **lmjwjztokzombtstmume**.
+2. Go to **SQL Editor** → **New query**.
+3. Copy the full contents of `supabase/migrations/0022_company_domain_tracking.sql` from the repo.
+4. Click **Run**. Expect: `Success. No rows returned`.
+5. Verify:
+
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'companies'
+  AND column_name IN ('domain', 'domain_source', 'domain_confidence', 'domain_updated_at');
+```
+
+You should see **4 rows**.
+
+6. (Optional) Check backfill:
+
+```sql
+SELECT company_name, domain, domain_source FROM companies
+WHERE domain IS NOT NULL LIMIT 5;
+```
+
+**You do not need to re-run 0021** if saving contacts already works (it does on production).
+
+**No other migrations are required for today’s enrichment work.** Separate issue: outreach agent proposal step may need a `campaigns.strategy` column if that error appears — not part of 0021/0022.
 
 ### Files changed (feature/4th-june-enrichment)
 
 | File | Change |
 |------|--------|
-| `frontend/lib/intelligence/domain-resolution.ts` | **NEW** — `resolveCompanyDomain()`, `extractDomainFromEmail/Website`, `pickBestDomain` |
-| `frontend/lib/intelligence/apollo.ts` | `searchOrganizationByName()` — name-first org search |
-| `frontend/lib/intelligence/hunter.ts` | `findDomainByCompanyName()` — domain discovery by company name |
-| `frontend/app/api/intelligence/enrich/route.ts` | Orchestrate `resolveCompanyDomain()` before pipeline; backfill website; persist `domain_resolution` in enrichment JSON |
-| `frontend/app/api/companies/[id]/route.ts` | Detect website change on PATCH → async re-enrich |
-| `frontend/app/api/contacts/route.ts` | After contact save → extract domain → trigger enrichment if company lacks website |
-| `frontend/lib/agents/tools.ts` | `toolEnrichContacts` uses `resolveCompanyDomain()` — works without input domain |
-| `frontend/app/companies/[id]/company-ai-analysis.tsx` | Domain source badge; allow enrich without website |
-| `supabase/migrations/0022_company_domain_tracking.sql` | **NEW** — `domain`, `domain_source`, `domain_confidence`, `domain_updated_at` columns |
+| `frontend/lib/intelligence/domain-resolution.ts` | **NEW** — fallback chain |
+| `frontend/lib/intelligence/apollo.ts` | `searchOrganizationByName()` |
+| `frontend/lib/intelligence/hunter.ts` | `findDomainByCompanyName()` |
+| `frontend/app/api/intelligence/enrich/route.ts` | Resolution orchestration + website backfill fix |
+| `frontend/app/api/companies/[id]/route.ts` | Re-enrich on website PATCH |
+| `frontend/app/api/contacts/route.ts` | CRM contact → enrich trigger |
+| `frontend/lib/agents/tools.ts` | Agent uses shared resolution |
+| `frontend/app/companies/[id]/company-ai-analysis.tsx` | No-website enrich UX + error display |
+| `supabase/migrations/0022_company_domain_tracking.sql` | Domain tracking columns |
 
 ### Known blockers / next actions
 
 | Item | Status |
 |------|--------|
-| Apollo org search by name | Free tier returns 0 for small BR cooperatives; upgrade to Basic+ for better coverage |
-| Gmail OAuth | Token expired — reconnect in settings (unrelated to today's work) |
-| Migration 0022 | Apply in Supabase SQL editor — not auto-applied |
+| Migration **0022** | **You should apply** (steps above) — not auto-applied |
+| Migration **0021** | Already on production — no action |
+| Apollo name search | Free tier: 0 results for some BR names; Hunter/CRM fallback works |
+| Apify monthly limit | Scrape/social steps empty — unrelated to enrichment core |
+| `campaigns.strategy` column | Agent proposal step fails — separate schema fix |
+| Gmail OAuth | Token expired — settings reconnect |
 | Inventory (P2) | Deferred to 5 June |
-| Team senders / templates | Deferred to 5 June |
 
