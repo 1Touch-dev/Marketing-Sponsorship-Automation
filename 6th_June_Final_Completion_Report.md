@@ -179,4 +179,10 @@ All sprint deliverables are implemented, production build passes, PM2 redeployed
 | **Branch** | `feature/5th-june-final-polish` |
 | **Base** | `feature/5th-june-agent-inventory` |
 
-Commits created in this sprint (see `git log` on branch for SHAs after push).
+| Commit | Message |
+|--------|---------|
+| `a6daba6` | feat: wire email templates into generation flow |
+| `8cae5fc` | feat: add activation brief campaign UI |
+| `c322d06` | feat: add proposal package switcher and competitor proposal flow |
+| `f071dcf` | feat: add manual domain recovery workflow |
+| `52d63cd` | docs: add final completion validation report |
