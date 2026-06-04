@@ -161,16 +161,16 @@ export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>)
   let senderName = "Departamento Comercial";
   let senderTitle = "";
   try {
-    const { data: sender } = await sb
-      .from("team_members" as "users")
+    const { data: sender, error } = await sb
+      .from("team_members")
       .select("full_name, title")
-      .eq("default_sender" as "id", true as never)
-      .eq("active" as "id", true as never)
+      .eq("default_sender", true)
+      .eq("active", true)
       .limit(1)
       .maybeSingle();
-    if (sender) {
-      senderName = (sender as { full_name: string }).full_name ?? senderName;
-      senderTitle = (sender as { title: string | null }).title ?? "";
+    if (!error && sender) {
+      senderName = sender.full_name ?? senderName;
+      senderTitle = sender.title ?? "";
     }
   } catch {
     /* non-fatal */
