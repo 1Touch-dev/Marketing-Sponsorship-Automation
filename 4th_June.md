@@ -917,6 +917,50 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 
 **Gmail:** Gmail integration is **not required** for core workflow. Outreach delivery and CRM activity tracking are handled through **Pipedrive** (approve email → log activity → rep sends from Pipedrive). Gmail OAuth is optional for **reply sync** only; reconnect in Settings if inbox sync needed.
 
+### James media kit — Coto Coxa Images (WeTransfer, 2 Jun 2026)
+
+**Status:** ✅ **Downloaded & stored on EC2** (4 Jun 2026) · ⏳ **LoRA retrain pending** (scheduled next session)
+
+| Field | Detail |
+|-------|--------|
+| **From** | james97deller@gmail.com |
+| **Package** | `Coto Coxa Images.zip` (2.04 GB) |
+| **WeTransfer** | Expires **5 June 2026** — files already on server at `jersey-assets/james-coto-coxa-2026/` |
+| **Inventory** | See `jersey-assets/james-coto-coxa-2026/INVENTORY.md` |
+
+**What James sent (four inner archives):**
+
+| Archive | Use for LoRA / platform |
+|---------|-------------------------|
+| **UNIFORM.zip** | ⭐ **Highest value** — flat kit: Home, Jogadeira, Shorts (preto/off-white), Meias (cinza/verde/off-white), Escudo, player photos |
+| **DJI 0007 June 2026.zip** | 39 JPG + 3 DNG — event/studio stills; strong jersey-in-context shots |
+| **Aquece Coxa.zip** | Warmup campaign drone JPG + 2 large MP4s (video demo only, not LoRA) |
+| **Couto Pereira.zip** | Stadium drone JPG/DNG — stadium/activation mockup context |
+
+**Stored for training:** `lora-training-candidates/` — **69** JPG/PNG copies (638 MB), ready to curate into v2 zip tomorrow.
+
+**Production model until retrain:** `abhishek9302/coritiba-jersey-lora:396810db` (May 2026, 15 images from Camisa PDF).
+
+#### Pending / TODO — LoRA v2 (James batch 1)
+
+| # | Task | Owner | Status |
+|---|------|-------|--------|
+| L1 | Curate 15–30 RGB images from `lora-training-candidates/` (prioritize UNIFORM flat kit + best front jersey JPGs) | Dev | ⏳ Tomorrow |
+| L2 | Build `coritiba_jersey_lora_training_v2.zip`, train on Replicate (`ostris/flux-dev-lora-trainer`, trigger `coritiba_jersey`) | Dev | ⏳ Tomorrow |
+| L3 | Update `REPLICATE_MODEL_VERSION` + deploy | Dev | ⏳ After train |
+| L4 | Enable `back`, `shorts`, `socks` in `jersey-placements.ts` | Dev | ⏳ After QA |
+| L5 | Re-run image E2E (T-25–T-27, T-56) | QA | ⏳ After deploy |
+
+#### Still waiting from James (batch 2 — he said “others soon”)
+
+| Item | Impact |
+|------|--------|
+| Extra kit angles / dedicated back-only photos | Fuller back placement + LoRA coverage |
+| Brand/email creative templates | FR-03 brand asset library |
+| More stadium/activation inventory shots | Non-jersey mockups |
+
+---
+
 ### Future Roadmap (not yet shipped)
 
 | Item | Maps to |
@@ -926,7 +970,7 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 | Full physical/digital pricing matrix | J3-50–55 |
 | Resource requirements engine (full graph) | J3-54, J3-55 |
 | Apollo Basic+ people search upgrade | Commercial |
-| Landing video demo for James | Ops |
+| Landing video demo for James | Ops — **partial:** 2 MP4s in Aquece Coxa zip usable as source |
 
 **Do not list as pending:** inventory picker, activation brief, team senders, email templates, proposal packages, competitor proposal, template-in-generation, package switcher, manual domain — all **shipped and certified**.
 

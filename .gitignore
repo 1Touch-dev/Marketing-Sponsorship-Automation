@@ -41,6 +41,11 @@ supabase/.temp/
 jersey-assets/extracted-images/
 jersey-assets/lora-training-set/
 jersey-assets/*.pdf
+jersey-assets/james-coto-coxa-2026/Coto_Coxa_Images.zip
+jersey-assets/james-coto-coxa-2026/archives/
+jersey-assets/james-coto-coxa-2026/extracted/
+jersey-assets/james-coto-coxa-2026/nested/
+jersey-assets/james-coto-coxa-2026/lora-training-candidates/
 
 # Backups
 *.bak
