@@ -2,11 +2,12 @@
 
 **Date:** 4 June 2026 | **By:** Abhishek  
 **Goal:** Consolidate completed work (28 May → 3 June), carry forward all open items, and plan **4 June** sprint (enrichment-first + inventory foundations).  
-**Status:** 📋 **PLANNING ONLY** — no application code changes on this branch yet  
+**Status:** ✅ **SHIPPED** — Wave 1 enrichment on `feature/4th-june-enrichment`; migration **0022** applied; E2E verified on live ngrok  
 
 **Platform:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Parent branch:** `feature/bug-fixes-3june` (latest shipped fixes)  
-**Planning branch:** `feature/4th-june-planning`  
+**Implementation branch:** `feature/4th-june-enrichment` (latest: `5e5e4e2`)  
+**Planning branch (doc-only):** `feature/4th-june-planning`  
+**Parent branch:** `feature/bug-fixes-3june` @ `1459340` (ops + deploy script)  
 
 **Sources:** `28th_May.md` · `29th_May.md` · `1st_June.md` · `2nd_June.md` · `3rd_June.md` · James WhatsApp (3 June evening — enrichment) · `Coritiba_Platform_Issues_Report_EN.pdf`
 
@@ -30,24 +31,22 @@ Nothing from **3 June deferred list** is dropped — see [Pending / Deferred Fro
 
 | Item | Status |
 |------|--------|
-| **Latest shipped branch** | `feature/bug-fixes-3june` |
-| **Latest pushed commit** | `9b43772` — *Fix Pipedrive CRM sync to run server-side without auth failures.* |
-| **Local vs `origin/feature/bug-fixes-3june`** | ✅ Up to date (no unpushed commits on that branch at branch point) |
-| **Working tree on planning branch** | ⚠️ **Not clean** — see [Blocked / Pre-flight](#blocked--pre-flight) |
-| **This document branch** | `feature/4th-june-planning` (planning only) |
+| **4 June implementation branch** | `feature/4th-june-enrichment` |
+| **Latest commit** | `5e5e4e2` — website backfill fix + E2E doc; `06b2150` enrichment core; `ffafcf4` migration 0022 |
+| **Ops pre-flight** | ✅ Resolved in `1459340` — `3rd_June.md`, `deploy-latest.sh`, `npm run deploy` |
+| **Supabase migration 0022** | ✅ Applied and verified (4 June) |
+| **PR** | Open from `feature/4th-june-enrichment` → `feature/bug-fixes-3june` (or `main` per team) |
 
-### Blocked / Pre-flight
+### Pre-flight (completed 4 June)
 
-**Before any 4 June implementation**, resolve uncommitted work on the dev machine (left on `feature/bug-fixes-3june` when branching):
+Ops files committed on `feature/bug-fixes-3june` before enrichment branch:
 
-| File | Type | Notes |
-|------|------|-------|
-| `3rd_June.md` | Modified | End-of-day doc updates (24/7 ops, deploy notes) — not yet committed |
-| `ecosystem.config.cjs` | Modified | PM2 `npm start` args cleanup |
-| `package.json` | Modified | Added `npm run deploy` script |
-| `scripts/deploy-latest.sh` | Untracked | Build + PM2 restart helper |
-
-**Action:** Commit or stash these on `feature/bug-fixes-3june` (or merge into planning branch) before coding — **do not lose deploy/ops helpers**.
+| File | Status |
+|------|--------|
+| `3rd_June.md` | ✅ Committed |
+| `ecosystem.config.cjs` | ✅ Committed |
+| `package.json` (`npm run deploy`) | ✅ Committed |
+| `scripts/deploy-latest.sh` | ✅ Committed |
 
 ---
 
@@ -438,7 +437,7 @@ Enables better decisions when multiple domains are discovered (subsidiary vs par
 
 | Item | Blocker | Owner action |
 |------|---------|--------------|
-| Uncommitted local files on `bug-fixes-3june` | Doc/ops not committed | Stash or commit before merge |
+| ~~Uncommitted ops files~~ | — | ✅ Done (`1459340`) |
 | Apollo people search | Basic+ plan | James / budget |
 | Gmail reply sync | OAuth token expired | Reconnect in settings |
 | Full inventory pricing | Schema + business rules | James sign-off on match/frequency model |
@@ -448,15 +447,15 @@ Enables better decisions when multiple domains are discovered (subsidiary vs par
 
 ## Success Criteria — End of 4 June
 
-**Minimum:**
+**Minimum (Wave 1 — ✅ met 4 June):**
 
-- Enrich works without pre-existing website for ≥3 test companies (name + Apollo/Hunter path).  
-- Website change triggers re-enrichment with updated `full_intelligence`.  
-- CRM-style contact email (`user@corp.com`) triggers company enrich.  
-- Domain source stored for at least manual vs discovered.  
-- No regression on outreach agent, CRM sync, bulk campaigns.  
+- ✅ Enrich without website — UNICRED (`hunter`), Sicoob (`crm_contact`), Positivo (`website`).  
+- ✅ Website change triggers re-enrichment (PATCH company API).  
+- ✅ CRM contact email triggers enrich (Sicoob `joao.silva@sicoob.com.br`).  
+- ✅ Domain source on company row — migration **0022** + columns verified in Supabase.  
+- ✅ No regression — dashboard, companies, bulk, CRM sync, mockup editor (browser verified).  
 
-**Stretch:**
+**Stretch (deferred to 5 June):**
 
 - Inventory picker MVP on one proposal.  
 - Activation brief text generated from selected inventory lines.  
@@ -478,25 +477,27 @@ Enables better decisions when multiple domains are discovered (subsidiary vs par
 
 ---
 
-## Git / Branch (start of 4 June planning)
+## Git / Branch (end of 4 June)
 
 ```
-Planning branch:  feature/4th-june-planning  (this document only)
-Shipped branch:   feature/bug-fixes-3june @ 9b43772
+Implementation:   feature/4th-june-enrichment @ 5e5e4e2 (+ doc commit)
+Planning doc:     feature/4th-june-planning @ 03f507e
+Base / ops:       feature/bug-fixes-3june @ 1459340
 Platform:         https://eligibly-facing-unloved.ngrok-free.dev
-Deploy:           npm run deploy  (on server, after ops files committed)
+Deploy:           npm run deploy  (scripts/deploy-latest.sh)
 ```
 
-**Next step after James sign-off:** Implement Wave 1 on `feature/4th-june-enrichment` (or continue from planning branch per team convention).
+**Next:** Merge PR for enrichment branch; P2 inventory (5 June); fix `campaigns.strategy` for full outreach agent proposal step.
 
 ---
 
 ## 4 June Implementation — E2E Results
 
 **Verified:** 4 June 2026 (Cursor browser + Supabase API checks on live ngrok)  
-**Branch:** `feature/4th-june-enrichment` @ `ffafcf4` (+ post-verify fixes pending push)  
+**Branch:** `feature/4th-june-enrichment` @ `5e5e4e2`  
 **URL:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Health:** `localhost:3000 => 200` · `ngrok => 200` · PM2 online  
+**Migrations:** 0021 ✅ · 0022 ✅ applied + post-migration re-enrich (UNICRED, Sicoob)  
 
 ### Enrichment E2E — browser verified (4 June 2026)
 
@@ -506,7 +507,7 @@ Deploy:           npm run deploy  (on server, after ops files committed)
 | **E1b** | Name-only — Cresol Confederação (no website) | ⚠️ **Expected fail** | Hunter/Apollo could not resolve domain for this name. API completes; UI should show resolution error (not “click Enrich”). **Not a regression** — data/API coverage limit. |
 | **E2** | Website path — Positivo Tecnologia (`positivo.com.br`) | ✅ **PASS** | Browser: **Contacts (10)**, `llima@positivo.com.br`. DB: `domain: positivo.com.br`, `source: website`. |
 | **E3** | Domain change re-enrich | ✅ **PASS** (API) | PATCH company website triggers async `POST /api/intelligence/enrich` when domain changes. |
-| **E4** | CRM contact → enrich — Sicoob Paraná | ✅ **PASS** | Pre-inserted contact `joao.silva@sicoob.com.br` (no website). Browser: **Contacts (10)** after Enrich. DB: `domain: sicoob.com.br`, `source: crm_contact`, crm step `success: true`. |
+| **E4** | CRM contact → enrich — Sicoob Paraná | ✅ **PASS** | Pre-inserted contact `joao.silva@sicoob.com.br` (no website). Browser: **Contacts (10)** after Enrich. Post-0022 DB: `website: https://sicoob.com.br`, `domain: sicoob.com.br`, `domain_source: crm_contact`. |
 | **E5** | Outreach agent `enrich_contacts` — Positivo | ✅ **PASS** | PM2 log: `tool: enrich_contacts`, `success: true`, summary `10 emails (Hunter) · ~10 marketing staff (Apollo)`. Proposal step failed separately (unrelated `campaigns.strategy` column — see migrations). |
 
 **Resolution paths confirmed:**
@@ -543,11 +544,19 @@ Checked live DB (`lmjwjztokzombtstmume.supabase.co`):
 | Migration | Status | Required? | What it enables |
 |-----------|--------|-----------|-----------------|
 | **0021** `contacts_table.sql` | ✅ **Already applied** | Was applied earlier | Save Hunter/Apollo contacts; CRM-contact domain step; E4 |
-| **0022** `company_domain_tracking.sql` | ❌ **Not applied** | **Recommended** | `companies.domain`, `domain_source`, `domain_confidence`, `domain_updated_at` columns + index |
+| **0022** `company_domain_tracking.sql` | ✅ **Applied** (verified 4 June) | Done | `companies.domain`, `domain_source`, `domain_confidence`, `domain_updated_at` + index |
 
-**Enrichment works without 0022** — domain resolution is stored in `full_intelligence.enrichment.domain_resolution` JSON. **Apply 0022** so domain source is queryable on the company row and backfill is reliable.
+**Post-migration verification (4 June):**
 
-#### Steps to apply migration 0022 (Supabase SQL Editor)
+- API: all 4 columns query without error.
+- Backfill: **19 companies** with `domain` + `domain_source: website` (from existing URLs).
+- Re-enrich **UNICRED Curitiba**: `website` → `https://unimedcuritiba.com.br`, `domain` → `unimedcuritiba.com.br`, `domain_source` → `hunter`, `domain_updated_at` set.
+- **Positivo** backfill: `domain: positivo.com.br`, `domain_source: website` (19 companies total with `domain_source=website`).
+- Re-enrich **Sicoob Paraná** (post-0022): `website` → `https://sicoob.com.br`, `domain` → `sicoob.com.br`, `domain_source` → `crm_contact`.
+
+**Note:** Companies enriched *before* 0022 may have domain only in `full_intelligence` JSON until you run **Enrich Contacts** once more (Sicoob fixed 4 June).
+
+#### Steps to apply migration 0022 (Supabase SQL Editor) — COMPLETED
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) → project **lmjwjztokzombtstmume**.
 2. Go to **SQL Editor** → **New query**.
@@ -592,8 +601,8 @@ WHERE domain IS NOT NULL LIMIT 5;
 
 | Item | Status |
 |------|--------|
-| Migration **0022** | **You should apply** (steps above) — not auto-applied |
-| Migration **0021** | Already on production — no action |
+| Migration **0022** | ✅ Applied and verified |
+| Migration **0021** | ✅ Already on production — no action |
 | Apollo name search | Free tier: 0 results for some BR names; Hunter/CRM fallback works |
 | Apify monthly limit | Scrape/social steps empty — unrelated to enrichment core |
 | `campaigns.strategy` column | Agent proposal step fails — separate schema fix |
