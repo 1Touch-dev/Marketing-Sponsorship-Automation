@@ -1,0 +1,179 @@
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { invokeClaude } from "@/lib/bedrock/client";
+import { validateAiOutput, emailOutputSchema, type EmailOutput } from "@/lib/ai/schemas";
+import type { EmailTemplate } from "@/types/database";
+
+export type EmailTemplateVariables = {
+  company_name: string;
+  contact_name: string;
+  contact_title: string;
+  proposal_summary: string;
+  proposal_link: string;
+  sender_name: string;
+  sender_title: string;
+};
+
+const VAR_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+
+export function replaceTemplateVariables(
+  text: string,
+  vars: EmailTemplateVariables
+): string {
+  const map: Record<string, string> = {
+    company_name: vars.company_name,
+    contact_name: vars.contact_name,
+    contact_title: vars.contact_title,
+    proposal_summary: vars.proposal_summary,
+    proposal_link: vars.proposal_link,
+    sender_name: vars.sender_name,
+    sender_title: vars.sender_title,
+  };
+  return text.replace(VAR_PATTERN, (_, key: string) => {
+    const k = key.toLowerCase();
+    return map[k] ?? "";
+  });
+}
+
+export function hasUnresolvedVariables(text: string): boolean {
+  return /\{\{[^}]+\}\}/.test(text);
+}
+
+export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> {
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from("email_templates")
+    .select("*")
+    .eq("active", true)
+    .eq("is_default", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) {
+    const { data: fallback } = await sb
+      .from("email_templates")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return normalizeTemplate(fallback);
+  }
+  return normalizeTemplate(data);
+}
+
+function normalizeTemplate(row: Record<string, unknown> | null): EmailTemplate | null {
+  if (!row) return null;
+  let variables: string[] = [];
+  const raw = row.variables;
+  if (Array.isArray(raw)) variables = raw as string[];
+  else if (typeof raw === "string") {
+    try {
+      variables = JSON.parse(raw) as string[];
+    } catch {
+      variables = [];
+    }
+  }
+  return { ...(row as unknown as EmailTemplate), variables };
+}
+
+export async function generateEmailWithTemplate(args: {
+  template: EmailTemplate;
+  variables: EmailTemplateVariables;
+  companyName: string;
+  proposalTitle: string;
+}): Promise<{ output: EmailOutput; templateId: string; templateName: string } | null> {
+  const { template } = args;
+  const filledSubject = replaceTemplateVariables(template.subject, args.variables);
+  const filledHtml = replaceTemplateVariables(template.body_html, args.variables);
+  const filledText = replaceTemplateVariables(template.body_text ?? "", args.variables);
+
+  const system = [
+    "You personalize Coritiba FC sponsorship outreach emails in Brazilian Portuguese.",
+    "You receive a pre-filled HTML email template. Improve warmth and clarity while keeping structure, links, and sender signature.",
+    "Do NOT leave any {{variable}} placeholders. Do NOT use [Nome] or bracket placeholders.",
+    "Return valid JSON only.",
+  ].join("\n");
+
+  const user = [
+    `Company: ${args.companyName}`,
+    `Proposal: ${args.proposalTitle}`,
+    "",
+    "Filled subject:",
+    filledSubject,
+    "",
+    "Filled HTML template (personalize prose, keep links and signature):",
+    filledHtml,
+    "",
+    "Filled plain text reference:",
+    filledText,
+    "",
+    `Return JSON: { "subject": "...", "body_text": "...", "body_html": "..." }`,
+  ].join("\n");
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const claude = await invokeClaude<unknown>({
+        system,
+        messages: [{ role: "user", content: user }],
+        json: true,
+        maxTokens: 900,
+        temperature: 0.45,
+      });
+      const vr = validateAiOutput(emailOutputSchema, claude.json, {
+        workflow: "email.template",
+      });
+      if (!vr.ok || !vr.data) continue;
+
+      let subject = vr.data.subject;
+      let bodyHtml = vr.data.body_html ?? `<p>${vr.data.body_text.replace(/\n/g, "</p><p>")}</p>`;
+      let bodyText = vr.data.body_text;
+
+      if (hasUnresolvedVariables(subject + bodyHtml + bodyText)) {
+        subject = replaceTemplateVariables(subject, args.variables);
+        bodyHtml = replaceTemplateVariables(bodyHtml, args.variables);
+        bodyText = replaceTemplateVariables(bodyText, args.variables);
+      }
+
+      return {
+        output: { subject, body_text: bodyText, body_html: bodyHtml },
+        templateId: template.id,
+        templateName: template.name,
+      };
+    } catch {
+      /* retry */
+    }
+  }
+
+  if (hasUnresolvedVariables(filledSubject + filledHtml)) return null;
+
+  return {
+    output: {
+      subject: filledSubject,
+      body_text: filledText || filledHtml.replace(/<[^>]+>/g, " "),
+      body_html: filledHtml,
+    },
+    templateId: template.id,
+    templateName: template.name,
+  };
+}
+
+export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>) {
+  let senderName = "Departamento Comercial";
+  let senderTitle = "";
+  try {
+    const { data: sender } = await sb
+      .from("team_members" as "users")
+      .select("full_name, title")
+      .eq("default_sender" as "id", true as never)
+      .eq("active" as "id", true as never)
+      .limit(1)
+      .maybeSingle();
+    if (sender) {
+      senderName = (sender as { full_name: string }).full_name ?? senderName;
+      senderTitle = (sender as { title: string | null }).title ?? "";
+    }
+  } catch {
+    /* non-fatal */
+  }
+  return { senderName, senderTitle };
+}

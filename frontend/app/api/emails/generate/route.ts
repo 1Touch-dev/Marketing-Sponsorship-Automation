@@ -3,6 +3,12 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import {
+  loadDefaultEmailTemplate,
+  generateEmailWithTemplate,
+  resolveDefaultSender,
+  type EmailTemplateVariables,
+} from "@/lib/email/template-engine";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const { data: proposal, error: pErr } = await sb
     .from("proposals")
-    .select("id, title, status, content, company_id, companies(id, company_name, industry, website, country)")
+    .select("id, title, status, content, company_id, share_token, companies(id, company_name, industry, website, country)")
     .eq("id", parsed.data.proposal_id)
     .single();
   if (pErr || !proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
@@ -54,62 +60,83 @@ export async function POST(req: Request) {
     content?.campaign_rationale ||
     proposal.title;
 
-  // Resolve sender from DB (fall back to env)
-  let senderName = "Departamento Comercial";
-  let senderTitle: string | null = null;
-  try {
-    const { data: sender } = await sb
-      .from("team_members" as "users")
-      .select("full_name, title")
-      .eq("default_sender" as "id", true as never)
-      .eq("active" as "id", true as never)
-      .limit(1)
-      .maybeSingle();
-    if (sender) {
-      senderName = (sender as unknown as { full_name: string }).full_name ?? senderName;
-      senderTitle = (sender as unknown as { title: string | null }).title ?? null;
-    }
-  } catch { /* non-fatal */ }
+  const { senderName, senderTitle } = await resolveDefaultSender(sb);
+  const companyName = String(company.company_name ?? "");
+  const contactName = parsed.data.contact_name?.trim() || "Prezado(a)";
+  const proposalLink = proposal.share_token
+    ? `${env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? ""}/proposals/view/${proposal.share_token}`
+    : `${env.APP_URL ?? ""}/proposals/${proposal.id}`;
 
-  const { system, user } = outreachEmailPrompt({
-    company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
-    proposalTitle: proposal.title,
-    proposalSummary: summary,
-    contactName: parsed.data.contact_name,
-    senderName,
-    senderTitle,
-  });
+  const templateVars: EmailTemplateVariables = {
+    company_name: companyName,
+    contact_name: contactName,
+    contact_title: "",
+    proposal_summary: summary,
+    proposal_link: proposalLink,
+    sender_name: senderName,
+    sender_title: senderTitle || "Gerente de Patrocínios",
+  };
 
   let validated: EmailOutput | null = null;
   let lastError = "";
   let attempt = 0;
+  let templateMeta: { template_id?: string; template_name?: string } = {};
 
-  while (attempt < MAX_RETRIES) {
-    attempt++;
-    try {
-      const claude = await invokeClaude<unknown>({
-        system,
-        messages: [{ role: "user", content: user }],
-        json: true,
-        maxTokens: 800,
-        temperature: 0.5,
-      });
+  const emailTemplate = await loadDefaultEmailTemplate();
+  if (emailTemplate) {
+    const templated = await generateEmailWithTemplate({
+      template: emailTemplate,
+      variables: templateVars,
+      companyName,
+      proposalTitle: proposal.title,
+    });
+    if (templated) {
+      validated = templated.output;
+      templateMeta = { template_id: templated.templateId, template_name: templated.templateName };
+      attempt = 1;
+    } else {
+      lastError = "Template personalization failed";
+    }
+  }
 
-      const vr = validateAiOutput(emailOutputSchema, claude.json, {
-        workflow: "email.generate",
-        entity_type: "proposal",
-        entity_id: proposal.id,
-      });
+  if (!validated) {
+    const { system, user } = outreachEmailPrompt({
+      company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
+      proposalTitle: proposal.title,
+      proposalSummary: summary,
+      contactName: parsed.data.contact_name,
+      senderName,
+      senderTitle,
+      proposalLink,
+    });
 
-      if (vr.ok && vr.data) {
-        validated = vr.data;
-        break;
+    while (attempt < MAX_RETRIES) {
+      attempt++;
+      try {
+        const claude = await invokeClaude<unknown>({
+          system,
+          messages: [{ role: "user", content: user }],
+          json: true,
+          maxTokens: 800,
+          temperature: 0.5,
+        });
+
+        const vr = validateAiOutput(emailOutputSchema, claude.json, {
+          workflow: "email.generate",
+          entity_type: "proposal",
+          entity_id: proposal.id,
+        });
+
+        if (vr.ok && vr.data) {
+          validated = vr.data;
+          break;
+        }
+        lastError = vr.error ?? "Validation failed";
+        if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Bedrock invocation failed";
+        if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
       }
-      lastError = vr.error ?? "Validation failed";
-      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : "Bedrock invocation failed";
-      if (attempt < MAX_RETRIES && eventId) await retryWorkflow(eventId, attempt + 1, { last_error: lastError });
     }
   }
 
@@ -160,7 +187,11 @@ export async function POST(req: Request) {
         generated_by: "bedrock-claude",
         sender: env.DEFAULT_FROM_EMAIL ?? null,
         prompt_version: PROMPT_VERSION,
-        metadata: { model_id: env.BEDROCK_MODEL_ID },
+        metadata: {
+          model_id: env.BEDROCK_MODEL_ID,
+          ...templateMeta,
+          variables_resolved: templateVars,
+        },
       }),
     )
     .select("*")

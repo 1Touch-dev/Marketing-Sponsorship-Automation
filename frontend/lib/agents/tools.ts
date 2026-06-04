@@ -12,6 +12,11 @@ import { resolveCompanyDomain, extractDomainFromWebsite } from "@/lib/intelligen
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
+import {
+  loadDefaultEmailTemplate,
+  generateEmailWithTemplate,
+  type EmailTemplateVariables,
+} from "@/lib/email/template-engine";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import { guardColumns } from "@/lib/db/column-guard";
@@ -322,33 +327,65 @@ export async function toolGenerateOutreachEmail(input: {
     const summary =
       content?.executive_summary || content?.campaign_rationale || proposal.title;
 
-    const { system, user } = outreachEmailPrompt({
-      company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
-      proposalTitle: proposal.title,
-      proposalSummary: summary,
-      contactName: input.recipient_name,
-      contactTitle: input.recipient_title ?? null,
-      proposalLink: proposal.share_token
-        ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
-        : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}/view`,
-      senderName: await getDefaultSenderName(sb),
-      senderTitle: await getDefaultSenderTitle(sb),
-    });
+    const senderName = await getDefaultSenderName(sb);
+    const senderTitle = await getDefaultSenderTitle(sb);
+    const proposalLink = proposal.share_token
+      ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
+      : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}`;
 
-    let emailOutput = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const claude = await invokeClaude<unknown>({
-        system,
-        messages: [{ role: "user", content: user }],
-        json: true,
-        maxTokens: 800,
-        temperature: 0.5,
+    const templateVars: EmailTemplateVariables = {
+      company_name: String(company.company_name ?? ""),
+      contact_name: input.recipient_name?.trim() || "Prezado(a)",
+      contact_title: input.recipient_title?.trim() || "",
+      proposal_summary: summary,
+      proposal_link: proposalLink,
+      sender_name: senderName,
+      sender_title: senderTitle || "Gerente de Patrocínios",
+    };
+
+    let emailOutput: { subject: string; body_text: string; body_html?: string | null } | null = null;
+    let templateMeta: Record<string, unknown> = {};
+
+    const emailTemplate = await loadDefaultEmailTemplate();
+    if (emailTemplate) {
+      const templated = await generateEmailWithTemplate({
+        template: emailTemplate,
+        variables: templateVars,
+        companyName: String(company.company_name ?? ""),
+        proposalTitle: proposal.title,
       });
-      const vr = validateAiOutput(emailOutputSchema, claude.json, {
-        workflow: "agent.generate_email",
-        entity_id: proposal.id,
+      if (templated) {
+        emailOutput = templated.output;
+        templateMeta = { email_template_id: templated.templateId, email_template_name: templated.templateName };
+      }
+    }
+
+    if (!emailOutput) {
+      const { system, user } = outreachEmailPrompt({
+        company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
+        proposalTitle: proposal.title,
+        proposalSummary: summary,
+        contactName: input.recipient_name,
+        contactTitle: input.recipient_title ?? null,
+        proposalLink,
+        senderName,
+        senderTitle,
       });
-      if (vr.ok && vr.data) { emailOutput = vr.data; break; }
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const claude = await invokeClaude<unknown>({
+          system,
+          messages: [{ role: "user", content: user }],
+          json: true,
+          maxTokens: 800,
+          temperature: 0.5,
+        });
+        const vr = validateAiOutput(emailOutputSchema, claude.json, {
+          workflow: "agent.generate_email",
+          entity_id: proposal.id,
+        });
+        if (vr.ok && vr.data) { emailOutput = vr.data; break; }
+      }
     }
 
     if (!emailOutput) {
@@ -372,6 +409,7 @@ export async function toolGenerateOutreachEmail(input: {
             model_id: env.BEDROCK_MODEL_ID,
             agent_generated: true,
             recipient_name: input.recipient_name ?? null,
+            ...templateMeta,
           },
         })
       )
