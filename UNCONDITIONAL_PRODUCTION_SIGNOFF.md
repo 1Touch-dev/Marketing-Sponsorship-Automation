@@ -250,8 +250,9 @@ Browser automation captured UI states during template creation, email generation
 
 | Commit | Description |
 |--------|-------------|
-| _(pending)_ | `fix: resolve default team sender query for email generation` |
-| _(pending)_ | `docs: unconditional production sign-off certification` |
+| `ce1c80ca7640f22eba5fcac5bbe27d6acf5c0235` | `fix: resolve default team sender for emails; add unconditional sign-off` |
+| `69f13d5` | Prior: domain backfill on enrich |
+| `b3e4c00` | Prior: conditional business workflow certification |
 
 ---
 
