@@ -174,6 +174,28 @@ export default async function SettingsPage({
         </div>
       ) : null}
 
+      {/* Quick navigation to sub-settings */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { href: "/settings/team", icon: Users, label: "Team Members", desc: "Sender profiles" },
+          { href: "/settings/email-templates", icon: Mail, label: "Email Templates", desc: "Reusable templates" },
+          { href: "/inventory", icon: DollarSign, label: "Inventory", desc: "Sponsorship items" },
+          { href: "/settings", icon: Shield, label: "Platform", desc: "Integrations & migrations" },
+        ].map(({ href, icon: Icon, label, desc }) => (
+          <a
+            key={href}
+            href={href}
+            className="flex items-start gap-3 rounded-xl border bg-card p-3 hover:bg-accent hover:border-primary/30 transition-all group"
+          >
+            <Icon className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold group-hover:text-primary transition-colors">{label}</p>
+              <p className="text-xs text-muted-foreground">{desc}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Gmail ── */}
         <Card>

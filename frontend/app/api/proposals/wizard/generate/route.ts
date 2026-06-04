@@ -111,13 +111,13 @@ export async function POST(req: Request) {
     // Create campaign if none
     let campaignId = body.campaign_id;
     if (!campaignId) {
-      const { data: newCampaign } = await sb.from("campaigns").insert({
+      const { data: newCampaign } = await (sb as ReturnType<typeof import("@/lib/supabase/server")["supabaseAdmin"]>).from("campaigns").insert({
         title: `${company.company_name} × Coritiba FC — ${(body.proposal_type).replace(/_/g, " ")}`,
         summary: `Wizard-generated campaign for ${company.company_name}`,
         company_id: company.id,
-        status: "active",
+        status: "draft" as never,
         strategy: strategyVariant ?? "awareness",
-      }).select("id").single();
+      } as never).select("id").single();
       campaignId = newCampaign?.id ?? null;
     }
 

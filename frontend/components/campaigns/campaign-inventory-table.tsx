@@ -1,39 +1,50 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Plus, Trash2, Save, ChevronDown, ChevronUp, DollarSign,
-  Zap, FileText, Globe, Users, Package, Edit2, Check,
-  ArrowUp, ArrowDown, Loader2, TrendingUp,
+  Edit2, Check, ArrowUp, ArrowDown, Loader2, TrendingUp,
+  Package, Smartphone, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Inventory item config ────────────────────────────────────────────────────
+// ─── Fallback static catalog (used if DB unavailable) ────────────────────────
 export const INVENTORY_CATALOG = [
-  { id: "jersey_chest",       name: "Jersey — Principal (Chest)",          category: "Jersey",      price_brl: 150000, unit: "temporada" },
-  { id: "jersey_sleeve",      name: "Jersey — Manga (Sleeve)",              category: "Jersey",      price_brl: 50000,  unit: "temporada" },
-  { id: "jersey_back",        name: "Jersey — Costas (Back)",               category: "Jersey",      price_brl: 35000,  unit: "temporada" },
-  { id: "led_board",          name: "LED Perimetral — Couto Pereira",       category: "Estádio",     price_brl: 40000,  unit: "jogo" },
-  { id: "scoreboard",         name: "Telão Gigante — Vídeo Ad (30s)",       category: "Estádio",     price_brl: 15000,  unit: "jogo" },
-  { id: "press_backdrop",     name: "Press Backdrop / Flash Zone",          category: "Estádio",     price_brl: 12000,  unit: "mês" },
-  { id: "vip_hospitality",    name: "VIP Hospitality Zone",                 category: "Estádio",     price_brl: 30000,  unit: "jogo" },
-  { id: "stadium_naming",     name: "Naming Rights de Área",               category: "Estádio",     price_brl: 80000,  unit: "temporada" },
-  { id: "matchday_activation",name: "Matchday Fan Zone Activation",         category: "Ativação",    price_brl: 25000,  unit: "jogo" },
-  { id: "instagram_post",     name: "Instagram — Post Patrocinado",         category: "Digital",     price_brl: 5000,   unit: "post" },
-  { id: "instagram_reels",    name: "Instagram — Reels Patrocinado",        category: "Digital",     price_brl: 8000,   unit: "vídeo" },
-  { id: "youtube_video",      name: "YouTube — Vídeo Patrocinado",          category: "Digital",     price_brl: 15000,  unit: "vídeo" },
-  { id: "player_content",     name: "Player Brand Integration",             category: "Digital",     price_brl: 20000,  unit: "campanha" },
-  { id: "youth_academy",      name: "Youth Academy Co-Branding",            category: "Comunidade",  price_brl: 20000,  unit: "mês" },
-  { id: "social_responsibility","name": "Ação Social / RSC",                category: "Comunidade",  price_brl: 15000,  unit: "ação" },
-  { id: "equipment_supply",   name: "Fornecimento de Equipamentos",         category: "Permuta",     price_brl: 0,      unit: "lote" },
-  { id: "media_production",   name: "Produção de Mídia / Vídeo",           category: "Permuta",     price_brl: 0,      unit: "produção" },
+  { id: "jersey_chest",         name: "Jersey — Principal (Chest)",      category: "Jersey",    inventory_type: "physical", price_brl: 150000, unit: "temporada" },
+  { id: "jersey_sleeve",        name: "Jersey — Manga (Sleeve)",          category: "Jersey",    inventory_type: "physical", price_brl: 50000,  unit: "temporada" },
+  { id: "jersey_back",          name: "Jersey — Costas (Back)",           category: "Jersey",    inventory_type: "physical", price_brl: 35000,  unit: "temporada" },
+  { id: "led_board",            name: "LED Perimetral — Couto Pereira",   category: "Estádio",   inventory_type: "physical", price_brl: 40000,  unit: "jogo" },
+  { id: "scoreboard",           name: "Telão Gigante — Vídeo Ad (30s)",   category: "Estádio",   inventory_type: "physical", price_brl: 15000,  unit: "jogo" },
+  { id: "press_backdrop",       name: "Press Backdrop / Flash Zone",      category: "Estádio",   inventory_type: "physical", price_brl: 12000,  unit: "mês" },
+  { id: "vip_hospitality",      name: "VIP Hospitality Zone",             category: "Estádio",   inventory_type: "physical", price_brl: 30000,  unit: "jogo" },
+  { id: "stadium_naming",       name: "Naming Rights de Área",            category: "Estádio",   inventory_type: "physical", price_brl: 80000,  unit: "temporada" },
+  { id: "matchday_activation",  name: "Matchday Fan Zone Activation",     category: "Ativação",  inventory_type: "physical", price_brl: 25000,  unit: "jogo" },
+  { id: "instagram_post",       name: "Instagram — Post Patrocinado",     category: "Digital",   inventory_type: "digital",  price_brl: 5000,   unit: "post" },
+  { id: "instagram_reels",      name: "Instagram — Reels Patrocinado",    category: "Digital",   inventory_type: "digital",  price_brl: 8000,   unit: "vídeo" },
+  { id: "youtube_video",        name: "YouTube — Vídeo Patrocinado",      category: "Digital",   inventory_type: "digital",  price_brl: 15000,  unit: "vídeo" },
+  { id: "player_content",       name: "Player Brand Integration",         category: "Digital",   inventory_type: "digital",  price_brl: 20000,  unit: "campanha" },
+  { id: "youth_academy",        name: "Youth Academy Co-Branding",        category: "Comunidade",inventory_type: "physical", price_brl: 20000,  unit: "mês" },
+  { id: "social_responsibility",name: "Ação Social / RSC",                category: "Comunidade",inventory_type: "digital",  price_brl: 15000,  unit: "ação" },
+  { id: "equipment_supply",     name: "Fornecimento de Equipamentos",     category: "Permuta",   inventory_type: "physical", price_brl: 0,      unit: "lote" },
+  { id: "media_production",     name: "Produção de Mídia / Vídeo",        category: "Permuta",   inventory_type: "digital",  price_brl: 0,      unit: "produção" },
 ];
+
+type DbInventoryItem = {
+  id: string;
+  name: string;
+  category: string;
+  inventory_type: string;
+  price_min: number | null;
+  unit: string | null;
+};
 
 type LineItem = {
   id: string;
   catalog_id: string;
+  inventory_id: string | null;
   name: string;
   category: string;
+  inventory_type: string;
   quantity: number;
   unit: string;
   unit_price: number;
@@ -53,22 +64,68 @@ interface CampaignInventoryTableProps {
 
 export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved }: CampaignInventoryTableProps) {
   const [lines, setLines] = useState<LineItem[]>(initialLines);
+  const [dbInventory, setDbInventory] = useState<DbInventoryItem[]>([]);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<"physical" | "digital">("physical");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const total = lines.filter(l => l.included).reduce((sum, l) => sum + l.unit_price * l.quantity, 0);
 
-  const addItem = useCallback((catalogItem: typeof INVENTORY_CATALOG[0]) => {
+  // Load existing saved lines + DB inventory on mount
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [savedRes, invRes] = await Promise.all([
+          fetch(`/api/campaigns/${campaignId}/inventory`),
+          fetch("/api/inventory"),
+        ]);
+        if (savedRes.ok) {
+          const { data } = await savedRes.json() as { data: LineItem[] };
+          if (data?.length > 0) setLines(data);
+        }
+        if (invRes.ok) {
+          const { data: inv } = await invRes.json() as { data: DbInventoryItem[] };
+          if (inv?.length > 0) setDbInventory(inv);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [campaignId]);
+
+  // Merge DB inventory with fallback catalog for the picker
+  const catalogItems: Array<{ id: string; inventory_id: string | null; name: string; category: string; inventory_type: string; price_brl: number; unit: string }> =
+    dbInventory.length > 0
+      ? dbInventory.map(i => ({
+          id: i.id,
+          inventory_id: i.id,
+          name: i.name,
+          category: i.category,
+          inventory_type: i.inventory_type,
+          price_brl: i.price_min ?? 0,
+          unit: i.unit ?? "un",
+        }))
+      : INVENTORY_CATALOG.map(i => ({ ...i, inventory_id: null }));
+
+  const catalogFiltered = catalogItems.filter(i => i.inventory_type === catalogTab);
+  const catalogCategories = [...new Set(catalogFiltered.map(i => i.category))];
+
+  const addItem = useCallback((item: typeof catalogItems[0]) => {
     const newLine: LineItem = {
       id: crypto.randomUUID(),
-      catalog_id: catalogItem.id,
-      name: catalogItem.name,
-      category: catalogItem.category,
+      catalog_id: item.id,
+      inventory_id: item.inventory_id,
+      name: item.name,
+      category: item.category,
+      inventory_type: item.inventory_type,
       quantity: 1,
-      unit: catalogItem.unit,
-      unit_price: catalogItem.price_brl,
+      unit: item.unit,
+      unit_price: item.price_brl,
       notes: "",
       included: true,
     };
@@ -120,7 +177,13 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
     }
   }, [lines, campaignId, onSaved]);
 
-  const categories = [...new Set(INVENTORY_CATALOG.map(i => i.category))];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8 text-muted-foreground text-sm gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" /> Carregando inventário…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -158,13 +221,32 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
       {/* Catalog picker */}
       {showCatalog && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Catálogo de Inventário</div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              {dbInventory.length > 0 ? "Catálogo do Banco de Dados" : "Catálogo Padrão"}
+            </div>
+            <div className="flex gap-1.5">
+              {(["physical", "digital"] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setCatalogTab(t)}
+                  className={cn(
+                    "flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors",
+                    catalogTab === t ? "bg-slate-800 text-white border-slate-800" : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  {t === "physical" ? <Package className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                  {t === "physical" ? "Físico" : "Digital"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-3">
-            {categories.map(cat => (
+            {catalogCategories.map(cat => (
               <div key={cat}>
                 <div className="text-xs font-semibold text-slate-600 mb-2">{cat}</div>
                 <div className="flex flex-wrap gap-2">
-                  {INVENTORY_CATALOG.filter(i => i.category === cat).map(item => (
+                  {catalogFiltered.filter(i => i.category === cat).map(item => (
                     <button
                       key={item.id}
                       onClick={() => addItem(item)}
@@ -180,6 +262,12 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
                 </div>
               </div>
             ))}
+            {catalogFiltered.length === 0 && (
+              <p className="text-xs text-muted-foreground py-2">
+                Nenhum item {catalogTab === "physical" ? "físico" : "digital"} no catálogo.{" "}
+                <a href="/inventory" className="text-primary underline">Adicionar no inventário →</a>
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -337,6 +425,12 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
         <div className="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center">
           <DollarSign className="h-8 w-8 text-slate-300 mx-auto mb-3" />
           <p className="text-sm text-slate-500">Adicione itens do catálogo para montar o pacote de patrocínio</p>
+          <button
+            onClick={() => setShowCatalog(true)}
+            className="mt-3 text-xs text-primary hover:underline flex items-center gap-1 mx-auto"
+          >
+            <RefreshCw className="h-3 w-3" /> Abrir catálogo
+          </button>
         </div>
       )}
     </div>

@@ -26,6 +26,37 @@ export type ToolResult = {
   summary: string;
 };
 
+// ── Helper: resolve sender from team_members DB ───────────────────────────────
+async function getDefaultSenderName(sb: ReturnType<typeof supabaseAdmin>): Promise<string> {
+  try {
+    const { data } = await sb
+      .from("team_members")
+      .select("full_name")
+      .eq("default_sender", true as never)
+      .eq("active", true as never)
+      .limit(1)
+      .maybeSingle();
+    return (data as { full_name: string } | null)?.full_name ?? process.env.SENDER_NAME ?? "Departamento Comercial";
+  } catch {
+    return process.env.SENDER_NAME ?? "Departamento Comercial";
+  }
+}
+
+async function getDefaultSenderTitle(sb: ReturnType<typeof supabaseAdmin>): Promise<string | null> {
+  try {
+    const { data } = await sb
+      .from("team_members")
+      .select("title")
+      .eq("default_sender", true as never)
+      .eq("active", true as never)
+      .limit(1)
+      .maybeSingle();
+    return (data as { title: string | null } | null)?.title ?? process.env.SENDER_TITLE ?? null;
+  } catch {
+    return process.env.SENDER_TITLE ?? null;
+  }
+}
+
 // ── Tool 1: Enrich Contacts (Hunter.io + Apollo.io) ─────────────────────────
 
 export async function toolEnrichContacts(input: {
@@ -300,8 +331,8 @@ export async function toolGenerateOutreachEmail(input: {
       proposalLink: proposal.share_token
         ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
         : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}/view`,
-      senderName: process.env.SENDER_NAME ?? "Departamento Comercial",
-      senderTitle: process.env.SENDER_TITLE ?? null,
+      senderName: await getDefaultSenderName(sb),
+      senderTitle: await getDefaultSenderTitle(sb),
     });
 
     let emailOutput = null;

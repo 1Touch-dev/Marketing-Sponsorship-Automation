@@ -9,7 +9,7 @@
 
 export type UserRole = "admin" | "reviewer" | "editor" | "viewer";
 export type CompanyStatus = "prospect" | "active" | "paused" | "closed";
-export type CampaignStatus = "draft" | "selected" | "archived";
+export type CampaignStatus = "draft" | "selected" | "archived" | "active";
 export type ProposalStatus =
   | "draft"
   | "under_review"
@@ -68,8 +68,109 @@ export interface Campaign {
   generated_by: string | null;
   model_id: string | null;
   prompt_version: string | null;
+  strategy: string | null;
+  activation_brief: Record<string, unknown> | null;
   status: CampaignStatus;
   created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignInventoryItem {
+  id: string;
+  campaign_id: string;
+  inventory_id: string | null;
+  name: string;
+  category: string | null;
+  inventory_type: string | null;
+  quantity: number;
+  unit: string | null;
+  unit_price: number;
+  notes: string | null;
+  included: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  inventory_type: string;
+  category: string;
+  price_min: number | null;
+  price_max: number | null;
+  unit: string | null;
+  availability: string;
+  exposure_reach: string | null;
+  placement_zone: string | null;
+  avg_views: number | null;
+  content_hours: number | null;
+  team_required: string | null;
+  production_cost: number | null;
+  setup_hours: number | null;
+  line_items: string | null;
+  total_quantity: number | null;
+  quantity_sold: number | null;
+  quantity_reserved: number | null;
+  unit_type: string | null;
+  sort_order: number | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamMember {
+  id: string;
+  full_name: string;
+  title: string | null;
+  email: string;
+  phone: string | null;
+  active: boolean;
+  default_sender: boolean;
+  bio: string | null;
+  signature: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  subject: string;
+  body_html: string;
+  body_text: string | null;
+  variables: string[];
+  active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProposalTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  content: Record<string, unknown>;
+  variables: string[];
+  active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProposalPackage {
+  id: string;
+  proposal_id: string | null;
+  name: string;
+  description: string | null;
+  price_brl: number | null;
+  benefits: string[];
+  inventory_items: Record<string, unknown>[];
+  sort_order: number;
+  active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -217,17 +318,23 @@ type Tbl<T> = { Row: T; Insert: InsertOf<T>; Update: UpdateOf<T>; Relationships:
 export interface Database {
   public: {
     Tables: {
-      users:             Tbl<User>;
-      companies:         Tbl<Company>;
-      campaigns:         Tbl<Campaign>;
-      proposals:         Tbl<Proposal>;
-      proposal_versions: Tbl<ProposalVersion>;
-      approvals:         Tbl<Approval>;
-      email_threads:     Tbl<EmailThread>;
-      emails:            Tbl<EmailRow>;
-      followups:         Tbl<Followup>;
-      audit_logs:        Tbl<AuditLog>;
-      workflow_events:   Tbl<WorkflowEvent>;
+      users:                    Tbl<User>;
+      companies:                Tbl<Company>;
+      campaigns:                Tbl<Campaign>;
+      campaign_inventory_items: Tbl<CampaignInventoryItem>;
+      inventory_items:          Tbl<InventoryItem>;
+      proposals:                Tbl<Proposal>;
+      proposal_versions:        Tbl<ProposalVersion>;
+      proposal_packages:        Tbl<ProposalPackage>;
+      approvals:                Tbl<Approval>;
+      email_threads:            Tbl<EmailThread>;
+      emails:                   Tbl<EmailRow>;
+      email_templates:          Tbl<EmailTemplate>;
+      proposal_templates:       Tbl<ProposalTemplate>;
+      followups:                Tbl<Followup>;
+      audit_logs:               Tbl<AuditLog>;
+      workflow_events:          Tbl<WorkflowEvent>;
+      team_members:             Tbl<TeamMember>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

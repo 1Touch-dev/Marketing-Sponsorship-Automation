@@ -118,9 +118,9 @@ export async function generatePersonalizedProposalForCompany(
         title: `${company.company_name} × Coritiba FC — Sponsorship`,
         summary: `Agent-generated outreach campaign for ${company.company_name}`,
         company_id: companyId,
-        status: "active",
+        status: "draft",
         strategy: "awareness",
-      })
+      } as never)
       .select("id, title, summary")
       .single();
     if (campErr || !newCampaign) throw new Error(campErr?.message ?? "Failed to create campaign");

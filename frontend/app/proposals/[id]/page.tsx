@@ -19,6 +19,7 @@ import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { AssetUploader } from "@/components/proposals/asset-uploader";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
+import { ProposalPackages } from "@/components/proposals/proposal-packages";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
 
@@ -420,6 +421,21 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           )}
         </div>
       </div>
+
+      {/* Sponsorship Packages */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            💼 Pacotes de Patrocínio
+          </CardTitle>
+          <CardDescription>
+            Defina níveis de patrocínio (Prata, Ouro, Diamante) com preços e benefícios distintos para apresentar ao patrocinador.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProposalPackages proposalId={proposal.id} />
+        </CardContent>
+      </Card>
     </>
   );
 }

@@ -54,11 +54,30 @@ export async function POST(req: Request) {
     content?.campaign_rationale ||
     proposal.title;
 
+  // Resolve sender from DB (fall back to env)
+  let senderName = "Departamento Comercial";
+  let senderTitle: string | null = null;
+  try {
+    const { data: sender } = await sb
+      .from("team_members" as "users")
+      .select("full_name, title")
+      .eq("default_sender" as "id", true as never)
+      .eq("active" as "id", true as never)
+      .limit(1)
+      .maybeSingle();
+    if (sender) {
+      senderName = (sender as unknown as { full_name: string }).full_name ?? senderName;
+      senderTitle = (sender as unknown as { title: string | null }).title ?? null;
+    }
+  } catch { /* non-fatal */ }
+
   const { system, user } = outreachEmailPrompt({
     company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
     proposalTitle: proposal.title,
     proposalSummary: summary,
     contactName: parsed.data.contact_name,
+    senderName,
+    senderTitle,
   });
 
   let validated: EmailOutput | null = null;
