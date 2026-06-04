@@ -101,17 +101,28 @@ export async function POST(req: Request) {
       include_social,
     });
 
-    // ── Step 2: If we discovered a better domain, update company record ───
+    // ── Step 2: Persist resolved domain (website backfill + domain tracking columns) ─
     const storedDomain = extractDomain(company.website ?? "");
-    if (domain && domain !== storedDomain) {
-      // Backfill website first (always works — no migration 0022 required)
+    const { data: domainRow } = await sb
+      .from("companies")
+      .select("domain, domain_source")
+      .eq("id", company_id)
+      .maybeSingle();
+    const needsWebsiteBackfill = domain && !company.website;
+    const needsDomainColumns =
+      domain &&
+      (!domainRow?.domain || domainRow.domain_source !== domainResolution.source);
+    const needsWebsiteFromDiscovery = domain && domain !== storedDomain;
+
+    if (needsWebsiteBackfill || needsWebsiteFromDiscovery) {
       if (!company.website) {
         await sb
           .from("companies")
           .update({ website: `https://${domain}` })
           .eq("id", company_id);
       }
-      // Domain tracking columns (migration 0022) — separate update so missing columns don't block website
+    }
+    if (needsDomainColumns) {
       const { error: domainColError } = await sb
         .from("companies")
         .update({
