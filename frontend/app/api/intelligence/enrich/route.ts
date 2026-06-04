@@ -34,11 +34,13 @@ export async function POST(req: Request) {
       include_hunter = true,
       include_apollo = true,
       include_social = true,
+      manual_domain,
     } = await req.json() as {
       company_id: string;
       include_hunter?: boolean;
       include_apollo?: boolean;
       include_social?: boolean;
+      manual_domain?: string;
     };
 
     if (!company_id) {
@@ -56,13 +58,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Company not found" }, { status: 404 });
     }
 
-    // ── Step 1: Resolve domain via fallback chain ──────────────────────────
-    const domainResolution = await resolveCompanyDomain({
+    // ── Step 1: Resolve domain (manual override or fallback chain) ───────
+    let domainResolution = await resolveCompanyDomain({
       id: company.id,
       company_name: company.company_name,
       website: company.website,
       country: company.country,
     });
+
+    const manualNormalized = manual_domain?.trim().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase() ?? "";
+    if (manualNormalized) {
+      const manual = manualNormalized;
+      domainResolution = {
+        final_domain: manual,
+        source: "manual",
+        steps: domainResolution.steps,
+        elapsed_ms: domainResolution.elapsed_ms,
+      };
+      await sb.from("companies").update({ website: `https://${manual}` }).eq("id", company.id);
+      const { error: manualDomainErr } = await sb
+        .from("companies")
+        .update({
+          domain: manual,
+          domain_source: "manual",
+          domain_updated_at: new Date().toISOString(),
+        } as never)
+        .eq("id", company.id);
+      if (manualDomainErr?.code === "42703") {
+        /* domain columns optional */
+      }
+      company.website = `https://${manual}`;
+    }
 
     const domain = domainResolution.final_domain ?? "";
 
@@ -216,6 +242,7 @@ export async function POST(req: Request) {
       domain_resolution: domainResolution,
       summary: {
         domain_resolved: !!domain,
+        needs_manual_domain: !domain && !manualNormalized,
         domain,
         domain_source: domainResolution.source,
         contacts_found: results.hunter?.emails?.length ?? 0,
