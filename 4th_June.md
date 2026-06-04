@@ -1,8 +1,9 @@
 # Coritiba FC Platform — Sprint Plan (4 June 2026)
 
 **Date:** 4 June 2026 | **By:** Abhishek  
-**Goal:** Consolidate completed work (28 May → 3 June), carry forward all open items, and plan **4 June** sprint (enrichment-first + inventory foundations).  
-**Status:** ✅ **SHIPPED** — Wave 1 enrichment on `feature/4th-june-enrichment`; migration **0022** applied; E2E verified on live ngrok  
+**Role:** **Single source of truth** — complete project history (28 May → June 2026): sprints, migrations, E2E, certifications, production sign-off.  
+**Goal:** Consolidate completed work (28 May → 3 June), carry forward open items, and document all June implementation + certification.  
+**Status:** ✅ **PRODUCTION READY** — Unconditional Production Approval (June 2026)  
 
 **Platform:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Implementation branch:** `feature/4th-june-enrichment` (latest: `5e5e4e2`)  
@@ -608,4 +609,363 @@ WHERE domain IS NOT NULL LIMIT 5;
 | `campaigns.strategy` column | Agent proposal step fails — separate schema fix |
 | Gmail OAuth | Token expired — settings reconnect |
 | Inventory (P2) | Deferred to 5 June |
+
+---
+
+## 5 June Sprint
+
+**Status:** ✅ **IMPLEMENTATION COMPLETE** — migrations 0023–0025 applied  
+**Branch:** `feature/5th-june-agent-inventory` → merged into `feature/5th-june-final-polish`  
+**Primary commit:** `9f60a4e`  
+**Platform:** https://eligibly-facing-unloved.ngrok-free.dev  
+
+### Summary
+
+Seven implementation phases shipped in one sprint:
+
+1. **Outreach Agent fixed** — `campaigns.strategy` column + `'active'` enum (migration 0023); defensive `status: "draft"` in code.
+2. **Inventory foundation** — DB-backed `CampaignInventoryTable`; physical/digital catalog tabs.
+3. **Campaign ↔ inventory** — `campaign_inventory_items` table (0024); replaces JSON-in-`summary` hack.
+4. **Activation brief** — `campaigns.activation_brief JSONB` + `POST/GET/PATCH /api/campaigns/[id]/activation-brief`.
+5. **Team sender database** — `team_members` table; `/settings/team`; default sender in agent + email paths.
+6. **Email templates** — `email_templates` table (0025); `/settings/email-templates`; variable placeholders.
+7. **Proposal packages** — `proposal_packages` table; Prata/Ouro/Diamante on proposal detail.
+
+### Migrations applied
+
+| # | File | Description |
+|---|------|-------------|
+| 0023 | `0023_campaigns_strategy_status.sql` | `campaigns.strategy` + `active` enum value |
+| 0024 | `0024_campaign_inventory_and_team.sql` | `campaign_inventory_items`, `activation_brief`, `team_members` |
+| 0025 | `0025_email_templates_and_packages.sql` | `email_templates`, `proposal_packages` |
+
+**Combined apply file:** `supabase/migrations/APPLY_5TH_JUNE.sql` (run in Supabase SQL Editor).
+
+### Outreach Agent — expected flow (post-0023)
+
+```
+enrich_contacts ✅
+scrape_company_intelligence ✅
+generate_personalized_proposal ✅
+[pause — approve proposal]
+generate_outreach_email ✅
+[pause — approve email]
+send_email → Pipedrive activity ✅
+```
+
+### Key new files (5 June)
+
+| Path | Purpose |
+|------|---------|
+| `frontend/app/api/campaigns/[id]/activation-brief/route.ts` | Activation brief API |
+| `frontend/app/api/email-templates/` | Email templates CRUD |
+| `frontend/app/api/team-members/` | Team members CRUD |
+| `frontend/app/api/proposals/[id]/packages/` | Proposal packages CRUD |
+| `frontend/app/settings/team/` | Team members admin UI |
+| `frontend/app/settings/email-templates/` | Email templates admin UI |
+| `frontend/components/proposals/proposal-packages.tsx` | Package editor on proposal |
+
+### Graceful degradation
+
+APIs return `{ data: [], migration_pending: true }` on `PGRST205` / `42P01` until migrations applied — no 500 crashes.
+
+---
+
+## E2E Validation (5 June)
+
+**Report:** Consolidated from `5th_June_E2E_Report.md`  
+**Date:** 4 June 2026  
+**Branch:** `feature/5th-june-agent-inventory` @ `16157b9`  
+**Verdict:** **Production Ready With Known External Limitations**
+
+| Metric | Count |
+|--------|-------|
+| **PASS** | 47 |
+| **FAIL** | 0 |
+| **SKIP / External** | 6 |
+
+### Critical Outreach Agent evidence (5 June E2E)
+
+| Entity | ID |
+|--------|-----|
+| Agent run | `17491565-0f87-45db-9b7c-edd44edb72a3` |
+| Company | `6bb32488-1aef-4b77-9a04-5b2e843ad8be` (positivo) |
+| Proposal | `03cc90ba-0f89-45ac-98d8-ff0a557caff0` |
+| Campaign | `9ba0e31e-4749-48e5-867b-e05ec5399a0d` (`strategy: awareness`) |
+| Email | `9dc4a872-39a5-48ab-ae0c-3d901c302897` |
+| Pipedrive activity | **1596** |
+
+### E2E group summary
+
+| Group | Focus | Result |
+|-------|--------|--------|
+| A | Auth + health + PM2 | 5/5 PASS |
+| B–D | Companies, contacts, competitors | PASS |
+| E | **Outreach Agent (critical)** | 11/11 PASS |
+| F–G | Proposals, packages | PASS |
+| H | Campaigns + inventory save | PASS (`48de58b3-de96-4629-9f38-b82233017545`) |
+| I | Activation brief API | API exists; campaign UI button added in final polish |
+| J–L | Images UI, approvals | PASS (generation optional) |
+| M | Pipedrive activity | PASS |
+| N | Team members | PASS (`ana.e2e@coritiba.com.br` created) |
+| O | Email templates CRUD | PASS; generation wired in final polish |
+| P–Q | Bulk, regression 0023–0025 | PASS |
+
+### Inventory verification
+
+- `/inventory` — 24+ physical items from DB
+- Campaign catalog picker → save → `campaign_inventory_items` row persisted
+
+### Team sender verification
+
+- `/settings/team` — CRUD; default sender used in outreach email body ("Departamento Comercial" → later SignOff senders in unconditional cert)
+
+### Package verification
+
+- Prata/Ouro/Diamante presets on proposal detail
+- Row in `proposal_packages` after save
+
+---
+
+## Final Polish Sprint (6 June — `feature/5th-june-final-polish`)
+
+**Status:** ✅ **COMPLETE**  
+**Verdict:** Production Ready With Known External Limitations → upgraded to unconditional after sign-off cert  
+
+Consolidated from `6th_June_Final_Completion_Report.md` (note: no separate `6th_June.md` file existed).
+
+| Phase | Delivered |
+|-------|-----------|
+| 1 | **Email templates → generation** — `template-engine.ts`; wired to `/api/emails/generate` + agent `generate_outreach_email` |
+| 2 | **Activation brief UI** — `activation-brief-panel.tsx` on campaign page |
+| 3 | **Landing package switcher** — `proposal-package-switcher.tsx` on public landing |
+| 4 | **Competitor → proposal** — `POST /api/proposals/generate-for-company`; Add to DB + Create Proposal on competitor cards |
+| 5 | **Manual domain recovery** — `manual_domain` on enrich API; amber banner + Save & Re-enrich |
+
+### Final polish commits
+
+| Commit | Message |
+|--------|---------|
+| `a6daba6` | feat: wire email templates into generation flow |
+| `8cae5fc` | feat: add activation brief campaign UI |
+| `c322d06` | feat: package switcher + competitor proposal flow |
+| `f071dcf` | feat: manual domain recovery workflow |
+| `52d63cd` | docs: final completion validation report |
+
+### Final polish E2E (52 PASS / 0 FAIL)
+
+Key validations: activation brief Generate/Regenerate on campaign; landing Prata/Ouro/Diamante switcher; manual `cresol.com.br` domain; competitor Create Proposal UI + flow start.
+
+---
+
+## Full Platform Certification
+
+**Consolidated from:** `FINAL_PLATFORM_CERTIFICATION_REPORT.md`  
+**Date:** 4 June 2026  
+**Branch:** `feature/5th-june-final-polish`
+
+| Metric | Count |
+|--------|-------|
+| **PASS** | 94 |
+| **FAIL** | 0 |
+| **SKIP** | 6 |
+
+**Verdict:** Production Ready With Limitations (prior to unconditional business-workflow sign-off).
+
+### Phase coverage (abbreviated)
+
+- **Phase 1:** Platform health — 20/20 navigation + login PASS
+- **Phase 2:** Companies — enrichment, intelligence, competitors PASS
+- **Phase 3:** Outreach Agent — full dual-approval PASS
+- **Phase 4–8:** Proposals, packages, campaigns, inventory, activation brief PASS
+- **Phase 9–12:** Images, approvals, CRM, team, templates PASS
+- **Phase 13–16:** Bulk, competitor proposal (Dell `fca87fa7-5108-4795-a543-9411199c3c13`), landing PASS
+
+**Bugs found:** None in this certification pass.
+
+---
+
+## Conditional Business Workflow Certification
+
+**Consolidated from:** `FULL_BUSINESS_WORKFLOW_CERTIFICATION.md`  
+**Date:** 4 June 2026  
+**Method:** Fresh records, UI + API + DB + refresh  
+
+| Metric | Result |
+|--------|--------|
+| Workflows 1–5, 8, 11–13, 16 | **PASS** |
+| Workflows 6–7, 9, 15 | **PARTIAL** |
+| Workflow 10 | **NOT EXECUTED** |
+| Workflow 14 | **SKIPPED** (cost) |
+
+**Verdict:** **Conditional GO**
+
+### Workflow evidence (conditional cert)
+
+| Workflow | Evidence |
+|----------|----------|
+| W1 Enrichment | `bba0e1fd-058a-4a8a-bac2-ba1850346329`, domain `positivotecnologia.com.br` |
+| W2 Manual domain | `78419623-615e-4883-b7cb-2e41041520ae`, `cresol.com.br` / `manual` |
+| W3 Outreach agent | `agent_run_id=7b1864e1-a81d-4a41-b28b-0286eba0ad5c`, `pipedrive_activity_id=1597` |
+| W4 Proposal edit | `0b67da9d-…`, version 2, `[CERT-W4-EDIT]` |
+| W5 Packages | 3 package IDs + landing `09afdd3f8827d3d5f5af326fec33fdd6530c2ffeda8dc0b7` |
+| W8 Inventory DB | `31081b01-…`, 2 inventory lines |
+| W11 Bulk | `82e2e7b7-…`, `689245ef-…` |
+
+### Bug fixed (conditional cert)
+
+| Bug | Fix | Commit |
+|-----|-----|--------|
+| `domain` / `domain_source` not backfilled when website matched resolved hostname | Enrich backfill when domain empty or source differs | `69f13d5` |
+
+---
+
+## Unconditional Production Approval
+
+**Consolidated from:** `UNCONDITIONAL_PRODUCTION_SIGNOFF.md`  
+**Final verdict:** **UNCONDITIONAL PRODUCTION APPROVAL**
+
+All partial/skipped conditional workflows completed with UI + API + DB + refresh proof.
+
+| Workflow | Prior | Final |
+|----------|-------|-------|
+| W6 Email templates A/B | PARTIAL | **PASS** |
+| W7 Team sender switching | PARTIAL | **PASS** |
+| W8 Inventory UI | DB only | **PASS** |
+| W9 Activation brief UI | Backend only | **PASS** |
+| W10 Competitor → proposal | NOT RUN | **PASS** |
+| W14 Images | SKIPPED | **PASS** |
+| W15 Card approvals | PARTIAL | **PASS** |
+
+### Unconditional evidence IDs
+
+| Item | ID |
+|------|-----|
+| `template_id_a` | `fe896a2f-d88c-4136-89a1-ba66faf4ae31` |
+| `template_id_b` | `62e5ff92-022f-477d-bfab-63f29b6293b5` |
+| `email_id_a` / `email_id_b` | `728293d0-…` / `d931c3e4-…` |
+| `sender_a_id` / `sender_b_id` | `a4710023-…` / `0c892b66-…` |
+| `email_a` / `email_b` (W7) | `067787b7-…` / `0dae3542-…` |
+| W8 `campaign_id` | `1a2ce88e-acd6-45f0-93af-2742483ff368` |
+| W10 `proposal_id` | `5ef7b684-45dc-448e-8b91-f9206fbc5ca7` |
+| W14 `image_job_ids` | `2ea16845-…`, `afd1fcd3-…` |
+
+### Bug fixed (unconditional cert)
+
+| Bug | Fix | Commit |
+|-----|-----|--------|
+| `resolveDefaultSender()` broken query | `template-engine.ts` proper `team_members` filter | `ce1c80c` |
+
+### Sign-off commits
+
+| Commit | Description |
+|--------|-------------|
+| `ffda396b6ffeab5794d28955df454e8e26cd6969` | docs: commit SHAs in sign-off report |
+| `ce1c80ca7640f22eba5fcac5bbe27d6acf5c0235` | fix: default team sender + unconditional sign-off |
+| `69f13d5` | fix: domain backfill on enrich |
+| `b3e4c00` | docs: conditional business workflow certification |
+
+---
+
+## Current Production Status
+
+### Platform Status
+
+**Status: PRODUCTION READY**  
+**Approval: UNCONDITIONAL PRODUCTION APPROVAL** (June 2026 certification)
+
+### Environment
+
+| Component | Detail |
+|-----------|--------|
+| **Hosting** | AWS EC2 (not local laptop) |
+| **Process manager** | PM2 — `sponsorship-platform` + `ngrok-tunnel` |
+| **Public URL** | https://eligibly-facing-unloved.ngrok-free.dev |
+| **Database** | Supabase production (`lmjwjztokzombtstmume`) |
+| **Deploy** | `npm run deploy` / `bash scripts/deploy-latest.sh` |
+| **24/7** | Survives Cursor close and laptop shutdown — runs on server |
+
+### Verified Features (complete)
+
+| Feature | Status |
+|---------|--------|
+| Company intelligence & enrichment (domain-independent + manual recovery) | ✅ |
+| Hunter + Apollo + Apify pipeline | ✅ |
+| Outreach Agent (dual approval, personalized proposal) | ✅ |
+| Proposal generation, edit, approve, landing, share token | ✅ |
+| Email generation with templates + team senders | ✅ |
+| Pipedrive CRM sync (org, deal, activities) | ✅ |
+| Bulk campaigns & bulk proposals | ✅ |
+| Campaign inventory picker + `campaign_inventory_items` | ✅ |
+| Activation brief (API + campaign UI) | ✅ |
+| Proposal packages (Prata/Ouro/Diamante) + public switcher | ✅ |
+| Team members (`/settings/team`) | ✅ |
+| Email templates (`/settings/email-templates`) | ✅ |
+| Competitor → Add to DB → Create Proposal | ✅ |
+| Inventory catalog (`/inventory`) | ✅ |
+| Jersey mockups (Replicate composite) + campaign creatives (OpenAI gpt-image-1) | ✅ |
+| Approvals (list + Vista em Cards) | ✅ |
+| Mockup editor, bulk image approve | ✅ |
+| RBAC, audit trail, monthly reports | ✅ |
+
+### External Limitations (non-blocking)
+
+| Limitation | Notes |
+|------------|-------|
+| **Apify quota** | Discovery/scrape may be empty when monthly quota exhausted |
+| **Apollo People Search** | Some people-search scenarios require Basic+ plan; org enrichment works on current tier |
+
+**Gmail:** Gmail integration is **not required** for core workflow. Outreach delivery and CRM activity tracking are handled through **Pipedrive** (approve email → log activity → rep sends from Pipedrive). Gmail OAuth is optional for **reply sync** only; reconnect in Settings if inbox sync needed.
+
+### Future Roadmap (not yet shipped)
+
+| Item | Maps to |
+|------|---------|
+| Newsletter by segment | FR-07 / J3-63 |
+| Bilingual admin | FR-10 |
+| Full physical/digital pricing matrix | J3-50–55 |
+| Resource requirements engine (full graph) | J3-54, J3-55 |
+| Apollo Basic+ people search upgrade | Commercial |
+| Landing video demo for James | Ops |
+
+**Do not list as pending:** inventory picker, activation brief, team senders, email templates, proposal packages, competitor proposal, template-in-generation, package switcher, manual domain — all **shipped and certified**.
+
+---
+
+## Branch History (June 2026)
+
+| Branch | Purpose | Status |
+|--------|---------|--------|
+| `feature/bug-fixes-3june` | 3 June regressions + CRM | Merged base |
+| `feature/4th-june-enrichment` | Domain-independent enrichment, 0022 | Merged |
+| `feature/4th-june-planning` | Planning doc only | Reference |
+| `feature/5th-june-agent-inventory` | 0023–0025, agent fix, inventory, team, templates, packages | Merged |
+| `feature/5th-june-final-polish` | Template gen, brief UI, switcher, competitor, manual domain, certs | **Current production** |
+| `docs/consolidation-backup` | Doc consolidation safety snapshot | Backup only |
+
+---
+
+## Master Document Index
+
+| Document | Status |
+|----------|--------|
+| `4th_June.md` | **Single source of truth** (this file) |
+| `1st_June.md` … `3rd_June.md` | Historical sprint logs (retained) |
+| `5th_June.md`, `6th_June*.md`, `*_E2E_*`, `*_CERTIFICATION*`, `UNCONDITIONAL_*` | **Removed** — content merged here |
+| `INTERN_TEST_PLAN.md` | Current test reference (updated) |
+| `README.md` | Platform overview (updated) |
+
+---
+
+## Git / Branch (end of June consolidation)
+
+```
+Production branch:  feature/5th-june-final-polish @ ffda396 (docs) / ce1c80c (sender fix)
+Platform:           https://eligibly-facing-unloved.ngrok-free.dev
+Deploy:             npm run deploy  (scripts/deploy-latest.sh)
+PM2:                sponsorship-platform + ngrok-tunnel (online on EC2)
+Health:             GET /api/health → status ok, database ok
+```
+
+**Documentation consolidation:** June 2026 — all 5th/6th June sprint and certification reports merged into this master document.
 

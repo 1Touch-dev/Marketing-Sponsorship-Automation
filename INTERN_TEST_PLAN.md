@@ -1,9 +1,9 @@
 # Coritiba FC Platform — Intern End-to-End Test Plan
 
-**Version:** 2.0 | **Date:** 27 May 2026  
+**Version:** 3.0 | **Date:** 4 June 2026  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
-**Pre-test:** Abhishek smoke-tested 27 May — see `E2E_PRE_INTERN_TEST_RESULTS.md`  
+**Master doc:** `4th_June.md` (sprints, certifications, production status)  
 **Rule:** Do **not** demo to James until every test below is marked ✅
 
 ---
@@ -17,7 +17,8 @@
 | DevTools | Keep open (F12) — screenshot any console errors |
 | AI waits | Campaign/proposal/email: 30–90s · Jersey mockup: 20–50s · DALL-E: ~30s |
 | Test company name | Use **"Test Intern SA"** only in T-05 (will be archived after testing) |
-| Email delivery | **Pipedrive only** — no Gmail send. Draft here → log Activity in Pipedrive → rep sends manually |
+| Email delivery | **Pipedrive only** — Gmail not required for core workflow. Draft → Approve & Send → Pipedrive activity → rep sends manually |
+| DB verify | Use Supabase dashboard or ask Abhishek for read-only REST checks on evidence IDs |
 
 **Public health checks (no login):**
 
@@ -565,7 +566,8 @@ Run this **once** as a single story after individual tests pass:
 | System Health | T-46–T-48 | | |
 | Golden path | T-49 (demo script) | | |
 | Outreach Agent | T-50 | | |
-| **TOTAL** | **50 test groups** | | |
+| June cert (templates, senders, inventory, brief, competitor, images, cards) | T-51–T-60 | | |
+| **TOTAL** | **60 test groups** | | |
 
 ---
 
@@ -586,6 +588,93 @@ Run this **once** as a single story after individual tests pass:
 | T-50-7 | In Pipedrive, find activity linked to company org/deal (not floating) | [ ] |
 
 **Notes:** No Auto mode — both proposal and email require human approval. If proposal step fails, run **Enrich Contacts** first on that company.
+
+---
+
+## SECTION 21 — June 2026 Certification Workflows
+
+These tests validate features shipped on the 5 June / final-polish sprints. Verify **UI outcome + DB row** (not just that a button exists).
+
+### T-51 · Email templates (W6)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/settings/email-templates` → create two templates with distinct HTML markers | Both saved | [ ] |
+| 2 | Set Template A as default → generate email on **approved** proposal | `metadata.template_id` = A; body has Template A structure | [ ] |
+| 3 | Set Template B as default → generate second email | `metadata.template_id` = B; different structure | [ ] |
+
+### T-52 · Team senders (W7)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/settings/team` → create Sender A, set default | `default_sender=true` in DB | [ ] |
+| 2 | Generate email → verify `sender_name` in email metadata/body | Sender A name appears | [ ] |
+| 3 | Create Sender B → **Set as default sender** → generate second email | Sender B name appears; DB default switched | [ ] |
+
+### T-53 · Campaign inventory UI (W8)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/campaigns` → generate new campaign for a company | Campaign created | [ ] |
+| 2 | Open campaign → inventory picker → add **1 physical + 1 digital** → Save | 2 lines in UI | [ ] |
+| 3 | Refresh page | Lines + totals persist; `campaign_inventory_items` rows exist | [ ] |
+
+### T-54 · Activation brief UI (W9)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Campaign with inventory lines → **Generate Activation Brief** | Brief shows hours, resources, narrative | [ ] |
+| 2 | Refresh page | Brief still visible; `campaigns.activation_brief` populated | [ ] |
+
+### T-55 · Competitor → proposal (W10)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Company with competitors → Competitors tab | List visible | [ ] |
+| 2 | **Add to DB** on one competitor | Company created / marked In DB | [ ] |
+| 3 | **Create Proposal** → wait for completion | Proposal created for competitor company | [ ] |
+| 4 | Open proposal + public landing `/proposals/{id}/view` | Landing loads | [ ] |
+
+### T-56 · Image workflow (W14) — optional cost
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Draft/approved proposal → **Gerar Criativos** | Image job `completed` (gpt-image-1) | [ ] |
+| 2 | **Gerar mockup oficial** | Jersey mockup job completed | [ ] |
+| 3 | Approve images → open public landing | Images visible on landing | [ ] |
+
+*Skip if avoiding OpenAI/Replicate API cost — note reason in scorecard.*
+
+### T-57 · Vista em Cards approvals (W15)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | `/approvals` → filter draft proposals → **Vista em Cards** | Cards with Approve/Reject/Edit | [ ] |
+| 2 | **Approve** one draft proposal | `status=approved` in DB after refresh | [ ] |
+| 3 | **Reject** another draft | `status=rejected` after refresh | [ ] |
+| 4 | **Edit** opens proposal edit page | Edit form loads | [ ] |
+
+### T-58 · Manual domain recovery
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Company **without** website → Enrich | Manual domain banner | [ ] |
+| 2 | Enter domain (e.g. `cresol.com.br`) → **Save & Re-enrich** | `domain` + `domain_source=manual` in DB | [ ] |
+| 3 | Contacts appear after re-enrich | Hunter contacts in UI | [ ] |
+
+### T-59 · Proposal packages + landing switcher
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Approved proposal → add Prata/Ouro/Diamante packages | 3 rows in `proposal_packages` | [ ] |
+| 2 | Open public landing (share link) | Package buttons switch tier content | [ ] |
+
+### T-60 · Enrichment regression (4 June)
+
+| Step | Action | Expected | Pass |
+|------|--------|----------|------|
+| 1 | Company with website → Enrich | Contacts + `domain_source` set | [ ] |
+| 2 | Company name-only (e.g. UNICRED) → Enrich | Domain resolved via hunter/apollo/crm | [ ] |
 
 ---
 

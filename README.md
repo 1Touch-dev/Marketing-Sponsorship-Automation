@@ -1,115 +1,185 @@
 # Coritiba FC — Sponsorship Automation Platform
 
-AI-powered sponsorship platform with one-click outreach automation. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apollo.io**, **Apify**, **Replicate LoRA**, **OpenAI DALL-E**.
+AI-powered commercial sponsorship platform for Coritiba FC. Stack: **Next.js 14**, **Supabase**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apollo.io**, **Apify**, **Replicate LoRA**, **OpenAI (gpt-image-1)**.
 
-## What's Live (as of 29 May 2026)
+**Production URL:** https://eligibly-facing-unloved.ngrok-free.dev  
+**Status:** Production Ready — fully E2E validated, business workflows certified (see `4th_June.md`).
 
-| Feature | Status |
-|---------|--------|
-| Company intelligence & enrichment (Hunter.io + Apollo.io + LinkedIn + Apify) | ✅ |
-| Proposal generation (Bedrock) + approval workflow | ✅ |
-| Jersey mockup generation (Replicate LoRA, 5 placements) | ✅ |
-| Campaign creative generation (OpenAI gpt-image-1) | ✅ |
-| Email drafting → Pipedrive Activity logging | ✅ |
-| Pipedrive CRM sync (orgs, deals, stages, activities) | ✅ |
-| **🤖 Outreach Agent — one-click full outreach pipeline** | ✅ NEW |
-| Monthly reports, audit trail, RBAC | ✅ |
+---
 
-## Outreach Agent (agents sprint — 28 May 2026)
+## Features
 
-One "Run Agent" button on any company page triggers a dual-approval outreach pipeline:
+| Feature | Description |
+|---------|-------------|
+| **Enrichment pipeline** | Domain-independent resolution (website, Apollo, Hunter, CRM contact email); manual domain recovery; re-enrich on website change |
+| **Outreach Agent** | One-click supervised pipeline: enrich → intelligence → proposal → email → Pipedrive (dual approval gates) |
+| **Proposal generation** | Bedrock-powered proposals; edit, version, approve; public landing with share token |
+| **Email generation** | Template engine with `{{variables}}`; team sender from DB; Bedrock personalization |
+| **Team senders** | `team_members` CRUD at `/settings/team`; default sender in all outreach emails |
+| **Email templates** | CRUD at `/settings/email-templates`; default template drives generation |
+| **Inventory** | Catalog at `/inventory`; campaign picker persists to `campaign_inventory_items` |
+| **Activation briefs** | AI resource/hour brief from campaign inventory; UI on campaign detail |
+| **Proposal packages** | Prata / Ouro / Diamante tiers; public landing package switcher |
+| **CRM / Pipedrive** | Org, deal, activity sync; outreach send logs Pipedrive activity |
+| **Landing pages** | Public sponsor-facing proposal view; packages, visuals, CTAs |
+| **Mockups & creatives** | Official jersey composite (Replicate); campaign creatives (OpenAI gpt-image-1) |
+| **Bulk workflows** | Bulk campaigns by industry; bulk proposals; Vista em Cards approvals |
+| **Competitor flow** | Add competitor to DB → Create Proposal from company intelligence |
+| **Approvals** | Proposals, campaigns, emails; list + card views |
+| **Reports & audit** | Monthly reports, workflow events, RBAC |
+
+---
+
+## Outreach Agent
+
+One **Run Agent** button on a company page runs the full pipeline:
 
 ```
-1. enrich_contacts              → Hunter.io + Apollo decision makers
-2. scrape_company_intelligence  → LinkedIn + ad signals (Apify)
-3. generate_personalized_proposal → NEW AI proposal tailored to this company (Bedrock)
-   ⏸ APPROVE PROPOSAL — human reviews full proposal
-4. generate_outreach_email      → Personalised PT-BR email draft
-   ⏸ APPROVE & SEND — human reviews before Pipedrive
-5. send_email                   → Pipedrive activity + deal linked
+1. enrich_contacts              → Hunter + Apollo
+2. scrape_company_intelligence  → Apify / LinkedIn signals
+3. generate_personalized_proposal → Bedrock (new proposal per company)
+   ⏸ APPROVE PROPOSAL
+4. generate_outreach_email      → Template + Bedrock (default sender from team_members)
+   ⏸ APPROVE & SEND
+5. send_email                   → Pipedrive activity + deal link
 ```
 
-**Approval gates (always on):**
-- Step 1: Review & approve the **personalized proposal** (never reuses/auto-approves old decks)
-- Step 2: Review & approve the **email** before it is logged to Pipedrive
+Implementation: `frontend/lib/agents/` — ConverseCommand tool loop, SSE streaming, `agent_runs` audit table.
 
-**Technical stack:**
-- `ConverseCommand` from `@aws-sdk/client-bedrock-runtime` — native Claude tool-use loop
-- SSE streaming (`ReadableStream`) — live step updates to browser, no polling
-- `agent_runs` Supabase table — full audit trail per run with all steps + results
+---
 
-**New files:**
+## Architecture
+
 ```
-frontend/lib/agents/types.ts           ← AgentRun, SSEEvent types
-frontend/lib/agents/tool-definitions.ts ← 5 Zod/JSON Schema tool specs
-frontend/lib/agents/tools.ts           ← Tool implementations
-frontend/lib/agents/orchestrator.ts    ← ConverseCommand loop + SSE emitter
-frontend/app/api/agents/outreach/      ← POST (start), GET (status), POST approve
-frontend/components/agents/outreach-agent-panel.tsx ← UI component
-```
-
-**Supabase migration required (run once):**
-```sql
-CREATE TABLE agent_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-  created_by UUID REFERENCES auth.users(id),
-  status TEXT NOT NULL DEFAULT 'running',
-  mode TEXT NOT NULL DEFAULT 'supervised',
-  steps JSONB NOT NULL DEFAULT '[]',
-  result JSONB,
-  error TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+┌─────────────────────────────────────────────────────────────┐
+│  AWS EC2                                                     │
+│  ┌──────────────┐    ┌─────────────────────────────────────┐ │
+│  │ PM2          │    │  Next.js 14 (frontend/)              │ │
+│  │ sponsorship- │───▶│  App Router UI + /api Route Handlers │ │
+│  │ platform     │    └──────────┬──────────────────────────┘ │
+│  └──────────────┘               │                             │
+│  ┌──────────────┐               ▼                             │
+│  │ PM2          │    ┌──────────────────┐  ┌───────────────┐ │
+│  │ ngrok-tunnel │───▶│ Supabase (Postgres)│  │ AWS Bedrock   │ │
+│  └──────────────┘    └──────────────────┘  └───────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ├── Pipedrive (CRM activities, orgs, deals)
+         ├── Hunter.io / Apollo.io / Apify (enrichment)
+         ├── OpenAI (campaign creatives)
+         └── Replicate (jersey mockup LoRA)
 ```
 
-## Quick start
+| Path | Purpose |
+|------|---------|
+| `frontend/` | Next.js app (UI + API routes) |
+| `frontend/lib/agents/` | Outreach Agent |
+| `frontend/lib/intelligence/` | Enrichment (domain-resolution, Hunter, Apollo, Apify) |
+| `frontend/lib/email/` | Template engine, sender resolution |
+| `frontend/lib/bedrock/` | Claude client |
+| `frontend/lib/pipedrive/` | CRM client |
+| `supabase/migrations/` | Postgres schema (0021–0025+) |
+| `scripts/deploy-latest.sh` | Build + PM2 restart on EC2 |
+| `ecosystem.config.cjs` | PM2 process definitions |
+
+**Auth:** Supabase Auth; session required for admin routes. Public health and proposal landing pages are unauthenticated where designed.
+
+---
+
+## Deployment
+
+Production runs **24/7 on AWS EC2** — not on a developer laptop. Closing Cursor or shutting down a local machine does **not** stop the platform.
+
+```bash
+# On EC2 (from repo root)
+npm run deploy
+# equivalent: bash scripts/deploy-latest.sh
+```
+
+This script:
+
+1. `git pull` on the deployment branch
+2. `npm ci` + `npm run build` in `frontend/`
+3. `pm2 restart sponsorship-platform`
+4. Health check on `localhost:3000` and ngrok public URL
+
+**PM2 processes:**
+
+| Name | Role |
+|------|------|
+| `sponsorship-platform` | Next.js production server |
+| `ngrok-tunnel` | Public HTTPS tunnel to port 3000 |
+
+Configure secrets in `frontend/.env.local` on the server (never commit).
+
+---
+
+## Quick start (local development)
 
 ```bash
 cp .env.example .env
-# Fill in secrets; then:
+# Fill secrets; then:
 cp .env frontend/.env.local
 cd frontend && npm ci && npm run dev
 ```
 
 Production build:
+
 ```bash
 cd frontend && npm run build && npm start
 ```
+
+---
 
 ## Key environment variables
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
-AWS_ACCESS_KEY_ID=...          # Bedrock (Claude Sonnet 4)
+AWS_ACCESS_KEY_ID=...          # Bedrock
 AWS_SECRET_ACCESS_KEY=...
 BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6
-PIPEDRIVE_API_KEY=...          # CRM sync
-HUNTER_API_KEY=...             # Decision maker email discovery
-APOLLO_API_KEY=...             # Company intelligence (org enrich, dept headcount)
-APIFY_API_TOKEN=...            # LinkedIn + ads scraping
-OPENAI_API_KEY=...             # Campaign creatives
-REPLICATE_API_TOKEN=...        # Jersey mockup LoRA
+PIPEDRIVE_API_KEY=...
+HUNTER_API_KEY=...
+APOLLO_API_KEY=...
+APIFY_API_TOKEN=...
+OPENAI_API_KEY=...             # Campaign creatives (gpt-image-1)
+REPLICATE_API_TOKEN=...        # Jersey mockups
+APP_URL=https://...            # Public base URL (ngrok or production domain)
 ```
 
-## Repository layout
+---
 
-| Path | Purpose |
+## Production status
+
+| Item | Status |
+|------|--------|
+| **Production Ready** | Yes |
+| **E2E validated** | 47 PASS (5 June) + 94 PASS (platform cert) + 16 business workflows (unconditional) |
+| **Business workflows certified** | Unconditional Production Approval (June 2026) |
+| **Master documentation** | `4th_June.md` |
+| **Test plan** | `INTERN_TEST_PLAN.md` |
+
+### External limitations (non-blocking)
+
+- Apify monthly quota may limit discovery scrapes
+- Apollo People Search advanced scenarios may require Basic+ plan
+
+**Outreach delivery:** Core workflow uses **Pipedrive** for send logging and rep follow-up. Gmail OAuth is optional for inbox reply sync only.
+
+---
+
+## Documentation
+
+| File | Purpose |
 |------|---------|
-| `frontend/` | Next.js app (UI + `/api` Route Handlers) |
-| `frontend/lib/agents/` | Outreach Agent logic |
-| `frontend/lib/intelligence/` | Hunter.io, Apollo.io, Apify scrapers |
-| `frontend/lib/bedrock/` | Bedrock/Claude client |
-| `frontend/lib/pipedrive/` | Pipedrive API client |
-| `supabase/migrations/` | Postgres schema, RLS |
-| `docs/` | Architecture & setup |
-| `27th_May.md` / `28th_May.md` / `29th_May.md` | Sprint logs |
-| `AGENTS_SPRINT_IMPL.md` | Agent sprint implementation plan |
+| `4th_June.md` | **Master project history** — sprints, migrations, E2E, certifications, production status |
+| `INTERN_TEST_PLAN.md` | Current E2E / certification test reference |
+| `1st_June.md` … `3rd_June.md` | Historical sprint logs |
+| `docs/` | Architecture notes |
+
+---
 
 ## License
 
-MIT
-
-Private / all rights reserved unless otherwise stated by the repository owner.
+MIT — Private / all rights reserved unless otherwise stated by the repository owner.
