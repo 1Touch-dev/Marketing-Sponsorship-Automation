@@ -107,6 +107,8 @@ export function ProposalImageManager({
           const urls = (job.output_urls ?? []).filter((u) => u?.url && !u.url.startsWith("data:"));
           const selected = job.selected_url ?? resolveJobImageUrl(job);
           const strategies = strategyVariants ?? [];
+          const isCampaignJob = job.job_type === "campaign_creative" || !!job.strategy_variant_id || !!job.strategy_label;
+          const alreadyApproved = job.status === "approved" || job.status === "completed";
 
           return (
             <div
@@ -164,7 +166,7 @@ export function ProposalImageManager({
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+              <div className={`grid gap-2 pt-1 border-t border-slate-100 ${isCampaignJob ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
                 <label className="text-[10px] text-slate-500">
                   Campanha / estratégia
                   <select
@@ -180,7 +182,7 @@ export function ProposalImageManager({
                       });
                     }}
                   >
-                    <option value="">— Não vinculado —</option>
+                    <option value="">— Selecionar (opcional) —</option>
                     {strategies.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.label}
@@ -188,46 +190,55 @@ export function ProposalImageManager({
                     ))}
                   </select>
                 </label>
-                <label className="text-[10px] text-slate-500">
-                  Inventário
-                  <select
-                    className="mt-1 w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
-                    value={job.inventory_label ?? ""}
-                    disabled={savingId === job.id}
-                    onChange={(e) => {
-                      const opt = INVENTORY_ASSIGN_OPTIONS.find((o) => o.id === e.target.value);
-                      patchJob(job.id, {
-                        action: "update_metadata",
-                        inventory_label: e.target.value || null,
-                        display_label: opt?.label ?? null,
-                      });
-                    }}
-                  >
-                    <option value="">— Não vinculado —</option>
-                    {INVENTORY_ASSIGN_OPTIONS.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {!isCampaignJob && (
+                  <label className="text-[10px] text-slate-500">
+                    Inventário
+                    <select
+                      className="mt-1 w-full text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
+                      value={job.inventory_label ?? ""}
+                      disabled={savingId === job.id}
+                      onChange={(e) => {
+                        const opt = INVENTORY_ASSIGN_OPTIONS.find((o) => o.id === e.target.value);
+                        patchJob(job.id, {
+                          action: "update_metadata",
+                          inventory_label: e.target.value || null,
+                          display_label: opt?.label ?? null,
+                        });
+                      }}
+                    >
+                      <option value="">— Selecionar (opcional) —</option>
+                      {INVENTORY_ASSIGN_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
               </div>
 
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={savingId === job.id || job.status === "completed"}
-                  onClick={() =>
-                    patchJob(job.id, {
-                      action: "approve",
-                      approved_by: "admin",
-                    })
-                  }
-                  className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1"
-                >
-                  <Link2 className="h-3 w-3" />
-                  Aprovar job
-                </button>
+                {alreadyApproved ? (
+                  <span className="text-[10px] text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {job.status === "completed" ? "Gerado" : "Aprovado"}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={savingId === job.id}
+                    onClick={() =>
+                      patchJob(job.id, {
+                        action: "approve",
+                        approved_by: "admin",
+                      })
+                    }
+                    className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1"
+                  >
+                    <Link2 className="h-3 w-3" />
+                    Aprovar job
+                  </button>
+                )}
               </div>
             </div>
           );

@@ -106,7 +106,7 @@ export function ActivationBriefPanel({ campaignId }: { campaignId: string }) {
 
         {!loading && !brief && !generating && (
           <p className="text-sm text-muted-foreground">
-            Add inventory items above, then generate the activation brief.
+            Click above to generate an AI activation brief for this campaign.
           </p>
         )}
 

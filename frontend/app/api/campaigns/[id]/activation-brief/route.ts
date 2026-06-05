@@ -83,11 +83,7 @@ export async function POST(
     lines = (dbLines as Array<{ name: string; category: string; inventory_type: string; quantity: number }>) ?? [];
   }
 
-  if (lines.length === 0) {
-    return NextResponse.json({ error: "No inventory items selected for this campaign" }, { status: 400 });
-  }
-
-  // Generate resource requirements from template
+  // Generate resource requirements from template (empty if no inventory items)
   const resources = buildBriefFromInventory(lines);
 
   // Use AI to generate a richer brief with narrative
@@ -96,8 +92,12 @@ export async function POST(
 
   let aiBrief: string | null = null;
   try {
-    const lineList = lines.map(l => `- ${l.name} × ${l.quantity}`).join("\n");
-    const resourceList = resources.map(r => `- ${r.role}: ${r.hours}h`).join("\n");
+    const lineList = lines.length > 0
+      ? lines.map(l => `- ${l.name} × ${l.quantity}`).join("\n")
+      : "Nenhum item de inventário vinculado ainda.";
+    const resourceList = resources.length > 0
+      ? resources.map(r => `- ${r.role}: ${r.hours}h`).join("\n")
+      : "A definir conforme itens de inventário.";
 
     const result = await invokeClaude({
       messages: [{
@@ -106,6 +106,7 @@ export async function POST(
 
 Campaign: ${(campaign as Record<string, unknown>).title}
 Sponsor: ${companyName}
+Activation notes: ${String((campaign as Record<string, unknown>).activation ?? "Patrocínio Coritiba FC")}
 
 Selected inventory:
 ${lineList}
