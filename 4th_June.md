@@ -996,8 +996,9 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 | Document | Status |
 |----------|--------|
 | `4th_June.md` | **Single source of truth** (this file) |
+| `5th_June.md` | **5 June 2026** — LoRA v2 retrain + live E2E certification |
 | `1st_June.md` … `3rd_June.md` | Historical sprint logs (retained) |
-| `5th_June.md`, `6th_June*.md`, `*_E2E_*`, `*_CERTIFICATION*`, `UNCONDITIONAL_*` | **Removed** — content merged here |
+| `6th_June*.md`, `*_E2E_*`, `*_CERTIFICATION*`, `UNCONDITIONAL_*` | **Removed** — content merged here |
 | `INTERN_TEST_PLAN.md` | Current test reference (updated) |
 | `README.md` | Platform overview (updated) |
 
