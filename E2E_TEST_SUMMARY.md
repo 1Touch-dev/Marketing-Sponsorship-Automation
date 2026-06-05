@@ -14,7 +14,7 @@ The Coritiba Sponsorship Platform has successfully completed a comprehensive end
 
 **Result: Phase 1 — 41/41 PASS | Phase 2 (deep) — 31/31 PASS | 100% Success Rate**
 
-> **Phase 2 (June 6):** Every sidebar tab tested end-to-end with real workflows (search, wizards, detail pages, approvals, CRM links). One ops issue: stale JS chunks on `/threads` after build without PM2 restart — fixed with `pm2 restart sponsorship-platform`. See `6th_June.md` § Phase 2.
+> **Phase 2:** Every sidebar tab tested end-to-end with real workflows (search, wizards, detail pages, approvals, CRM links). One ops issue: stale JS chunks on `/threads` after build without PM2 restart — fixed with `pm2 restart sponsorship-platform`. See `5th_June.md` § Phase 2.
 
 ---
 
@@ -255,9 +255,8 @@ The Coritiba Sponsorship Platform has successfully completed a comprehensive end
 ## Documentation
 
 ### Test Reports
-- **Detailed Report:** `6th_June.md` (592 lines, comprehensive test results)
+- **Detailed Report:** `5th_June.md` (complete 5 June day log — LoRA v2 + email templates + Phase 1/2 E2E)
 - **Master Document:** `4th_June.md` (updated with E2E summary)
-- **Previous E2E:** `5th_June.md` (LoRA v2 + email templates)
 
 ### Branch Information
 - **Branch:** `feature/6th-june-comprehensive-e2e`
@@ -288,7 +287,7 @@ The Coritiba Sponsorship Platform has successfully completed comprehensive end-t
 ## Next Steps
 
 1. ✅ **Comprehensive E2E testing completed** — All 41 tests PASS
-2. ✅ **Documentation updated** — 6th_June.md and 4th_June.md
+2. ✅ **Documentation updated** — 5th_June.md and 4th_June.md
 3. ✅ **Branch pushed** — feature/6th-june-comprehensive-e2e
 4. ⏳ **Ready for:** Code review, merge to main, production deployment
 

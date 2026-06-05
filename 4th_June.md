@@ -1077,5 +1077,5 @@ Health:             GET /api/health → status ok, database ok
 
 The Coritiba Sponsorship Platform has successfully completed comprehensive end-to-end testing with **100% success rate**. All major workflows, integrations, and services are operational. The system is **approved for continuous production operation**.
 
-**Full test report:** See `6th_June.md`
+**Full test report:** See `5th_June.md` (LoRA v2 + email templates + Phase 1/2 E2E — 72/72 PASS)
 
