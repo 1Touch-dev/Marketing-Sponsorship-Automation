@@ -12,7 +12,9 @@
 
 The Coritiba Sponsorship Platform has successfully completed a comprehensive end-to-end test covering **all major sections and workflows**. 
 
-**Result: 41/41 Tests PASS (100% Success Rate)**
+**Result: Phase 1 — 41/41 PASS | Phase 2 (deep) — 31/31 PASS | 100% Success Rate**
+
+> **Phase 2 (June 6):** Every sidebar tab tested end-to-end with real workflows (search, wizards, detail pages, approvals, CRM links). One ops issue: stale JS chunks on `/threads` after build without PM2 restart — fixed with `pm2 restart sponsorship-platform`. See `6th_June.md` § Phase 2.
 
 ---
 

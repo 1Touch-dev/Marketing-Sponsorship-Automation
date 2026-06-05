@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-Comprehensive end-to-end testing of the entire Coritiba Sponsorship Platform was conducted across all major sections, workflows, and integrations. **All 40+ test cases PASSED** with no critical issues identified. The platform demonstrates:
+Comprehensive end-to-end testing of the entire Coritiba Sponsorship Platform was conducted across all major sections, workflows, and integrations. **Phase 1:** 41 smoke tests PASS. **Phase 2:** 31 deep workflow tests across every sidebar tab PASS (1 ops issue — stale JS chunks after build — fixed via PM2 restart). The platform demonstrates:
 
 - ✅ **Stable UI/UX** across all pages and workflows
 - ✅ **Responsive navigation** with proper state management
@@ -587,6 +587,70 @@ The Coritiba Sponsorship Platform has successfully completed comprehensive end-t
 
 ---
 
-**Document Status:** ✅ COMPLETE  
-**Last Updated:** June 6, 2026, 07:45 UTC  
+## Phase 2: Deep Workflow E2E (All Sidebar Tabs)
+
+**Date:** June 6, 2026 (morning)  
+**Method:** Cursor browser automation — real clicks, forms, search, detail pages, and cross-module links (not page-load smoke only)  
+**Result:** **27/27 sidebar routes PASS** | **1 ops issue found & fixed** | **0 code bugs**
+
+### Deep Test Matrix (per sidebar item)
+
+| # | Route | Deep workflow exercised | Result | Evidence |
+|---|-------|-------------------------|--------|----------|
+| 1 | `/` | Dashboard widgets, recent proposals/emails/activity, quick-action CTAs | ✅ PASS | 517 companies, 74 proposals, 99 campaigns, 4 pending approvals |
+| 2 | `/companies` | Search `positivo` → 2 results; open company detail | ✅ PASS | `/companies/6bb32488-1aef-4b77-9a04-5b2e843ad8be` |
+| 3 | `/companies/:id` | Intelligence tab, 10 competitors with Create Proposal buttons | ✅ PASS | Outreach agent + competitor intel visible |
+| 4 | `/pipeline` | Kanban 6 stages; Add Lead form with company dropdown | ✅ PASS | All pipeline columns populated |
+| 5 | `/reports` | 3 active sponsors; pipeline nearing contract; Monthly Report buttons | ✅ PASS | Sponsor reports list functional |
+| 6 | `/proposals/new` | Full wizard: type → Positivo → inventory → strategy → Ready to generate | ✅ PASS | 6-step wizard completes to generation gate |
+| 7 | `/campaigns` | Campaign list (99); generator UI for single company | ✅ PASS | AI campaign ideas + history |
+| 8 | `/campaigns/bulk` | Industry filters, company search, bulk generate config | ✅ PASS | Multi-company selection UI |
+| 9 | `/proposals/bulk-approve` | 40+ proposals in review; bulk select (Selecionar todas) | ✅ PASS | Bulk approval queue |
+| 10 | `/proposals` | List filters; open proposal detail | ✅ PASS | `/proposals/82e2e7b7-352d-4f32-8e0d-f2432734ae56` |
+| 11 | `/proposals/:id` | LoRA v2 placements (7), execution brief, packages, 2 images, email draft | ✅ PASS | E2E Cert Flow proposal (approved) |
+| 12 | `/proposals/:id/view` | Public landing — full sections, CTAs, branding | ✅ PASS | Public share link works |
+| 13 | `/approvals` | Vista em Cards; Aprovar / Rejeitar per item | ✅ PASS | Mixed proposals/campaigns/emails |
+| 14 | `/emails` | Open email detail | ✅ PASS | `/emails/9f8f59fe-4cf2-4818-ad6e-62e64bb662dd` |
+| 15 | `/emails/:id` | Lucca template body, linked proposal, Pipedrive Activity #1598 | ✅ PASS | Approved email with CRM link |
+| 16 | `/threads` | Email thread list (13+ threads) | ✅ PASS | After PM2 restart (see bug below) |
+| 17 | `/followups` | 7 follow-up drafts with Open draft links | ✅ PASS | Follow-up queue operational |
+| 18 | `/coritiba-intelligence` | Metrics by category; Add Metric form | ✅ PASS | Intel dashboard + CRUD form |
+| 19 | `/inventory` | 28 items; physical jersey inventory; availability states | ✅ PASS | 22 available, 5 limited |
+| 20 | `/barter` | Procurement form + existing barter items | ✅ PASS | Add item + list |
+| 21 | `/lei-de-incentivo` | 9 projects; add project form | ✅ PASS | Lei de Incentivo CRUD UI |
+| 22 | `/brand-assets` | 6 asset packs with AI prompt buttons | ✅ PASS | Brand pack management |
+| 23 | `/media-generation` | 51 jobs (42 completed); LoRA v2 model `76169e0a` | ✅ PASS | All 7 placements |
+| 24 | `/mockup-editor` | 5 templates; logo placement; Export PNG | ✅ PASS | Mockup editor workflow |
+| 25 | `/assets` | Asset Library filters/grid (empty state) | ✅ PASS | Filter UI loads |
+| 26 | `/crm-sync` | Pipedrive integration; sync queue | ✅ PASS | CRM Sync page |
+| 27 | `/workflow-events` | Event log with status filters | ✅ PASS | started/processing/completed/failed |
+| 28 | `/audit` | Audit log with entity filter | ✅ PASS | Full audit trail |
+| 29 | `/system` | Service status, env vars, maintenance actions | ✅ PASS | All 7 services healthy |
+| 30 | `/settings/email-templates` | 10 templates incl. 6 Lucca (Commercial Email Templates.docx) | ✅ PASS | Preview/Duplicate per template |
+| 31 | `/users` | Team & Roles — 3 members; role dropdowns; Invite user | ✅ PASS | Admin/Sales/Approver/Viewer roles |
+
+**Phase 2 total: 31 deep workflow tests | 31 PASS | 0 FAIL**
+
+### Issue Found & Resolved
+
+| Issue | Symptom | Root cause | Fix | Retest |
+|-------|---------|------------|-----|--------|
+| **Stale JS chunks** | `/threads` — `Loading chunk 7610 failed` (requested `page-ce01dff0ed8ba54f.js`, build had `page-9d267c0c1e76906e.js`) | `npm run build` ran without `pm2 restart sponsorship-platform` | `pm2 restart sponsorship-platform` | ✅ Threads loads 13+ threads |
+
+**Process note:** Always run `scripts/deploy-latest.sh` (build + PM2 restart) after frontend builds to avoid chunk hash mismatch.
+
+### Key Evidence IDs (Phase 2)
+
+| Entity | ID / reference |
+|--------|----------------|
+| Proposal (E2E Cert Flow, approved) | `82e2e7b7-352d-4f32-8e0d-f2432734ae56` |
+| Email (Lucca warm-up, approved) | `9f8f59fe-4cf2-4818-ad6e-62e64bb662dd` |
+| Company (Positivo) | `6bb32488-1aef-4b77-9a04-5b2e843ad8be` |
+| LoRA v2 model | `76169e0a` (shorts/socks/back enabled) |
+| Pipedrive activity | #1598 |
+
+---
+
+**Document Status:** ✅ COMPLETE (Phase 1 + Phase 2 deep E2E)  
+**Last Updated:** June 6, 2026, 08:15 UTC  
 **Next Review:** Continuous monitoring via PM2 + ngrok
