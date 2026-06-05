@@ -33,12 +33,19 @@ export type PlacementZone = {
 export const JERSEY_BASE_PUBLIC_PATH = "/mockups/coritiba-jersey-base.jpg";
 
 /**
- * Coordinate reference for coritiba-jersey-base.jpg (858×1080 flat kit layout):
- *   Row 1  y 1%–43%   → front jersey (left half) + back jersey (right half)
- *   Row 2  y 46%–68%  → front shorts (left half) + back shorts (right half)
- *   Row 3  y 70%–99%  → left socks pair (left ~35%) + shorts alt (right ~55%)
- *   Left half  x 0–50%  = front/viewer view
- *   Right half x 50–100% = back view
+ * Pixel-calibrated zones for coritiba-jersey-base.jpg (858×1080 flat kit layout).
+ *
+ * Layout rows (verified via pixel probe):
+ *   Row 1  y≈2–460px   (0%–43%)  → front jersey L + back jersey R
+ *   Row 2  y≈491–686px (45%–64%) → front shorts L (x:117–306) + back shorts R
+ *   Row 3  y≈738–1070px(68%–99%) → left socks pair L (x:59–285) + alt-shorts R
+ *
+ * Elements inside front shorts (pixel scan):
+ *   CFC crest:   x≈90–155, y≈540–640
+ *   Diadora "+": x≈205–225, y≈590–640
+ *   Sponsor zone (right of Diadora): x≈228–300, y≈545–605
+ *
+ * All w/h represent the sponsor PATCH size, not the full garment area.
  */
 export const JERSEY_PLACEMENTS: PlacementZone[] = [
   {
@@ -46,11 +53,12 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Chest — Main sponsor",
     labelPt: "Peito — Patrocinador principal",
     description: "Opposite the club crest (wearer's right chest)",
-    // Centre-left of front jersey body — wearer's right, viewer's left
-    x: 0.05,
-    y: 0.17,
-    w: 0.24,
-    h: 0.13,
+    // Wearer's right chest body — jersey body starts at ~x=90px at chest height
+    // CFC crest is at x≈225–295, so we have x=90–215 for sponsor (~125px × 80px)
+    x: 0.105,
+    y: 0.145,
+    w: 0.145,
+    h: 0.074,
     enabled: true,
   },
   {
@@ -58,11 +66,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Chest — Above name (small)",
     labelPt: "Peito — Acima do nome (menor)",
     description: "Secondary placement above manufacturer name",
-    // Lower-left of front jersey, above hem
-    x: 0.07,
-    y: 0.31,
-    w: 0.18,
-    h: 0.06,
+    // Lower-left of front jersey near hem — small badge ~90×38px
+    x: 0.068,
+    y: 0.300,
+    w: 0.105,
+    h: 0.035,
     enabled: true,
   },
   {
@@ -70,11 +78,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Left sleeve",
     labelPt: "Manga esquerda",
     description: "Wearer's left sleeve",
-    // Right shoulder of front jersey (viewer's right = wearer's left)
-    x: 0.35,
-    y: 0.13,
-    w: 0.12,
-    h: 0.09,
+    // Right shoulder of front jersey (viewer's right = wearer's left) ~55×50px
+    x: 0.390,
+    y: 0.110,
+    w: 0.064,
+    h: 0.046,
     enabled: true,
   },
   {
@@ -82,11 +90,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Right sleeve",
     labelPt: "Manga direita",
     description: "Wearer's right sleeve",
-    // Left shoulder of front jersey (viewer's left = wearer's right)
-    x: 0.02,
-    y: 0.13,
-    w: 0.12,
-    h: 0.09,
+    // Left shoulder of front jersey (viewer's left = wearer's right) ~55×50px
+    x: 0.021,
+    y: 0.110,
+    w: 0.064,
+    h: 0.046,
     enabled: true,
   },
   {
@@ -95,10 +103,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     labelPt: "Costas",
     description: "Back sponsor placement (LoRA v2 — James kit assets)",
     // Upper-centre of back jersey (right half of image, row 1)
-    x: 0.55,
-    y: 0.11,
-    w: 0.34,
-    h: 0.14,
+    // Back jersey x:432–840 → span ~220px centred at x=636
+    x: 0.550,
+    y: 0.100,
+    w: 0.257,
+    h: 0.093,
     enabled: true,
   },
   {
@@ -106,11 +115,12 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Shorts",
     labelPt: "Shorts",
     description: "Shorts sponsor placement (LoRA v2 — UNIFORM kit)",
-    // Centre-right of front shorts (left half of image, row 2)
-    x: 0.18,
-    y: 0.52,
-    w: 0.20,
-    h: 0.12,
+    // Right of Diadora logo on front shorts — x≈228–300, y≈545–605
+    // ~72×60px patch — proportionate sponsor badge on thigh
+    x: 0.266,
+    y: 0.505,
+    w: 0.084,
+    h: 0.056,
     enabled: true,
   },
   {
@@ -118,11 +128,12 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Socks",
     labelPt: "Meiões",
     description: "Socks sponsor placement (LoRA v2 — UNIFORM kit)",
-    // Upper calf area of left sock pair (bottom-left of image, row 3)
-    x: 0.02,
-    y: 0.71,
-    w: 0.14,
-    h: 0.12,
+    // Upper-mid calf of left sock pair — x≈59–155, y≈775–845
+    // Slightly lower than cuff to land on the white sock body (more visible)
+    x: 0.069,
+    y: 0.718,
+    w: 0.112,
+    h: 0.060,
     enabled: true,
   },
 ];

@@ -30,8 +30,9 @@ function buildTextOverlaySvg(
   height: number
 ): Buffer {
   const label = escapeXml(truncateLabel(sponsorName.toUpperCase()));
-  // Scale font to fit zone — tighter fit than before
-  const fontSize = Math.max(11, Math.min(38, Math.floor(width / (label.length * 0.62))));
+  // Account for letter-spacing=1 (adds ~1px per char gap)
+  // Effective char width: fontSize * 0.62 + 1px spacing
+  const fontSize = Math.max(11, Math.min(38, Math.floor((width - label.length) / (label.length * 0.62))));
   const pad = Math.max(4, Math.round(height * 0.12));
   // Coritiba green badge — works on both dark jersey and white shorts
   return Buffer.from(
