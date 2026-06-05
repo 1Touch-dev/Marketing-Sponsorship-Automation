@@ -46,6 +46,8 @@ jersey-assets/james-coto-coxa-2026/archives/
 jersey-assets/james-coto-coxa-2026/extracted/
 jersey-assets/james-coto-coxa-2026/nested/
 jersey-assets/james-coto-coxa-2026/lora-training-candidates/
+jersey-assets/lora-training-set-v2/
+jersey-assets/coritiba_jersey_lora_training_v2.zip
 
 # Backups
 *.bak

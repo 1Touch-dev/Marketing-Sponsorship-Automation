@@ -53,17 +53,15 @@ Drone warmup + stadium shots — brand/stadium LoRA context; fewer unique jersey
 
 ---
 
-## Replicate retrain checklist (pending)
+## Replicate retrain — DONE (5 Jun 2026)
 
-1. [ ] Curate 15–30 **RGB** images from `lora-training-candidates/` (prioritize `uniform_*` + best front/side jersey JPGs)  
-2. [ ] Remove duplicates / grayscale masks (same rules as May 2026 train)  
-3. [ ] Build `coritiba_jersey_lora_training_v2.zip` with trigger word `coritiba_jersey`  
-4. [ ] Train on [ostris/flux-dev-lora-trainer](https://replicate.com/ostris/flux-dev-lora-trainer) (~1000 steps)  
-5. [ ] Update `REPLICATE_MODEL_VERSION` in `.env` / health check  
-6. [ ] Enable `back`, `shorts`, `socks` in `frontend/lib/media/jersey-placements.ts`  
-7. [ ] Re-run INTERN_TEST_PLAN T-25–T-27, T-56  
+1. [x] Curated **54** RGB images → `lora-training-set-v2/` + `coritiba_jersey_lora_training_v2.zip`  
+2. [x] Trained via `replicate/fast-flux-trainer` — ID `dw2yye22yxrmy0cyjrv8jjjnv8`  
+3. [x] Production model: `abhishek9302/coritiba-jersey-lora:76169e0ab5d4effa7c6eb4ce9bfc2e7ac739e4e38a855a26943b67800d2eaf9e`  
+4. [x] `back`, `shorts`, `socks` placements enabled  
+5. [ ] Re-run INTERN_TEST_PLAN T-25–T-27, T-56 (manual QA)  
 
-**Current production model (unchanged until retrain):** `abhishek9302/coritiba-jersey-lora:396810db` (27 May, 15 images from Camisa 2026 PDF)
+**Previous model (v1):** `396810db` (27 May, 15 images from Camisa PDF)
 
 ---
 

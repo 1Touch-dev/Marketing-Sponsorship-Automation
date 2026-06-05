@@ -76,9 +76,9 @@ export async function GET() {
       replicate: {
         healthy: replicateConfigured,
         configured: replicateConfigured,
-        model: replicateConfigured ? "abhishek9302/coritiba-jersey-lora:396810db" : null,
+        model: replicateConfigured ? "abhishek9302/coritiba-jersey-lora:76169e0a" : null,
         trigger_word: replicateConfigured ? "coritiba_jersey" : null,
-        note: replicateConfigured ? "LoRA trained 27 May 2026 — jersey/stadium mockup generation ready" : "Awaiting REPLICATE_API_TOKEN",
+        note: replicateConfigured ? "LoRA v2 trained 5 Jun 2026 — James Coto Coxa kit (54 images, shorts/socks enabled)" : "Awaiting REPLICATE_API_TOKEN",
       },
       hunter: {
         healthy: hunterConfigured,

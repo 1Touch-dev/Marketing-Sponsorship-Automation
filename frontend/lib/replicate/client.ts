@@ -1,16 +1,16 @@
 /**
  * Replicate client — FLUX LoRA jersey/stadium image generation
  *
- * Model: abhishek9302/coritiba-jersey-lora (trained 27 May 2026)
+ * Model: abhishek9302/coritiba-jersey-lora (v2 trained 5 Jun 2026 — James Coto Coxa kit)
  * Trigger word: coritiba_jersey
- * Version: 396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c
+ * Version: 76169e0ab5d4effa7c6eb4ce9bfc2e7ac739e4e38a855a26943b67800d2eaf9e
  */
 
 const REPLICATE_API_BASE = "https://api.replicate.com/v1";
 
 /** Pinned trained model version */
 export const CORITIBA_JERSEY_MODEL_VERSION =
-  "abhishek9302/coritiba-jersey-lora:396810dbb0770b16510a33406f1de099994d1ff377be7657b0554a5b9e5b625c";
+  "abhishek9302/coritiba-jersey-lora:76169e0ab5d4effa7c6eb4ce9bfc2e7ac739e4e38a855a26943b67800d2eaf9e";
 
 /** Trigger word that activates the jersey LoRA */
 export const JERSEY_TRIGGER_WORD = "coritiba_jersey";

@@ -919,7 +919,7 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 
 ### James media kit — Coto Coxa Images (WeTransfer, 2 Jun 2026)
 
-**Status:** ✅ **Downloaded & stored on EC2** (4 Jun 2026) · ⏳ **LoRA retrain pending** (scheduled next session)
+**Status:** ✅ **Downloaded & stored on EC2** (4 Jun 2026) · ✅ **LoRA v2 trained & deployed** (5 Jun 2026)
 
 | Field | Detail |
 |-------|--------|
@@ -937,19 +937,21 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 | **Aquece Coxa.zip** | Warmup campaign drone JPG + 2 large MP4s (video demo only, not LoRA) |
 | **Couto Pereira.zip** | Stadium drone JPG/DNG — stadium/activation mockup context |
 
-**Stored for training:** `lora-training-candidates/` — **69** JPG/PNG copies (638 MB), ready to curate into v2 zip tomorrow.
+**Stored for training:** `lora-training-candidates/` — **69** JPG/PNG copies (638 MB).
 
-**Production model until retrain:** `abhishek9302/coritiba-jersey-lora:396810db` (May 2026, 15 images from Camisa PDF).
+#### LoRA v2 — COMPLETE (5 Jun 2026)
 
-#### Pending / TODO — LoRA v2 (James batch 1)
+| # | Task | Result |
+|---|------|--------|
+| L1 | Curate training set | **54 images** — 15 v1 PDF baseline + 12 UNIFORM (5 upscaled shorts/socks) + 9 Aquece Coxa + 18 DJI June |
+| L2 | Train on Replicate | `replicate/fast-flux-trainer` — training ID `dw2yye22yxrmy0cyjrv8jjjnv8` (~5 min) |
+| L3 | Deploy new model | `abhishek9302/coritiba-jersey-lora:76169e0ab5d4effa7c6eb4ce9bfc2e7ac739e4e38a855a26943b67800d2eaf9e` |
+| L4 | Placements | `back`, `shorts`, `socks` enabled in `jersey-placements.ts` + prompt phrases |
+| L5 | Validation | Test prediction `hckf5t4t91rmy0cyjrxbv12c00` — **succeeded** |
 
-| # | Task | Owner | Status |
-|---|------|-------|--------|
-| L1 | Curate 15–30 RGB images from `lora-training-candidates/` (prioritize UNIFORM flat kit + best front jersey JPGs) | Dev | ⏳ Tomorrow |
-| L2 | Build `coritiba_jersey_lora_training_v2.zip`, train on Replicate (`ostris/flux-dev-lora-trainer`, trigger `coritiba_jersey`) | Dev | ⏳ Tomorrow |
-| L3 | Update `REPLICATE_MODEL_VERSION` + deploy | Dev | ⏳ After train |
-| L4 | Enable `back`, `shorts`, `socks` in `jersey-placements.ts` | Dev | ⏳ After QA |
-| L5 | Re-run image E2E (T-25–T-27, T-56) | QA | ⏳ After deploy |
+**Artifacts on EC2:** `jersey-assets/coritiba_jersey_lora_training_v2.zip` (28.6 MB), `jersey-assets/lora-training-set-v2/`
+
+**v1 model (retired):** `396810db` — May 2026, 15 images from Camisa PDF
 
 #### Still waiting from James (batch 2 — he said “others soon”)
 

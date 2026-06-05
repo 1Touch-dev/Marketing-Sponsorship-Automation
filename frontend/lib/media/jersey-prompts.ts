@@ -62,6 +62,12 @@ function sponsorPlacementPhrase(sponsorName: string, placement: JerseyPlacementI
       return `${sponsorName} sponsor logo on wearer's left sleeve only, crest unchanged on chest`;
     case "sleeve_right":
       return `${sponsorName} sponsor logo on wearer's right sleeve only, crest unchanged on chest`;
+    case "back":
+      return `${sponsorName} sponsor logo on back of jersey below collar, large back print`;
+    case "shorts":
+      return `full kit with coritiba shorts, ${sponsorName} sponsor logo on front of shorts`;
+    case "socks":
+      return `full kit with coritiba socks, ${sponsorName} sponsor logo on socks`;
     default:
       return `${sponsorName} sponsor branding on wearer's right chest opposite the crest`;
   }
