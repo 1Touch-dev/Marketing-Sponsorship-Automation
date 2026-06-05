@@ -30,13 +30,33 @@ function buildTextOverlaySvg(
   height: number
 ): Buffer {
   const label = escapeXml(truncateLabel(sponsorName.toUpperCase()));
-  const fontSize = Math.max(14, Math.min(42, Math.floor(width / (label.length * 0.55))));
+  // Scale font to fit zone — tighter fit than before
+  const fontSize = Math.max(11, Math.min(38, Math.floor(width / (label.length * 0.62))));
+  const pad = Math.max(4, Math.round(height * 0.12));
+  // Coritiba green badge — works on both dark jersey and white shorts
   return Buffer.from(
     `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${width}" height="${height}" rx="6" fill="rgba(255,255,255,0.92)"/>
-      <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${fontSize}"
-        fill="#1a1a1a">${label}</text>
+      <defs>
+        <filter id="dropshadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.55)"/>
+        </filter>
+      </defs>
+      <!-- Outer shadow glow for depth -->
+      <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="5"
+        fill="rgba(0,0,0,0.35)" filter="url(#dropshadow)"/>
+      <!-- Badge background — Coritiba dark green -->
+      <rect x="0" y="0" width="${width}" height="${height}" rx="5"
+        fill="rgba(18,58,30,0.88)"/>
+      <!-- Inner highlight line at top -->
+      <rect x="0" y="0" width="${width}" height="2" rx="5"
+        fill="rgba(255,255,255,0.25)"/>
+      <!-- Sponsor text — white, bold -->
+      <text x="${width / 2}" y="${height / 2 + pad * 0.15}"
+        dominant-baseline="middle" text-anchor="middle"
+        font-family="Arial Black, Arial, Helvetica, sans-serif"
+        font-weight="900" font-size="${fontSize}"
+        letter-spacing="1"
+        fill="#ffffff">${label}</text>
     </svg>`
   );
 }

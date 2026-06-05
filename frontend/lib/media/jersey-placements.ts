@@ -32,16 +32,25 @@ export type PlacementZone = {
 
 export const JERSEY_BASE_PUBLIC_PATH = "/mockups/coritiba-jersey-base.jpg";
 
+/**
+ * Coordinate reference for coritiba-jersey-base.jpg (858×1080 flat kit layout):
+ *   Row 1  y 1%–43%   → front jersey (left half) + back jersey (right half)
+ *   Row 2  y 46%–68%  → front shorts (left half) + back shorts (right half)
+ *   Row 3  y 70%–99%  → left socks pair (left ~35%) + shorts alt (right ~55%)
+ *   Left half  x 0–50%  = front/viewer view
+ *   Right half x 50–100% = back view
+ */
 export const JERSEY_PLACEMENTS: PlacementZone[] = [
   {
     id: "chest_sponsor",
     label: "Chest — Main sponsor",
     labelPt: "Peito — Patrocinador principal",
     description: "Opposite the club crest (wearer's right chest)",
-    x: 0.1,
-    y: 0.34,
-    w: 0.36,
-    h: 0.14,
+    // Centre-left of front jersey body — wearer's right, viewer's left
+    x: 0.05,
+    y: 0.17,
+    w: 0.24,
+    h: 0.13,
     enabled: true,
   },
   {
@@ -49,9 +58,10 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Chest — Above name (small)",
     labelPt: "Peito — Acima do nome (menor)",
     description: "Secondary placement above manufacturer name",
-    x: 0.28,
-    y: 0.48,
-    w: 0.22,
+    // Lower-left of front jersey, above hem
+    x: 0.07,
+    y: 0.31,
+    w: 0.18,
     h: 0.06,
     enabled: true,
   },
@@ -60,10 +70,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Left sleeve",
     labelPt: "Manga esquerda",
     description: "Wearer's left sleeve",
-    x: 0.04,
-    y: 0.38,
+    // Right shoulder of front jersey (viewer's right = wearer's left)
+    x: 0.35,
+    y: 0.13,
     w: 0.12,
-    h: 0.1,
+    h: 0.09,
     enabled: true,
   },
   {
@@ -71,10 +82,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Right sleeve",
     labelPt: "Manga direita",
     description: "Wearer's right sleeve",
-    x: 0.84,
-    y: 0.38,
+    // Left shoulder of front jersey (viewer's left = wearer's right)
+    x: 0.02,
+    y: 0.13,
     w: 0.12,
-    h: 0.1,
+    h: 0.09,
     enabled: true,
   },
   {
@@ -82,10 +94,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Back",
     labelPt: "Costas",
     description: "Back sponsor placement (LoRA v2 — James kit assets)",
-    x: 0.3,
-    y: 0.35,
-    w: 0.4,
-    h: 0.12,
+    // Upper-centre of back jersey (right half of image, row 1)
+    x: 0.55,
+    y: 0.11,
+    w: 0.34,
+    h: 0.14,
     enabled: true,
   },
   {
@@ -93,9 +106,10 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Shorts",
     labelPt: "Shorts",
     description: "Shorts sponsor placement (LoRA v2 — UNIFORM kit)",
-    x: 0.22,
-    y: 0.78,
-    w: 0.56,
+    // Centre-right of front shorts (left half of image, row 2)
+    x: 0.18,
+    y: 0.52,
+    w: 0.20,
     h: 0.12,
     enabled: true,
   },
@@ -104,10 +118,11 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     label: "Socks",
     labelPt: "Meiões",
     description: "Socks sponsor placement (LoRA v2 — UNIFORM kit)",
-    x: 0.28,
-    y: 0.9,
-    w: 0.44,
-    h: 0.08,
+    // Upper calf area of left sock pair (bottom-left of image, row 3)
+    x: 0.02,
+    y: 0.71,
+    w: 0.14,
+    h: 0.12,
     enabled: true,
   },
 ];
