@@ -30,13 +30,58 @@
 | Code deploy | `14697dc` — client, placements, prompts, health note |
 | PM2 | `sponsorship-platform` + `ngrok-tunnel` online after deploy |
 
-### James assets (batch 1)
+### James / Coritiba assets (batch 1 — images)
 
 | Item | Status |
 |------|--------|
 | WeTransfer `Coto Coxa Images.zip` (2.04 GB) | ✅ Downloaded to EC2 4 Jun |
 | Inventory | `jersey-assets/james-coto-coxa-2026/INVENTORY.md` |
 | UNIFORM / DJI / Aquece / Couto Pereira | ✅ Extracted + curated |
+
+### James / Coritiba assets (batch 2a — commercial email copy)
+
+| Field | Detail |
+|-------|--------|
+| **File** | `Commercial Email Templates.docx` (~1.6 MB, repo root) |
+| **From** | Lucca Bradfield `<lucca.bradfield@coritiba.com.br>` |
+| **To** | James Deller (forwarded to Abhishek) |
+| **Date** | 3 June 2026, 1:06 PM |
+| **Subject** | Commercial e-mails |
+| **Context** | Coritiba commercial team’s **usual e-mail approaches**; copy is adapted per company. Lucca offered to forward **actual e-mails sent with proposals** if needed. |
+
+**What the document contains (6 outreach patterns, PT-BR prose):**
+
+| # | Template type | Purpose |
+|---|---------------|---------|
+| 1 | **Warm up** | Short intro — schedule a first partnership conversation |
+| 2 | **Pitch padrão** | Standard pitch — league position, ~35k sócios, attendance rank placeholders |
+| 3 | **Pitch relacional** | Relationship-led — brand affinity with Coritiba / Brazilian football |
+| 4 | **Follow pitch relacional** | Follow-up if prior email was lost — activation windows (jogos em casa, datas) |
+| 5 | **Pitch para permutas** | Barter/swap — infrastructure, Couto Pereira, Coxa Day / Run / Aquece Coxa |
+| 6 | **Formalização de proposta** | Send formal proposal attachment after alignment |
+
+**Placeholders in the Word doc (manual brackets):** `(Nome)`, `(Empresa)`, `(Posição… Brasileiro)`, `(Colocação… público)`, `(Ideia)`. Sender voice: **Murilo** (patrocínios e parcerias, Coritiba SAF).
+
+**What it is NOT:** HTML layout, logos, embedded images, or visual brand assets — **copy/script only**.
+
+#### Does this close any pending work?
+
+| Pending item | Impact |
+|--------------|--------|
+| **P1 — back kit photos** | ❌ **No** — unrelated to email copy |
+| **P1 — “brand templates” (FR-03)** | ⚠️ **Partial** — satisfies **email wording / outreach scripts**, not visual brand library |
+| **Platform email templates** (`/settings/email-templates`, migration 0025) | ⚠️ **Content gap only** — **engine already shipped**; doc is source material to **seed** 6 templates |
+| **Team senders (Murilo)** | ✅ **Aligns** — doc assumes Murilo as sender; maps to existing `team_members` / default sender |
+| **Pipedrive outreach flow** | ✅ **Aligns** — these are the human-written emails reps send after platform draft + approve |
+| **P2–P5** (intern tests, video, roadmap, merge) | ❌ **No change** |
+
+**Conclusion:** This document **does not complete FR-03 by itself** — it provides **approved commercial copy**. It can seed the platform’s `email_templates`, but it does not include visual brand assets (logos/HTML creatives).
+
+**Optional follow-up from James/Lucca:** actual sent e-mails with proposals attached (mentioned in the email) — useful as real-world examples for template B or attachment wording.
+
+#### Update (5 Jun 2026)
+
+✅ Imported the 6 scripts into the platform as editable `email_templates` named `Lucca — ...`. Set **Lucca — Warm up** as the default template and created an approved draft email (E21–E22) to confirm the end-to-end workflow.
 
 ### UI integration
 
@@ -68,6 +113,7 @@
 | Official jersey mockup (shorts) | PASS |
 | Public landing (share token) | PASS |
 | Placement UI (7 zones) | PASS |
+| Lucca commercial templates seeded + Murilo sender | PASS |
 
 ### Detailed evidence
 
@@ -91,6 +137,12 @@
 | E16 | Email templates API | **PASS** | `/api/email-templates` |
 | E17 | Build + PM2 after deploy | **PASS** | `npm run build` exit 0; PM2 online |
 | E18 | ngrok public health | **PASS** | HTTP 200 |
+| E19 | Seed 6 Lucca templates into DB | **PASS** | 6 new templates (`Lucca — ...`) in `email_templates` |
+| E20 | Set Murilo as default sender | **PASS** | `murilo.siqueira@coritiba.com.br` → `default_sender=true` |
+| E21 | Generate email from default Lucca template | **PASS** | Email `9f8f59fe-…` (approved), template `Lucca — Warm up` |
+| E22 | Approve email → Pipedrive log | **PASS** | Activity **#1598** created |
+| E23 | Replicate LoRA v2 socks creative (API) | **PASS** | prediction `7ryvamrj9nrmr0cyjt0r2vknhc` |
+| E24 | Official jersey composite socks (API) | **PASS** | placement `socks`, success true |
 
 ### Notes (non-blocking)
 
@@ -99,6 +151,8 @@
 | Landing path | `/proposals/{id}/view` returns **307** — use **share token** URL `/proposals/view/{token}` (by design) |
 | Official mockup vs LoRA | Composite mockup uses base photo zones; LoRA creatives use Replicate v2 for full-kit scenes |
 | James batch 2 | Back-only photos still improve back placement quality |
+| Email templates doc | Use **share-token** landing links in `{{proposal_link}}` when importing Lucca copy |
+| API schema | `/api/emails/generate` expects `recipient` (not `recipient_email`) |
 
 ---
 
@@ -106,11 +160,14 @@
 
 | # | Item | Owner | Notes |
 |---|------|-------|-------|
-| P1 | James batch 2 assets (back angles, brand templates) | James | Improves back LoRA + FR-03 |
+| P1 | James **kit photos** (back angles) | James | LoRA back placement quality |
+| P1b | **Commercial Email Templates.docx** → platform seed | ✅ Done | Seeded 6 templates into `email_templates` (5 Jun) |
+| P1c | Actual sent e-mails + proposals (optional) | Lucca / James | Offered in same thread — reference examples |
 | P2 | Full INTERN_TEST_PLAN T-25–T-60 manual run | QA | Mark scorecard in `INTERN_TEST_PLAN.md` |
 | P3 | Landing video demo | Ops | Source MP4s in Aquece Coxa zip |
 | P4 | Newsletter / bilingual / full pricing engine | Roadmap | See `4th_June.md` Future Roadmap |
 | P5 | Merge `feature/5th-june-lora-e2e` → `main` | Dev | After James review |
+| P6 | FR-03 **visual** brand assets (logos, creative HTML) | James | **Not** covered by Word doc — still open |
 
 ---
 
@@ -144,4 +201,5 @@ Runs 24/7:    AWS EC2 + PM2 + ngrok (independent of local laptop)
 | `4th_June.md` | Master project history + production sign-off |
 | `5th_June.md` | **This file** — 5 June LoRA v2 + E2E day log |
 | `INTERN_TEST_PLAN.md` | Repeatable test checklist |
-| `jersey-assets/james-coto-coxa-2026/INVENTORY.md` | James asset inventory |
+| `jersey-assets/james-coto-coxa-2026/INVENTORY.md` | James image asset inventory |
+| `Commercial Email Templates.docx` | Coritiba commercial email scripts (Lucca, 3 Jun 2026) |
