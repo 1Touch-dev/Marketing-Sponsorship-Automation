@@ -140,7 +140,29 @@ Tested against: `https://eligibly-facing-unloved.ngrok-free.dev`
 
 ---
 
-## 🔧 Technical Notes
+## 📄 Brand Guide & Sponsorship Manual Integration — 8 June 2026 (Evening)
+
+Analysed two official documents provided by James:
+- `Manual de Aplicação Patrocinadores.pdf` — official jersey cm specs + stadium asset inventory
+- `Coritiba FC Brand Guide 2026.pdf` — official colors, typography, crest rules
+
+### Changes Applied
+
+| # | Change | File(s) |
+|---|--------|---------|
+| 1 | **Brand colors** — all approximate greens (`#003300`, `#006400`, `#004d00`, etc.) replaced with official `#005742` (Verde Coxa) and `#00412F` in landing page, templates, view page | `proposal-landing-page.tsx`, `proposal-landing-templates.tsx`, `view/page.tsx` |
+| 2 | **Jersey placement widths** — recalibrated to official manual cm maximums (chest=25cm, small=8cm, socks=6cm). Updated normalized coords accordingly | `jersey-placements.ts` |
+| 3 | **AI prompts v5.0.0** — `CORITIBA_CONTEXT` expanded with exact hex codes (`#005742`, `#FFFFFF`, `#000000`), official Switzer typography, crest rules (1985 star mandatory, red forbidden), full stadium inventory from manual | `prompts.ts` |
+| 4 | **Replicate prompts** — All scene presets updated to reference `deep forest green #005742`, crest rule updated to include 1985 star + no-red rule, placement phrases include official cm sizes | `jersey-prompts.ts` |
+| 5 | **Sponsor asset checklist** — Added to Brand Assets card in proposal detail page. Lists 4 required assets per official manual: color logo, monochrome, outline, vector file. First item auto-ticks when logo is uploaded | `proposals/[id]/page.tsx` |
+
+### Replicate Model Status
+- `abhishek9302/coritiba-jersey-lora` — **WARM** on H100, 1 version active (trigger word: `coritiba_jersey`)
+- **Retraining NOT needed now** — current model works; retraining would be beneficial once James provides new kit photos from the 2026 season. Keep this as a future backlog item.
+- Prompt improvements (brand colors, crest rules, stadium name) will immediately improve output quality without retraining.
+
+---
+
 
 - **Backend:** Next.js API routes, Supabase (PostgreSQL), AWS Bedrock (Claude)
 - **Frontend:** Next.js 14, React, Tailwind CSS, shadcn/ui

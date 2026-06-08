@@ -100,7 +100,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
       </div>
 
       {/* ─── Sponsor CTA strip — fixed at bottom ─── */}
-      <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003300] via-[#006B3F] to-[#004d00] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">
+      <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003A2D] via-[#005742] to-[#00412F] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">
         <span className="text-white/80 text-sm font-medium mr-2 hidden sm:inline">
           Interessado nesta proposta?
         </span>
@@ -108,7 +108,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
           href="https://wa.me/5541999999999?text=Olá!%20Tenho%20interesse%20na%20proposta%20de%20patrocínio%20do%20Coritiba%20FC."
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-full bg-white text-[#006B3F] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
+          className="inline-flex items-center gap-2 rounded-full bg-white text-[#005742] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
         >
           <ThumbsUp className="h-4 w-4" />
           Tenho Interesse

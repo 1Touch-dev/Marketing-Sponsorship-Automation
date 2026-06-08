@@ -368,7 +368,28 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               </CardTitle>
               <CardDescription>Upload logos and brand assets for use in image generation and the proposal.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Sponsor asset checklist — per official Coritiba manual requirements */}
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
+                  <span>📋</span> Asset Checklist (required per Coritiba manual)
+                </div>
+                <ul className="space-y-1 text-xs text-amber-700">
+                  {[
+                    { label: "Color logo (PNG/SVG, transparent background)", done: hasLogo },
+                    { label: "Monochrome version (black or white)", done: false },
+                    { label: "Outline/contour version", done: false },
+                    { label: "Vector file (.AI, .EPS or .SVG)", done: false },
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className={item.done ? "text-green-600" : "text-amber-400"}>
+                        {item.done ? "✓" : "○"}
+                      </span>
+                      <span className={item.done ? "line-through text-amber-400" : ""}>{item.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               <AssetUploader
                 proposalId={proposal.id}
                 existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}

@@ -91,7 +91,7 @@ function ExpandableStrategyCard({ variant, index }: { variant: SV; index: number
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
-            style={{ background: "linear-gradient(135deg, #006400, #008000)" }}>
+            style={{ background: "linear-gradient(135deg, #005742, #007358)" }}>
             {index + 1}
           </div>
           <div className="min-w-0">
@@ -284,7 +284,7 @@ export function ProposalLandingPage({
 
       {/* ─── HERO — Coritiba green/white ──────────────────────────────────── */}
       <header className="relative w-full overflow-hidden print:bg-green-900"
-        style={{ background: "linear-gradient(135deg, #003300 0%, #006400 50%, #004d00 100%)" }}>
+        style={{ background: "linear-gradient(135deg, #003A2D 0%, #005742 50%, #00412F 100%)" }}>
 
         {/* Stripe pattern — Coritiba vertical stripes */}
         <div className="absolute inset-0 opacity-[0.04] pointer-events-none"
@@ -521,7 +521,7 @@ export function ProposalLandingPage({
             )}
             {content?.activation_plan && (
               <div className="rounded-xl p-6 sm:p-7 text-white"
-                style={{ background: "linear-gradient(135deg, #003300 0%, #006400 100%)" }}>
+                style={{ background: "linear-gradient(135deg, #003A2D 0%, #005742 100%)" }}>
                 <div className="flex items-center gap-2.5 mb-5">
                   <div className="rounded-lg bg-white/10 p-2">
                     <Zap className="h-4 w-4 text-green-200" />
@@ -673,7 +673,7 @@ export function ProposalLandingPage({
         {content?.cta && (
           <section className="py-14 border-t border-slate-100 print:hidden">
             <div className="rounded-2xl overflow-hidden p-10 sm:p-14 text-center text-white relative"
-              style={{ background: "linear-gradient(135deg, #002200 0%, #006400 50%, #004d00 100%)" }}>
+              style={{ background: "linear-gradient(135deg, #002E24 0%, #005742 50%, #00412F 100%)" }}>
               <div className="absolute inset-0 opacity-[0.05]"
                 style={{ backgroundImage: "repeating-linear-gradient(90deg, white 0px, white 20px, transparent 20px, transparent 60px)" }} />
               <div className="relative">

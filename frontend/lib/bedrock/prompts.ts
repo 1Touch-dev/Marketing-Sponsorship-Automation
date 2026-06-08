@@ -1,17 +1,18 @@
 /**
- * Centralised prompt templates — v3.0.0
+ * Centralised prompt templates — v5.0.0
  *
  * PROMPT_VERSION is bumped whenever a prompt changes so that
  * campaigns / proposals / emails can record which prompt generated them.
  *
- * v3.0.0:
- *  - ALL prompts grounded in Coritiba FC / Couto Pereira ecosystem
- *  - Strict competitor exclusion (Athletico Paranaense, Corinthians, São Paulo FC, etc.)
- *  - Global/Brazilian campaigns used ONLY as internal inspiration examples
- *  - Coritiba-first inventory, branding, fan base, stadium context
+ * v5.0.0:
+ *  - Grounded in official Coritiba FC Brand Guide 2026 (exact HEX colors, Switzer typography)
+ *  - Grounded in Manual de Aplicação Patrocinadores 2026 (jersey cm specs, stadium asset inventory)
+ *  - Official brand colors: #005742 (Verde Coxa), #FFFFFF (Branco), #000000 (Preto)
+ *  - Official typography: Switzer (primary), Inter (body fallback)
+ *  - Official jersey max widths referenced in image/creative prompts
  */
 
-export const PROMPT_VERSION = "v4.0.0" as const;
+export const PROMPT_VERSION = "v5.0.0" as const;
 
 export interface CompanyContext {
   company_name: string;
@@ -31,25 +32,47 @@ ALL proposals, campaigns, activations, and stadium references MUST center on:
 - Founded: 1909 — one of the oldest football clubs in Brazil
 - Home stadium: Couto Pereira (official: Estádio Major Antônio Couto Pereira), Curitiba, Paraná
 - Location: Curitiba, Paraná, Brazil — capital of Paraná state
-- Colors: Green and White (Verde e Branco)
+- Colors (OFFICIAL — Brand Guide 2026):
+    Verde Coxa: #005742 (primary green — use this exact code, never approximate)
+    Branco:     #FFFFFF
+    Preto:      #000000
+- Typography (OFFICIAL — Brand Guide 2026): Switzer (primary display), Inter (body/UI fallback)
+- Crest rule: 1985 star MUST appear above the crest; red is FORBIDDEN in crest usage
 - Fan identity: "Coxa-Branca" supporters — loyal, family-oriented, multi-generational fan base in Curitiba
 - Typical attendance: 15,000–30,000 per match at Couto Pereira
 - Digital reach: ~1.5M+ social followers across platforms
 - Broadcast: matches shown nationally via Globo/SporTV/Paramount+, regional Paraná TV
 - Key competitions: Brasileirão Série A/B, Copa do Brasil, Campeonato Paranaense
 - Social/community programs: Coritiba youth academy, community outreach, women's football
-- Inventory available to sponsors:
-  * Jersey branding (front, sleeve, back)
-  * Couto Pereira LED boards (perimeter, giant scoreboard)
-  * Couto Pereira stadium naming and section naming rights
-  * Digital: club website, app, social media (Instagram, YouTube, TikTok, X)
-  * Matchday PA announcements and in-stadium activations
-  * Training kit and warmup gear
-  * Club magazine, programs, fan club materials
+- Inventory available to sponsors (from official manual):
+  JERSEY (official max widths per Manual de Aplicação Patrocinadores 2026):
+  * Front chest sponsor: max 25 cm wide
+  * Front chest secondary (above manufacturer): max 8 cm wide
+  * Left/right sleeve: max 8 cm wide each
+  * Back sponsor: max 25 cm wide
+  * Shorts: max 8 cm wide
+  * Socks: max 6 cm wide
+  STADIUM — Couto Pereira:
+  * LED perimeter boards (full pitch circumference)
+  * Gigantron scoreboard (main and secondary screens)
+  * Stadium naming and section naming rights
+  * VIP lounge and hospitality boxes
+  * Concourse branding panels and gate signage
+  * Couto Pereira tunnel and player exit branding
+  * Press conference backdrop
+  DIGITAL & MEDIA:
+  * Club website banner and homepage takeover
+  * Official app push notifications and banners
+  * Instagram, YouTube, TikTok, X — sponsored posts and stories
+  * Match-day WhatsApp broadcast lists
   * Pre/post-match broadcast segments (co-branded)
+  * Podcast and YouTube long-form content integration
+  COMMUNITY & SOCIAL:
   * Youth academy co-branding (social impact)
-  * Women's team sponsorship (growing visibility)
+  * Women's team (growing national visibility)
   * Community events and fan festivals in Curitiba
+  * Club magazine, programs, fan club materials
+  * Training kit and warmup gear co-branding
 
 COMPETITOR EXCLUSION — ABSOLUTE RULE:
 NEVER mention, recommend, or reference these clubs as sponsorship targets:
@@ -124,7 +147,7 @@ export function campaignIdeasPrompt(args: {
       "",
       `Generate ${max} DISTINCT Coritiba FC sponsorship campaign ideas for this company.`,
       "Each idea MUST use a DIFFERENT strategy archetype AND be specific to Coritiba's ecosystem.",
-      "Reference Couto Pereira, Coritiba fans (Coxa-Branca), Verde e Branco colors, Curitiba audience.",
+      "Reference Couto Pereira, Coritiba fans (Coxa-Branca), Verde Coxa (#005742) and Branco (#FFFFFF) official colors, Curitiba audience.",
       "Do NOT mention Athletico Paranaense or any competitor club anywhere.",
       "Return JSON:",
       `{
@@ -169,7 +192,7 @@ export function strategyVariantsPrompt(args: {
       "",
       "Generate 3 distinct Coritiba FC sponsorship strategy variants.",
       "Use different archetypes (e.g. stadium/awareness vs. fan engagement vs. community).",
-      "All variants must name Coritiba FC, Couto Pereira, or Verde e Branco explicitly.",
+      "All variants must name Coritiba FC, Couto Pereira, or Verde Coxa (#005742)/Branco (#FFFFFF) official colors explicitly.",
       "Return JSON:",
       `{
   "variants": [
