@@ -58,7 +58,8 @@ export const proposalContentSchema = z.object({
   campaign_rationale: z.string().min(10).transform((s) => s.slice(0, 5000)),
   sponsorship_value: z.string().min(10).transform((s) => s.slice(0, 5000)),
   activation_plan: z.string().min(10).transform((s) => s.slice(0, 8000)),
-  deliverables: z.array(z.string().min(2).transform((s) => s.slice(0, 800))).min(1).max(20),
+  // Deliverables: required, but tolerate empty arrays from AI (backfilled after)
+  deliverables: z.array(z.string().min(2).transform((s) => s.slice(0, 800))).max(20).catch([]),
   investment_note: z.string().min(5).transform((s) => s.slice(0, 3000)),
   cta: z.string().min(5).transform((s) => s.slice(0, 1000)),
 }).passthrough();

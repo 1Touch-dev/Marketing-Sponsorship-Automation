@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ProposalContent } from "@/types/database";
 import { formatDate } from "@/lib/utils";
-import { ArrowLeft, Edit3 } from "lucide-react";
+import { ArrowLeft, Edit3, Eye, Clock, Building2, Layers, FileText, Image as ImageIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -38,34 +38,86 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
     strategy_variants?: StrategyVariant[] | null;
   };
 
+  const content = proposal.content as Record<string, unknown> | null;
+  const deliverables = Array.isArray(content?.deliverables) ? (content!.deliverables as string[]) : [];
+  const hasDeliverables = deliverables.length > 0;
+
   return (
     <>
       <PageHeader
         title={`Edit: ${proposal.title}`}
         description={`${p.companies?.company_name ?? ""} · v${proposal.version} · ${formatDate(proposal.updated_at)}`}
         actions={
-          <Button asChild variant="outline" size="sm" className="gap-2">
-            <Link href={`/proposals/${proposal.id}`}>
-              <ArrowLeft className="h-3.5 w-3.5" /> Back to proposal
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-2">
+              <Link href={`/proposals/${proposal.id}`}>
+                <Eye className="h-3.5 w-3.5" /> View proposal
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="gap-2">
+              <Link href={`/proposals`}>
+                <ArrowLeft className="h-3.5 w-3.5" /> All proposals
+              </Link>
+            </Button>
+          </div>
         }
       />
 
+      {/* Compact metadata bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="rounded-xl border bg-white dark:bg-slate-900 p-3 flex items-center gap-2.5">
+          <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Company</p>
+            <p className="text-sm font-medium truncate">{p.companies?.company_name ?? "—"}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border bg-white dark:bg-slate-900 p-3 flex items-center gap-2.5">
+          <Layers className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Campaign</p>
+            <p className="text-sm font-medium truncate">{p.campaigns?.title ?? "—"}</p>
+          </div>
+        </div>
+        <div className="rounded-xl border bg-white dark:bg-slate-900 p-3 flex items-center gap-2.5">
+          <Clock className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Version</p>
+            <p className="text-sm font-medium">v{proposal.version} · {versions?.length ?? 0} history entries</p>
+          </div>
+        </div>
+        <div className="rounded-xl border bg-white dark:bg-slate-900 p-3 flex items-center gap-2.5">
+          <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Deliverables</p>
+            <p className={`text-sm font-medium ${hasDeliverables ? "text-green-600" : "text-amber-600"}`}>
+              {hasDeliverables ? `${deliverables.length} items` : "⚠ Missing"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Missing deliverables warning */}
+      {!hasDeliverables && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+          <span className="text-base leading-none mt-0.5">⚠️</span>
+          <div>
+            <strong>Deliverables section is empty.</strong> Use the AI backfill tool at{" "}
+            <code className="text-xs bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded">/api/proposals/backfill-deliverables?dry_run=true</code>{" "}
+            to generate them, or add deliverables manually below.
+          </div>
+        </div>
+      )}
+
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Edit3 className="h-4 w-4 text-primary" />
-            Edit proposal content
+            Proposal content
           </CardTitle>
           <CardDescription>
-            Edit any section directly, or use{" "}
-            <span className="font-medium text-foreground">Generate A / B / C options</span>{" "}
-            to get AI-written alternatives to choose from. Version history is preserved on every save.
-            {p.companies?.company_name && (
-              <> Sponsor: <strong>{p.companies.company_name}</strong></>
-            )}
-            {p.companies?.industry && <> · {p.companies.industry}</>}
+            Edit any section, or use <span className="font-medium text-foreground">Generate A / B / C options</span> for AI-written alternatives.
+            Version history is preserved on every save.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -82,11 +134,14 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="text-base">Visuais da proposta</CardTitle>
+      <Card className="mt-5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ImageIcon className="h-4 w-4 text-primary" />
+            Proposal visuals
+          </CardTitle>
           <CardDescription>
-            Mockup de camisa, criativos e seleção de imagens — mesmas ferramentas da página da proposta.
+            Jersey mockup, creatives and image selection — generate assets directly from here.
           </CardDescription>
         </CardHeader>
         <CardContent>

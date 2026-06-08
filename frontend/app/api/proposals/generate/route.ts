@@ -167,7 +167,7 @@ export async function POST(req: Request) {
         entity_id: campaign.id,
       });
       if (vr.ok && vr.data) {
-        proposalContent = vr.data;
+        proposalContent = vr.data as unknown as ProposalContentAI;
         break;
       }
       lastError = vr.error ?? "Validation failed";

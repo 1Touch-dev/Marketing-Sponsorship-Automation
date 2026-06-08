@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toaster";
 import {
   UserPlus, Search, Mail, Phone, Linkedin, Building2,
   Loader2, Trash2, ExternalLink, X, ChevronDown, Tag,
+  Upload, FileText, CheckCircle2, AlertCircle,
 } from "lucide-react";
 
 type Contact = {
@@ -79,6 +80,9 @@ export function ContactsClient({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ imported: number; errors: string[] } | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     company_id: "",
@@ -106,6 +110,33 @@ export function ContactsClient({
       return matchSearch && matchCompany;
     });
   }, [contacts, search, filterCompany]);
+
+  async function handleCsvImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvImporting(true);
+    setCsvResult(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/contacts/bulk-import", {
+        method: "POST",
+        body: formData,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Import failed");
+      const imported = j.imported ?? 0;
+      const errors: string[] = j.errors ?? [];
+      setCsvResult({ imported, errors });
+      toast({ variant: "success", title: `Imported ${imported} contact(s)` });
+      router.refresh();
+    } catch (err) {
+      toast({ variant: "destructive", title: String(err) });
+    } finally {
+      setCsvImporting(false);
+      if (csvInputRef.current) csvInputRef.current.value = "";
+    }
+  }
 
   async function handleSave() {
     if (!form.company_id || !form.email) {
@@ -191,7 +222,61 @@ export function ContactsClient({
           <UserPlus className="h-4 w-4" />
           Add Contact
         </Button>
+
+        <input
+          ref={csvInputRef}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={handleCsvImport}
+        />
+        <Button
+          variant="outline"
+          onClick={() => csvInputRef.current?.click()}
+          disabled={csvImporting}
+          className="gap-1.5"
+          title="Import contacts from CSV (email, full_name, company_name, ...)"
+        >
+          {csvImporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          {csvImporting ? "Importing…" : "Import CSV"}
+        </Button>
+        <a
+          href="/api/contacts/bulk-import"
+          download="contacts_import_template.csv"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded border border-dashed border-slate-300 dark:border-slate-600 hover:border-slate-400 transition-colors"
+          title="Download CSV template"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          CSV template
+        </a>
       </div>
+
+      {/* CSV import result banner */}
+      {csvResult && (
+        <div className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${csvResult.errors.length === 0 ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+          {csvResult.errors.length === 0 ? (
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 min-w-0">
+            <strong>{csvResult.imported} contact(s) imported.</strong>
+            {csvResult.errors.length > 0 && (
+              <ul className="mt-1 list-disc list-inside space-y-0.5">
+                {csvResult.errors.slice(0, 5).map((e, i) => <li key={i} className="truncate">{e}</li>)}
+                {csvResult.errors.length > 5 && <li>…and {csvResult.errors.length - 5} more</li>}
+              </ul>
+            )}
+          </div>
+          <button onClick={() => setCsvResult(null)} className="flex-shrink-0 opacity-60 hover:opacity-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Add Contact Form */}
       {showForm && (

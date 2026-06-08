@@ -168,7 +168,7 @@ export async function generatePersonalizedProposalForCompany(
         entity_id: companyId,
       });
       if (vr.ok && vr.data) {
-        proposalContent = vr.data;
+        proposalContent = vr.data as unknown as ProposalContentAI;
         break;
       }
       lastError = vr.error ?? "Validation failed";

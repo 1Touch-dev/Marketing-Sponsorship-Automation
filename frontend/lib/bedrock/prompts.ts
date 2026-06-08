@@ -25,7 +25,7 @@ export interface CompanyContext {
 // ---------------------------------------------------------------------------
 // Coritiba FC Core Context — injected into every prompt
 // ---------------------------------------------------------------------------
-const CORITIBA_CONTEXT = `
+export const CORITIBA_CONTEXT = `
 CLUB CONTEXT — CORITIBA FOOT BALL CLUB (NON-NEGOTIABLE):
 ALL proposals, campaigns, activations, and stadium references MUST center on:
 - Club: Coritiba Foot Ball Club (also known as "Coxa" / "Coxa-Branca")
@@ -243,6 +243,7 @@ export function proposalPrompt(args: {
       "6. The activation_plan must have clear PHASES (Month 1-2 launch, Month 3-6 ramp, Month 7-12 peak activation) with specific Coritiba milestones.",
       "7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to Coritiba's audience.",
       "8. Output MUST be valid JSON only. No markdown fences. No extra keys.",
+      "9. The 'deliverables' array MUST contain EXACTLY 5 specific items. Never return an empty array. Each item = one concrete Coritiba FC asset with quantity.",
       "",
       CORITIBA_CONTEXT,
       "",

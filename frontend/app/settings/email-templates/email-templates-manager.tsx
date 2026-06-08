@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
-import { Mail, Plus, Pencil, Trash2, Star, X, Eye, Copy, Variable } from "lucide-react";
+import { Mail, Plus, Pencil, Trash2, Star, X, Eye, Copy, Variable, Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 const SUPPORTED_VARIABLES = [
   "{{company_name}}", "{{contact_name}}", "{{contact_title}}",
@@ -176,6 +176,9 @@ export function EmailTemplatesManager({ initialTemplates }: { initialTemplates: 
   const [showForm, setShowForm] = useState(false);
   const [editTemplate, setEditTemplate] = useState<Template | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
 
   function handleSaved(saved: Template) {
     setTemplates(prev => {
@@ -230,8 +233,67 @@ export function EmailTemplatesManager({ initialTemplates }: { initialTemplates: 
     }
   }
 
-  const variables = (t: Template): string[] => {
-    if (Array.isArray(t.variables)) return t.variables as string[];
+  async function handleJsonImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid JSON file");
+      }
+      const items: Template[] = Array.isArray(data) ? data : (data as { templates: Template[] }).templates ?? [];
+      if (!items.length) throw new Error("No templates found in JSON");
+
+      let imported = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.name || !item.subject || !item.body_html) {
+          errors.push(`Item ${i + 1}: missing name, subject, or body_html`);
+          continue;
+        }
+        const payload = {
+          name: item.name,
+          description: item.description ?? null,
+          subject: item.subject,
+          body_html: item.body_html,
+          body_text: item.body_text ?? null,
+          variables: item.variables ?? [],
+          is_default: false,
+        };
+        const res = await fetch("/api/email-templates", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          const { data: saved } = await res.json();
+          setTemplates(prev => [...prev, saved]);
+          imported++;
+        } else {
+          const j = await res.json().catch(() => ({}));
+          errors.push(`Item ${i + 1} (${String(item.name)}): ${j?.error ?? "failed"}`);
+        }
+      }
+
+      setImportResult({ imported, errors });
+      toast({ variant: "success", title: `Imported ${imported} template(s)` });
+      router.refresh();
+    } catch (err) {
+      toast({ variant: "destructive", title: String(err) });
+    } finally {
+      setImporting(false);
+      if (jsonInputRef.current) jsonInputRef.current.value = "";
+    }
+  }
+
+  const variables = (t: Template): string[] => {    if (Array.isArray(t.variables)) return t.variables as string[];
     if (typeof t.variables === "string") {
       try { return JSON.parse(t.variables as string) as string[]; } catch { return []; }
     }
@@ -244,10 +306,51 @@ export function EmailTemplatesManager({ initialTemplates }: { initialTemplates: 
         <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
           <Mail className="h-4 w-4" /> Email Templates ({templates.length})
         </h2>
-        <Button size="sm" onClick={() => { setEditTemplate(null); setShowForm(true); }} className="gap-1.5">
-          <Plus className="h-4 w-4" /> New Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={jsonInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleJsonImport}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => jsonInputRef.current?.click()}
+            disabled={importing}
+            className="gap-1.5"
+            title="Import templates from JSON file"
+          >
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {importing ? "Importing…" : "Import JSON"}
+          </Button>
+          <Button size="sm" onClick={() => { setEditTemplate(null); setShowForm(true); }} className="gap-1.5">
+            <Plus className="h-4 w-4" /> New Template
+          </Button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${importResult.errors.length === 0 ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+          {importResult.errors.length === 0 ? (
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 min-w-0">
+            <strong>{importResult.imported} template(s) imported.</strong>
+            {importResult.errors.length > 0 && (
+              <ul className="mt-1 list-disc list-inside space-y-0.5">
+                {importResult.errors.map((e, i) => <li key={i} className="truncate">{e}</li>)}
+              </ul>
+            )}
+          </div>
+          <button onClick={() => setImportResult(null)} className="flex-shrink-0 opacity-60 hover:opacity-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {(showForm || editTemplate) && (
         <TemplateForm

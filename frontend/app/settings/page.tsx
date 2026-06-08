@@ -9,6 +9,7 @@ import {
   FileText, Users, DollarSign, Image, Brain,
   Mail, ChevronRight,
 } from "lucide-react";
+import { BackfillButton } from "./backfill-button";
 
 export const dynamic = "force-dynamic";
 
@@ -515,6 +516,54 @@ export default async function SettingsPage({
                 ✓ All migrations applied — database schema is fully up to date.
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Maintenance tools ── */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Maintenance tools</CardTitle>
+            <CardDescription>
+              Admin actions for data quality and backfill operations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="flex items-start gap-4 rounded-lg border p-4">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 dark:text-slate-200">Backfill missing deliverables</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Proposals generated before deliverables enforcement may have an empty deliverables section.
+                  This tool calls Claude to generate 5 deliverables per proposal, up to 10 at a time.
+                  Run multiple times to process all proposals.
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <Button asChild size="sm" variant="outline" className="gap-1.5">
+                    <a href="/api/proposals/backfill-deliverables" target="_blank">
+                      <Zap className="h-3.5 w-3.5" /> Check count
+                    </a>
+                  </Button>
+                  <BackfillButton />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 rounded-lg border p-4">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 dark:text-slate-200">Import contacts from CSV</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Bulk upload contacts from a CSV file. The file must have an{" "}
+                  <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">email</code> column, plus optional{" "}
+                  <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">full_name</code>,{" "}
+                  <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">company_name</code>,{" "}
+                  <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">title</code>, etc.
+                </p>
+                <Button asChild size="sm" variant="outline" className="mt-3 gap-1.5">
+                  <a href="/contacts">
+                    <ChevronRight className="h-3.5 w-3.5" /> Go to Contacts page
+                  </a>
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
