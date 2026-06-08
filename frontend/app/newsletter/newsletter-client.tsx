@@ -32,7 +32,7 @@ type Newsletter = {
 type Template = {
   id: string;
   name: string;
-  subject_template: string;
+  subject: string;
   body_html?: string;
 };
 
@@ -78,7 +78,7 @@ export function NewsletterClient({
   function applyTemplate(templateId: string) {
     const t = templates.find((t) => t.id === templateId);
     if (!t) return;
-    setSubject(t.subject_template ?? "");
+    setSubject(t.subject ?? "");
     setBodyHtml(t.body_html ?? "");
     setSelectedTemplate(templateId);
   }

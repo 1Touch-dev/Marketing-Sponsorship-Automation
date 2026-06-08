@@ -58,10 +58,12 @@ export function ApprovalsCardView({ items }: Props) {
   const fetchTemplates = useCallback(async () => {
     setLoadingTemplates(true);
     try {
-      const res = await fetch("/api/emails?type=template");
+      const res = await fetch("/api/email-templates");
       if (res.ok) {
-        const data = await res.json();
-        setEmailTemplates(Array.isArray(data) ? data : data.templates ?? []);
+        const json = await res.json();
+        // API returns { data: [...] }
+        const arr = Array.isArray(json) ? json : (json.data ?? []);
+        setEmailTemplates(arr);
       }
     } catch {
       // silently fail

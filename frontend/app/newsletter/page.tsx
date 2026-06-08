@@ -47,11 +47,13 @@ export default async function NewsletterPage() {
   }
 
   // Fetch email templates
-  let templates: Array<{ id: string; name: string; subject_template: string; body_html?: string }> = [];
+  let templates: Array<{ id: string; name: string; subject: string; body_html?: string }> = [];
   try {
     const { data } = await sb
       .from("email_templates")
-      .select("id, name, subject_template, body_html")
+      .select("id, name, subject, body_html")
+      .eq("active", true)
+      .order("is_default", { ascending: false })
       .order("name");
     templates = (data ?? []) as typeof templates;
   } catch {

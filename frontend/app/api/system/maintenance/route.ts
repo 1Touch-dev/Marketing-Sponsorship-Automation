@@ -174,5 +174,42 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, stale_resolved: ids.length });
   }
 
+  // ── Create newsletters table (idempotent migration) ─────────────────────
+  if (action === "create_newsletters_table") {
+    // Check if table already exists
+    const { error: checkErr } = await sb.from("newsletters").select("id").limit(1);
+    if (!checkErr) {
+      return NextResponse.json({ success: true, message: "newsletters table already exists" });
+    }
+    if (checkErr.code !== "PGRST205" && checkErr.code !== "42P01") {
+      return NextResponse.json({ error: checkErr.message }, { status: 500 });
+    }
+
+    // Table doesn't exist — create via supabase rpc if available, otherwise return SQL for manual run
+    const createSQL = `
+CREATE TABLE IF NOT EXISTS public.newsletters (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject text NOT NULL,
+  body_html text,
+  recipient_count integer DEFAULT 0,
+  recipient_emails jsonb DEFAULT '[]'::jsonb,
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'scheduled')),
+  sent_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS newsletters_status_idx ON public.newsletters(status);
+ALTER TABLE public.newsletters ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "service_role_all" ON public.newsletters FOR ALL TO service_role USING (true);
+    `.trim();
+
+    return NextResponse.json({
+      success: false,
+      message: "newsletters table needs to be created manually in Supabase SQL editor",
+      sql: createSQL,
+      instructions: "Copy the SQL above and run it in Supabase → SQL Editor → New query",
+    });
+  }
+
   return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
 }
