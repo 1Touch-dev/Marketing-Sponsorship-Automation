@@ -78,6 +78,7 @@ const NAV: NavItem[] = [
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
+  { href: "/settings/email-templates", label: "Email Templates", icon: ScrollText, group: "proposals" },
   { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
   { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
   { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },

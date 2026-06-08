@@ -43,7 +43,7 @@ export function ProposalGraphicsPanel({
         campaignTitle={campaignTitle}
         showPlacementPreview={!compact}
         onGenerated={() => setRefreshKey((k) => k + 1)}
-        disabled={!hasLogo}
+        disabled={false}
       />
 
       <div className="border-t border-slate-200 pt-4">

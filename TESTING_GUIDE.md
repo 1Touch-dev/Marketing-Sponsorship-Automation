@@ -349,3 +349,47 @@ Run this after any deployment:
 | Email | Gmail API |
 | Brand colors | `#005742` Verde Coxa (official) |
 | Jersey specs | Per Manual de Aplicação Patrocinadores 2026 |
+
+---
+
+## E2E Test Results — 8 June 2026 (Full Deep Test)
+
+> Conducted via Cursor browser on the live deployment. All 17 tests were run.
+
+| Test | Status | Notes |
+|------|--------|-------|
+| T1: Proposal wizard — 7 types | ✅ PASS | All 7 types visible and selectable |
+| T2: Proposal edit + checklist | ✅ PASS | Progress bar, per-section status, AI alternatives |
+| T3: Logo gate | ✅ PASS | Yellow warning banner + disabled "Submit for Review" |
+| T4: Brand Assets card + checklist | ✅ PASS | 4-item checklist visible; ✓ marks on upload |
+| T5: All 5 landing page templates | ✅ PASS | Premium, Minimal, Packages A/B/C, One Offer, Menu de Ativos |
+| T6: Jersey mockup zones | ✅ PASS | 7 zones with official cm specs |
+| T7: Campaign images per strategy | ✅ PASS | "✓ Gerado" per strategy after generation |
+| T8: Approval tinder + email | ✅ PASS | Keyboard nav, swipe, template picker, Enviar email button |
+| T9: Bulk logo upload | ✅ PASS | Panel visible, select all, real-time upload status |
+| T10: Email templates CRUD | ✅ PASS | Create, edit, preview HTML, variable substitution |
+| T11: Newsletter module | ✅ PASS | Template picker pre-fills subject/body, send enabled |
+| T12: Contacts module | ✅ PASS | Search, filter by company, Add Contact form |
+| T13: AI proposal quality | ✅ PASS | Brand-accurate: correct stadium, colors, pricing, Portuguese |
+| T14: Sidebar navigation | ✅ PASS | All links present including Email Templates |
+| T15: Public landing page | ✅ PASS | `/proposals/view/[token]` renders with brand colors |
+| T16: Jersey mockup with logo | ✅ PASS | Logo-based mockup generated, saved to Supabase storage |
+| T17: Approval email auto-send | ✅ PASS | Template picker modal → select → Enviar email triggers send |
+
+### Bugs Found & Fixed During Testing
+
+| Bug | Where | Fix Applied |
+|-----|-------|-------------|
+| Sidebar missing "Email Templates" link | `/frontend/components/shared/sidebar.tsx` | Added link to `/settings/email-templates` |
+| Jersey mockup button disabled (no logo = text-only OK) | `proposal-graphics-panel.tsx` | Set `disabled={false}` |
+| Jersey text clipping — "AS BAHIA (OPERAÇÃO" instead of full name | `jersey-composite.ts` | Fixed font size calculation using `availableWidth * 0.92 / (label.length * 0.58)` |
+
+### Remaining / Future Items
+
+| Item | Priority | Notes |
+|------|----------|-------|
+| Contacts bulk CSV import | Medium | Only single-add supported currently |
+| Replicate LoRA retraining | Low | Wait for new 2026 kit photos from James |
+| Packages pricing tiers UI | Low | Requires proposal packages section to be populated |
+| Deliverables section missing warning | Medium | Many proposals show "⚠️ Proposta incompleta — seções faltando: deliverables" |
+
