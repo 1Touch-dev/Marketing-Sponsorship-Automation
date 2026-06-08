@@ -98,27 +98,9 @@ Based on the conversation between James and Abhishek (8th June 2026), this docum
 
 ## ❌ Remaining Pending Items
 
-### 1. 🔴 Create `newsletters` table in Supabase
-**Status:** Migration SQL written at `supabase/migrations/0026_newsletters_table.sql`
-
-**Action needed:** Run the SQL in **Supabase → SQL Editor → New Query**:
-```sql
-CREATE TABLE IF NOT EXISTS public.newsletters (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  subject text NOT NULL,
-  body_html text,
-  recipient_count integer DEFAULT 0,
-  recipient_emails jsonb DEFAULT '[]'::jsonb,
-  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'scheduled')),
-  sent_at timestamptz,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-ALTER TABLE public.newsletters ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_all" ON public.newsletters FOR ALL TO service_role USING (true);
-```
-
-**Impact:** Until this is run, the Newsletter send history panel will remain empty (the send itself works, just not persisted). The UI is functional regardless.
+### 1. ✅ `newsletters` table created in Supabase
+**Status:** DONE — migration ran successfully on 8 June 2026. Table is live and accessible.
+The newsletter send history will now persist correctly.
 
 ---
 
