@@ -142,12 +142,12 @@ export default async function SettingsPage({
 
       {/* Gmail expired warning banner */}
       {gmailConnected && isTokenExpired && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 flex items-center justify-between gap-4">
-          <p className="text-sm font-semibold text-red-800 dark:text-red-300">
-            🚨 Gmail token EXPIRED (since {expiresAt}) — outgoing emails may be silently failing!
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-4">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            ⚠️ Gmail token expired (since {expiresAt}). Outreach emails are logged to Pipedrive — actual Gmail delivery requires reconnecting.
           </p>
-          <Button size="sm" variant="destructive" asChild>
-            <a href="/api/auth/gmail">Reconnect Gmail now</a>
+          <Button size="sm" variant="outline" asChild>
+            <a href="/api/auth/gmail">Reconnect Gmail</a>
           </Button>
         </div>
       )}

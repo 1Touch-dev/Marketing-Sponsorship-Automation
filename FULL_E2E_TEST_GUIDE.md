@@ -70,14 +70,16 @@
 
 ### Test 2.1 — Create a Campaign
 
+> **Note:** There is no `/campaigns/new` page — campaign creation is done via the **inline generator** on the `/campaigns` page itself (left-hand panel). Navigating to `/campaigns/new` now redirects you automatically to `/campaigns`.
+
 1. Go to → **`/campaigns`**
-2. Click **"New Campaign"**
+2. On the **left panel** ("Generate ideas"), select a Company from the dropdown
 3. Fill in:
-   - Title: `Itaú × Coritiba — Curitiba Cresce`
    - Company: select `Banco Itaú`
-   - Summary: `Partnership targeting Curitiba's growing urban middle class through Coritiba FC`
-4. Click Save
-5. ✅ **Expected:** Campaign created, you land on the campaign detail page
+   - Title (optional): `Itaú × Coritiba — Curitiba Cresce`
+4. Click **"Generate ideas"**
+5. ✅ **Expected:** 3–5 campaign ideas are generated and appear in the right-hand list
+6. Click on one idea to view the campaign detail page
 
 ---
 
@@ -182,13 +184,15 @@
 
 ### Test 5.2 — Switch Landing Page Template
 
-1. Back in the main app, on the proposal detail page
-2. Find the **"CMS Editor"** or **"Landing Page"** tab
-3. Look for a template picker (dropdown or button group)
-4. Switch to **"One Offer"** template
-5. ✅ **Expected:** Landing page preview updates to a focused single-offer layout
-6. Switch to **"Menu de Ativos"** (Inventory Menu) template
-7. ✅ **Expected:** Landing page updates to show a categorized menu of deliverables
+> **Note:** The template switcher lives on the **public landing page view** (`/proposals/[id]/view`), not on the proposal detail page.
+
+1. On the proposal detail page, click **"Landing Page ↗"** or **"View Live"** — this opens `/proposals/[id]/view`
+2. At the top of the public landing page, look for a **template picker bar**: `Premium | Minimal | Packages A/B/C | One Offer | Menu de Ativos`
+3. Click **"One Offer"**
+4. ✅ **Expected:** Landing page updates to a single focused offer layout with "Quero essa oferta" CTA
+5. Click **"Menu de Ativos"** (Inventory Menu)
+6. ✅ **Expected:** Landing page updates to show deliverables categorized under headings (Jersey & Kit, Estádio, Digital & Social, etc.)
+7. Click **"Editar Proposta"** to return to the main app
 
 ---
 
@@ -210,27 +214,26 @@
 ### Test 7.1 — Tinder Approval UI
 
 1. Go to → **`/approvals`**
-2. ✅ **Expected:** A card-based view with one proposal shown at a time
-3. Try keyboard shortcuts:
-   - Press **`→` right arrow** = Approve
+2. The page opens in **list view** by default — click **"Vista em Cards"** button (top-right) to switch to card mode
+3. ✅ **Expected:** A single proposal card appears with **Rejeitar / Editar / Aprovar** buttons
+4. Try keyboard shortcuts (only work in card view):
    - Press **`←` left arrow** = Reject
-   - Press **`↑` up arrow** = Skip
-4. Try swipe on mobile/touchpad
-5. ✅ **Expected:** Card animates and moves to next proposal
+   - Press **`→` right arrow** = Approve  
+   - Hint text: "Use ← → para navegar • A aprovar • R rejeitar • Swipe no mobile"
+5. ✅ **Expected:** Card animates and advances to the next proposal
 
 ---
 
 ### Test 7.2 — Send Email from Approval
 
-1. Still in **`/approvals`**, find a proposal for Banco Itaú
+1. Still in **`/approvals`** card view, find a proposal for Banco Itaú
 2. Click **"Aprovar"** (Approve) button
-3. ✅ **Expected:** An email template picker modal appears
-4. Select any available email template (e.g., "Initial Outreach")
+3. ✅ **Expected:** An email template picker appears inline — heading reads "Proposta aprovada! 🎉 — Enviar email de outreach agora?"
+4. From the dropdown, select any available email template
 5. Click **"Enviar email"**
 6. ✅ **Expected:** 
-   - Toast: "Email sent" / "E-mail enviado"
-   - The email is logged in **`/emails`** with status "sent"
-   - If Pipedrive is connected: activity is logged there too
+   - The email is created and appears in **`/emails`** with status "Pending Approval" (it goes through the approval queue before sending)
+   - Search for "itau" in `/emails` to confirm it was created
 
 ---
 
@@ -425,6 +428,9 @@ SYSTEM HEALTH
 1. **Actual email delivery** — The system logs emails to Pipedrive as activities and stores them in the DB. It does NOT send real SMTP emails (no Resend/SendGrid configured). Email "sending" = logged to Pipedrive CRM + stored in app.
 2. **Replicate jersey AI** — Uses the 2024 training model. New 2026 kit photos from James needed before retraining.
 3. **Newsletter DB** — If the newsletters table hasn't been migrated, it shows a migration message. Run the SQL in `supabase/migrations/0026_newsletters_table.sql` in Supabase dashboard if needed.
+4. **Email approval queue** — Emails created from the approval flow land as "Pending Approval", not "sent" immediately. This is by design — a team member reviews before sending.
+5. **Campaign creation** — `/campaigns/new` redirects to `/campaigns`. Use the inline "Generate ideas" form on the left panel to create campaigns.
+6. **Gmail token** — The Gmail token shown on `/settings` may be expired. This only affects Gmail inbox sync (inbound replies). Outbound email logging to Pipedrive works regardless.
 
 ---
 

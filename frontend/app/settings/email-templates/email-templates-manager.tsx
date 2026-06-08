@@ -302,11 +302,11 @@ export function EmailTemplatesManager({ initialTemplates }: { initialTemplates: 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
           <Mail className="h-4 w-4" /> Email Templates ({templates.length})
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <input
             ref={jsonInputRef}
             type="file"
