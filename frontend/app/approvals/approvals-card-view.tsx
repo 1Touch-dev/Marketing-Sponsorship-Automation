@@ -121,15 +121,27 @@ export function ApprovalsCardView({ items }: Props) {
     if (!approvedItem || !selectedTemplate) return;
     setSendingEmail(true);
     try {
-      const res = await fetch(`/api/proposals/${approvedItem.id}/generate-email`, {
+      // Step 1: generate the email draft from the template
+      const genRes = await fetch(`/api/proposals/${approvedItem.id}/generate-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ template_id: selectedTemplate }),
       });
-      if (res.ok) {
-        setShowEmailPicker(false);
-        if (currentIndex < items.length - 1) goNext();
+      if (!genRes.ok) throw new Error("Failed to generate email");
+      const genData = await genRes.json();
+      const emailId = genData.email_id ?? genData.id;
+
+      // Step 2: immediately send the generated email
+      if (emailId) {
+        await fetch(`/api/emails/${emailId}/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "send" }),
+        });
       }
+
+      setShowEmailPicker(false);
+      if (currentIndex < items.length - 1) goNext();
     } catch {
       // silently fail
     } finally {
@@ -245,7 +257,7 @@ export function ApprovalsCardView({ items }: Props) {
                 disabled={!selectedTemplate || sendingEmail}
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Gerar email
+                Enviar email
               </Button>
             </div>
           </div>

@@ -5,18 +5,20 @@ import { Edit3, Eye, CheckCircle2, Info, LayoutTemplate } from "lucide-react";
 import type { ProposalContent } from "@/types/database";
 import type { PricingTier, StrategyVariant, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
 import { ProposalLandingPage } from "./proposal-landing-page";
-import { LandingTemplateMinimal, LandingTemplatePackages } from "./proposal-landing-templates";
+import { LandingTemplateMinimal, LandingTemplatePackages, LandingTemplateOneOffer, LandingTemplateInventoryMenu } from "./proposal-landing-templates";
 import { InlineEdit } from "./inline-edit";
 import { ProposalGraphicsPanel } from "./proposal-graphics-panel";
 import { cn } from "@/lib/utils";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
 
-type LandingTemplateId = "premium" | "minimal" | "packages";
+type LandingTemplateId = "premium" | "minimal" | "packages" | "one_offer" | "inventory_menu";
 
 const TEMPLATES: Array<{ id: LandingTemplateId; label: string; description: string }> = [
   { id: "premium", label: "Premium", description: "Rich green hero with stats, strategies & visuals" },
   { id: "minimal", label: "Minimal", description: "Clean white executive layout" },
-  { id: "packages", label: "Packages", description: "Package-focused with big tier cards" },
+  { id: "packages", label: "Packages A/B/C", description: "Package-focused with big tier cards" },
+  { id: "one_offer", label: "One Offer", description: "Single focused offer with clear CTA" },
+  { id: "inventory_menu", label: "Menu de Ativos", description: "Full menu of sponsorship assets to choose from" },
 ];
 
 interface ProposalCMSEditorProps {
@@ -232,6 +234,24 @@ export function ProposalCMSEditor({
       )}
       {activeTemplate === "packages" && (
         <LandingTemplatePackages
+          proposal={mergedProposal}
+          company={company}
+          campaign={campaign}
+          approvedImages={approvedImages}
+          adminMode={true}
+        />
+      )}
+      {activeTemplate === "one_offer" && (
+        <LandingTemplateOneOffer
+          proposal={mergedProposal}
+          company={company}
+          campaign={campaign}
+          approvedImages={approvedImages}
+          adminMode={true}
+        />
+      )}
+      {activeTemplate === "inventory_menu" && (
+        <LandingTemplateInventoryMenu
           proposal={mergedProposal}
           company={company}
           campaign={campaign}

@@ -4,7 +4,7 @@ import React from "react";
 import type { ProposalContent } from "@/types/database";
 import type { PricingTier, StrategyVariant, CompanyIntelligence } from "@/lib/ai/schemas";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
-import { CheckCircle2, FileText, TrendingUp, Zap, DollarSign, ArrowRight, Building2 } from "lucide-react";
+import { CheckCircle2, FileText, TrendingUp, Zap, DollarSign, ArrowRight, Building2, Tag, List } from "lucide-react";
 
 type LandingMinimalProps = {
   proposal: {
@@ -284,6 +284,228 @@ export function LandingTemplatePackages({ proposal, company, campaign }: Landing
 
       {c.cta && (
         <section className="py-16 text-center px-6">
+          <p className="text-xl font-bold text-slate-800 mb-5">{c.cta}</p>
+          <a
+            href="mailto:patrocinios@coritiba.com.br"
+            className="inline-flex items-center gap-2 rounded-full bg-green-700 text-white px-8 py-3 font-bold text-sm hover:bg-green-800 transition-colors shadow-lg"
+          >
+            Entrar em contato <ArrowRight className="h-4 w-4" />
+          </a>
+        </section>
+      )}
+    </article>
+  );
+}
+
+/** Template D — One Offer: single focused offer, ideal for a specific named opportunity */
+export function LandingTemplateOneOffer({ proposal, company, campaign }: LandingMinimalProps) {
+  const c = (proposal.content as unknown as ContentMap);
+  const deliverables = c.deliverables ?? [];
+
+  return (
+    <article className="min-h-screen bg-white font-sans">
+      {/* Hero — split layout */}
+      <header
+        className="relative overflow-hidden"
+        style={{ background: "linear-gradient(135deg, #003A2D 0%, #005742 60%, #007358 100%)" }}
+      >
+        <div className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{ backgroundImage: "repeating-linear-gradient(90deg,white 0px,white 20px,transparent 20px,transparent 60px)" }} />
+        <div className="relative max-w-4xl mx-auto px-8 py-16 sm:py-20 flex flex-col sm:flex-row items-center gap-10">
+          <div className="flex-1 text-white">
+            {company.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={company.logo_url} alt={company.company_name} className="h-12 object-contain mb-6" />
+            ) : (
+              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl mb-6">
+                {company.company_name[0]}
+              </div>
+            )}
+            <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs font-semibold text-white/80 mb-4">
+              <Tag className="h-3 w-3" /> Oferta Exclusiva
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight">{c.title ?? proposal.title}</h1>
+            {c.executive_summary && (
+              <p className="text-green-100/90 text-base leading-relaxed max-w-xl">{c.executive_summary}</p>
+            )}
+          </div>
+          <div className="shrink-0 w-full sm:w-64 bg-white rounded-2xl shadow-2xl p-6 text-center">
+            <p className="text-xs font-semibold text-green-700 uppercase tracking-widest mb-2">Coritiba FC</p>
+            <p className="text-xl font-extrabold text-slate-800 mb-1">{campaign?.title ?? "Patrocínio"}</p>
+            {company.industry && <p className="text-xs text-slate-500 mb-4">{company.industry}</p>}
+            <a
+              href="mailto:patrocinios@coritiba.com.br"
+              className="block w-full rounded-xl bg-green-700 text-white py-3 text-sm font-bold hover:bg-green-800 transition-colors"
+            >
+              Quero essa oferta
+            </a>
+          </div>
+        </div>
+      </header>
+
+      {/* Single offer detail */}
+      <div className="max-w-4xl mx-auto px-8 py-12 space-y-10">
+        {c.campaign_rationale && (
+          <section className="flex gap-6 items-start">
+            <div className="shrink-0 h-10 w-10 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-2">Por que agora?</h3>
+              <p className="text-slate-700 leading-relaxed">{c.campaign_rationale}</p>
+            </div>
+          </section>
+        )}
+
+        {c.sponsorship_value && (
+          <section className="flex gap-6 items-start">
+            <div className="shrink-0 h-10 w-10 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center">
+              <Building2 className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-2">O que você recebe</h3>
+              <p className="text-slate-700 leading-relaxed">{c.sponsorship_value}</p>
+            </div>
+          </section>
+        )}
+
+        {deliverables.length > 0 && (
+          <section className="rounded-2xl border-2 border-green-100 bg-green-50 p-6">
+            <h3 className="text-sm font-bold text-green-800 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Entregáveis desta oferta
+            </h3>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {deliverables.map((d, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-green-800">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                  {d}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {c.activation_plan && (
+          <section>
+            <h3 className="text-sm font-bold text-green-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Zap className="h-4 w-4" /> Plano de Ativação
+            </h3>
+            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{c.activation_plan}</p>
+          </section>
+        )}
+
+        {c.cta && (
+          <section className="rounded-2xl" style={{ background: "linear-gradient(135deg, #003A2D, #005742)" }}>
+            <div className="p-8 text-center">
+              <p className="text-white font-bold text-xl mb-5">{c.cta}</p>
+              <a
+                href="mailto:patrocinios@coritiba.com.br"
+                className="inline-flex items-center gap-2 rounded-full bg-white text-green-800 px-8 py-3 font-bold text-sm hover:bg-green-50 transition-colors shadow-lg"
+              >
+                Entrar em contato <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
+          </section>
+        )}
+      </div>
+    </article>
+  );
+}
+
+/** Template E — Inventory Menu: full menu of assets sponsor can choose from */
+export function LandingTemplateInventoryMenu({ proposal, company, campaign }: LandingMinimalProps) {
+  const c = (proposal.content as unknown as ContentMap);
+  const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
+  const deliverables = c.deliverables ?? [];
+
+  const MENU_CATEGORIES = [
+    { key: "jersey", label: "Jersey & Kit", icon: "👕", items: deliverables.filter(d => /jersey|manga|camisa|sleeve|peito|chest/i.test(d)) },
+    { key: "stadium", label: "Estádio Couto Pereira", icon: "🏟", items: deliverables.filter(d => /LED|placar|couto|estádio|stadium|board|naming|vip|hospitality/i.test(d)) },
+    { key: "digital", label: "Digital & Social", icon: "📱", items: deliverables.filter(d => /digital|instagram|youtube|social|app|tiktok|web/i.test(d)) },
+    { key: "community", label: "Comunidade & ESG", icon: "🤝", items: deliverables.filter(d => /youth|academy|ESG|community|social|impact|escola/i.test(d)) },
+    { key: "other", label: "Outros Benefícios", icon: "⭐", items: deliverables.filter(d => !/jersey|manga|camisa|sleeve|peito|chest|LED|placar|couto|estádio|stadium|board|naming|vip|hospitality|digital|instagram|youtube|social|app|tiktok|web|youth|academy|ESG|community|social|impact|escola/i.test(d)) },
+  ].filter(cat => cat.items.length > 0 || (cat.key === "other" && deliverables.length === 0));
+
+  return (
+    <article className="min-h-screen bg-slate-50 font-sans">
+      {/* Hero */}
+      <header className="text-white px-8 py-14 text-center" style={{ background: "linear-gradient(135deg, #003A2D 0%, #005742 100%)" }}>
+        <div className="flex items-center justify-center gap-3 mb-4">
+          {company.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={company.logo_url} alt={company.company_name} className="h-10 object-contain" />
+          )}
+          <span className="text-white/40 text-2xl">×</span>
+          <span className="text-sm font-bold text-white/90 uppercase tracking-widest">Coritiba FC</span>
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-extrabold mb-3 leading-tight">{c.title ?? proposal.title}</h1>
+        {campaign?.title && <p className="text-green-200 text-sm mb-3">{campaign.title}</p>}
+        {c.executive_summary && (
+          <p className="max-w-2xl mx-auto text-green-100/80 text-sm leading-relaxed">{c.executive_summary}</p>
+        )}
+        <div className="mt-6 inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-2 text-xs font-semibold text-white/90">
+          <List className="h-3.5 w-3.5" /> Menu de Ativos de Patrocínio — Escolha os benefícios que combinam com sua marca
+        </div>
+      </header>
+
+      {/* Asset menu */}
+      <section className="max-w-5xl mx-auto px-6 py-12">
+        {MENU_CATEGORIES.length > 0 ? (
+          <div className="space-y-8">
+            {MENU_CATEGORIES.map((cat) => (
+              <div key={cat.key}>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-2xl">{cat.icon}</span>
+                  <h2 className="text-lg font-bold text-slate-800">{cat.label}</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {cat.items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-sm hover:border-green-400 transition-colors cursor-default">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                      <span className="text-sm text-slate-700">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-slate-400">
+            <p>Adicione entregáveis na proposta para montar o menu de ativos.</p>
+          </div>
+        )}
+      </section>
+
+      {/* Pricing */}
+      {pricingTiers.length > 0 && (
+        <section className="bg-white border-t border-slate-200 py-12">
+          <div className="max-w-5xl mx-auto px-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-6 text-center flex items-center justify-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-700" /> Pacotes de Investimento
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {pricingTiers.map((tier, i) => {
+                const t = tier as unknown as { label: string; price_range: string; deliverables?: string[]; highlight?: boolean };
+                return (
+                  <div key={i} className={`rounded-2xl border-2 p-5 ${t.highlight ? "border-green-500 bg-green-50 ring-2 ring-green-300" : "border-slate-200 bg-white"}`}>
+                    <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">{t.label}</p>
+                    <p className="text-xl font-extrabold text-slate-800 mb-3">{t.price_range}</p>
+                    <a
+                      href="mailto:patrocinios@coritiba.com.br"
+                      className={`block text-center rounded-xl py-2 text-sm font-bold transition-colors ${t.highlight ? "bg-green-600 text-white hover:bg-green-700" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+                    >
+                      Selecionar
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {c.cta && (
+        <section className="py-14 text-center px-6">
           <p className="text-xl font-bold text-slate-800 mb-5">{c.cta}</p>
           <a
             href="mailto:patrocinios@coritiba.com.br"

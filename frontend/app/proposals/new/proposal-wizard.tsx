@@ -18,7 +18,7 @@ type Company = {
   website: string | null; logo_url: string | null; notes: string | null;
 };
 type Campaign = { id: string; title: string; summary: string | null; status: string };
-type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed";
+type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand";
 type Component = { id: string; name: string; category: string; type: string; icon: React.ElementType; price?: string };
 type Strategy = { key: string; label: string; description: string; icon: React.ElementType; color: string };
 
@@ -38,6 +38,9 @@ const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: st
   { type: "barter", label: "Barter / Goods", description: "Exchange goods/services instead of cash — negotiation-driven partnership", icon: Repeat2, color: "amber" },
   { type: "lei_de_incentivo", label: "Lei de Incentivo", description: "Tax-incentive social project — ESG, community programs, sport development", icon: Heart, color: "green" },
   { type: "mixed", label: "Mixed Proposal", description: "Hybrid: cash sponsorship + barter + social impact combined", icon: Zap, color: "purple" },
+  { type: "esg_community", label: "ESG / Community", description: "Social impact partnership — youth, environment, inclusion, CSR", icon: Heart, color: "emerald" },
+  { type: "local_business", label: "Local Business", description: "Regional Curitiba/Paraná SME — high-visibility local activation", icon: MapPin, color: "orange" },
+  { type: "national_brand", label: "National Brand", description: "Large national brand — broadcast, digital, full stadium integration", icon: TrendingUp, color: "indigo" },
 ];
 
 // ── Inventory components ───────────────────────────────────────────────────

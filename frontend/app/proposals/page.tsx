@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, truncate } from "@/lib/utils";
 import { Filter, FileText, ChevronRight } from "lucide-react";
+import { BulkLogoUploader } from "@/components/proposals/bulk-logo-uploader";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ type ProposalRow = {
   version: number;
   updated_at: string;
   created_at: string;
-  companies: { id: string; company_name: string; industry: string | null } | null;
+  content?: { uploaded_assets?: Array<{ url: string }> } | null;
+  companies: { id: string; company_name: string; industry: string | null; logo_url?: string | null } | null;
 };
 
 export default async function ProposalsPage({
@@ -32,8 +34,8 @@ export default async function ProposalsPage({
   const [proposalsResult, companiesResult] = await Promise.all([
     sb
       .from("proposals")
-      .select("id, title, status, version, updated_at, created_at, companies(id, company_name, industry)")
-      .neq("status", "rejected")             // hide rejected proposals by default
+      .select("id, title, status, version, updated_at, created_at, content, companies(id, company_name, industry, logo_url)")
+      .neq("status", "rejected")
       .order("updated_at", { ascending: false })
       .limit(300),
     sb.from("companies").select("id, company_name").neq("status", "closed").order("company_name"),
@@ -87,6 +89,16 @@ export default async function ProposalsPage({
       <PageHeader
         title="Proposals"
         description={`${proposals.length} sponsorship proposals · Coritiba FC`}
+      />
+
+      {/* Bulk logo upload — shown when proposals are missing logos */}
+      <BulkLogoUploader
+        proposals={proposals.map((p) => ({
+          id: p.id,
+          title: p.title,
+          companyName: p.companies?.company_name ?? "—",
+          hasLogo: !!(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0),
+        }))}
       />
 
       {/* Filter bar */}

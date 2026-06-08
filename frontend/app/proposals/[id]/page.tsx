@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Upload, Edit3, ArrowLeft } from "lucide-react";
+import { Edit3, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { ApprovalPanel } from "./approval-panel";
 import { ApprovalFlowPanel } from "./approval-flow-panel";
@@ -17,7 +17,7 @@ import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-panel";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
-import { AssetUploader } from "@/components/proposals/asset-uploader";
+import { BrandAssetsCard } from "@/components/proposals/brand-assets-card";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { ProposalPackages } from "@/components/proposals/proposal-packages";
 import type { ProposalContent } from "@/types/database";
@@ -360,42 +360,14 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             </CardContent>
           </Card>
 
-          {/* Brand asset uploader */}
-          <Card id="brand-assets">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Upload className="h-4 w-4 text-primary" /> Brand Assets
-              </CardTitle>
-              <CardDescription>Upload logos and brand assets for use in image generation and the proposal.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Sponsor asset checklist — per official Coritiba manual requirements */}
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <div className="text-xs font-semibold text-amber-800 mb-2 flex items-center gap-1.5">
-                  <span>📋</span> Asset Checklist (required per Coritiba manual)
-                </div>
-                <ul className="space-y-1 text-xs text-amber-700">
-                  {[
-                    { label: "Color logo (PNG/SVG, transparent background)", done: hasLogo },
-                    { label: "Monochrome version (black or white)", done: false },
-                    { label: "Outline/contour version", done: false },
-                    { label: "Vector file (.AI, .EPS or .SVG)", done: false },
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className={item.done ? "text-green-600" : "text-amber-400"}>
-                        {item.done ? "✓" : "○"}
-                      </span>
-                      <span className={item.done ? "line-through text-amber-400" : ""}>{item.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <AssetUploader
-                proposalId={proposal.id}
-                existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
-              />
-            </CardContent>
-          </Card>
+          <BrandAssetsCard
+            proposalId={proposal.id}
+            companyName={p.companies?.company_name ?? ""}
+            existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
+            hasLogo={hasLogo}
+            strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
+            campaignTitle={p.campaigns?.title}
+          />
         </div>
 
         <div className="space-y-6">
