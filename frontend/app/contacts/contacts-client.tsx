@@ -223,27 +223,33 @@ export function ContactsClient({
           Add Contact
         </Button>
 
-        <input
-          ref={csvInputRef}
-          type="file"
-          accept=".csv"
-          className="hidden"
-          onChange={handleCsvImport}
-        />
-        <Button
-          variant="outline"
-          onClick={() => csvInputRef.current?.click()}
-          disabled={csvImporting}
-          className="gap-1.5"
-          title="Import contacts from CSV (email, full_name, company_name, ...)"
-        >
-          {csvImporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4" />
-          )}
-          {csvImporting ? "Importing…" : "Import CSV"}
-        </Button>
+        <label htmlFor="contacts-csv-input" className="inline-flex">
+          <input
+            id="contacts-csv-input"
+            ref={csvInputRef}
+            type="file"
+            accept=".csv"
+            className="sr-only"
+            disabled={csvImporting}
+            onChange={handleCsvImport}
+          />
+          <Button
+            variant="outline"
+            disabled={csvImporting}
+            className="gap-1.5 cursor-pointer"
+            title="Import contacts from CSV (email, full_name, company_name, ...)"
+            asChild
+          >
+            <span>
+              {csvImporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {csvImporting ? "Importing…" : "Import CSV"}
+            </span>
+          </Button>
+        </label>
         <a
           href="/api/contacts/bulk-import"
           download="contacts_import_template.csv"

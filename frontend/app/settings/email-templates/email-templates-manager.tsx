@@ -307,24 +307,30 @@ export function EmailTemplatesManager({ initialTemplates }: { initialTemplates: 
           <Mail className="h-4 w-4" /> Email Templates ({templates.length})
         </h2>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <input
-            ref={jsonInputRef}
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleJsonImport}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => jsonInputRef.current?.click()}
-            disabled={importing}
-            className="gap-1.5"
-            title="Import templates from JSON file"
-          >
-            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            {importing ? "Importing…" : "Import JSON"}
-          </Button>
+          <label htmlFor="email-templates-json-input" className="inline-flex">
+            <input
+              id="email-templates-json-input"
+              ref={jsonInputRef}
+              type="file"
+              accept=".json"
+              className="sr-only"
+              disabled={importing}
+              onChange={handleJsonImport}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={importing}
+              className="gap-1.5 cursor-pointer"
+              title="Import templates from JSON file"
+              asChild
+            >
+              <span>
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {importing ? "Importing…" : "Import JSON"}
+              </span>
+            </Button>
+          </label>
           <Button size="sm" onClick={() => { setEditTemplate(null); setShowForm(true); }} className="gap-1.5">
             <Plus className="h-4 w-4" /> New Template
           </Button>

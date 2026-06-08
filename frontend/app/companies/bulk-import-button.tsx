@@ -148,14 +148,15 @@ export function BulkImportButton() {
                 </div>
               </div>
 
-              {/* Drop zone */}
+              {/* Drop zone — use <label> so clicking it reliably opens the OS file picker */}
               {!results && (
-                <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                    dragOver
-                      ? "border-primary bg-primary/5"
-                      : "border-muted-foreground/25 hover:border-primary/50"
-                  }`}
+                <label
+                  htmlFor="company-bulk-csv"
+                  className={`block border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    loading
+                      ? "cursor-default"
+                      : "cursor-pointer hover:border-primary/50 hover:bg-accent/30"
+                  } ${dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25"}`}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => {
@@ -164,7 +165,6 @@ export function BulkImportButton() {
                     const file = e.dataTransfer.files[0];
                     if (file) handleFileSelect(file);
                   }}
-                  onClick={() => fileInputRef.current?.click()}
                 >
                   {loading ? (
                     <div className="flex flex-col items-center gap-2">
@@ -181,16 +181,18 @@ export function BulkImportButton() {
                     </>
                   )}
                   <input
+                    id="company-bulk-csv"
                     ref={fileInputRef}
                     type="file"
                     accept=".csv"
-                    className="hidden"
+                    className="sr-only"
+                    disabled={loading}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) handleFileSelect(file);
                     }}
                   />
-                </div>
+                </label>
               )}
 
               {/* Summary */}
