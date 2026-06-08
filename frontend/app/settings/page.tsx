@@ -71,6 +71,11 @@ async function checkMigration0006(sb: ReturnType<typeof supabaseAdmin>) {
   };
 }
 
+async function checkMigration0027(sb: ReturnType<typeof supabaseAdmin>) {
+  const ok = await colExists(sb, "agent_runs", "id");
+  return { applied: ok, details: { "agent_runs (table)": ok } };
+}
+
 // ── Gmail token type ────────────────────────────────────────────────────────
 interface GmailTokens {
   access_token?: string | null;
@@ -123,9 +128,13 @@ export default async function SettingsPage({
     gmailConnected && connectedEmail && configuredSender && connectedEmail !== configuredSender;
 
   // Migration checks — run all in parallel
-  const [m0005, m0006] = await Promise.all([checkMigration0005(sb), checkMigration0006(sb)]);
+  const [m0005, m0006, m0027] = await Promise.all([
+    checkMigration0005(sb),
+    checkMigration0006(sb),
+    checkMigration0027(sb),
+  ]);
 
-  const allMigrationsApplied = m0005.applied && m0006.applied;
+  const allMigrationsApplied = m0005.applied && m0006.applied && m0027.applied;
 
   // Prompt version stats — count proposals/campaigns using current vs old prompts
   const [{ count: totalProposals }, { count: v3Proposals }, { count: totalCampaigns }, { count: v3Campaigns }] =
@@ -472,6 +481,11 @@ export default async function SettingsPage({
               label="Migration 0006 — workflow_events table, prompt_version, status_reason"
               applied={m0006.applied}
               details={m0006.details}
+            />
+            <MigrationRow
+              label="Migration 0027 — agent_runs table (Outreach Agent)"
+              applied={m0027.applied}
+              details={m0027.details}
             />
 
             {!allMigrationsApplied && (
