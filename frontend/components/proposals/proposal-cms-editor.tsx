@@ -1,14 +1,23 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Edit3, Eye, CheckCircle2, Info } from "lucide-react";
+import { Edit3, Eye, CheckCircle2, Info, LayoutTemplate } from "lucide-react";
 import type { ProposalContent } from "@/types/database";
 import type { PricingTier, StrategyVariant, VisualPrompt, CompanyIntelligence } from "@/lib/ai/schemas";
 import { ProposalLandingPage } from "./proposal-landing-page";
+import { LandingTemplateMinimal, LandingTemplatePackages } from "./proposal-landing-templates";
 import { InlineEdit } from "./inline-edit";
 import { ProposalGraphicsPanel } from "./proposal-graphics-panel";
 import { cn } from "@/lib/utils";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
+
+type LandingTemplateId = "premium" | "minimal" | "packages";
+
+const TEMPLATES: Array<{ id: LandingTemplateId; label: string; description: string }> = [
+  { id: "premium", label: "Premium", description: "Rich green hero with stats, strategies & visuals" },
+  { id: "minimal", label: "Minimal", description: "Clean white executive layout" },
+  { id: "packages", label: "Packages", description: "Package-focused with big tier cards" },
+];
 
 interface ProposalCMSEditorProps {
   proposal: {
@@ -65,6 +74,7 @@ export function ProposalCMSEditor({
   proposal, company, campaign, approvedImages = [], companyId,
 }: ProposalCMSEditorProps) {
   const [editMode, setEditMode] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState<LandingTemplateId>("premium");
   const [localContent, setLocalContent] = useState<ContentFields>(
     (proposal.content as unknown as ContentFields) ?? {}
   );
@@ -115,6 +125,25 @@ export function ProposalCMSEditor({
               {savedFields.size} campo{savedFields.size > 1 ? "s" : ""} salvo{savedFields.size > 1 ? "s" : ""}
             </span>
           )}
+          {/* Template switcher */}
+          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+            <LayoutTemplate className="h-3.5 w-3.5 text-slate-400 ml-1.5" />
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTemplate(t.id)}
+                title={t.description}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                  activeTemplate === t.id
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setEditMode(v => !v)}
             className={cn(
@@ -182,14 +211,34 @@ export function ProposalCMSEditor({
         </div>
       )}
 
-      {/* The actual landing page — always rendered below */}
-      <ProposalLandingPage
-        proposal={mergedProposal}
-        company={company}
-        campaign={campaign}
-        approvedImages={approvedImages}
-        adminMode={true}
-      />
+      {/* The actual landing page — template-switched */}
+      {activeTemplate === "premium" && (
+        <ProposalLandingPage
+          proposal={mergedProposal}
+          company={company}
+          campaign={campaign}
+          approvedImages={approvedImages}
+          adminMode={true}
+        />
+      )}
+      {activeTemplate === "minimal" && (
+        <LandingTemplateMinimal
+          proposal={mergedProposal}
+          company={company}
+          campaign={campaign}
+          approvedImages={approvedImages}
+          adminMode={true}
+        />
+      )}
+      {activeTemplate === "packages" && (
+        <LandingTemplatePackages
+          proposal={mergedProposal}
+          company={company}
+          campaign={campaign}
+          approvedImages={approvedImages}
+          adminMode={true}
+        />
+      )}
     </div>
   );
 }

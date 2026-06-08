@@ -33,6 +33,7 @@ import {
   Zap,
   Users,
   LogOut,
+  Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -66,6 +67,7 @@ const NAV: NavItem[] = [
   // Core CRM
   { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "core" },
   { href: "/companies", label: "Companies", icon: Building2, group: "core" },
+  { href: "/contacts", label: "Contacts", icon: Users, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
   { href: "/reports", label: "Sponsor Reports", icon: Trophy, group: "core" },
   // Proposal workflow
@@ -76,6 +78,7 @@ const NAV: NavItem[] = [
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
+  { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
   { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
   { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },
   // Intelligence

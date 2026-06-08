@@ -17,6 +17,7 @@ interface ApprovalFlowPanelProps {
   proposalStatus: string;
   shareToken: string | null;
   hasImages: boolean;
+  hasLogo?: boolean;
 }
 
 function StepDot({
@@ -70,6 +71,7 @@ export function ApprovalFlowPanel({
   proposalStatus,
   shareToken,
   hasImages,
+  hasLogo = true,
 }: ApprovalFlowPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -159,13 +161,24 @@ export function ApprovalFlowPanel({
             <p className="text-xs text-slate-600 dark:text-slate-400">
               Proposal is in draft. Edit content, then submit for review.
             </p>
+            {!hasLogo && (
+              <div className="rounded-md bg-yellow-50 border border-yellow-200 px-3 py-2 text-xs text-yellow-800">
+                ⚠️ Upload the sponsor logo before submitting.
+              </div>
+            )}
             <div className="flex gap-2">
               <Button size="sm" variant="outline" className="gap-1 flex-1" asChild>
                 <Link href={`/proposals/${proposalId}/edit`}>
                   <Edit3 className="h-3.5 w-3.5" /> Edit
                 </Link>
               </Button>
-              <Button size="sm" className="gap-1 flex-1" onClick={() => call("submit_review")} disabled={!!busy}>
+              <Button
+                size="sm"
+                className="gap-1 flex-1"
+                onClick={() => call("submit_review")}
+                disabled={!!busy || !hasLogo}
+                title={!hasLogo ? "Upload sponsor logo first" : undefined}
+              >
                 {busy === "submit_review" ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Submitting…</> : "Submit for Review →"}
               </Button>
             </div>

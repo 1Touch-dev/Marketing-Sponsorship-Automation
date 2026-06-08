@@ -32,6 +32,7 @@ interface ReplicateJerseyGeneratorProps {
   showPlacementPreview?: boolean;
   onPlacementChange?: (placement: JerseyPlacementId) => void;
   onGenerated?: () => void;
+  disabled?: boolean;
 }
 
 type GeneratedImage = {
@@ -55,6 +56,7 @@ export function ReplicateJerseyGenerator({
   showPlacementPreview = false,
   onPlacementChange,
   onGenerated,
+  disabled = false,
 }: ReplicateJerseyGeneratorProps) {
   const [mode, setMode] = useState<MockupMode>("official");
   const [placement, setPlacementState] = useState<JerseyPlacementId>("chest_sponsor");
@@ -392,7 +394,7 @@ export function ReplicateJerseyGenerator({
         <button
           type="button"
           onClick={generate}
-          disabled={loading || (mode === "creative" && selectedScenes.length === 0)}
+          disabled={disabled || loading || (mode === "creative" && selectedScenes.length === 0)}
           className="flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-4 py-2 text-xs font-semibold transition-colors"
         >
           {loading ? (

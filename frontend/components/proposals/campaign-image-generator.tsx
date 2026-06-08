@@ -10,6 +10,7 @@ interface CampaignImageGeneratorProps {
   strategyVariants?: StrategyVariant[] | null;
   campaignTitle?: string;
   uploadedLogoUrl?: string | null;
+  disabled?: boolean;
 }
 
 type GeneratedJob = {
@@ -39,6 +40,7 @@ export function CampaignImageGenerator({
   strategyVariants,
   campaignTitle,
   uploadedLogoUrl,
+  disabled = false,
 }: CampaignImageGeneratorProps) {
   const [loading, setLoading] = useState(false);
   const [jobs, setJobs] = useState<GeneratedJob[]>([]);
@@ -150,7 +152,7 @@ export function CampaignImageGenerator({
         </div>
         <button
           onClick={handleGenerateClick}
-          disabled={loading}
+          disabled={disabled || loading}
           className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-3 py-2 text-xs font-semibold transition-colors"
         >
           {loading ? (

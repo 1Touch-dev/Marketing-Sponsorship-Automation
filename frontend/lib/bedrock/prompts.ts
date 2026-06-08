@@ -11,7 +11,7 @@
  *  - Coritiba-first inventory, branding, fan base, stadium context
  */
 
-export const PROMPT_VERSION = "v3.0.0" as const;
+export const PROMPT_VERSION = "v4.0.0" as const;
 
 export interface CompanyContext {
   company_name: string;
@@ -192,7 +192,7 @@ export function strategyVariantsPrompt(args: {
 }
 
 // ---------------------------------------------------------------------------
-// Proposal (v3 — Coritiba grounded)
+// Proposal (v4 — rich quality, Coritiba grounded)
 // ---------------------------------------------------------------------------
 export function proposalPrompt(args: {
   company: CompanyContext;
@@ -209,12 +209,17 @@ export function proposalPrompt(args: {
     : "";
   return {
     system: [
-      "You are a senior B2B sponsorship proposal writer for Coritiba Foot Ball Club.",
-      "Write a professional, persuasive sponsorship proposal for a Coritiba FC partnership.",
-      "ALL content MUST reference Coritiba FC, Couto Pereira, and the Curitiba/Paraná market.",
-      "NEVER mention Athletico Paranaense, Corinthians, or any competitor club.",
-      "The sponsor is partnering with CORITIBA FC — not any other club.",
-      "Output MUST be valid JSON. No markdown fences.",
+      "You are a senior B2B sponsorship proposal writer at Coritiba Foot Ball Club, Curitiba's iconic green-and-white club.",
+      "Your proposals are used in real sales meetings with Brazilian brands. They must read as premium, data-grounded, and compelling.",
+      "RULES (non-negotiable):",
+      "1. ALL sections MUST reference Coritiba FC, Couto Pereira stadium, or the Verde e Branco fan ecosystem.",
+      "2. NEVER mention competitor clubs (Athletico Paranaense, Corinthians, São Paulo FC, Flamengo, Palmeiras).",
+      "3. Write like a seasoned partnership director — specific, benefit-led, no filler phrases ('synergy', 'leverage', 'stakeholders').",
+      "4. Ground every claim: reference Couto Pereira's capacity (~30k fans), Coritiba's digital reach (~1.5M social followers), Curitiba market (3.7M metro population, Paraná's capital).",
+      "5. Each deliverable must be a concrete, measurable Coritiba FC asset (e.g. 'Jersey chest badge — 25 home & away matches', 'Couto Pereira LED perimeter — 3 minutes/match').",
+      "6. The activation_plan must have clear PHASES (Month 1-2 launch, Month 3-6 ramp, Month 7-12 peak activation) with specific Coritiba milestones.",
+      "7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to Coritiba's audience.",
+      "8. Output MUST be valid JSON only. No markdown fences. No extra keys.",
       "",
       CORITIBA_CONTEXT,
       "",
@@ -224,25 +229,32 @@ export function proposalPrompt(args: {
       `Sponsor company: ${args.company.company_name}`,
       args.company.industry ? `Industry: ${args.company.industry}` : null,
       args.company.country ? `Country: ${args.company.country}` : null,
-      args.company.notes ? `Context: ${args.company.notes}` : null,
+      args.company.notes ? `Context about this company: ${args.company.notes}` : null,
       "",
       `Campaign: ${args.campaign.title}`,
-      args.campaign.summary ? `Concept: ${args.campaign.summary}` : null,
+      args.campaign.summary ? `Campaign concept: ${args.campaign.summary}` : null,
       args.campaign.activation ? `Activation approach: ${args.campaign.activation}` : null,
       strategyNote,
       "",
-      "Write a full Coritiba FC sponsorship proposal. Reference Couto Pereira, Verde e Branco, Coxa-Branca fans.",
-      "Keep it CONCISE and impactful. Each section should be sharp — no filler text or generic marketing language.",
-      "Return JSON:",
+      "Write a FULL, high-quality Coritiba FC sponsorship proposal for this company.",
+      "Be SPECIFIC to this company's industry and Brazilian market context.",
+      "Mention Couto Pereira, Verde e Branco, Curitiba fans — make it feel tailored, not generic.",
+      "Return JSON ONLY (no markdown):",
       `{
-  "title": "Proposal title (must include Coritiba FC or Coxa reference)",
-  "executive_summary": "~80 words — powerful opening about [company] × Coritiba FC partnership",
-  "campaign_rationale": "~100 words — why this sponsorship at Coritiba FC makes business sense",
-  "sponsorship_value": "~80 words — concrete Coritiba FC value delivered to the sponsor",
-  "activation_plan": "~120 words — specific phased activation at Couto Pereira with Coritiba milestones",
-  "deliverables": ["Coritiba deliverable 1", "Couto Pereira deliverable 2", "3", "4", "5"],
-  "investment_note": "1-2 sentences — Coritiba FC investment framing (aspirational, no specific currency)",
-  "cta": "Single compelling call to action to partner with Coritiba FC"
+  "title": "Proposal title — must name the company AND reference Coritiba FC (e.g. '[Company] × Coritiba FC — [Theme]')",
+  "executive_summary": "120–150 words. Start with [Company]'s business goal in Brazil. Show how Coritiba FC's 1.5M+ followers and 30k matchday fans directly address that goal. End with a bold partnership vision.",
+  "campaign_rationale": "150–180 words. Data-grounded case: Curitiba metro (3.7M people), Coritiba's fan demographics, the sponsor's target customer overlap. Reference 2–3 specific Coritiba FC inventory items that match the sponsor's marketing objectives.",
+  "sponsorship_value": "120–150 words. Concrete ROI framing: brand impressions at Couto Pereira per season, digital reach numbers, co-branded content opportunities, community activation value. Be specific — mention real Coritiba FC assets.",
+  "activation_plan": "200–250 words. THREE clear phases:\\nPhase 1 (M1–M2): Launch activation — jersey reveal, social announcement, matchday intro event at Couto Pereira.\\nPhase 2 (M3–M6): Ramp — LED perimeter, PA announcements, co-branded digital content, fan activation zone.\\nPhase 3 (M7–M12): Peak — title sponsorship moment, stadium naming activation, cross-promotion with Coritiba milestones (e.g. Brasileirão round, Campeonato Paranaense title run).",
+  "deliverables": [
+    "Deliverable 1 — specific asset + quantity (e.g. 'Jersey chest badge — 25 home + away matches per season')",
+    "Deliverable 2 — specific stadium asset",
+    "Deliverable 3 — digital/social asset",
+    "Deliverable 4 — matchday activation asset",
+    "Deliverable 5 — community/co-brand asset"
+  ],
+  "investment_note": "2–3 sentences. Frame the investment relative to reach: cost-per-impression at Couto Pereira vs. traditional media. Aspirational — no specific currency amount. Position as a strategic partnership, not a transaction.",
+  "cta": "One powerful, specific call to action — name the next step (e.g. 'Let\\'s schedule a 30-minute Coritiba FC partnership briefing this week.')"
 }`,
     ]
       .filter(Boolean)

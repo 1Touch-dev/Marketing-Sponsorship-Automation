@@ -50,7 +50,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const hasImages = inlineImages.length > 0;
 
   type EnrichedProposal = typeof proposal & {
-    companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null } | null;
+    companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null; logo_url?: string | null } | null;
     campaigns: { title: string; summary?: string | null } | null;
     status_reason?: string | null;
     prompt_version?: string | null;
@@ -62,6 +62,13 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   };
 
   const p = proposal as EnrichedProposal;
+
+  // Determine if sponsor logo is available (from company or uploaded assets)
+  const uploadedAssets = ((proposal.content as unknown as { uploaded_assets?: Array<{ url: string }> })?.uploaded_assets) ?? [];
+  const hasLogo = !!(
+    p.companies?.logo_url ||
+    uploadedAssets.length > 0
+  );
   const company = p.companies;
   const campaign = p.campaigns;
   const canSendOutreach = proposal.status === "approved";
@@ -102,6 +109,25 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           </div>
         }
       />
+
+      {/* Logo upload warning — shown when no logo is present */}
+      {!hasLogo && (
+        <div className="mb-4 rounded-md border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800 px-4 py-3 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
+              ⚠️ No sponsor logo uploaded
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-0.5">
+              The landing page will show initials only, and image generation is locked. Upload the sponsor&apos;s logo in the Brand Assets section to unlock all features.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline" className="shrink-0 border-yellow-300 text-yellow-800 hover:bg-yellow-100">
+            <Link href={`/proposals/${proposal.id}#brand-assets`}>
+              Upload Logo ↓
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Status banners for actionable states */}
       {proposal.status === "revision_requested" && (
@@ -239,6 +265,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             proposalStatus={proposal.status}
             shareToken={p.share_token ?? null}
             hasImages={hasImages}
+            hasLogo={hasLogo}
           />
 
           {/* Inline image preview — shown at step 4 so you can review before going live */}
@@ -334,7 +361,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           </Card>
 
           {/* Brand asset uploader */}
-          <Card>
+          <Card id="brand-assets">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Upload className="h-4 w-4 text-primary" /> Brand Assets

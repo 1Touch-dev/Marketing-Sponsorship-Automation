@@ -425,6 +425,52 @@ export function ProposalEditor({
 
         {/* Main edit area */}
         <div className="lg:col-span-3 space-y-5">
+          {/* Completion checklist — quick-glance progress */}
+          {(() => {
+            const sections = SECTIONS.map((s) => ({
+              label: s.label,
+              done: wordCount((content[s.key] as string) ?? "") > 10,
+            }));
+            const hasDeliverables = deliverablesText.trim().length > 0;
+            const total = sections.length + 1;
+            const done = sections.filter((s) => s.done).length + (hasDeliverables ? 1 : 0);
+            const pct = Math.round((done / total) * 100);
+            const color = pct === 100 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-400" : "bg-red-400";
+            return (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Completeness — {pct}%
+                  </span>
+                  {pct === 100 && (
+                    <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> All sections filled
+                    </span>
+                  )}
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {sections.map((s) => (
+                    <div key={s.label} className={`flex items-center gap-1.5 text-xs ${s.done ? "text-slate-600" : "text-amber-700 dark:text-amber-400"}`}>
+                      {s.done
+                        ? <CheckCircle2 className="h-3 w-3 text-emerald-500 flex-shrink-0" />
+                        : <AlertCircle className="h-3 w-3 text-amber-400 flex-shrink-0" />}
+                      {s.label}
+                    </div>
+                  ))}
+                  <div className={`flex items-center gap-1.5 text-xs ${hasDeliverables ? "text-slate-600" : "text-amber-700 dark:text-amber-400"}`}>
+                    {hasDeliverables
+                      ? <CheckCircle2 className="h-3 w-3 text-emerald-500 flex-shrink-0" />
+                      : <AlertCircle className="h-3 w-3 text-amber-400 flex-shrink-0" />}
+                    Deliverables
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Status warning */}
           {isApproved && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
