@@ -892,3 +892,369 @@ RECENT FIXES (regression)
 ---
 
 If you want this saved as a file in the repo (e.g. `MANUAL_TEST_ALL.md`), say the word and I'll add it.
+
+---
+
+## SECTION 17 — Outreach Agent (full supervised flow)
+
+> **What it does:** 5-step AI pipeline — enriches contacts → scrapes company intelligence → generates personalized proposal → **pauses for your approval** → drafts outreach email → **pauses for your approval** → sends to Pipedrive.
+
+### 17.1 Agent panel is visible on company detail
+
+1. Go to `/companies` → click any company that has a **website URL** set (e.g. Banco Itaú — `https://www.itau.com.br`)
+2. Scroll down the company detail page
+3. ✅ **PASS:** A purple-bordered card titled **"Outreach Agent"** is visible
+4. ✅ **PASS:** Card header shows: *"Personalized proposal + dual approval"*
+5. ✅ **PASS:** Idle state shows a numbered step list (5 steps) ending with *"⏸ You approve before Pipedrive send"*
+6. ✅ **PASS:** A **Run Agent** button (violet) is visible
+7. ❌ **FAIL if:** Card is missing or shows an error state before running
+
+### 17.2 Start agent run — Phase 1 (enrichment + proposal generation)
+
+1. On the same company detail → click **Run Agent**
+2. ✅ **PASS:** Panel immediately shows spinner + *"Enriching, scraping, generating proposal…"*
+3. ✅ **PASS:** Step indicators appear one by one as the agent progresses:
+   - Step 1: `enrich_contacts` — icon: 👤
+   - Step 2: `scrape_company_intelligence` — icon: 🔗
+   - Step 3: `generate_personalized_proposal` — icon: 📄
+4. Wait up to **3–5 minutes** (AI generation + web scraping)
+5. ✅ **PASS:** Panel transitions to a **blue approval box** — *"Step 1/2 — Approve personalized proposal"*
+6. ❌ **FAIL if:** Panel goes directly to error, or spins indefinitely >5 min
+
+### 17.3 Proposal approval gate
+
+1. When the blue approval box appears:
+   - ✅ **PASS:** Shows **proposal title** (company name × Coritiba FC)
+   - ✅ **PASS:** Shows first 4 lines of executive summary (italicised)
+   - ✅ **PASS:** Link **"Open full proposal"** is clickable → opens proposal in new tab
+2. Click **Open full proposal** in a new tab
+   - ✅ **PASS:** Proposal exists at `/proposals/[id]` with full content
+   - ✅ **PASS:** Proposal references the correct company name
+3. Back in the agent panel → click **Approve Proposal & Draft Email**
+4. ✅ **PASS:** Button shows spinner *"Generating email…"* for ~20s
+5. ✅ **PASS:** Panel transitions to amber **email review box** — *"Step 2/2 — Approve email before sending"*
+6. ❌ **FAIL if:** Approval fails with an error, or panel freezes
+
+### 17.4 Email approval gate
+
+1. When the amber email box appears:
+   - ✅ **PASS:** Shows **To:** field with a real email address (from enriched contacts)
+   - ✅ **PASS:** Shows **Subject:** referencing company name
+   - ✅ **PASS:** Shows **Preview:** first lines of the email body in Portuguese
+2. ✅ **PASS:** Two buttons: **Approve & Send** (green) and **Discard** (outline)
+3. Click **Approve & Send**
+4. ✅ **PASS:** Spinner *"Sending…"* for ~5s
+5. ✅ **PASS:** Panel turns green — *"Outreach Complete"*
+6. ✅ **PASS:** Shows Pipedrive activity number (if Pipedrive connected) or completes without error
+7. ❌ **FAIL if:** Send fails with an error
+
+### 17.5 Verify artifacts created
+
+1. Go to `/emails` → ✅ **PASS:** New email appears at top of list with **Pending Approval** or **sent** status
+2. Go to `/proposals` → ✅ **PASS:** New proposal created by agent appears (company name × Coritiba FC)
+3. Go to `/workflow-events` → ✅ **PASS:** Agent steps visible (`enrich_contacts`, `generate_personalized_proposal`, etc.)
+4. Go to `/audit` → ✅ **PASS:** `proposal.generated` and `email.created` audit events visible for this run
+
+### 17.6 Cancel a run mid-flight
+
+1. Start a **new Run Agent** on a different company
+2. Wait for Step 1 to begin (spinner visible)
+3. Click **Cancel**
+4. ✅ **PASS:** Panel returns to idle state immediately
+5. ✅ **PASS:** No ghost run remains — can start a fresh run on the same company
+
+### 17.7 Duplicate run prevention
+
+1. Open the same company page in two browser tabs
+2. Click **Run Agent** on tab 1 (let it start)
+3. Switch to tab 2 → click **Run Agent**
+4. ✅ **PASS:** Tab 2 shows error: *"An agent run is already in progress for this company"*
+5. ❌ **FAIL if:** Two concurrent runs start on the same company
+
+---
+
+## SECTION 18 — AI Intelligence modules (company-level)
+
+### 18.1 Company intelligence enrichment
+
+1. Go to `/companies` → open any company detail that has a website
+2. Scroll to the **AI Intelligence** section (if present)
+3. Click **Run Intelligence** / **Enrich** / **Enhance** (whichever button is shown)
+4. Wait ~30–60s
+5. ✅ **PASS:** AI analysis appears: market context, sponsorship angle, budget signals
+6. ✅ **PASS:** No error toast
+7. Go to `/workflow-events` → ✅ **PASS:** `companies.intelligence` event appears
+
+### 18.2 Competitor discovery (Apify)
+
+1. On the same company detail page → scroll to **Competitor Discovery** or **AI Discovery** panel
+2. Click **Run Autonomous Discovery** or **Discover Competitors**
+3. Wait up to **60 seconds**
+4. ✅ **PASS:** Results appear — list of discovered competitors with names and descriptions
+5. ✅ **PASS:** Each competitor row has an **"Add to Companies"** button
+6. Click **Add to Companies** on one result
+7. ✅ **PASS:** Button changes to **✓ Saved**
+8. Go to `/companies` → filter by **competitor** status
+9. ✅ **PASS:** The saved competitor appears with a red **competitor** badge
+10. ❌ **FAIL if:** Discovery times out with no results every time (may be Apify quota — note but don't fail if this is a known limit)
+
+### 18.3 Intelligence — proposals context
+
+1. On any proposal detail → scroll to **Intelligence** section (if present)
+2. Click **Generate Intelligence Brief** / **Enrich**
+3. ✅ **PASS:** Intelligence layer added (market data, sponsor fit score, etc.)
+4. ✅ **PASS:** Data is company-specific (mentions correct company name and industry)
+
+---
+
+## SECTION 19 — Proposal intelligence & enhancement flows
+
+### 19.1 Execution brief (`/api/proposals/[id]/execution-brief`)
+
+1. On any proposal detail page → look for **Execution Brief** or **Download Brief** button
+2. If present, click it
+3. ✅ **PASS:** PDF or JSON execution brief downloads / opens
+4. Or navigate directly to `/api/proposals/[id]/execution-brief` (replace `[id]` with a real ID)
+5. ✅ **PASS:** JSON response with execution plan (not a 404)
+
+### 19.2 Monthly report (`/api/proposals/[id]/monthly-report`)
+
+1. Navigate to `/api/proposals/[id]/monthly-report` for an approved proposal
+2. ✅ **PASS:** JSON or PDF report returns (not a 404)
+
+### 19.3 Section variants (A/B/C alternatives)
+
+1. Open proposal edit page → click **Generate A / B / C** on Executive Summary
+2. Wait ~20s
+3. ✅ **PASS:** 3 alternative texts with different tones/angles
+4. Click one to select it → **Save**
+5. ✅ **PASS:** Toast confirms save; version number increments (v1 → v2)
+
+### 19.4 Packages (pricing tiers)
+
+1. On proposal detail → look for **Packages** section
+2. If pricing tiers exist → go to `/proposals/[id]/view` → select **Packages A/B/C** template
+3. ✅ **PASS:** Tier cards (Gold / Silver / Bronze) render with correct values
+4. If no tiers → note "no pricing tiers yet" but do not fail (this is a known state)
+
+---
+
+## SECTION 20 — Follow-ups agent
+
+### 20.1 Follow-up generation (`/followups`)
+
+1. Go to `/followups`
+2. ✅ **PASS:** Page loads with pending follow-up queue (or empty state if none pending)
+3. If any items exist → click **Generate** on one follow-up
+4. Wait ~20s
+5. ✅ **PASS:** AI-generated follow-up text appears, referencing the correct company/proposal
+6. ✅ **PASS:** Clicking **Send** moves item to sent state (or queues in Pending Approval)
+7. Go to `/emails` → ✅ **PASS:** Follow-up email visible in list
+
+### 20.2 Follow-up from proposal page
+
+1. On any proposal detail → look for **Follow-ups** section or button
+2. Click **Generate Follow-up**
+3. ✅ **PASS:** Pre-filled email draft referencing last contact date and proposal name
+
+---
+
+## SECTION 21 — Internal / admin tools
+
+### 21.1 Migration status (`/api/internal/migration-status`)
+
+1. Navigate to `/api/internal/migration-status`
+2. ✅ **PASS:** JSON response listing applied migrations with timestamps
+3. ✅ **PASS:** All critical migrations show `applied: true`
+
+### 21.2 System health (`/api/system/health`)
+
+1. Navigate to `/api/system/health`
+2. ✅ **PASS:** JSON with all service checks — database, storage, etc.
+3. ✅ **PASS:** `status: "ok"` at top level
+
+### 21.3 System status (`/api/system/status`)
+
+1. Navigate to `/api/system/status`
+2. ✅ **PASS:** JSON summary of platform (version, proposal count, etc.)
+
+### 21.4 Inventory suggest (`/api/inventory/suggest`)
+
+1. On a proposal detail or inventory page — look for **Suggest items** button
+2. Click it (if available) → ✅ **PASS:** AI-suggested inventory items appear based on proposal type
+
+---
+
+## SECTION 22 — Search API
+
+### 22.1 Global search API (`/api/search`)
+
+1. Navigate to `/api/search?q=Banco+Itaú`
+2. ✅ **PASS:** JSON response with results grouped by type (companies, proposals, campaigns)
+3. ✅ **PASS:** At least 1 result for "Banco Itaú"
+
+### 22.2 Global search UI
+
+1. Press Ctrl+K → type `Heineken`
+2. ✅ **PASS:** Results appear with company badge and/or proposal rows
+3. Click a result → ✅ **PASS:** Navigates to correct page
+
+---
+
+## SECTION 23 — Exports
+
+### 23.1 Export proposals
+
+1. Navigate to `/api/exports` or look for Export button on `/proposals`
+2. ✅ **PASS:** Export endpoint returns data (CSV/JSON) without error
+
+---
+
+## Updated master checklist (full)
+
+```
+SETUP
+[ ] 0.1  Login / logout
+[ ] 0.2  Global search (⌘K)
+[ ] 0.3  All sidebar links load (no 404/500)
+[ ] 0.4  Quick actions FAB (6 items)
+
+CRM
+[ ] 1.1  Dashboard stats + recent proposals + activity feed
+[ ] 1.2  Add company (form saves, appears in list)
+[ ] 1.3  Company detail + AI enrich
+[ ] 1.4  Bulk company import (CSV)
+[ ] 1.5  Add contact manually
+[ ] 1.6  Contact search + filter
+[ ] 1.7  Contact CSV import
+[ ] 1.8  Delete contact
+[ ] 1.9  Pipeline page (migration banner OR stage columns)
+[ ] 1.10 Sponsor reports
+[ ] 1.11A Competitor — add via form (red badge, filter works)
+[ ] 1.11B Competitor — add from Discovery panel
+[ ] 1.11C Competitor — edit existing company to competitor
+
+CAMPAIGNS
+[ ] 2.1  Inline AI campaign generator (3–5 ideas, no wrong clubs)
+[ ] 2.2  Campaign detail page
+[ ] 2.3  /campaigns/new redirect
+[ ] 2.4  Bulk campaigns — completeness warning + Continue anyway
+
+PROPOSALS
+[ ] 3.1  Wizard — all 7 types visible + clickable
+[ ] 3.2  Full National Brand proposal created (wizard → 7 steps → detail page)
+[ ] 3.3  Logo warning gate (yellow banner, Submit disabled)
+[ ] 3.4  Logo upload → banner disappears → checklist ✓ → auto-images start
+[ ] 3.5  Jersey mockup — all 6 placement zones, white badge, crest unchanged
+[ ] 3.6  AI Campaign Creatives — modal, edit prompt, widescreen output
+[ ] 3.7  Generate outreach email on proposal
+[ ] 3.8  Enhance proposal (AI) → strategy variants added
+[ ] 3.9  Duplicate proposal
+[ ] 3.10 Public share link (incognito, dark green, CTA visible)
+
+EDIT UI
+[ ] 4.1  Edit page 4-card bar + completeness bar
+[ ] 4.2  AI A/B/C alternatives → pick one → save → version increments
+[ ] 4.3  Edit deliverables manually → persists on reload
+[ ] 4.4  Block editor
+
+LANDING PAGES
+[ ] 5.1  /proposals/[id]/view template picker (5 templates)
+[ ] 5.2  All 5 templates — layout changes correctly
+
+BULK OPS
+[ ] 6.1  Proposals list filters (search, status, company)
+[ ] 6.2  Bulk logo upload — panel opens, upload works
+
+APPROVALS
+[ ] 7.1  Approvals card view + keyboard shortcuts
+[ ] 7.2  Approve → template picker → email created Pending Approval
+[ ] 7.3  List view toggle
+[ ] 8.0  Bulk approve images
+
+EMAILS
+[ ] 9.1  Email history + detail page
+[ ] 9.2  Template CRUD (create, preview, duplicate, delete)
+[ ] 9.3  JSON template import (2 templates)
+
+NEWSLETTER
+[ ] 10.1 Compose + 3 recipient modes + send + history entry
+
+THREADS & FOLLOW-UPS
+[ ] 11.1 Threads page (empty or list)
+[ ] 11.2 Follow-ups page + generate + send
+
+INTELLIGENCE
+[ ] 12.1 Coritiba Intel page
+[ ] 12.2 Inventory (list + edit)
+[ ] 12.3 Barter
+[ ] 12.4 Lei de Incentivo
+[ ] 12.5 Brand Assets
+
+MEDIA
+[ ] 13.1 AI Image Gen (prompt → generate)
+[ ] 13.2 Mockup Editor
+[ ] 13.3 Asset Library
+
+INTEGRATIONS
+[ ] 14.1 CRM Sync (Pipedrive panel)
+[ ] 14.2 Gmail banner + reconnect
+
+SYSTEM
+[ ] 15.1 Workflow events (tabs + events from today)
+[ ] 15.2 Audit log
+[ ] 15.3 Maintenance page
+[ ] 15.4 Settings (AI model, migration rows green, backfill inline)
+[ ] 15.5 Team members
+[ ] 15.6 Team & roles (admin)
+
+API
+[ ] 16.1 /api/health → {"status":"ok"}
+[ ] 16.2 /api/proposals/backfill-deliverables → count JSON
+[ ] 16.3 /api/proposals?limit=1 → JSON array with company_name
+[ ] 16.4 /api/contacts/bulk-import → CSV download
+[ ] 16.5 /api/audit?limit=5 → JSON array
+[ ] 16.6 /api/system/health → all checks ok
+[ ] 16.7 /api/search?q=Itaú → JSON with results
+
+OUTREACH AGENT
+[ ] 17.1 Agent panel visible on company detail (violet card)
+[ ] 17.2 Start run — Phase 1 steps appear (enrich → scrape → proposal)
+[ ] 17.3 Proposal approval gate (blue box, title + summary, approve button)
+[ ] 17.4 Email approval gate (amber box, To/Subject/Preview, approve & send)
+[ ] 17.5 Artifacts: email in /emails, proposal in /proposals, events in /workflow-events
+[ ] 17.6 Cancel mid-run → panel returns to idle
+[ ] 17.7 Duplicate run blocked (409 error)
+
+AI INTELLIGENCE
+[ ] 18.1 Company intelligence enrichment
+[ ] 18.2 Competitor discovery → save to companies
+[ ] 18.3 Proposal intelligence brief
+
+PROPOSAL ENHANCEMENTS
+[ ] 19.1 Execution brief API
+[ ] 19.2 Monthly report API
+[ ] 19.3 Section A/B/C variants → save
+[ ] 19.4 Packages template (pricing tiers)
+
+FOLLOW-UPS AGENT
+[ ] 20.1 /followups — generate + send
+[ ] 20.2 Follow-up from proposal page
+
+ADMIN TOOLS
+[ ] 21.1 /api/internal/migration-status
+[ ] 21.2 /api/system/health
+[ ] 21.3 /api/system/status
+
+RECENT FIXES (regression)
+[ ] RF-1  Jersey mockup — correct placement (left chest, clear of crest)
+[ ] RF-2  Jersey logo never changes (disabled without logo, no text fallback)
+[ ] RF-3  Logo visible on dark jersey (white badge background)
+[ ] RF-4  Campaign images widescreen + stadium concept in prompt
+[ ] RF-5  Prompt edit persists in generation (auto-commits textarea)
+[ ] RF-6  Graphics panel 3 separate cards (jersey / AI creatives / saved)
+[ ] RF-7  Competitor status: add via form, edit form, filter on /companies
+[ ] RF-8  Competitor from Apify Discovery → /companies list
+[ ] RF-9  Bulk campaigns: incomplete data warning + Continue anyway
+[ ] RF-10 Bulk campaigns: "Show incomplete only" filter works
+```
