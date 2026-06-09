@@ -120,14 +120,17 @@ export function AICreativesGenerator({
     setPendingPrompts((prev) => prev.map((p, i) => (i === idx ? { ...p, prompt: value } : p)));
   };
 
-  const confirmGenerate = async () => {
+  const confirmGenerate = async (promptsToUse?: PendingPrompt[]) => {
+    // Use the explicit snapshot passed in (avoids stale closure when the user just
+    // edited a textarea and immediately clicked Generate in the same render cycle).
+    const prompts = promptsToUse ?? pendingPrompts;
     setShowApproval(false);
     setLoading(true);
     setError(null);
 
     const created: GeneratedImage[] = [];
     try {
-      for (const p of pendingPrompts) {
+      for (const p of prompts) {
         const res1 = await fetch("/api/image-generation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -380,7 +383,10 @@ export function AICreativesGenerator({
                 Cancel
               </button>
               <button
-                onClick={confirmGenerate}
+                onClick={() => {
+                  setEditingIdx(null); // commit any open textarea edit
+                  confirmGenerate(pendingPrompts);
+                }}
                 className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-2"
               >
                 <Sparkles className="h-4 w-4" />

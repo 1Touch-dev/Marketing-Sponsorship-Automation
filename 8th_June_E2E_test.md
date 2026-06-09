@@ -295,7 +295,7 @@ Expand each group and confirm every link loads without 404:
 
 ### 2.4 Bulk campaigns (`/campaigns/bulk`)
 1. Go to `/campaigns/bulk`
-2. Select industry chip e.g. **Financeiro** → click **Buscar empresas**
+2. Select industry chip e.g. **Financeiro / Bancos** (type the full label including slash, not just "Financeiro") → click **Buscar empresas**
 3. ✅ Company list loads with checkboxes
 4. ✅ Companies with **missing data** show amber warning inline:
    - e.g. `Missing: Website, Contact email`
@@ -747,9 +747,12 @@ Paste each URL in the browser address bar:
 |-----|----------|
 | `/api/health` | `{"status":"ok","checks":{"database":{"ok":true}}}` |
 | `/api/proposals/backfill-deliverables` | `{"proposals_missing_deliverables":0,...}` |
-| `/api/proposals?limit=1` | JSON array with at least 1 proposal |
-| `/api/contacts/bulk-import` | CSV file downloads |
-| `/api/audit` | JSON array of recent audit events |
+| `/api/proposals?limit=1` | JSON array with at least 1 proposal object (id, title, status, company) |
+| `/api/proposals?limit=5&status=approved` | JSON array filtered to approved proposals only |
+| `/api/contacts/bulk-import` | CSV file downloads (email,full_name,… headers) |
+| `/api/audit?limit=5` | JSON array of recent audit log entries (id, entity_type, action, created_at) |
+
+> **Note (confirmed Jun 9):** `/api/proposals?limit=N` and `/api/audit?limit=N` routes were added on June 9, 2026. If you see a 404 it means the server has not restarted since the last deploy — run `pm2 restart sponsorship-platform`.
 
 ---
 
@@ -851,9 +854,9 @@ SYSTEM
 API
 [ ] 16.1 /api/health
 [ ] 16.2 /api/proposals/backfill-deliverables
-[ ] 16.3 /api/proposals?limit=1
-[ ] 16.4 /api/contacts/bulk-import
-[ ] 16.5 /api/audit
+[ ] 16.3 /api/proposals?limit=1   (returns JSON array)
+[ ] 16.4 /api/contacts/bulk-import  (downloads CSV template)
+[ ] 16.5 /api/audit?limit=5   (returns JSON array)
 
 RECENT FIXES (regression)
 [ ] RF-1  Jersey mockup — correct placement (left chest, clear of crest)
@@ -882,6 +885,9 @@ RECENT FIXES (regression)
 8. **AI creatives** — use `gpt-image-1` (OpenAI); each image costs ~$0.04. Budget ~$0.12 per proposal for 3 strategy variants.
 9. **Competitor status** — new `competitor` pipeline stage was added to the UI and form validation. If existing competitors don't show the status badge, re-edit and save them.
 10. **Bulk campaign completeness check** — the warning is advisory. Clicking "Continue anyway" proceeds with generation. Companies with incomplete data will produce more generic AI output.
+11. **Bulk campaigns chip search** — use the full chip label e.g. **Financeiro / Bancos** not just "Financeiro"; partial chip names may return 0 companies due to exact string matching.
+12. **AI Creatives — strategy variants** — if no Enhance variants exist, only 1 generic prompt is generated. Run **✨ Enriquecer com IA** first to get per-strategy prompts (one per variant, max 3).
+13. **Prompt edit → Generate** — always click **Done** to close the edit textarea before clicking **Generate**, or click Generate directly (it auto-commits the textarea). Both methods now persist edits correctly (fixed Jun 9).
 
 ---
 
