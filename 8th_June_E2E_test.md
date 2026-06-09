@@ -2,8 +2,94 @@
 
 **App:** https://eligibly-facing-unloved.ngrok-free.dev  
 **Suggested test company:** Banco Itaú (or create fresh with steps below)  
-**Time:** ~2–3 hours for full pass  
+**Time:** ~2–4 hours for full pass (including new sections)  
 **Tip:** Keep one browser tab on the app and tick the checklist at the bottom as you go.
+
+---
+
+## RECENT FIXES — Quick regression tests (run these FIRST)
+
+These 6 tests directly verify the bugs that were just fixed. If any fail, stop and report.
+
+### RF-1 Jersey mockup placement is correct (commit b4a59c1)
+> **Bug fixed:** Sponsor zone overlapped the CFC crest — logo was placed on top of the badge, making it invisible.
+
+1. Open any existing proposal that has a logo uploaded (or create one — see Section 3)
+2. Scroll to **Visuais / Graphics** → the **Jersey Mockup — Official** card (green header)
+3. Keep default placement **Peito — Patrocinador principal** (chest sponsor)
+4. Click **Generate Mockup** → confirm in the modal
+5. Wait 5–10 seconds
+6. ✅ **PASS:** The sponsor logo/badge appears on the **LEFT side of the front jersey** — clearly separate from the green CFC crest which is on the right
+7. ✅ **PASS:** The CFC crest badge is **unchanged** (same size, same design, untouched)
+8. ❌ **FAIL if:** The image shows only the blank jersey, or the logo appears on top of / blending into the crest
+
+### RF-2 Logo is always consistent — never changes (commit 49c3f8c)
+> **Bug fixed:** Logo silently fell back to sponsor name text if URL fetch failed, making the mockup look different between generations.
+
+1. On the same proposal with logo uploaded → generate the official jersey mockup **twice** (click Generate → confirm, wait, then click Regenerate → confirm)
+2. ✅ **PASS:** Both images show **the same sponsor logo** in the same position
+3. ✅ **PASS:** No text-name badge appears instead of the logo
+4. Now open a proposal **without a logo** uploaded
+5. ✅ **PASS:** The Generate Mockup button is **disabled** (greyed out) — it requires a logo
+6. ✅ **PASS:** A lock notice is visible: *"Upload a logo in Brand Assets before generating a jersey mockup"*
+7. ❌ **FAIL if:** The button works without a logo and produces a text badge, OR the two generations show different logos
+
+### RF-3 Logo is visible on dark jersey (commit b4a59c1)
+> **Bug fixed:** Logo was composited with transparent background directly on dark green fabric — appeared nearly invisible.
+
+1. Upload a **PNG logo with transparency** (e.g. a logo file with white background removed) to Brand Assets
+2. Generate official jersey mockup
+3. ✅ **PASS:** Logo is clearly visible on the jersey — it appears on a **white rectangular badge background**
+4. ✅ **PASS:** Even a logo with transparent areas shows cleanly (the white badge is always there)
+5. ❌ **FAIL if:** The logo is dark/invisible on the green fabric, or you can see the jersey texture directly through the logo
+
+### RF-4 Campaign images generate correctly with concept (commit b4a59c1)
+> **Bug fixed:** Invalid size `1792x1024` silently fell back to square `1024x1024`. Prompts were too vague.
+
+1. Open a proposal that has **strategy variants** (generated via Enhance or wizard)
+2. Scroll to **AI Campaign Creatives** card (indigo header)
+3. Click **Generate Creatives**
+4. ✅ **PASS:** Prompt approval modal appears full-screen (not a small inline box)
+5. In the modal, read the first prompt — it should mention:
+   - `Estádio Couto Pereira`
+   - `Coritiba FC`
+   - The specific **campaign strategy label** (e.g. "Fan Engagement" or strategy name)
+   - `LED advertising boards`
+   - `40,000 fans`
+6. Click **Generate X Images**
+7. Wait 30–90s
+8. ✅ **PASS:** Images are **widescreen / landscape** (16:9 ratio), not square
+9. ✅ **PASS:** Image content shows a stadium scene, not a plain jersey photo
+10. ❌ **FAIL if:** Images are square, or show a plain white background, or prompt doesn't mention the strategy
+
+### RF-5 Prompt approval modal is easy to find and use (commit 49c3f8c)
+> **Bug fixed:** Old prompt review was a small inline box, hard to notice.
+
+1. On any proposal → **AI Campaign Creatives** card → click **Generate Creatives**
+2. ✅ **PASS:** A **full-screen overlay** appears with dark background blur
+3. ✅ **PASS:** Modal has:
+   - Header: *"Review Prompts Before Generating"* with numbered prompt count
+   - Each prompt in a white card with strategy label
+   - **Edit** button on each prompt — click it to open an editable textarea
+   - **Cost estimate** and image size shown in footer
+   - Large **Generate X Images** button (indigo) and Cancel button
+4. Edit one prompt, add `stadium fireworks`, click **Generate X Images**
+5. ✅ **PASS:** Your edited text is included in the generation
+6. ❌ **FAIL if:** Modal is small / inline, or edits are not sent to generation
+
+### RF-6 Graphics panel has 3 separate clear sections (commit 49c3f8c)
+> **Bug fixed:** UI was a single cluttered component — hard to navigate.
+
+1. Open any proposal detail page → scroll to the **Visuais / Graphics** panel
+2. ✅ **PASS:** Three distinct cards with coloured headers:
+   - **👕 Jersey Mockup — Official** — green header, says "Crest is never altered"
+   - **✨ AI Campaign Creatives** — indigo header, says "Stadium scenes · Concept-based"
+   - **🖼️ Saved Images** — slate header, lists all generated images
+3. ✅ **PASS:** If logo is uploaded, the green card shows **"✓ Logo ready"** badge
+4. ✅ **PASS:** If no logo, yellow warning banner at top: *"Sponsor logo required — upload in Brand Assets"*
+5. ❌ **FAIL if:** UI still shows old single component with mode tabs, or sections are not clearly separated
+
+---
 
 ---
 
@@ -137,6 +223,38 @@ Expand each group and confirm every link loads without 404:
 3. Change any date/filter controls if present
 4. ✅ Data refreshes without error
 
+### 1.11 Competitor companies (new status)
+> **New feature:** Competitors can be stored in the Companies list with status = `competitor` — separate from prospects.
+
+**A) Manual add as competitor:**
+1. Go to `/companies/new`
+2. Fill in:
+   - Name: `Athletico Paranaense Partner` (or any rival brand)
+   - Industry: `Automotivo`
+   - Website: `https://example-competitor.com`
+   - **Pipeline Stage** → select **Competitor (tracking only)**
+3. Click **Save**
+4. ✅ Company created; on `/companies` it shows a **red "competitor" badge**
+5. Go back to `/companies` → use the **Status** filter dropdown → select **competitor**
+6. ✅ Only competitor-status companies appear
+
+**B) Add competitor from Intelligence Discovery:**
+1. Go to any company detail page → scroll to **AI Intelligence** / **Competitor Discovery** panel
+2. Click **Run Autonomous Discovery**
+3. Wait 30–60 seconds for results
+4. ✅ Competitors tab appears with discovered companies
+5. Each competitor row now has an **"Add to Companies"** button
+6. Click **Add to Companies** on one competitor
+7. ✅ Button changes to **✓ Saved**
+8. Go to `/companies` → filter by **competitor** status
+9. ✅ The newly saved competitor appears in the list with `status=competitor`
+
+**C) Edit an existing company to competitor:**
+1. Open any company detail → click **Edit**
+2. Find the **Status** field → change to **Competitor**
+3. Save
+4. ✅ Status badge on company list updates to red **competitor**
+
 ---
 
 ## SECTION 2 — Campaigns
@@ -164,13 +282,25 @@ Expand each group and confirm every link loads without 404:
 
 ### 2.4 Bulk campaigns (`/campaigns/bulk`)
 1. Go to `/campaigns/bulk`
-2. Select industry chip e.g. **Financeiro**
-3. Click **Find companies** (or equivalent)
-4. ✅ List of matching companies loads
-5. Check 2–3 companies → click **Generate campaigns + proposals** (bulk action)
-6. Wait (can take several minutes)
-7. ✅ Per-company status: success ✓ or error ✗
-8. Go to `/proposals` → new proposals exist for selected companies
+2. Select industry chip e.g. **Financeiro** → click **Buscar empresas**
+3. ✅ Company list loads with checkboxes
+4. ✅ Companies with **missing data** show amber warning inline:
+   - e.g. `Missing: Website, Contact email`
+5. Check 2–3 companies including at least one with missing fields
+6. ✅ A **data completeness warning panel** appears above the Generate button:
+   - Header: *"X of Y selected companies have missing data — AI output may be generic"*
+   - Lists each incomplete company with which fields are missing
+   - **Generate button is disabled** until you acknowledge
+7. Click **Show incomplete only** → list filters to only show incomplete companies
+8. Click **Show all** → full list returns
+9. Click **Continue anyway** in the warning panel
+10. ✅ Warning dismisses, Generate button becomes active
+11. Click **Generate X selected Campaigns**
+12. Wait (can take several minutes — 3 companies at a time)
+13. ✅ Per-company status: success ✓ or error ✗
+14. Go to `/proposals` → new proposals exist for selected companies
+
+> **Test tip for completeness check:** Use a company you know has no website (check the company detail page). The warning should list "Website" as missing.
 
 ---
 
@@ -216,21 +346,51 @@ Expand each group and confirm every link loads without 404:
 6. ✅ Blue banner: auto-generating campaign images (wait 30–60s)
 7. ✅ Submit/Approve buttons become enabled
 
-### 3.5 Jersey mockup (`Visuais` section)
-1. Scroll to **Visuais** / **Graphics**
-2. Tab **Jersey Mockup** (or **Mockup Oficial**)
-3. Click **Gerar Mockup Oficial**
-4. Select placement: `chest_sponsor` (or chest)
-5. Wait 30–60s
-6. ✅ Jersey image with sponsor logo/text on Coritiba kit
-7. Try another zone: sleeve, back, shorts, socks — one each is enough
+### 3.5 Jersey mockup — Official (redesigned UI)
+1. Scroll to **Visuais / Graphics** section
+2. ✅ **Green card** at top: "👕 Jersey Mockup — Official" with lock icon notice
+3. If no logo uploaded → Generate button is **disabled** — upload one first (see 3.4)
+4. Select placement: `Peito — Patrocinador principal` (default)
+5. Click **Generate Mockup** — a **confirm modal** appears:
+   - ✅ Modal states which placement you chose
+   - ✅ Text: *"This mockup always uses your uploaded logo — it will never change between generations"*
+6. Click **✓ Generate** in modal
+7. Wait 5–10 seconds
+8. ✅ Jersey image appears — **your logo on a white badge** on the LEFT side of the front jersey
+9. ✅ CFC crest on the RIGHT side is **identical to the original** (not touched)
+10. Click **Download** → file saves locally
+11. Test each placement zone — generate one for each:
 
-### 3.6 Campaign creatives
-1. Tab **Criativos de Campanha** (Campaign images)
-2. Click **Gerar para todas** (or per-strategy **Gerar**)
-3. Wait 30–90s per image
-4. ✅ Images appear per strategy variant
-5. ✅ Prompts reference Couto Pereira / `#005742` Verde Coxa
+| Placement | Expected position on jersey image |
+|-----------|----------------------------------|
+| **Peito — Patrocinador principal** | Left chest of front jersey, white badge |
+| **Manga esquerda** | Right shoulder area (viewer's right = wearer's left) |
+| **Manga direita** | Left shoulder area (viewer's left = wearer's right) |
+| **Costas** | Centre of the back jersey panel |
+| **Shorts** | Upper area of front shorts |
+| **Meiões** | Upper calf area of left sock pair |
+
+12. ✅ Each placement puts the badge in the correct garment area
+
+### 3.6 Campaign creatives — AI (redesigned UI)
+1. Scroll to **✨ AI Campaign Creatives** card (indigo header)
+2. Note description: how many images will be generated (1 per strategy variant, max 3)
+3. If logo uploaded → ✅ green text: *"Sponsor logo available — referenced in prompts"*
+4. Click **Generate Creatives**
+5. ✅ **Full-screen prompt approval modal** appears:
+   - Header shows count: "Review Prompts Before Generating — 3 images"
+   - Each prompt is in a separate numbered card with strategy label
+   - Cost estimate shown (e.g. ~$0.12 · Model: gpt-image-1)
+   - Size shown: 1536×1024 (16:9)
+6. Click **Edit** on one prompt → textarea opens
+7. Add at the end: `heroic lighting, award-winning photo`
+8. Click **Done** (same button, now says Done)
+9. Click **Generate 3 Images** (large indigo button)
+10. Wait 60–120 seconds (one image at a time)
+11. ✅ Images appear in the card — widescreen landscape format
+12. ✅ Each image has its strategy label, Download, and Open buttons
+13. ✅ Yellow note: "Pending approval" — images go to Bulk Approve before landing page
+14. Click **Approve all in bulk →** link → opens `/proposals/bulk-approve`
 
 ### 3.7 Generate outreach email (on proposal page)
 1. Scroll to **Emails** section on proposal detail
@@ -681,6 +841,18 @@ API
 [ ] 16.3 /api/proposals?limit=1
 [ ] 16.4 /api/contacts/bulk-import
 [ ] 16.5 /api/audit
+
+RECENT FIXES (regression)
+[ ] RF-1  Jersey mockup — correct placement (left chest, clear of crest)
+[ ] RF-2  Jersey logo never changes (disabled without logo, no silent text fallback)
+[ ] RF-3  Logo visible on dark jersey (white badge background)
+[ ] RF-4  Campaign images widescreen + stadium concept in prompt
+[ ] RF-5  Prompt approval modal full-screen with editable prompts
+[ ] RF-6  Graphics panel 3 separate cards (jersey / AI creatives / saved)
+[ ] RF-7  Competitor status: add via form, edit form, filter on /companies
+[ ] RF-8  Add competitor from Apify Discovery panel → /companies list
+[ ] RF-9  Bulk campaigns: incomplete data warning panel + Continue anyway
+[ ] RF-10 Bulk campaigns: "Show incomplete only" filter works
 ```
 
 ---
@@ -693,6 +865,10 @@ API
 4. **Packages template** — empty until pricing tiers exist on the proposal.
 5. **Replicate LoRA** — uses 2024 kit model; 2026 retrain pending photos from James.
 6. **AI generation** — each step takes 20–90 seconds; wait before clicking again.
+7. **Jersey mockup requires logo** — generation is intentionally blocked if no logo is uploaded (this is by design, not a bug).
+8. **AI creatives** — use `gpt-image-1` (OpenAI); each image costs ~$0.04. Budget ~$0.12 per proposal for 3 strategy variants.
+9. **Competitor status** — new `competitor` pipeline stage was added to the UI and form validation. If existing competitors don't show the status badge, re-edit and save them.
+10. **Bulk campaign completeness check** — the warning is advisory. Clicking "Continue anyway" proceeds with generation. Companies with incomplete data will produce more generic AI output.
 
 ---
 
