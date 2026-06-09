@@ -212,10 +212,21 @@ Expand each group and confirm every link loads without 404:
 3. ✅ Contact removed from list
 
 ### 1.9 Pipeline (`/pipeline`)
+> **Actual status:** The pipeline page uses a separate `pipeline_leads` table which requires a database migration to create. Until that migration is applied, the page shows an amber "Database Migration Required" banner. There is **no drag-drop Kanban** yet — this is a future feature. The pipeline currently shows a static list of leads grouped by stage.
+
 1. Go to `/pipeline`
-2. ✅ Kanban board with pipeline stages loads
-3. Drag a company card from one column to another
-4. ✅ Card moves; stage updates
+2. **If you see an amber banner** "Database Migration Required":
+   - ✅ This is expected if the `pipeline_leads` table hasn't been created yet
+   - ✅ Page does not crash — it shows the migration notice cleanly
+   - The page still shows stat cards (Active Leads: 0, Won Deals: 0, etc.)
+3. **If the migration has been applied:**
+   - ✅ Stage columns load (Prospect, Qualified, Contacted, Proposal Sent, Negotiation, Closed Won)
+   - ✅ "Add Pipeline Lead" form is visible at the bottom
+   - Fill in the lead form → click Save → ✅ lead appears in correct stage column
+   - ⚠️ **Note:** Drag-drop between columns is not yet implemented — stage changes require editing the lead
+4. ✅ Pipedrive integration notice is visible (architecture ready, not yet connected)
+
+> **Known limitation:** Drag-drop card movement is planned but not implemented. The test doc previously said "Drag a card" — that was incorrect.
 
 ### 1.10 Sponsor Reports (`/reports`)
 1. Go to `/reports`
@@ -226,7 +237,9 @@ Expand each group and confirm every link loads without 404:
 ### 1.11 Competitor companies (new status)
 > **New feature:** Competitors can be stored in the Companies list with status = `competitor` — separate from prospects.
 
-**A) Manual add as competitor:**
+**A) Manual add as competitor (fixed — was broken before):**
+> **What was wrong:** The form set `pipeline_stage=competitor` but the validator rejected `status=competitor`, so status was stored as `"prospect"`. The status badge showed grey "prospect" and the status filter returned nothing. Now fixed.
+
 1. Go to `/companies/new`
 2. Fill in:
    - Name: `Athletico Paranaense Partner` (or any rival brand)
@@ -758,7 +771,7 @@ CRM
 [ ] 1.6  Contact search + filter
 [ ] 1.7  Contact CSV import
 [ ] 1.8  Delete contact
-[ ] 1.9  Pipeline drag-drop
+[ ] 1.9  Pipeline page loads (migration notice OR leads list — no drag-drop yet)
 [ ] 1.10 Sponsor reports
 
 CAMPAIGNS

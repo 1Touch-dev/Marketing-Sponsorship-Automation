@@ -29,6 +29,7 @@ export function CompanyForm() {
     setError(null);
     const fd = new FormData(e.currentTarget);
 
+    const pipeline_stage = String(fd.get("pipeline_stage") ?? "prospect");
     const payload = {
       company_name: String(fd.get("company_name") ?? "").trim(),
       industry: String(fd.get("industry") ?? "").trim() || null,
@@ -38,7 +39,10 @@ export function CompanyForm() {
       segment: String(fd.get("segment") ?? "local"),
       company_size: String(fd.get("company_size") ?? "medium"),
       business_type: String(fd.get("business_type") ?? "B2C"),
-      pipeline_stage: String(fd.get("pipeline_stage") ?? "prospect"),
+      pipeline_stage,
+      // When someone chooses the "competitor" stage, the company status must
+      // also be "competitor" so the status filter and badge work correctly.
+      status: pipeline_stage === "competitor" ? "competitor" : "prospect",
       contact_name: String(fd.get("contact_name") ?? "").trim() || null,
       contact_email: String(fd.get("contact_email") ?? "").trim() || null,
       contact_phone: String(fd.get("contact_phone") ?? "").trim() || null,
@@ -141,6 +145,7 @@ export function CompanyForm() {
             <option value="closed_won">Closed Won</option>
             <option value="closed_lost">Closed Lost</option>
           </select>
+          <p className="text-xs text-muted-foreground">Selecting "Competitor" also sets company status to competitor (red badge).</p>
         </div>
       </div>
 

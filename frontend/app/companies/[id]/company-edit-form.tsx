@@ -12,7 +12,7 @@ import { Save, X, Tag, Plus } from "lucide-react";
 const SEGMENTS = ["local", "state", "national", "international"];
 const SIZES = ["small", "medium", "large"];
 const BUSINESS_TYPES = ["B2C", "B2B", "Both"];
-const PIPELINE_STAGES = ["prospect", "qualified", "contacted", "proposal_sent", "negotiation", "closed_won", "closed_lost"];
+const PIPELINE_STAGES = ["competitor", "prospect", "qualified", "contacted", "proposal_sent", "negotiation", "closed_won", "closed_lost"];
 
 export function CompanyEditForm({ company }: { company: Record<string, unknown> }) {
   const router = useRouter();
@@ -42,17 +42,22 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
     setSuccess(false);
 
     const fd = new FormData(e.currentTarget);
+    const pipeline_stage = String(fd.get("pipeline_stage") ?? "prospect");
+    const statusFromForm = String(fd.get("status") ?? "prospect");
+    // If pipeline stage is competitor, force status to competitor too (keeps badge in sync)
+    const resolvedStatus = pipeline_stage === "competitor" ? "competitor" : statusFromForm;
+
     const payload: Record<string, unknown> = {
       company_name: String(fd.get("company_name") ?? "").trim(),
       industry: String(fd.get("industry") ?? "").trim() || null,
       website: String(fd.get("website") ?? "").trim() || null,
       country: String(fd.get("country") ?? "BR").trim() || "BR",
       notes: String(fd.get("notes") ?? "").trim() || null,
-      status: String(fd.get("status") ?? "prospect"),
+      status: resolvedStatus,
       segment: String(fd.get("segment") ?? "local"),
       company_size: String(fd.get("company_size") ?? "medium"),
       business_type: String(fd.get("business_type") ?? "B2C"),
-      pipeline_stage: String(fd.get("pipeline_stage") ?? "prospect"),
+      pipeline_stage,
       contact_name: String(fd.get("contact_name") ?? "").trim() || null,
       contact_email: String(fd.get("contact_email") ?? "").trim() || null,
       contact_phone: String(fd.get("contact_phone") ?? "").trim() || null,

@@ -6,7 +6,7 @@ export const companyCreateSchema = z.object({
   website: z.string().url().optional().or(z.literal("")).nullable(),
   country: z.string().max(40).optional().nullable().default("BR"),
   notes: z.string().max(4000).optional().nullable(),
-  status: z.enum(["prospect", "active", "paused", "closed"]).default("prospect"),
+  status: z.enum(["competitor", "prospect", "active", "paused", "closed"]).default("prospect"),
   segment: z.enum(["local", "state", "national", "global"]).optional().default("local"),
   company_size: z.enum(["startup", "small", "medium", "large", "enterprise"]).optional().default("medium"),
   business_type: z.enum(["B2C", "B2B", "B2B2C"]).optional().default("B2C"),
