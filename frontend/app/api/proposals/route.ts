@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const sb = supabaseAdmin();
   let query = sb
     .from("proposals")
-    .select("id, title, status, version, company_id, campaign_id, created_at, updated_at, companies(name, industry)")
+    .select("id, title, status, version, company_id, campaign_id, created_at, updated_at, companies(company_name, industry)")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
