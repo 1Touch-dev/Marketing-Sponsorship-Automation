@@ -184,8 +184,15 @@ export function AICreativesGenerator({
         <div className="text-xs text-slate-500 space-y-0.5">
           <p>
             Generates <strong className="text-slate-700">{imageCount} image{imageCount > 1 ? "s" : ""}</strong>
-            {hasStrategies ? " — one per campaign strategy" : " — generic campaign visual"} using OpenAI.
+            {hasStrategies
+              ? ` — one per campaign strategy (${imageCount} of ${strategyVariants!.length})`
+              : " — generic campaign visual"} using OpenAI.
           </p>
+          {!hasStrategies && (
+            <p className="text-amber-600 flex items-center gap-1">
+              💡 Run <strong>✨ Enriquecer com IA</strong> first to get strategy-based images (one per strategy variant).
+            </p>
+          )}
           {uploadedLogoUrl ? (
             <p className="text-green-600 flex items-center gap-1">
               ✓ Sponsor logo available — referenced in prompts

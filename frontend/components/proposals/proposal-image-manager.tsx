@@ -149,7 +149,7 @@ export function ProposalImageManager({
                       <img
                         src={u.url}
                         alt={`Opção ${idx + 1}`}
-                        className="w-full h-24 object-cover"
+                        className="w-full h-24 object-contain bg-slate-50"
                       />
                       {selected === u.url && (
                         <span className="absolute top-1 right-1 bg-green-600 text-white text-[9px] px-1.5 py-0.5 rounded">
@@ -162,7 +162,7 @@ export function ProposalImageManager({
               ) : selected ? (
                 <div className="rounded-lg overflow-hidden border border-slate-200 max-w-xs">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selected} alt="Selecionada" className="w-full h-32 object-cover" />
+                  <img src={selected} alt="Selecionada" className="w-full h-32 object-contain bg-slate-50" />
                 </div>
               ) : null}
 

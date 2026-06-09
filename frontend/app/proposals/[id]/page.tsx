@@ -255,6 +255,18 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         </div>
       )}
 
+      {/* Brand Assets + Graphics Panel — full width, shown before the 3-col grid
+          so it is always at the top on both mobile and desktop */}
+      <ProposalBrandGraphicsWrapper
+        proposalId={proposal.id}
+        companyId={p.companies?.id}
+        companyName={p.companies?.company_name ?? ""}
+        initialLogoUrl={p.companies?.logo_url}
+        campaignTitle={p.campaigns?.title}
+        strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
+        existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
+      />
+
       {/* Admin sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-6">
@@ -336,17 +348,6 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               </CardHeader>
             </Card>
           )}
-
-          {/* Brand Assets + Graphics Panel — shared logo state via wrapper */}
-          <ProposalBrandGraphicsWrapper
-            proposalId={proposal.id}
-            companyId={p.companies?.id}
-            companyName={p.companies?.company_name ?? ""}
-            initialLogoUrl={p.companies?.logo_url}
-            campaignTitle={p.campaigns?.title}
-            strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
-            existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
-          />
         </div>
 
         <div className="space-y-6">
