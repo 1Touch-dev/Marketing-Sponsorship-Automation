@@ -55,16 +55,16 @@ export function BulkLogoUploader({ proposals }: BulkLogoUploaderProps) {
       try {
         const formData = new FormData();
         formData.append("file", logoFile);
-        formData.append("proposalId", p.id);
-        const res = await fetch("/api/media/upload-asset", { method: "POST", body: formData });
+        // Use the correct per-proposal upload endpoint (also updates companies.logo_url)
+        const res = await fetch(`/api/proposals/${p.id}/upload-asset`, { method: "POST", body: formData });
         if (res.ok) {
           setResults((prev) =>
             prev.map((r) => r.proposalId === p.id ? { ...r, status: "done" } : r)
           );
         } else {
-          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
           setResults((prev) =>
-            prev.map((r) => r.proposalId === p.id ? { ...r, status: "error", message: err.error } : r)
+            prev.map((r) => r.proposalId === p.id ? { ...r, status: "error", message: err.error ?? `HTTP ${res.status}` } : r)
           );
         }
       } catch {
@@ -142,7 +142,10 @@ export function BulkLogoUploader({ proposals }: BulkLogoUploaderProps) {
                   {r.status === "done" && <CheckCircle2 className="h-3 w-3 text-green-600" />}
                   {r.status === "error" && <XCircle className="h-3 w-3 text-red-500" />}
                   <span className={r.status === "error" ? "text-red-600" : r.status === "done" ? "text-green-700" : "text-blue-600"}>
-                    {r.proposalTitle} {r.status === "error" ? `— ${r.message}` : ""}
+                    {r.proposalTitle}{" "}
+                    {r.status === "done" && "— ✓ Done"}
+                    {r.status === "uploading" && "— Uploading…"}
+                    {r.status === "error" && `— ${r.message ?? "Upload failed"}`}
                   </span>
                 </div>
               ))}
