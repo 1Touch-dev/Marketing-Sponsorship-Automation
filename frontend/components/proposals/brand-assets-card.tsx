@@ -19,6 +19,8 @@ interface BrandAssetsCardProps {
   hasLogo: boolean;
   strategyVariants?: StrategyVariant[] | null;
   campaignTitle?: string;
+  /** Called with the uploaded file URL when a new logo is successfully uploaded */
+  onLogoUploaded?: (url: string) => void;
 }
 
 export function BrandAssetsCard({
@@ -28,6 +30,7 @@ export function BrandAssetsCard({
   hasLogo: initialHasLogo,
   strategyVariants,
   campaignTitle,
+  onLogoUploaded,
 }: BrandAssetsCardProps) {
   const [hasLogo, setHasLogo] = useState(initialHasLogo);
   const [autoGenerating, setAutoGenerating] = useState(false);
@@ -37,6 +40,8 @@ export function BrandAssetsCard({
     async (asset: UploadedAsset) => {
       const wasLogoMissing = !hasLogo;
       setHasLogo(true);
+      // Notify parent so ProposalGraphicsPanel's sponsorLogoUrl updates immediately
+      onLogoUploaded?.(asset.url);
 
       // Auto-trigger campaign image generation if this is the first logo upload
       if (wasLogoMissing && strategyVariants && strategyVariants.length > 0) {
@@ -66,7 +71,7 @@ export function BrandAssetsCard({
         }
       }
     },
-    [hasLogo, proposalId, companyName, strategyVariants],
+    [hasLogo, proposalId, companyName, strategyVariants, onLogoUploaded],
   );
 
   return (

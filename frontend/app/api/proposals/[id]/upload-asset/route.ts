@@ -15,7 +15,11 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 
-  const { data: proposal } = await sb.from("proposals").select("id").eq("id", id).maybeSingle();
+  const { data: proposal } = await sb
+    .from("proposals")
+    .select("id, company_id")
+    .eq("id", id)
+    .maybeSingle();
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
   let formData: FormData;
@@ -72,6 +76,21 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   existingAssets.push({ url, name: file.name, path });
   await sb.from("proposals").update({ content: { ...content, uploaded_assets: existingAssets } }).eq("id", id);
 
+  // Also update companies.logo_url so the graphics panel can see the logo
+  // immediately (the panel reads from company record, not uploaded_assets).
+  const companyId = (proposal as { company_id?: string | null }).company_id;
+  if (companyId) {
+    const { data: company } = await sb
+      .from("companies")
+      .select("logo_url")
+      .eq("id", companyId)
+      .maybeSingle();
+    // Only write if not already set — first uploaded logo wins as the primary logo
+    if (!company?.logo_url) {
+      await sb.from("companies").update({ logo_url: url }).eq("id", companyId);
+    }
+  }
+
   await recordAudit({
     entity_type: "proposal",
     entity_id: id,
@@ -79,5 +98,5 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     metadata: { file_name: file.name, url },
   });
 
-  return NextResponse.json({ url, path, name: file.name }, { status: 201 });
+  return NextResponse.json({ url, path, name: file.name, company_logo_updated: !!(companyId) }, { status: 201 });
 }

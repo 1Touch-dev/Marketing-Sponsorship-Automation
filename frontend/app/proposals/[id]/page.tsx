@@ -15,9 +15,8 @@ import { ProposalLandingPage } from "@/components/proposals/proposal-landing-pag
 import { ProposalShareButton } from "./proposal-share-button";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
-import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-panel";
+import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
-import { BrandAssetsCard } from "@/components/proposals/brand-assets-card";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { ProposalPackages } from "@/components/proposals/proposal-packages";
 import type { ProposalContent } from "@/types/database";
@@ -338,35 +337,15 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             </Card>
           )}
 
-          {/* Campaign image generator — creates creative visuals per strategy */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <span className="text-lg">🖼</span> Visuais da proposta
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Mockup de camisa, criativos de campanha, seleção de imagem e vínculo a estratégias — aparece na landing do patrocinador.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ProposalGraphicsPanel
-                proposalId={proposal.id}
-                companyId={p.companies?.id}
-                companyName={p.companies?.company_name ?? ""}
-                sponsorLogoUrl={p.companies?.logo_url}
-                campaignTitle={p.campaigns?.title}
-                strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
-              />
-            </CardContent>
-          </Card>
-
-          <BrandAssetsCard
+          {/* Brand Assets + Graphics Panel — shared logo state via wrapper */}
+          <ProposalBrandGraphicsWrapper
             proposalId={proposal.id}
+            companyId={p.companies?.id}
             companyName={p.companies?.company_name ?? ""}
-            existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
-            hasLogo={hasLogo}
-            strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
+            initialLogoUrl={p.companies?.logo_url}
             campaignTitle={p.campaigns?.title}
+            strategyVariants={(p.strategy_variants ?? null) as StrategyVariant[] | null}
+            existingAssets={((p.content as unknown as { uploaded_assets?: Array<{ url: string; name: string; path: string }> })?.uploaded_assets) ?? []}
           />
         </div>
 
