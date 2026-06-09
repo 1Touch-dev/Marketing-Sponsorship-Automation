@@ -32,6 +32,7 @@ const VARIANT_MAP: Record<string, "default" | "secondary" | "success" | "warning
   bounced: "destructive",
   failed: "destructive",
   // companies
+  competitor: "destructive",
   prospect: "outline",
   active: "success",
   paused: "warning",

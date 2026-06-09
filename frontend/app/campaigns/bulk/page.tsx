@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
 import {
   Loader2, Zap, CheckCircle2, XCircle, Building2, FileText,
-  ArrowRight, Search, X, Users,
+  ArrowRight, Search, X, Users, AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -49,7 +49,18 @@ type FoundCompany = {
   company_name: string;
   industry: string | null;
   website: string | null;
+  contact_email: string | null;
+  contact_name: string | null;
 };
+
+/** Check which required fields are missing for a company */
+function getMissingFields(c: FoundCompany): string[] {
+  const missing: string[] = [];
+  if (!c.industry) missing.push("Industry");
+  if (!c.website) missing.push("Website");
+  if (!c.contact_email) missing.push("Contact email");
+  return missing;
+}
 
 type BulkResult = {
   company_id: string;
@@ -70,6 +81,12 @@ export default function BulkCampaignsPage() {
   const [foundCompanies, setFoundCompanies] = useState<FoundCompany[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
+  const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
+
+  // Data completeness
+  const incompleteSelected = foundCompanies
+    .filter((c) => selectedIds.has(c.id) && getMissingFields(c).length > 0);
+  const [confirmedIncomplete, setConfirmedIncomplete] = useState(false);
 
   // Generation
   const [objective, setObjective] = useState("brand awareness and fan engagement");
@@ -100,6 +117,7 @@ export default function BulkCampaignsPage() {
       }
       const companies: FoundCompany[] = Array.isArray(j) ? j : (j.data ?? []);
       setFoundCompanies(companies);
+      setConfirmedIncomplete(false);
       if (companies.length === 0) {
         toast({ variant: "destructive", title: "No companies found", description: "Try a different industry or name." });
       }
@@ -275,10 +293,52 @@ export default function BulkCampaignsPage() {
               </div>
             )}
 
+            {/* Data completeness warning */}
+            {selectedIds.size > 0 && incompleteSelected.length > 0 && !confirmedIncomplete && (
+              <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800">
+                    <strong>{incompleteSelected.length} of {selectedIds.size} selected companies</strong> have missing data — AI output may be generic.
+                  </div>
+                </div>
+                <div className="space-y-1 max-h-28 overflow-y-auto">
+                  {incompleteSelected.map((c) => (
+                    <div key={c.id} className="flex items-center gap-2 text-xs">
+                      <span className="font-medium text-amber-900 truncate">{c.company_name}</span>
+                      <span className="text-amber-600 shrink-0">
+                        missing: {getMissingFields(c).join(", ")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmedIncomplete(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                  >
+                    Continue anyway
+                  </button>
+                  <button
+                    onClick={() => setShowIncompleteOnly(!showIncompleteOnly)}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 hover:bg-amber-100"
+                  >
+                    {showIncompleteOnly ? "Show all" : "Show incomplete only"}
+                  </button>
+                </div>
+              </div>
+            )}
+            {selectedIds.size > 0 && incompleteSelected.length > 0 && confirmedIncomplete && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded-lg border border-amber-200 px-3 py-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Generating with {incompleteSelected.length} incomplete compan{incompleteSelected.length > 1 ? "ies" : "y"} — output may be generic.
+              </div>
+            )}
+
             <Button
               className="w-full gap-2 mt-2"
               onClick={run}
-              disabled={loading}
+              disabled={loading || (selectedIds.size > 0 && incompleteSelected.length > 0 && !confirmedIncomplete)}
             >
               {loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Gerando…</>
@@ -335,31 +395,42 @@ export default function BulkCampaignsPage() {
               <CardContent className="p-0">
                 {foundCompanies.length > 0 ? (
                   <div className="divide-y max-h-[420px] overflow-y-auto">
-                    {foundCompanies.map((c) => (
-                      <label
-                        key={c.id}
-                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-accent ${
-                          selectedIds.has(c.id) ? "bg-green-50 dark:bg-green-950/20" : ""
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="rounded"
-                          checked={selectedIds.has(c.id)}
-                          onChange={() => toggleSelect(c.id)}
-                        />
-                        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{c.company_name}</p>
-                          {c.industry && (
-                            <p className="text-xs text-muted-foreground truncate">{c.industry}</p>
+                    {foundCompanies
+                      .filter((c) => !showIncompleteOnly || getMissingFields(c).length > 0)
+                      .map((c) => {
+                        const missing = getMissingFields(c);
+                        return (
+                        <label
+                          key={c.id}
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors hover:bg-accent ${
+                            selectedIds.has(c.id) ? "bg-green-50 dark:bg-green-950/20" : ""
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded"
+                            checked={selectedIds.has(c.id)}
+                            onChange={() => toggleSelect(c.id)}
+                          />
+                          <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{c.company_name}</p>
+                            {c.industry && (
+                              <p className="text-xs text-muted-foreground truncate">{c.industry}</p>
+                            )}
+                            {missing.length > 0 && (
+                              <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1">
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                Missing: {missing.join(", ")}
+                              </p>
+                            )}
+                          </div>
+                          {selectedIds.has(c.id) && (
+                            <Badge variant="default" className="text-xs bg-green-600">✓</Badge>
                           )}
-                        </div>
-                        {selectedIds.has(c.id) && (
-                          <Badge variant="default" className="text-xs bg-green-600">✓</Badge>
-                        )}
-                      </label>
-                    ))}
+                        </label>
+                        );
+                      })}
                   </div>
                 ) : (
                   <p className="px-4 py-6 text-sm text-muted-foreground text-center">

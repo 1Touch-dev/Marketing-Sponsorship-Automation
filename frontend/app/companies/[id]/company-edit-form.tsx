@@ -131,7 +131,7 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
         <div className="space-y-1.5">
           <Label htmlFor="status">Status</Label>
           <select id="status" name="status" defaultValue={(company.status as string) || "prospect"} className={selectCls}>
-            {["prospect", "active", "paused", "closed"].map((s) => <option key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+            {["competitor", "prospect", "active", "paused", "closed"].map((s) => <option key={s} value={s} className="capitalize">{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
           </select>
         </div>
         <div className="space-y-1.5">

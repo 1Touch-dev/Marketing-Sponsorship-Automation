@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Zap, Building2, TrendingUp, Loader2, Package, RefreshCw,
+  Zap, Building2, TrendingUp, Loader2, Package, RefreshCw, Plus, CheckCircle2,
 } from "lucide-react";
 
 type DiscoveredCompetitor = {
@@ -54,12 +54,33 @@ type Props = {
 
 type ActivePanel = "discover" | "industry" | "goods" | null;
 
+/** Save a discovered competitor/brand to the companies table with status=competitor */
+async function saveToCompanies(name: string, domain?: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  try {
+    const res = await fetch("/api/companies", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        company_name: name,
+        website: domain ? (domain.startsWith("http") ? domain : `https://${domain}`) : null,
+        status: "competitor",
+        pipeline_stage: "competitor",
+        notes: "Added automatically from competitor intelligence discovery.",
+      }),
+    });
+    const d = await res.json();
+    if (!res.ok) return { ok: false, error: d.error ?? "Save failed" };
+    return { ok: true, id: d.data?.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
 export function ApifyDiscoveryPanel({ companyId, companyName, industry, website, existingIntelligence }: Props) {
   const router = useRouter();
   const [active, setActive] = useState<ActivePanel>(null);
   const [loading, setLoading] = useState(false);
 
-  // Hydrate from saved data — reads competitor_discovery.data from full_intelligence
   const savedDiscovery = existingIntelligence?.competitor_discovery
     ? ((existingIntelligence.competitor_discovery as Record<string, unknown>).data as DiscoveryResult)
     : null;
@@ -71,8 +92,10 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
   const [goodsQuery, setGoodsQuery] = useState("");
   const [goodsResult, setGoodsResult] = useState<GoodsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Track which names were already saved to avoid duplication
+  const [savedNames, setSavedNames] = useState<Set<string>>(new Set());
+  const [savingName, setSavingName] = useState<string | null>(null);
 
-  // Auto-expand to results tab if we have saved data
   React.useEffect(() => {
     if (savedDiscovery && active === null) setActive("discover");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,7 +112,6 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
       const d = await res.json() as DiscoveryResult & { error?: string };
       if (!res.ok) throw new Error(d.error ?? "Discovery failed");
       setDiscoveryResult(d);
-      // Refresh server component so persisted data is re-read on next load
       router.refresh();
     } catch (e) { setError(e instanceof Error ? e.message : "Failed"); setActive(null); }
     finally { setLoading(false); }
@@ -128,23 +150,53 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
     finally { setLoading(false); }
   }
 
+  async function handleSaveCompany(name: string, domain?: string) {
+    setSavingName(name);
+    const result = await saveToCompanies(name, domain);
+    if (result.ok) {
+      setSavedNames((prev) => new Set([...prev, name]));
+      router.refresh();
+    } else {
+      setError(`Failed to save "${name}": ${result.error}`);
+    }
+    setSavingName(null);
+  }
+
+  const SaveButton = ({ name, domain }: { name: string; domain?: string }) => {
+    const isSaved = savedNames.has(name);
+    const isSaving = savingName === name;
+    if (isSaved) {
+      return (
+        <span className="flex items-center gap-1 text-[10px] text-green-700 font-medium">
+          <CheckCircle2 className="h-3 w-3" /> Saved
+        </span>
+      );
+    }
+    return (
+      <button
+        onClick={() => handleSaveCompany(name, domain)}
+        disabled={isSaving}
+        className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-slate-300 hover:border-indigo-400 hover:text-indigo-700 transition-colors disabled:opacity-50"
+      >
+        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+        Add to Companies
+      </button>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      {/* Saved indicator — shows when results are loaded from DB */}
       {savedDiscovery && (
         <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
           <span className="font-medium">✓ Saved to database</span>
           {(() => {
             const cachedAt = (existingIntelligence?.competitor_discovery as Record<string,unknown>)?.cached_at;
             if (!cachedAt) return null;
-            return (
-              <span className="text-emerald-600/70 ml-auto">
-                Last run: {new Date(String(cachedAt)).toLocaleDateString()}
-              </span>
-            );
+            return <span className="text-emerald-600/70 ml-auto">Last run: {new Date(String(cachedAt)).toLocaleDateString()}</span>;
           })()}
         </div>
       )}
+
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant={discoveryResult ? "outline" : "default"} onClick={() => runDiscovery(false)} disabled={loading} className="gap-1.5">
@@ -178,7 +230,6 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
-      {/* Loading state */}
       {loading && (
         <div className="flex items-center gap-3 p-4 rounded-xl border bg-muted/30">
           <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
@@ -189,7 +240,6 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
         </div>
       )}
 
-      {/* Tab selector when results exist */}
       {(discoveryResult || industryResult || goodsResult) && !loading && (
         <div className="flex gap-1 flex-wrap">
           {discoveryResult && <button onClick={() => setActive("discover")} className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${active === "discover" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"}`}>Competitors ({discoveryResult.competitors?.length ?? 0})</button>}
@@ -201,20 +251,26 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
       {/* Competitor Discovery Results */}
       {active === "discover" && discoveryResult && !loading && (
         <div className="space-y-3">
-          <Badge variant={discoveryResult.apify_used ? "default" : "secondary"} className="text-[10px]">
-            {discoveryResult.apify_used ? "⚡ Live Apify + AI" : "🤖 AI analysis only"}
-          </Badge>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={discoveryResult.apify_used ? "default" : "secondary"} className="text-[10px]">
+              {discoveryResult.apify_used ? "⚡ Live Apify + AI" : "🤖 AI analysis only"}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground">
+              Click &quot;Add to Companies&quot; to save a competitor with status = <strong>competitor</strong>
+            </span>
+          </div>
           {(discoveryResult.competitors ?? []).map((c, i) => (
             <div key={i} className="rounded-lg border bg-card p-3 space-y-1.5">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                  <span className="font-medium text-sm">{c.name}</span>
-                  {c.domain && <span className="text-[10px] text-muted-foreground">{c.domain}</span>}
+                  <span className="font-medium text-sm truncate">{c.name}</span>
+                  {c.domain && <span className="text-[10px] text-muted-foreground shrink-0">{c.domain}</span>}
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <Badge variant="outline" className="text-[9px] capitalize">{c.relationship?.replace(/_/g, " ")}</Badge>
                   <Badge variant="outline" className="text-[9px] capitalize">{c.geographic_reach}</Badge>
+                  <SaveButton name={c.name} domain={c.domain} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">{c.why_relevant}</p>
@@ -257,6 +313,7 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
                 <span className="font-medium text-sm">{b.name}</span>
                 {b.domain && <span className="text-[10px] text-muted-foreground">{b.domain}</span>}
                 {b.sponsorship_active && <Badge variant="outline" className="text-[9px] border-green-300 text-green-700">Active sponsor</Badge>}
+                <span className="ml-auto"><SaveButton name={b.name} domain={b.domain} /></span>
               </div>
               <p className="text-xs text-muted-foreground">{b.why_interesting ?? b.why_good_prospect}</p>
               <div className="flex gap-3 text-[10px] text-muted-foreground mt-1">
@@ -288,6 +345,7 @@ export function ApifyDiscoveryPanel({ companyId, companyName, industry, website,
                 <span className="font-medium text-sm">{c.name}</span>
                 {c.domain && <span className="text-[10px] text-muted-foreground">{c.domain}</span>}
                 {c.barter_potential && <Badge variant="outline" className="text-[9px] border-amber-300 text-amber-700">Barter ↔</Badge>}
+                <span className="ml-auto"><SaveButton name={c.name} domain={c.domain} /></span>
               </div>
               <p className="text-xs text-muted-foreground">{c.products_services}</p>
               <p className="text-xs">{c.why_good_prospect ?? c.why_interesting}</p>

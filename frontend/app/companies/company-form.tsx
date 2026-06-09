@@ -132,6 +132,7 @@ export function CompanyForm() {
         <div className="space-y-1.5">
           <Label htmlFor="pipeline_stage">Pipeline Stage</Label>
           <select id="pipeline_stage" name="pipeline_stage" className={selectCls} defaultValue="prospect">
+            <option value="competitor">Competitor (tracking only)</option>
             <option value="prospect">Prospect</option>
             <option value="qualified">Qualified</option>
             <option value="contacted">Contacted</option>

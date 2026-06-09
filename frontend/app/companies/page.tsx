@@ -116,6 +116,7 @@ export default async function CompaniesPage({
             className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
           >
             <option value="">All statuses</option>
+            <option value="competitor">competitor</option>
             <option value="active">active</option>
             <option value="prospect">prospect</option>
             <option value="paused">paused</option>
