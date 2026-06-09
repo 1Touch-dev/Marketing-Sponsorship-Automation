@@ -295,7 +295,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                     <img
                       src={img.url}
                       alt={img.prompt ?? `Generated visual ${idx + 1}`}
-                      className="w-full object-cover"
+                      className="w-full object-contain bg-slate-50"
                       style={{ maxHeight: 220 }}
                     />
                     {img.job_type && (
