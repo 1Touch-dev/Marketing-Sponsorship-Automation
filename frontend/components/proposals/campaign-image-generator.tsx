@@ -30,8 +30,20 @@ function buildPromptForStrategy(
 ): string {
   const activations = strategy.key_activations?.slice(0, 2).join(" and ") ?? "stadium activation";
   const tagline = strategy.tagline ? `Tagline: "${strategy.tagline}". ` : "";
-  const logoNote = logoUrl ? `The sponsor logo is available and should be placed prominently. ` : "";
-  return `Professional Brazilian sports marketing campaign visual for ${companyName} sponsoring Coritiba FC (green and white club from Curitiba, Brazil, founded 1909). ${tagline}Strategy: "${strategy.label}". Activation: ${activations}. Scene: Estádio Couto Pereira stadium atmosphere during match day with 40,000 passionate fans. ${logoNote}${companyName} brand prominently integrated into Coritiba FC's iconic green and white color scheme. Modern advertising photography, cinematic lighting, 16:9 widescreen format, high quality commercial visual.`;
+  const logoNote = logoUrl
+    ? `${companyName} brand logo clearly visible on Coritiba FC jersey and stadium advertising boards. `
+    : `${companyName} brand name prominently displayed on jersey and stadium signage. `;
+  return (
+    `Photorealistic sports marketing campaign image: ${companyName} sponsors Coritiba FC football club ` +
+    `(dark green and white kit, Estádio Couto Pereira, Curitiba, Brazil). ` +
+    `${tagline}` +
+    `Campaign concept: "${strategy.label}". ` +
+    `Key activations: ${activations}. ` +
+    `Scene: packed stadium, match day atmosphere, 40,000 fans in green and white, golden broadcast lighting, ` +
+    `massive LED advertising boards showing "${companyName}" branding. ` +
+    `${logoNote}` +
+    `Cinematic 16:9 widescreen, commercial advertising photography quality, high contrast, vibrant colors.`
+  );
 }
 
 export function CampaignImageGenerator({
@@ -60,8 +72,18 @@ export function CampaignImageGenerator({
         });
       }
     } else {
+      const logoNote = uploadedLogoUrl
+        ? `${companyName} logo clearly shown on Coritiba FC jersey and advertising boards. `
+        : `${companyName} brand name displayed on jersey and stadium signage. `;
       prompts.push({
-        prompt: `Professional sports marketing campaign creative for ${companyName} × Coritiba FC sponsorship. ${campaignTitle ?? "Stadium activation"}. Estádio Couto Pereira in Curitiba, Brazil, with 40,000 passionate fans. Green and white team colors, exciting match atmosphere, sponsor branding integrated naturally. High-quality advertising photography, 16:9 format.`,
+        prompt:
+          `Photorealistic sports marketing campaign image: ${companyName} sponsors Coritiba FC ` +
+          `(dark green and white football kit, Estádio Couto Pereira, Curitiba, Brazil). ` +
+          `${campaignTitle ? `Campaign: "${campaignTitle}". ` : ""}` +
+          `Packed stadium with 40,000 fans, match day golden broadcast lighting, ` +
+          `giant LED advertising boards showing "${companyName}" branding. ` +
+          `${logoNote}` +
+          `Cinematic 16:9 widescreen, high-quality commercial advertising photography.`,
         job_type: "campaign_creative",
       });
     }
@@ -93,7 +115,7 @@ export function CampaignImageGenerator({
             prompt: p.prompt,
             job_type: p.job_type,
             proposal_id: proposalId || undefined,
-            size: "1792x1024",
+            size: "1536x1024",
             quality: "standard",
             triggered_by: "campaign_generator",
             strategy_variant_id: strategyId,

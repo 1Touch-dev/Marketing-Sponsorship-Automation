@@ -72,13 +72,33 @@ async function fetchLogoBuffer(url: string): Promise<Buffer | null> {
       signal: AbortSignal.timeout(12_000),
       headers: { "User-Agent": "Coritiba-Sponsorship-Platform/1.0" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[jersey-composite] Logo fetch failed: HTTP ${res.status} for ${url}`);
+      return null;
+    }
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 100) return null;
+    if (buf.length < 100) {
+      console.warn(`[jersey-composite] Logo buffer too small (${buf.length} bytes) — falling back to text`);
+      return null;
+    }
     return buf;
-  } catch {
+  } catch (err) {
+    console.warn(`[jersey-composite] Logo fetch error: ${err instanceof Error ? err.message : err}`);
     return null;
   }
+}
+
+/**
+ * Build a white badge SVG that wraps around the logo image so it is always
+ * visible on the dark green jersey fabric.
+ */
+function buildLogoBadgeSvg(zoneW: number, zoneH: number): string {
+  return `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" rx="5"
+      fill="rgba(255,255,255,0.92)"/>
+    <rect x="0" y="${zoneH - 2}" width="${zoneW}" height="2" rx="0"
+      fill="rgba(18,58,30,0.5)"/>
+  </svg>`;
 }
 
 export type CompositeJerseyInput = {
@@ -124,21 +144,36 @@ export async function compositeJerseyMockup(
   const zoneW = Math.max(40, Math.round(zone.w * imgW));
   const zoneH = Math.max(24, Math.round(zone.h * imgH));
 
-  let overlay: sharp.Sharp;
+  let overlayPng: Buffer;
   let usedLogo = false;
 
   const logoBuf = input.sponsorLogoUrl ? await fetchLogoBuffer(input.sponsorLogoUrl) : null;
   if (logoBuf) {
-    overlay = sharp(logoBuf).resize(zoneW, zoneH, {
-      fit: "contain",
-      background: { r: 255, g: 255, b: 255, alpha: 0 },
-    });
+    // Add a white badge background so the logo is always visible on the dark green jersey.
+    // 8px inner padding: logo occupies center with whitespace around it.
+    const padPx = 8;
+    const logoW = Math.max(20, zoneW - padPx * 2);
+    const logoH = Math.max(14, zoneH - padPx * 2);
+
+    const badgeSvg = Buffer.from(buildLogoBadgeSvg(zoneW, zoneH));
+
+    const logoResized = await sharp(logoBuf)
+      .resize(logoW, logoH, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+      .png()
+      .toBuffer();
+
+    // Composite logo on top of white badge
+    overlayPng = await sharp(badgeSvg)
+      .composite([{ input: logoResized, left: padPx, top: padPx }])
+      .png()
+      .toBuffer();
+
     usedLogo = true;
   } else {
-    overlay = sharp(buildTextOverlaySvg(input.sponsorName, zoneW, zoneH));
+    overlayPng = await sharp(buildTextOverlaySvg(input.sponsorName, zoneW, zoneH))
+      .png()
+      .toBuffer();
   }
-
-  const overlayPng = await overlay.png().toBuffer();
 
   const buffer = await base
     .composite([{ input: overlayPng, left, top }])
