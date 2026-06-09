@@ -1063,15 +1063,21 @@ If you want this saved as a file in the repo (e.g. `MANUAL_TEST_ALL.md`), say th
 
 ### 21.1 Migration status (`/api/internal/migration-status`)
 
-1. Navigate to `/api/internal/migration-status`
-2. ✅ **PASS:** JSON response listing applied migrations with timestamps
-3. ✅ **PASS:** All critical migrations show `applied: true`
+> **Note:** This endpoint requires the `MSA_INTERNAL_WEBHOOK_SECRET` header. It is **not** browser-navigable and returns **403 Forbidden** without the secret. This is correct, expected behaviour — it is an internal admin tool.
+> To test it, use Settings → scroll to **Database migration status** section which shows the same information via the UI.
+
+1. Go to `/settings`
+2. Scroll to **Database migration status**
+3. ✅ **PASS:** All migration rows show green ✓ with migration numbers
+4. ❌ **FAIL if:** Any row shows red ✗ or "pending"
+
+> **Browser API test**: Navigating to `/api/internal/migration-status` in a browser will always return **403** — this is correct security behaviour, not a bug.
 
 ### 21.2 System health (`/api/system/health`)
 
 1. Navigate to `/api/system/health`
 2. ✅ **PASS:** JSON with all service checks — database, storage, etc.
-3. ✅ **PASS:** `status: "ok"` at top level
+3. ✅ **PASS:** `status: "ok"` or `status: "healthy"` at top level (both are valid)
 
 ### 21.3 System status (`/api/system/status`)
 
@@ -1242,7 +1248,7 @@ FOLLOW-UPS AGENT
 [ ] 20.2 Follow-up from proposal page
 
 ADMIN TOOLS
-[ ] 21.1 /api/internal/migration-status
+[ ] 21.1 /settings → migration status rows all green ✓ (NOT /api/internal/migration-status — that requires secret header)
 [ ] 21.2 /api/system/health
 [ ] 21.3 /api/system/status
 

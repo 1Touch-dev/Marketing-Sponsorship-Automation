@@ -68,9 +68,13 @@ export function OutreachAgentPanel({
   const [expanded, setExpanded] = useState(false);
   const [approving, setApproving] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Tracks the server-assigned run ID immediately from the response header,
+  // before the first SSE "started" event updates panelState.run_id.
+  const runIdRef = useRef<string>("");
 
   const startAgent = useCallback(async () => {
     abortRef.current = new AbortController();
+    runIdRef.current = "";
     setPanelState({ phase: "running", run_id: "", steps: [], company_name: companyName });
     setExpanded(true);
 
@@ -89,6 +93,8 @@ export function OutreachAgentPanel({
       }
 
       const runId = response.headers.get("X-Agent-Run-Id") ?? "";
+      // Store in ref immediately so cancelRun can use it even before SSE fires
+      runIdRef.current = runId;
       const reader = response.body?.getReader();
       if (!reader) return;
 
@@ -190,15 +196,19 @@ export function OutreachAgentPanel({
 
   const cancelRun = async () => {
     abortRef.current?.abort();
+    // Prefer the ref (set immediately from response header) over panelState.run_id
+    // which may still be "" if the SSE "started" event hasn't fired yet.
     const runId =
-      panelState.phase === "running"
+      runIdRef.current ||
+      (panelState.phase === "running"
         ? panelState.run_id
         : panelState.phase === "paused_proposal" || panelState.phase === "paused_email"
           ? panelState.run_id
-          : null;
+          : null);
     if (runId) {
-      await fetch(`/api/agents/outreach/${runId}`, { method: "DELETE" });
+      await fetch(`/api/agents/outreach/${runId}`, { method: "DELETE" }).catch(() => {/* ignore network errors on cancel */});
     }
+    runIdRef.current = "";
     setPanelState({ phase: "idle" });
   };
 
@@ -263,7 +273,10 @@ export function OutreachAgentPanel({
     }
   };
 
-  const resetPanel = () => setPanelState({ phase: "idle" });
+  const resetPanel = () => {
+    runIdRef.current = "";
+    setPanelState({ phase: "idle" });
+  };
 
   const steps = "steps" in panelState ? panelState.steps : [];
   const isRunning = panelState.phase === "running";
