@@ -118,10 +118,14 @@ export default async function SettingsPage({
   const gmailConnected = !!(tokens?.access_token && tokens?.refresh_token);
   const connectedEmail = tokens?.connected_email ?? (gmailConnected ? configuredSender : null);
   const expiresAt = tokens?.expiry_date ? new Date(tokens.expiry_date).toLocaleString() : null;
-  const isTokenExpired = tokens?.expiry_date ? tokens.expiry_date < Date.now() : false;
-  const isTokenExpiringSoon = tokens?.expiry_date
-    ? tokens.expiry_date < Date.now() + 7 * 24 * 60 * 60 * 1000 && !isTokenExpired
+  // Access tokens naturally expire every ~1 hour — that is normal OAuth behaviour.
+  // We only consider the connection broken if the access token has expired AND there
+  // is no refresh_token to renew it automatically.
+  const isTokenExpired = tokens?.expiry_date
+    ? tokens.expiry_date < Date.now() && !tokens?.refresh_token
     : false;
+  // Only warn "expiring soon" if there is NO refresh token — otherwise auto-refresh handles it.
+  const isTokenExpiringSoon = false;
 
   // Mismatch warning — connected account differs from configured sender
   const senderMismatch =
@@ -235,12 +239,15 @@ export default async function SettingsPage({
                 {configuredSender && (
                   <div className="text-muted-foreground">Configured sender: {configuredSender}</div>
                 )}
-                {expiresAt && (
-                  <div className={`text-xs ${isTokenExpired ? "text-red-600 font-semibold" : isTokenExpiringSoon ? "text-amber-600" : "text-muted-foreground"}`}>
-                    Token {isTokenExpired ? "EXPIRED" : isTokenExpiringSoon ? "expires soon" : "expires"}: {expiresAt}
-                    {isTokenExpired && " — Emails may be silently failing. Reconnect now!"}
+                {tokens?.refresh_token ? (
+                  <div className="text-xs text-emerald-600 font-medium">
+                    ✓ Refresh token stored — connection auto-renews every hour
                   </div>
-                )}
+                ) : expiresAt ? (
+                  <div className={`text-xs ${isTokenExpired ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
+                    Token {isTokenExpired ? "EXPIRED — reconnect now!" : `valid until ${expiresAt}`}
+                  </div>
+                ) : null}
               </div>
             ) : configuredSender ? (
               <div className="text-muted-foreground">Sender: {configuredSender}</div>
