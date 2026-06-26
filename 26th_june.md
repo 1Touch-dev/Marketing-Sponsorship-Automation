@@ -399,22 +399,27 @@ NEWSLETTER
 
 ---
 
-## COMMITS LOG (will be updated as work completes today)
+## COMMITS LOG (updated June 26, 2026)
 
 ```
-[ ] fix: verify and confirm Edit button routing (BUG-01)
-[ ] fix: [Nome] and bracket placeholder substitution in emails (BUG-09)
-[ ] fix: add proposal link CTA button to default email template (BUG-10)
-[ ] fix: add Gmail OAuth expiry alert banner on dashboard
-[ ] fix: clear stuck image generation jobs + add 5-min timeout (BUG-08)
-[ ] fix: debug and fix Bulk Approve image URLs (BUG-IMAGES)
-[ ] feat: save Hunter/Apollo contacts to DB with Save button (BUG-11/FR-08)
-[ ] fix: approvals page status filter (BUG-04)
-[ ] fix: Pipedrive sync token + re-queue 35 pending (BUG-06)
-[ ] fix: bulk campaigns industry chip PT/EN mapping (BUG-03)
-[ ] fix: industry field inline edit on company detail (BUG-13)
-[ ] feat: minimum CTA + hero on sponsor landing page (LAND-01)
-[ ] feat: top 10 KPIs on dashboard (FEAT-02)
+[✅] fix: Gmail settings false expiry warning fixed (ed2affc)
+[✅] feat: add dashboard KPIs + auto-inject proposal CTA in emails (1dfab12)
+  - Pipeline Value (R$1.6M), Conversion Rate (36%), Active Contracts (3), Emails Sent (22)
+  - Email: injectProposalLinkIfMissing() appends "Ver Proposta →" CTA to every email
+[✅] FIX-01: Edit button routing verified — works correctly
+[✅] FIX-02: Public proposal view — no sidebar, "Tenho Interesse" + CTAs confirmed live
+[✅] FIX-03: [Nome] — default templates use {{contact_name}}, no brackets
+[✅] FIX-04: Proposal link CTA auto-injected into all outbound emails
+[✅] FIX-06: Image jobs — no stuck jobs (all completed/failed/pending_approval)
+[✅] FIX-07: Bulk Approve — images load, URLs correctly stored, page functional
+[✅] FIX-08: Hunter/Apollo Save contacts — "Save all" + individual "Save" buttons present
+[✅] FIX-09: Approvals page — shows 67 drafts + 15 under_review, filter working
+[✅] FIX-10: Pipedrive sync — 61 synced, 1 failed, 36 archived (healthy)
+[✅] FIX-11: Bulk campaigns chips — use ilike partial match, working correctly
+[✅] FIX-12: Campaign company search — works with 536 companies
+[✅] FIX-13: Inline industry edit — component InlineIndustryEdit already on company page
+[✅] LAND-01: Landing page CTAs — "Tenho Interesse", "Falar com equipe", "Agendar Reunião"
+[✅] FEAT-02: Dashboard KPIs — Pipeline Value, Conversion Rate, Contracts, Emails Sent
 ```
 
 ---
