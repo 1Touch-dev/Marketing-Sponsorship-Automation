@@ -18,7 +18,13 @@ export const dynamic = "force-dynamic";
  * Accessible via: /proposals/view/[token]
  * No authentication required — share_token acts as the access key.
  */
-export default async function PublicProposalViewPage({ params }: { params: { token: string } }) {
+export default async function PublicProposalViewPage({
+  params,
+  searchParams,
+}: {
+  params: { token: string };
+  searchParams?: { v?: string };
+}) {
   const sb = supabaseAdmin();
 
   const { data: proposal } = await sb
@@ -30,6 +36,10 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   if (!proposal) notFound();
 
   if (proposal.status === "rejected") notFound();
+
+  // A/B variant — ?v=B triggers Variant B
+  const variant = searchParams?.v === "B" ? "B" : "A";
+  const ctaText = variant === "B" ? "Quero Saber Mais" : "Tenho Interesse";
 
   const approvedImages = await fetchProposalImagesForLanding(proposal.id);
 
@@ -61,7 +71,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
   return (
     <div className="min-h-screen w-full bg-white pb-24">
       <title>{p.title} — {company?.company_name ?? "Coritiba FC"}</title>
-      <ViewTracker proposalId={p.id} token={params.token} />
+      <ViewTracker proposalId={p.id} token={params.token} variant={variant} />
       {/* ─── Minimal branded header — print:hidden ─── */}
       <div className="sticky top-0 z-[60] w-full bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-3 print:hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -84,7 +94,14 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
               )}
             </div>
           </div>
-          <PrintButton label="Salvar como PDF" />
+          <div className="flex items-center gap-2">
+            {variant === "B" && (
+              <span className="print:hidden inline-flex items-center rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold px-2 py-0.5 border border-indigo-200">
+                Variant B
+              </span>
+            )}
+            <PrintButton label="Salvar como PDF" />
+          </div>
         </div>
       </div>
 
@@ -139,7 +156,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
           className="inline-flex items-center gap-2 rounded-full bg-white text-[#006B3F] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"
         >
           <ThumbsUp className="h-4 w-4" />
-          Tenho Interesse
+          {ctaText}
         </a>
         <a
           href="mailto:patrocinios@coritiba.com.br?subject=Interesse%20em%20Patrocínio%20Coritiba%20FC"

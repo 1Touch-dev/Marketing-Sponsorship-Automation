@@ -171,6 +171,22 @@ export async function generateEmailWithTemplate(args: {
 }
 
 /**
+ * Wraps all external http(s) links with a click-tracking redirect endpoint
+ * so we can record when the recipient clicks a link in the email.
+ * Skips our own tracking endpoints and unsubscribe links.
+ */
+export function wrapLinksForTracking(html: string, emailId: string, appUrl: string): string {
+  if (!emailId || !appUrl) return html;
+  return html.replace(
+    /href="(https?:\/\/[^"]+)"/g,
+    (match, url: string) => {
+      if (url.includes("/api/emails/") || url.includes("/api/newsletter/unsubscribe")) return match;
+      return `href="${appUrl}/api/emails/${emailId}/click?url=${encodeURIComponent(url)}"`;
+    }
+  );
+}
+
+/**
  * Appends a 1x1 tracking pixel just before </body> (or at end) so we can
  * detect when the recipient opens the email.
  */

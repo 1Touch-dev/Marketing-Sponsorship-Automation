@@ -8,6 +8,7 @@ import {
   Cpu, Globe, Key, Zap, Circle,
 } from "lucide-react";
 import { MaintenanceActions } from "./maintenance-actions";
+import { PipedriveSyncButton } from "./pipedrive-sync-button";
 import { getEnvSummary } from "@/lib/env-validation";
 
 export const dynamic = "force-dynamic";
@@ -291,6 +292,33 @@ export default async function SystemMaintenancePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Pipedrive Sync */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Key className="h-4 w-4 text-orange-500" />
+            Pipedrive Sync
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Manually trigger CRM sync: new sent proposals → deals, cold deals → follow-up alerts, expiring contracts → renewal alerts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <PipedriveSyncButton />
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
+            <p className="font-semibold text-slate-700">Automated Scheduling (Cron)</p>
+            <p>
+              For automated hourly sync, set up a cron job to POST to{" "}
+              <code className="font-mono bg-white border rounded px-1 py-0.5">/api/system/pipedrive-sync</code> with:
+            </p>
+            <code className="block font-mono bg-white border rounded px-2 py-1 text-[11px] whitespace-pre-wrap">
+              {`Authorization: Bearer {MSA_INTERNAL_WEBHOOK_SECRET}`}
+            </code>
+            <p className="text-slate-500">Example: <span className="font-mono">0 * * * * curl -X POST https://your-domain/api/system/pipedrive-sync -H &quot;Authorization: Bearer $MSA_INTERNAL_WEBHOOK_SECRET&quot;</span></p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Info */}
       <Card className="border-dashed">

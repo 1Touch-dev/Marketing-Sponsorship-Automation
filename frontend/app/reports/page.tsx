@@ -182,6 +182,35 @@ export default async function ReportsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Data Exports */}
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold mb-2">Data Exports</h2>
+        <p className="text-xs text-muted-foreground mb-3">Download raw data as CSV files for offline analysis or reporting.</p>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["/api/export/companies", "Companies CSV"],
+              ["/api/export/proposals", "Proposals CSV"],
+              ["/api/export/contracts", "Contracts CSV"],
+              ["/api/export/revenue", "Revenue CSV"],
+              ["/api/export/emails", "Email Campaigns CSV"],
+            ] as [string, string][]
+          ).map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              download
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {label}
+            </a>
+          ))}
+        </div>
+      </div>
     </>
   );
 }

@@ -6,12 +6,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const sb = supabaseAdmin();
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token") ?? "";
+  const variant = searchParams.get("variant") ?? "A";
 
   await sb.from("audit_logs").insert({
     action: "proposal.view",
     entity_type: "proposal",
     entity_id: params.id,
-    metadata: { token, user_agent: req.headers.get("user-agent"), timestamp: new Date().toISOString() },
+    metadata: { token, variant, user_agent: req.headers.get("user-agent"), timestamp: new Date().toISOString() },
   });
 
   // Sync to Pipedrive as activity

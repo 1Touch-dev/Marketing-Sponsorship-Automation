@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +26,8 @@ import {
   TrendingUp,
   Image,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Wrench,
   Sparkles,
   Layers,
@@ -128,9 +131,9 @@ const GROUPS: Record<string, string> = {
   system: "System",
 };
 
-function NavLinks({ onClick }: { onClick?: () => void }) {
+function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebarCollapsed?: boolean }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
+  const [groupCollapsed, setGroupCollapsed] = React.useState<Record<string, boolean>>({});
   const { role } = useUserRole();
 
   const groupedItems = NAV.reduce<Record<string, NavItem[]>>((acc, item) => {
@@ -145,22 +148,21 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
     <>
       {Object.entries(GROUPS).map(([group, groupLabel]) => {
         const items = groupedItems[group] || [];
-        const isCollapsed = collapsed[group];
-        const hasActive = items.some((item) =>
-          pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href))
-        );
+        const isGroupCollapsed = groupCollapsed[group];
 
         return (
           <div key={group} className="mb-1">
-            <button
-              type="button"
-              onClick={() => setCollapsed((c) => ({ ...c, [group]: !c[group] }))}
-              className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span>{groupLabel}</span>
-              <ChevronDown className={cn("h-3 w-3 transition-transform", isCollapsed && "-rotate-90")} />
-            </button>
-            {!isCollapsed && (
+            {!sidebarCollapsed && (
+              <button
+                type="button"
+                onClick={() => setGroupCollapsed((c) => ({ ...c, [group]: !c[group] }))}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <span>{groupLabel}</span>
+                <ChevronDown className={cn("h-3 w-3 transition-transform", isGroupCollapsed && "-rotate-90")} />
+              </button>
+            )}
+            {(!isGroupCollapsed || sidebarCollapsed) && (
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const Icon = item.icon;
@@ -172,15 +174,17 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
                       key={item.href}
                       href={item.href}
                       onClick={onClick}
+                      title={sidebarCollapsed ? item.label : undefined}
                       className={cn(
-                        "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                        "flex items-center rounded-md py-1.5 text-sm font-medium transition-colors",
+                        sidebarCollapsed ? "justify-center px-0" : "gap-2 px-3",
                         active
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
-                      {item.label}
+                      {!sidebarCollapsed && <span>{item.label}</span>}
                     </Link>
                   );
                 })}
@@ -233,26 +237,64 @@ function CurrentUserBadge() {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("sidebar-collapsed") === "true";
+    return false;
+  });
+  const toggle = () => setCollapsed(c => { const n = !c; localStorage.setItem("sidebar-collapsed", String(n)); return n; });
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
-    <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-card overflow-hidden">
-      <div className="px-5 py-4 border-b flex-shrink-0">
-        <div className="text-sm font-bold tracking-tight text-foreground">Coritiba FC</div>
-        <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Commercial Intelligence</div>
+    <aside
+      className={cn(
+        "hidden md:flex md:flex-col border-r bg-card overflow-hidden transition-all duration-200",
+        collapsed ? "md:w-[60px]" : "md:w-60"
+      )}
+    >
+      <div className={cn("px-5 py-4 border-b flex-shrink-0", collapsed && "px-2 flex justify-center")}>
+        {collapsed ? (
+          <div className="h-5 w-5 flex items-center justify-center">
+            <Trophy className="h-4 w-4 text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <div className="text-sm font-bold tracking-tight text-foreground">Coritiba FC</div>
+            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Commercial Intelligence</div>
+          </>
+        )}
       </div>
-      <div className="px-3 py-2 border-b flex-shrink-0">
-        <GlobalSearchCompact />
-      </div>
-      <nav className="flex-1 min-h-0 px-3 py-3 space-y-0.5 overflow-y-auto">
-        <NavLinks />
-      </nav>
-      <CurrentUserBadge />
-      <div className="px-3 py-2 border-t flex items-center justify-between gap-2 flex-shrink-0">
-        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
-          Platform v2.0 · Live
+      {!collapsed && (
+        <div className="px-3 py-2 border-b flex-shrink-0">
+          <GlobalSearchCompact />
         </div>
-        <LangToggle />
+      )}
+      <nav className={cn("flex-1 min-h-0 py-3 space-y-0.5 overflow-y-auto", collapsed ? "px-1" : "px-3")}>
+        <NavLinks sidebarCollapsed={collapsed} />
+      </nav>
+      {!collapsed && <CurrentUserBadge />}
+      <div className={cn("px-3 py-2 border-t flex-shrink-0", collapsed ? "flex justify-center" : "flex items-center justify-between gap-2")}>
+        {!collapsed && (
+          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
+            Platform v2.0 · Live
+          </div>
+        )}
+        {!collapsed && <LangToggle />}
+        <button
+          onClick={toggle}
+          className={cn(
+            "flex items-center justify-center rounded-md p-1.5 hover:bg-accent text-muted-foreground transition-colors",
+            collapsed ? "w-full" : ""
+          )}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : (
+            <>
+              <ChevronLeft className="h-4 w-4" />
+              <span className="ml-1 text-xs">Collapse</span>
+            </>
+          )}
+        </button>
       </div>
     </aside>
   );

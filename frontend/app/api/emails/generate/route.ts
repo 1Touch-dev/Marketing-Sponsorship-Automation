@@ -8,6 +8,7 @@ import {
   generateEmailWithTemplate,
   resolveDefaultSender,
   injectTrackingPixel,
+  wrapLinksForTracking,
   type EmailTemplateVariables,
 } from "@/lib/email/template-engine";
 import { recordAudit } from "@/lib/audit/log";
@@ -203,13 +204,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
   }
 
-  // Inject tracking pixel now that we have the email ID
+  // Inject tracking pixel and wrap links now that we have the email ID
   const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
   if (appUrl) {
-    const bodyWithPixel = injectTrackingPixel(bodyHtml, row.id, appUrl);
-    if (bodyWithPixel !== bodyHtml) {
+    let bodyWithTracking = injectTrackingPixel(bodyHtml, row.id, appUrl);
+    bodyWithTracking = wrapLinksForTracking(bodyWithTracking, row.id, appUrl);
+    if (bodyWithTracking !== bodyHtml) {
       try {
-        await sb.from("emails").update({ body_html: bodyWithPixel }).eq("id", row.id);
+        await sb.from("emails").update({ body_html: bodyWithTracking }).eq("id", row.id);
       } catch { /* non-fatal */ }
     }
   }

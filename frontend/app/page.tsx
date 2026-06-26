@@ -26,6 +26,7 @@ import {
   CalendarCheck,
   ImageIcon,
   MailOpen,
+  MousePointerClick,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +121,11 @@ async function loadDashboard() {
   const sentEmailsCount = sentEmails.count ?? 0;
   const openRate = sentEmailsCount > 0 ? Math.round(((openedEmailsCount ?? 0) / sentEmailsCount) * 100) : 0;
 
+  const { count: clickedEmails } = await sb
+    .from("emails")
+    .select("id", { count: "exact", head: true })
+    .not("clicked_at", "is", null);
+
   // Gmail OAuth status check
   const gmailStatus = await sb
     .from("users")
@@ -190,6 +196,7 @@ async function loadDashboard() {
     imageJobStats,
     openRate,
     openedEmailsCount: openedEmailsCount ?? 0,
+    clickedEmailCount: clickedEmails ?? 0,
   };
 }
 
@@ -398,8 +405,8 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent, Sent This Month, Image Gen Rate, Email Open Rate */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent, Sent This Month, Image Gen Rate, Email Open Rate, Email Click Rate */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -488,6 +495,17 @@ export default async function DashboardPage() {
           <p className="text-[10px] text-muted-foreground mt-0.5">
             {d.openedEmailsCount} opened / {d.sentEmailCount} sent
           </p>
+        </Link>
+
+        <Link href="/emails" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <MousePointerClick className="h-4 w-4 text-indigo-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Click Rate</span>
+          </div>
+          <div className={`text-xl font-bold ${d.clickedEmailCount > 0 ? "text-indigo-700" : "text-muted-foreground"}`}>
+            {d.clickedEmailCount} clicked
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">link clicks tracked</p>
         </Link>
       </div>
 
