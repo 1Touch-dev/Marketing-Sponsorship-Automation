@@ -234,19 +234,19 @@ export function Sidebar() {
   const pathname = usePathname();
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return null;
   return (
-    <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-card">
-      <div className="px-5 py-4 border-b">
+    <aside className="hidden md:flex md:w-60 md:flex-col border-r bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b flex-shrink-0">
         <div className="text-sm font-bold tracking-tight text-foreground">Coritiba FC</div>
         <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Commercial Intelligence</div>
       </div>
-      <div className="px-3 py-2 border-b">
+      <div className="px-3 py-2 border-b flex-shrink-0">
         <GlobalSearchCompact />
       </div>
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 min-h-0 px-3 py-3 space-y-0.5 overflow-y-auto">
         <NavLinks />
       </nav>
       <CurrentUserBadge />
-      <div className="px-3 py-2 border-t flex items-center justify-between gap-2">
+      <div className="px-3 py-2 border-t flex items-center justify-between gap-2 flex-shrink-0">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
           Platform v2.0 · Live

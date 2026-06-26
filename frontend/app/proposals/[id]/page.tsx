@@ -19,6 +19,7 @@ import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-br
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
+import { ConvertToContractButton } from "@/components/proposals/convert-to-contract-button";
 import { ProposalPackages } from "@/components/proposals/proposal-packages";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
@@ -112,6 +113,13 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             )}
             <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={hasIntelligenceLayer} />
             <ProposalShareButton proposalId={proposal.id} shareToken={p.share_token ?? null} />
+            {proposal.status === "approved" && (
+              <ConvertToContractButton
+                proposalId={proposal.id}
+                proposalTitle={proposal.title}
+                companyId={p.companies?.id ?? null}
+              />
+            )}
             <Button asChild size="sm" className="gap-1.5">
               <Link href={`/proposals/${proposal.id}/edit`}>
                 <Edit3 className="h-3.5 w-3.5" /> Edit
