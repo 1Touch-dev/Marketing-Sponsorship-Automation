@@ -17,7 +17,7 @@ export default async function EmailsPage({
   const sb = supabaseAdmin();
   let query = sb
     .from("emails")
-    .select("id, subject, status, recipient, updated_at")
+    .select("id, subject, status, recipient, updated_at, opened_at")
     .order("updated_at", { ascending: false })
     .limit(200);
 
@@ -88,7 +88,14 @@ export default async function EmailsPage({
                   {e.recipient} · {formatDate(e.updated_at)}
                 </div>
               </div>
-              <StatusBadge status={e.status} />
+              <div className="flex items-center gap-2">
+                {e.opened_at && (
+                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    Opened
+                  </span>
+                )}
+                <StatusBadge status={e.status} />
+              </div>
             </Link>
           ))}
         </div>

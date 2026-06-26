@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
 import {
-  Send, Loader2, Users, Building2, Mail, Clock,
+  Send, Loader2, Users, Mail, Clock,
   CheckCircle2, ChevronDown, ChevronRight, Newspaper,
-  X, Eye, EyeOff,
+  X, Eye, EyeOff, BarChart2, CalendarClock, UserMinus,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -40,10 +40,14 @@ export function NewsletterClient({
   companies,
   newsletters: initialNewsletters,
   templates,
+  totalSent,
+  unsubscribeCount,
 }: {
   companies: Company[];
   newsletters: Newsletter[];
   templates: Template[];
+  totalSent: number;
+  unsubscribeCount: number;
 }) {
   const { toast } = useToast();
 
@@ -59,6 +63,7 @@ export function NewsletterClient({
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [manualEmails, setManualEmails] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [scheduledFor, setScheduledFor] = useState<string>("");
 
   const totalRecipients = useMemo(() => {
     if (recipientMode === "all") {
@@ -109,11 +114,16 @@ export function NewsletterClient({
       toast({ variant: "destructive", title: "No recipients selected" });
       return;
     }
-    if (!confirm(`Send newsletter to ${totalRecipients} contact${totalRecipients !== 1 ? "s" : ""}?`)) return;
+    const isScheduled = !!scheduledFor;
+    const confirmMsg = isScheduled
+      ? `Schedule newsletter for ${new Date(scheduledFor).toLocaleString("pt-BR")} to ${totalRecipients} contact${totalRecipients !== 1 ? "s" : ""}?`
+      : `Send newsletter to ${totalRecipients} contact${totalRecipients !== 1 ? "s" : ""}?`;
+    if (!confirm(confirmMsg)) return;
 
     setSending(true);
     try {
       const payload: Record<string, unknown> = { subject, body_html: bodyHtml };
+      if (scheduledFor) payload.scheduled_for = scheduledFor;
       if (recipientMode === "all") {
         payload.send_to_all_contacts = true;
       } else if (recipientMode === "companies") {
@@ -141,6 +151,7 @@ export function NewsletterClient({
       setSelectedCompanies(new Set());
       setManualEmails("");
       setSelectedTemplate("");
+      setScheduledFor("");
 
       // Add to history optimistically
       if (j.newsletter) {
@@ -155,6 +166,28 @@ export function NewsletterClient({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Analytics summary */}
+      <div className="lg:col-span-3 grid grid-cols-2 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+            <BarChart2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{totalSent.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Total sent</p>
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+            <UserMinus className="h-4 w-4 text-red-500 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-200">{unsubscribeCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Unsubscribes</p>
+          </div>
+        </div>
+      </div>
+
       {/* Composer — main column */}
       <div className="lg:col-span-2 space-y-5">
         {/* Template picker */}
@@ -233,26 +266,48 @@ export function NewsletterClient({
           </p>
         </div>
 
-        {/* Send button */}
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 p-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              Ready to send
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {totalRecipients > 0
-                ? `${totalRecipients} recipient${totalRecipients !== 1 ? "s" : ""} selected`
-                : "Select recipients on the right →"}
-            </p>
+        {/* Send / Schedule */}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Ready to send
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {totalRecipients > 0
+                  ? `${totalRecipients} recipient${totalRecipients !== 1 ? "s" : ""} selected`
+                  : "Select recipients on the right →"}
+              </p>
+            </div>
+            <Button
+              onClick={handleSend}
+              disabled={sending || totalRecipients === 0 || !subject.trim() || !bodyHtml.trim()}
+              className="gap-2"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {scheduledFor ? "Schedule" : "Send Now"}
+            </Button>
           </div>
-          <Button
-            onClick={handleSend}
-            disabled={sending || totalRecipients === 0 || !subject.trim() || !bodyHtml.trim()}
-            className="gap-2"
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Send Newsletter
-          </Button>
+          {/* Schedule option */}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+            <CalendarClock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Schedule for later</Label>
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={(e) => setScheduledFor(e.target.value)}
+              className="flex-1 min-w-0 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-transparent px-2.5 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            {scheduledFor && (
+              <button
+                type="button"
+                onClick={() => setScheduledFor("")}
+                className="text-xs text-red-500 hover:underline flex-shrink-0"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

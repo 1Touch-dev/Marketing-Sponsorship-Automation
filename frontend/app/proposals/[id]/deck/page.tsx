@@ -1,0 +1,224 @@
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { formatDate } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+export default async function ProposalDeckPage({ params }: { params: { id: string } }) {
+  const sb = supabaseAdmin();
+  const { data: proposal } = await sb
+    .from("proposals")
+    .select("*, companies(company_name, logo_url, industry, website)")
+    .eq("id", params.id)
+    .single();
+
+  if (!proposal) notFound();
+
+  const content = (proposal.content ?? {}) as Record<string, unknown>;
+  const company = proposal.companies as { company_name: string; logo_url?: string | null; industry?: string | null } | null;
+  const currentYear = new Date().getFullYear();
+
+  return (
+    <html lang="pt-BR">
+      <head>
+        <meta charSet="utf-8" />
+        <title>{proposal.title} — Proposta de Patrocínio Coritiba FC</title>
+        <style>{`
+          @page { size: A4; margin: 0; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: 'Inter', -apple-system, sans-serif; }
+          .page { width: 210mm; min-height: 297mm; page-break-after: always; position: relative; overflow: hidden; }
+          .page:last-child { page-break-after: auto; }
+          @media print {
+            .no-print { display: none !important; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        `}</style>
+      </head>
+      <body>
+        {/* Print button - hidden in print */}
+        <div className="no-print" style={{position:"fixed",top:16,right:16,zIndex:999}}>
+          <button
+            onClick={undefined}
+            style={{background:"#006400",color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:14}}
+            dangerouslySetInnerHTML={{__html:"<span onclick=\"window.print()\">Print / Save PDF</span>"}}
+          />
+        </div>
+
+        {/* PAGE 1 — COVER */}
+        <div className="page" style={{background:"linear-gradient(135deg,#006400 0%,#004d00 60%,#001a00 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",marginBottom:48}}>
+            <div style={{color:"white",fontSize:28,fontWeight:800,letterSpacing:-1}}>Coritiba FC</div>
+            {company?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={company.logo_url} alt={company.company_name} style={{height:60,objectFit:"contain",filter:"brightness(0) invert(1)"}} />
+            )}
+          </div>
+          <div style={{textAlign:"center",flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+            <div style={{color:"rgba(255,255,255,0.6)",fontSize:14,textTransform:"uppercase",letterSpacing:4,marginBottom:24}}>Proposta de Patrocínio · Temporada {currentYear}</div>
+            <h1 style={{color:"white",fontSize:36,fontWeight:800,lineHeight:1.2,textAlign:"center",maxWidth:"80%",marginBottom:32}}>{proposal.title}</h1>
+            <div style={{width:60,height:3,background:"#4ade80",borderRadius:2,marginBottom:32}}></div>
+            <div style={{color:"rgba(255,255,255,0.8)",fontSize:18,fontWeight:500}}>{company?.company_name}</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:12,textAlign:"center",marginTop:48}}>Documento confidencial · {formatDate(new Date().toISOString())} · Coritiba FC Comercial</div>
+        </div>
+
+        {/* PAGE 2 — CLUB PROFILE */}
+        <div className="page" style={{padding:"48px",background:"white"}}>
+          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Sobre o Clube</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Coritiba Foot Ball Club</h2>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:32}}>
+            {([["40.126","Capacidade do Estádio"],["1.5M+","Torcedores no Paraná"],["300M+","Alcance TV/Streaming"],["500K+","Seguidores nas Redes"]] as [string,string][]).map(([v,l]) => (
+              <div key={l} style={{background:"#f0fdf4",borderRadius:12,padding:20}}>
+                <div style={{fontSize:32,fontWeight:800,color:"#006400"}}>{v}</div>
+                <div style={{fontSize:13,color:"#4b5563",marginTop:4}}>{l}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{color:"#374151",lineHeight:1.7,fontSize:14}}>
+            Fundado em 1909, o Coritiba FC é o clube mais tradicional do Paraná e um dos grandes do futebol brasileiro.
+            Com um dos mais modernos estádios do país e uma torcida apaixonada, o Couto Pereira oferece uma plataforma
+            de visibilidade única para marcas que buscam associação com esporte, cultura e identidade regional.
+          </p>
+        </div>
+
+        {/* PAGE 3 — THE OPPORTUNITY */}
+        <div className="page" style={{padding:"48px",background:"white"}}>
+          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>A Oportunidade</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Por que patrocinar o Coritiba FC?</h2>
+          </div>
+          <div style={{marginBottom:24}}>
+            {(content.campaign_rationale as string | undefined) && (
+              <p style={{color:"#374151",lineHeight:1.7,fontSize:14,marginBottom:16}}>{content.campaign_rationale as string}</p>
+            )}
+            {(content.sponsorship_value as string | undefined) && (
+              <p style={{color:"#374151",lineHeight:1.7,fontSize:14}}>{content.sponsorship_value as string}</p>
+            )}
+            {!(content.campaign_rationale as string | undefined) && !(content.sponsorship_value as string | undefined) && (
+              <p style={{color:"#374151",lineHeight:1.7,fontSize:14}}>
+                Uma parceria com o Coritiba FC oferece visibilidade em partidas para mais de 40.000 torcedores,
+                presença nos uniformes durante toda a temporada, e ativações criativas que conectam sua marca
+                ao coração verde e branco do Paraná.
+              </p>
+            )}
+          </div>
+          {(content.activation_plan as string | undefined) && (
+            <div style={{background:"#f0fdf4",borderRadius:12,padding:20}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#006400",textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Plano de Ativação</div>
+              <p style={{color:"#374151",fontSize:13,lineHeight:1.6,whiteSpace:"pre-line"}}>{content.activation_plan as string}</p>
+            </div>
+          )}
+        </div>
+
+        {/* PAGE 4 — PACKAGE */}
+        <div className="page" style={{padding:"48px",background:"white"}}>
+          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Pacote de Patrocínio</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>O que está incluído</h2>
+          </div>
+          {(content.deliverables as string[] | undefined)?.length ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {(content.deliverables as string[]).map((d, i) => (
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:12,border:"1px solid #e5e7eb",borderRadius:8}}>
+                  <div style={{width:20,height:20,borderRadius:"50%",background:"#006400",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>
+                  </div>
+                  <span style={{fontSize:13,color:"#374151",lineHeight:1.5}}>{d}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{color:"#6b7280",fontSize:14}}>Detalhes do pacote disponíveis na proposta completa.</p>
+          )}
+        </div>
+
+        {/* PAGE 5 — CAMPAIGN CONCEPT */}
+        <div className="page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <div style={{borderLeft:"4px solid #4ade80",paddingLeft:16,marginBottom:32}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#86efac",marginBottom:4}}>Conceito de Campanha</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"white"}}>{(content.campaign_name as string | undefined) ?? "Campanha Verde e Branco"}</h2>
+          </div>
+          {(content.campaign_concept as string | undefined) && (
+            <p style={{color:"rgba(255,255,255,0.9)",lineHeight:1.7,fontSize:15,marginBottom:24}}>{content.campaign_concept as string}</p>
+          )}
+          {(content.cta as string | undefined) && (
+            <div style={{background:"rgba(255,255,255,0.1)",borderRadius:12,padding:20}}>
+              <p style={{color:"#86efac",fontSize:16,fontWeight:600}}>{content.cta as string}</p>
+            </div>
+          )}
+        </div>
+
+        {/* PAGE 6 — INVESTMENT */}
+        <div className="page" style={{padding:"48px",background:"white"}}>
+          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Investimento</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Condições Comerciais</h2>
+          </div>
+          {(content.investment_note as string | undefined) && (
+            <div style={{background:"#f0fdf4",border:"2px solid #006400",borderRadius:12,padding:24,marginBottom:24}}>
+              <p style={{color:"#1a1a1a",fontSize:15,lineHeight:1.7}}>{content.investment_note as string}</p>
+            </div>
+          )}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            {([["Formato","Patrocínio Direto"],["Vigência",`Temporada ${currentYear}`],["Forma de Pagamento","A definir em contrato"],["Validade da Proposta","30 dias"]] as [string,string][]).map(([k,v]) => (
+              <div key={k} style={{padding:16,border:"1px solid #e5e7eb",borderRadius:8}}>
+                <div style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{k}</div>
+                <div style={{fontSize:14,fontWeight:600,color:"#1a1a1a"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* PAGE 7 — VISUAL MOCKUPS placeholder */}
+        <div className="page" style={{padding:"48px",background:"#f9fafb",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}>
+          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32,alignSelf:"flex-start"}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Visuais da Campanha</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Mockups e Criações</h2>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%"}}>
+            {(["Jersey Mockup","LED Board","Post de Redes Sociais","Backdrop de Imprensa"] as string[]).map(label => (
+              <div key={label} style={{background:"#e5e7eb",borderRadius:12,height:150,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{color:"#9ca3af",fontSize:13}}>{label}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{color:"#9ca3af",fontSize:12,marginTop:16,textAlign:"center"}}>Mockups definitivos gerados após aprovação da proposta</p>
+        </div>
+
+        {/* PAGE 8 — NEXT STEPS */}
+        <div className="page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <div style={{borderLeft:"4px solid #4ade80",paddingLeft:16,marginBottom:40}}>
+            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#86efac",marginBottom:4}}>Próximos Passos</div>
+            <h2 style={{fontSize:28,fontWeight:700,color:"white"}}>Como avançar</h2>
+          </div>
+          <div>
+            {(([
+              ["01","Confirme seu interesse","Responda este email ou clique em Tenho Interesse na proposta online"],
+              ["02","Reunião de alinhamento","Agendamos uma apresentação de 30 minutos com nossa equipe comercial"],
+              ["03","Proposta final","Ajustamos os detalhes e enviamos o contrato para assinatura"],
+            ]) as [string,string,string][]).map(([n,t,desc]) => (
+              <div key={n} style={{display:"flex",gap:20,marginBottom:24}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"#4ade80",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{color:"#006400",fontWeight:800,fontSize:16}}>{n}</span>
+                </div>
+                <div>
+                  <div style={{color:"white",fontWeight:600,fontSize:15,marginBottom:4}}>{t}</div>
+                  <div style={{color:"rgba(255,255,255,0.7)",fontSize:13}}>{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:40,borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:24}}>
+            <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,textAlign:"center"}}>
+              Coritiba FC · Departamento Comercial · comercial@coritiba.com.br<br/>
+              Rua Campo Comprido, 669 · Curitiba · PR · CNPJ 75.094.050/0001-72
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+  );
+}

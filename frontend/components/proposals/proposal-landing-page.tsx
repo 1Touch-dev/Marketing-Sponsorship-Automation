@@ -48,6 +48,7 @@ interface ProposalLandingPageProps {
   packages?: LandingPackage[];
   kpiTemplateId?: string | null;
   adminMode?: boolean;
+  expiresAt?: string | null;
   onPrint?: () => void;
   onShare?: () => void;
 }
@@ -252,6 +253,7 @@ export function ProposalLandingPage({
   packages = [],
   kpiTemplateId,
   adminMode = false,
+  expiresAt,
   onPrint,
   onShare,
 }: ProposalLandingPageProps) {
@@ -383,6 +385,23 @@ export function ProposalLandingPage({
             <span>·</span>
             <span suppressHydrationWarning>Gerada em {formatDate(proposal.created_at)}</span>
           </div>
+
+          {/* Expiry badge */}
+          {expiresAt && (() => {
+            const exp = new Date(expiresAt);
+            const now = new Date();
+            const expired = exp < now;
+            const dateStr = exp.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+            return expired ? (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-red-500/20 border border-red-400/40 px-4 py-2 text-sm font-semibold text-red-200">
+                ⛔ Esta proposta expirou
+              </div>
+            ) : (
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500/20 border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-200">
+                ⏳ Reservado até {dateStr} — responda antes desta data
+              </div>
+            );
+          })()}
         </div>
       </header>
 

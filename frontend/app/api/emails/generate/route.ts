@@ -7,6 +7,7 @@ import {
   loadDefaultEmailTemplate,
   generateEmailWithTemplate,
   resolveDefaultSender,
+  injectTrackingPixel,
   type EmailTemplateVariables,
 } from "@/lib/email/template-engine";
 import { recordAudit } from "@/lib/audit/log";
@@ -200,6 +201,17 @@ export async function POST(req: Request) {
   if (insErr || !row) {
     if (eventId) await failWorkflow(eventId, insErr?.message ?? "Insert failed");
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
+  }
+
+  // Inject tracking pixel now that we have the email ID
+  const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
+  if (appUrl) {
+    const bodyWithPixel = injectTrackingPixel(bodyHtml, row.id, appUrl);
+    if (bodyWithPixel !== bodyHtml) {
+      try {
+        await sb.from("emails").update({ body_html: bodyWithPixel }).eq("id", row.id);
+      } catch { /* non-fatal */ }
+    }
   }
 
   if (eventId) await completeWorkflow(eventId, { email_id: row.id });

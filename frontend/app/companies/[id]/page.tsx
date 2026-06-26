@@ -17,6 +17,7 @@ import { InlineIndustryEdit } from "@/components/companies/inline-industry-edit"
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
+import { RefetchLogoButton } from "./refetch-logo-button";
 
 export const dynamic = "force-dynamic";
 
@@ -195,7 +196,14 @@ export default async function CompanyDetailPage({
           {/* Contact info */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Contact</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                <span>Contact</span>
+                <RefetchLogoButton
+                  companyId={company.id}
+                  website={company.website}
+                  companyName={company.company_name}
+                />
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {company.website && (

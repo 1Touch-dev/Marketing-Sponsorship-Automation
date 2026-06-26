@@ -115,6 +115,7 @@ const NAV: NavItem[] = [
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
   { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
+  { href: "/settings/sender-profiles", label: "Sender Profiles", icon: Users, group: "system" },
   { href: "/users", label: "Team & Roles", icon: Users, group: "system", adminOnly: true },
 ];
 

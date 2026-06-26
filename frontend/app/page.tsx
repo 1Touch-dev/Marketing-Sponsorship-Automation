@@ -25,6 +25,7 @@ import {
   Send,
   CalendarCheck,
   ImageIcon,
+  MailOpen,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +99,7 @@ async function loadDashboard() {
       .limit(30),
     // KPI: approved proposals (pipeline)
     sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "approved"),
-    // KPI: emails sent total
+  // KPI: emails sent total
     sb.from("emails").select("id", { count: "exact", head: true }).eq("status", "sent"),
     // KPI: active contracts
     sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "active_contract"),
@@ -111,6 +112,13 @@ async function loadDashboard() {
     .select("id", { count: "exact", head: true })
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
+
+  const { count: openedEmailsCount } = await sb
+    .from("emails")
+    .select("id", { count: "exact", head: true })
+    .not("opened_at", "is", null);
+  const sentEmailsCount = sentEmails.count ?? 0;
+  const openRate = sentEmailsCount > 0 ? Math.round(((openedEmailsCount ?? 0) / sentEmailsCount) * 100) : 0;
 
   // Gmail OAuth status check
   const gmailStatus = await sb
@@ -180,6 +188,8 @@ async function loadDashboard() {
     gmailStatus,
     proposalsSentThisMonthCount: proposalsSentThisMonth.count ?? 0,
     imageJobStats,
+    openRate,
+    openedEmailsCount: openedEmailsCount ?? 0,
   };
 }
 
@@ -388,8 +398,8 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent, Sent This Month, Image Gen Rate */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent, Sent This Month, Image Gen Rate, Email Open Rate */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -466,6 +476,19 @@ export default async function DashboardPage() {
             {d.imageJobStats.completed}/{d.imageJobStats.total} jobs completed
           </p>
         </div>
+
+        <Link href="/emails?status=opened" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <MailOpen className="h-4 w-4 text-teal-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Open Rate</span>
+          </div>
+          <div className={`text-xl font-bold ${d.openRate >= 40 ? "text-emerald-700" : d.openRate >= 20 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {d.sentEmailCount > 0 ? `${d.openRate}%` : "—"}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {d.openedEmailsCount} opened / {d.sentEmailCount} sent
+          </p>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

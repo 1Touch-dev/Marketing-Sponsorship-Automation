@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toaster";
 import {
   Download, Plus, Trash2, Move, RotateCw,
   Image as ImageIcon, Layers, RefreshCw,
+  Undo2, Redo2, ZoomIn, ZoomOut,
 } from "lucide-react";
 
 // Dynamically import Konva components to avoid SSR issues
@@ -108,11 +109,60 @@ export function MockupEditorClient() {
   const stageRef = useRef<any>(null);
   const trRef = useRef<any>(null);
 
+  // Undo/redo history stored as refs to avoid re-renders
+  const history = useRef<LogoItem[][]>([]);
+  const historyIndex = useRef<number>(-1);
+
   const [selectedTemplate, setSelectedTemplate] = useState<Template>(TEMPLATES[0]);
   const [logos, setLogos] = useState<LogoItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState("");
   const [showZones, setShowZones] = useState(true);
+  const [zoom, setZoom] = useState(1.0);
+  // Track whether history push is in progress to avoid double-push
+  const skipHistoryPush = useRef(false);
+
+  /** Push the current logos array onto the undo history stack. */
+  function pushHistory(newLogos: LogoItem[]) {
+    // Trim any redo future
+    history.current = history.current.slice(0, historyIndex.current + 1);
+    history.current.push(newLogos);
+    historyIndex.current = history.current.length - 1;
+  }
+
+  function handleUndo() {
+    if (historyIndex.current <= 0) return;
+    historyIndex.current -= 1;
+    const prev = history.current[historyIndex.current];
+    skipHistoryPush.current = true;
+    setLogos(prev);
+    setSelectedId(null);
+  }
+
+  function handleRedo() {
+    if (historyIndex.current >= history.current.length - 1) return;
+    historyIndex.current += 1;
+    const next = history.current[historyIndex.current];
+    skipHistoryPush.current = true;
+    setLogos(next);
+    setSelectedId(null);
+  }
+
+  function zoomIn() { setZoom(z => Math.min(2.0, parseFloat((z + 0.1).toFixed(1)))); }
+  function zoomOut() { setZoom(z => Math.max(0.5, parseFloat((z - 0.1).toFixed(1)))); }
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (!ctrl) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
+      if (e.key === "z" && e.shiftKey) { e.preventDefault(); handleRedo(); }
+      if (e.key === "y") { e.preventDefault(); handleRedo(); }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const loadLogoImage = useCallback((url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -142,7 +192,11 @@ export function MockupEditorClient() {
         rotation: 0,
         imgElement: img,
       };
-      setLogos(prev => [...prev, newLogo]);
+      setLogos(prev => {
+        const next = [...prev, newLogo];
+        pushHistory(next);
+        return next;
+      });
       setSelectedId(newLogo.id);
       setLogoUrl("");
     } catch {
@@ -157,7 +211,11 @@ export function MockupEditorClient() {
 
   function deleteSelected() {
     if (!selectedId) return;
-    setLogos(prev => prev.filter(l => l.id !== selectedId));
+    setLogos(prev => {
+      const next = prev.filter(l => l.id !== selectedId);
+      pushHistory(next);
+      return next;
+    });
     setSelectedId(null);
   }
 
@@ -261,6 +319,25 @@ export function MockupEditorClient() {
         <div className="rounded-xl border bg-card p-4 space-y-2">
           <div className="text-sm font-semibold">Controls</div>
           <div className="flex flex-col gap-1.5">
+            {/* Undo / Redo */}
+            <div className="flex gap-1.5">
+              <Button size="sm" variant="outline" onClick={handleUndo} className="flex-1 justify-center gap-1.5" title="Undo (Ctrl+Z)">
+                <Undo2 className="h-3.5 w-3.5" /> Undo
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleRedo} className="flex-1 justify-center gap-1.5" title="Redo (Ctrl+Y)">
+                <Redo2 className="h-3.5 w-3.5" /> Redo
+              </Button>
+            </div>
+            {/* Zoom */}
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="outline" onClick={zoomOut} className="px-2.5" title="Zoom out">
+                <ZoomOut className="h-3.5 w-3.5" />
+              </Button>
+              <span className="flex-1 text-center text-xs font-medium tabular-nums">{Math.round(zoom * 100)}%</span>
+              <Button size="sm" variant="outline" onClick={zoomIn} className="px-2.5" title="Zoom in">
+                <ZoomIn className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <Button size="sm" variant="outline" onClick={() => setShowZones(v => !v)} className="justify-start gap-2">
               <Layers className="h-3.5 w-3.5" /> {showZones ? "Hide" : "Show"} placement zones
             </Button>
@@ -269,7 +346,7 @@ export function MockupEditorClient() {
                 <Trash2 className="h-3.5 w-3.5" /> Remove selected logo
               </Button>
             )}
-            <Button size="sm" variant="outline" onClick={() => { setLogos([]); setSelectedId(null); }} className="justify-start gap-2">
+            <Button size="sm" variant="outline" onClick={() => { setLogos([]); setSelectedId(null); pushHistory([]); }} className="justify-start gap-2">
               <RefreshCw className="h-3.5 w-3.5" /> Clear all logos
             </Button>
           </div>
@@ -288,16 +365,26 @@ export function MockupEditorClient() {
       {/* Canvas */}
       <div className="flex-1">
         <div className="rounded-xl border bg-slate-900 overflow-auto p-4 flex items-center justify-center min-h-[400px]">
-          <KonvaCanvas
-            stageRef={stageRef}
-            tmpl={tmpl}
-            logos={logos}
-            showZones={showZones}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onLogoMove={(id, x, y) => setLogos(prev => prev.map(l => l.id === id ? { ...l, x, y } : l))}
-            onLogoTransform={(id, x, y, scaleX, scaleY, rotation) => setLogos(prev => prev.map(l => l.id === id ? { ...l, x, y, scaleX, scaleY, rotation } : l))}
-          />
+          <div style={{ transform: `scale(${zoom})`, transformOrigin: "center center", transition: "transform 0.15s ease" }}>
+            <KonvaCanvas
+              stageRef={stageRef}
+              tmpl={tmpl}
+              logos={logos}
+              showZones={showZones}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onLogoMove={(id, x, y) => setLogos(prev => {
+                const next = prev.map(l => l.id === id ? { ...l, x, y } : l);
+                pushHistory(next);
+                return next;
+              })}
+              onLogoTransform={(id, x, y, scaleX, scaleY, rotation) => setLogos(prev => {
+                const next = prev.map(l => l.id === id ? { ...l, x, y, scaleX, scaleY, rotation } : l);
+                pushHistory(next);
+                return next;
+              })}
+            />
+          </div>
         </div>
         <div className="mt-2 text-xs text-muted-foreground flex items-center gap-4">
           <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" /> {logos.length} logo{logos.length !== 1 ? "s" : ""} on canvas</span>

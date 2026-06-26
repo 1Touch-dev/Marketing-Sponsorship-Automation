@@ -50,6 +50,12 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const inlineImages = await fetchProposalImagesForLanding(proposal.id);
   const hasImages = inlineImages.length > 0;
 
+  const { count: viewCount } = await sb
+    .from("audit_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("entity_id", proposal.id)
+    .eq("action", "proposal.view");
+
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null; logo_url?: string | null } | null;
     campaigns: { title: string; summary?: string | null } | null;
@@ -85,7 +91,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     <>
       <PageHeader
         title={proposal.title}
-        description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)}`}
+        description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)} · ${viewCount ?? 0} sponsor views`}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             <Button asChild variant="ghost" size="sm" className="gap-1.5">
@@ -98,6 +104,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             <Button asChild variant="outline" size="sm">
               <Link href={`/proposals/${proposal.id}/view`} target="_blank">
                 Landing Page ↗
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/proposals/${proposal.id}/deck`} target="_blank">
+                📄 Ver Deck PDF
               </Link>
             </Button>
             {p.share_token && (

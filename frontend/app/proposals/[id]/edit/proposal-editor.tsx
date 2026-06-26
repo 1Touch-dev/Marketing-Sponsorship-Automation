@@ -13,7 +13,7 @@ import {
   Package, DollarSign, Zap, Save, ArrowLeft,
   AlertCircle, Info, CheckCircle2, History,
   Sparkles, Loader2, PenLine, ChevronDown, ChevronUp,
-  RotateCcw, Send,
+  RotateCcw, Send, Calendar,
   type LucideIcon,
 } from "lucide-react";
 
@@ -248,6 +248,7 @@ export function ProposalEditor({
   id,
   initialTitle,
   initialContent,
+  initialMeetingLink,
   proposalStatus,
   versions,
   companyName,
@@ -257,6 +258,7 @@ export function ProposalEditor({
   id: string;
   initialTitle: string;
   initialContent: ProposalContent;
+  initialMeetingLink?: string | null;
   proposalStatus: string;
   versions?: Array<{ version: number; edit_reason: string | null; created_at: string }>;
   companyName?: string;
@@ -266,6 +268,7 @@ export function ProposalEditor({
   const router = useRouter();
   const { toast } = useToast();
   const [title, setTitle] = useState(initialTitle);
+  const [meetingLink, setMeetingLink] = useState(initialMeetingLink ?? "");
   const [content, setContent] = useState<ProposalContent>({
     executive_summary: initialContent?.executive_summary ?? "",
     campaign_rationale: initialContent?.campaign_rationale ?? "",
@@ -298,6 +301,7 @@ export function ProposalEditor({
       const payload = {
         title,
         content: { ...content, title, deliverables },
+        meeting_link: meetingLink || null,
         edit_reason: reason || "Manual edit",
       };
       const res = await fetch(`/api/proposals/${id}`, {
@@ -334,7 +338,7 @@ export function ProposalEditor({
       const saveRes = await fetch(`/api/proposals/${id}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title, content: { ...content, title, deliverables }, edit_reason: reason || "Revision — re-submitting for review" }),
+        body: JSON.stringify({ title, content: { ...content, title, deliverables }, meeting_link: meetingLink || null, edit_reason: reason || "Revision — re-submitting for review" }),
       });
       const saveJ = await saveRes.json() as { error?: string };
       if (!saveRes.ok) throw new Error(saveJ?.error ?? "Save failed");
@@ -513,6 +517,24 @@ export function ProposalEditor({
               className="text-base font-medium"
               placeholder="Coritiba FC × [Company Name] — Partnership Proposal"
             />
+          </div>
+
+          {/* Meeting Link */}
+          <div className="space-y-1.5">
+            <Label htmlFor="meeting_link" className="flex items-center gap-2 font-semibold">
+              <Calendar className="h-4 w-4 text-primary" /> Meeting Link
+              <span className="text-xs font-normal text-muted-foreground">(Calendly, Cal.com, etc.)</span>
+            </Label>
+            <Input
+              id="meeting_link"
+              type="url"
+              value={meetingLink}
+              onChange={(e) => setMeetingLink(e.target.value)}
+              placeholder="https://calendly.com/your-link or https://cal.com/your-link"
+            />
+            <div className="text-xs text-muted-foreground">
+              If set, the &ldquo;Agendar Reunião&rdquo; button on the public proposal page will link here instead of sending an email.
+            </div>
           </div>
 
           {/* Dynamic sections */}

@@ -59,6 +59,12 @@ export function CompanyForm() {
         throw new Error(j?.error ?? `Request failed (${res.status})`);
       }
       const { data } = await res.json() as { data: { id: string } };
+      // Fire-and-forget logo enrichment in the background
+      fetch("/api/companies/enrich", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ companyId: data.id, website: payload.website, companyName: payload.company_name }),
+      }).catch(() => {});
       router.push(`/companies/${data.id}`);
       router.refresh();
     } catch (err) {

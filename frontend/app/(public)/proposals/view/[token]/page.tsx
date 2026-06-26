@@ -8,6 +8,8 @@ import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 import { PhoneCall, Calendar, ThumbsUp } from "lucide-react";
 import Image from "next/image";
 import { LeadInterestForm } from "./lead-interest-form";
+import { PdfDownloadButton } from "./pdf-download-button";
+import { ViewTracker } from "./view-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +55,13 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
     share_token?: string | null;
   };
 
-  const p = proposal as EnrichedProposal;
+  const p = proposal as EnrichedProposal & { meeting_link?: string | null };
   const company = p.companies;
 
   return (
     <div className="min-h-screen w-full bg-white pb-24">
+      <title>{p.title} — {company?.company_name ?? "Coritiba FC"}</title>
+      <ViewTracker proposalId={p.id} token={params.token} />
       {/* ─── Minimal branded header — print:hidden ─── */}
       <div className="sticky top-0 z-[60] w-full bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-3 print:hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -109,6 +113,7 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
         campaign={p.campaigns}
         approvedImages={approvedImages}
         adminMode={false}
+        expiresAt={(p as unknown as { expires_at?: string | null }).expires_at ?? null}
         packages={(packages ?? []).map((p) => ({
           id: p.id,
           name: p.name,
@@ -144,14 +149,15 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
           Falar com nossa equipe
         </a>
         <a
-          href="https://calendly.com/coritiba-patrocinios"
-          target="_blank"
-          rel="noopener noreferrer"
+          href={p.meeting_link ?? `mailto:patrocinios@coritiba.com.br?subject=Reunião%20-%20${encodeURIComponent(p.title)}`}
+          target={p.meeting_link ? "_blank" : undefined}
+          rel={p.meeting_link ? "noopener noreferrer" : undefined}
           className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
         >
           <Calendar className="h-4 w-4" />
           Agendar Reunião
         </a>
+        <PdfDownloadButton />
       </div>
     </div>
   );

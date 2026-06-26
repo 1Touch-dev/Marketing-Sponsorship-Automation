@@ -60,6 +60,20 @@ export default async function NewsletterPage() {
     // table may not exist
   }
 
+  // Count unsubscribes from audit_logs
+  let unsubscribeCount = 0;
+  try {
+    const { count } = await sb
+      .from("audit_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("action", "newsletter.unsubscribed");
+    unsubscribeCount = count ?? 0;
+  } catch {
+    // non-fatal
+  }
+
+  const totalSent = newsletters.reduce((sum, n) => sum + (n.recipient_count ?? 0), 0);
+
   return (
     <>
       <PageHeader
@@ -73,6 +87,8 @@ export default async function NewsletterPage() {
         }))}
         newsletters={newsletters}
         templates={templates}
+        totalSent={totalSent}
+        unsubscribeCount={unsubscribeCount}
       />
     </>
   );

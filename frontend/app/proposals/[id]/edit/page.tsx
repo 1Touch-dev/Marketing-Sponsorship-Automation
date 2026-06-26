@@ -9,7 +9,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { ProposalContent } from "@/types/database";
 import { formatDate } from "@/lib/utils";
-import { ArrowLeft, Edit3, Eye, Clock, Building2, Layers, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Edit3, Eye, Clock, Building2, Layers, FileText, Image as ImageIcon, CalendarClock } from "lucide-react";
+import { ExpiryDateField } from "./expiry-date-field";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
   const [{ data: proposal }, { data: versions }] = await Promise.all([
     sb
       .from("proposals")
-      .select("*, companies(id, company_name, industry, logo_url), campaigns(title), strategy_variants")
+      .select("*, companies(id, company_name, industry, logo_url), campaigns(title), strategy_variants, expires_at")
       .eq("id", params.id)
       .maybeSingle(),
     sb
@@ -36,6 +37,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
     companies: { id: string; company_name: string; industry: string | null; logo_url?: string | null } | null;
     campaigns: { title: string } | null;
     strategy_variants?: StrategyVariant[] | null;
+    expires_at?: string | null;
   };
 
   const content = proposal.content as Record<string, unknown> | null;
@@ -112,6 +114,21 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarClock className="h-4 w-4 text-amber-500" />
+            Data de Validade da Proposta
+          </CardTitle>
+          <CardDescription>
+            Defina uma data limite para esta proposta. Um badge de urgência será exibido na landing page pública.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ExpiryDateField proposalId={proposal.id} initialValue={p.expires_at} />
+        </CardContent>
+      </Card>
+
+      <Card className="mt-5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Edit3 className="h-4 w-4 text-primary" />
             Proposal content
           </CardTitle>
@@ -125,6 +142,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
             id={proposal.id}
             initialTitle={proposal.title}
             initialContent={proposal.content as ProposalContent}
+            initialMeetingLink={(proposal as unknown as { meeting_link?: string | null }).meeting_link}
             proposalStatus={proposal.status}
             versions={versions ?? []}
             companyName={p.companies?.company_name}

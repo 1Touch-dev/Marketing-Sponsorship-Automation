@@ -171,6 +171,17 @@ export async function generateEmailWithTemplate(args: {
 }
 
 /**
+ * Appends a 1x1 tracking pixel just before </body> (or at end) so we can
+ * detect when the recipient opens the email.
+ */
+export function injectTrackingPixel(html: string, emailId: string, appUrl: string): string {
+  if (!emailId || !appUrl) return html;
+  const pixel = `<img src="${appUrl}/api/emails/${emailId}/pixel" width="1" height="1" style="display:none" alt="" />`;
+  if (html.includes("</body>")) return html.replace("</body>", `${pixel}</body>`);
+  return html + pixel;
+}
+
+/**
  * Appends a "Ver Proposta" CTA button to the HTML body if the template
  * does not already include the proposal link.
  */
@@ -195,6 +206,20 @@ function injectProposalLinkIfMissing(html: string, proposalLink: string): string
 function injectProposalLinkTextIfMissing(text: string, proposalLink: string): string {
   if (!proposalLink || text.includes(proposalLink)) return text;
   return text + `\n\nVer Proposta Completa: ${proposalLink}`;
+}
+
+/**
+ * Appends an LGPD-compliant footer with unsubscribe link before </body>.
+ */
+export function injectNewsletterFooter(html: string, recipientEmail: string, appUrl: string): string {
+  const footer = `
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af;line-height:1.6">
+  <p>Coritiba FC · Departamento Comercial · Rua Campo Comprido, 669 · Curitiba/PR</p>
+  <p>Você está recebendo esta mensagem porque demonstrou interesse em patrocinar o Coritiba FC.</p>
+  <p><a href="${appUrl}/api/newsletter/unsubscribe?email=${encodeURIComponent(recipientEmail)}" style="color:#6b7280">Descadastrar-se desta lista</a></p>
+</div>`;
+  if (html.includes("</body>")) return html.replace("</body>", `${footer}</body>`);
+  return html + footer;
 }
 
 export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>) {
