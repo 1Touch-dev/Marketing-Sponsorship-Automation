@@ -20,6 +20,9 @@ import {
   Users,
   Activity,
   Plus,
+  DollarSign,
+  BarChart2,
+  Send,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +69,10 @@ async function loadDashboard() {
     recentEmails,
     pendingFollowups,
     recentAudit,
+    approvedProposals,
+    sentEmails,
+    contractProposals,
+    proposalPackages,
   ] = await Promise.all([
     sb.from("companies").select("id", { count: "exact", head: true }).neq("status", "closed"),
     sb.from("campaigns").select("id", { count: "exact", head: true }),
@@ -87,6 +94,14 @@ async function loadDashboard() {
       .select("id, action, entity_type, created_at, actor_email")
       .order("created_at", { ascending: false })
       .limit(30),
+    // KPI: approved proposals (pipeline)
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    // KPI: emails sent total
+    sb.from("emails").select("id", { count: "exact", head: true }).eq("status", "sent"),
+    // KPI: active contracts
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "active_contract"),
+    // KPI: pipeline value (sum of package prices for active proposals)
+    sb.from("proposal_packages").select("price_brl, proposal_id"),
   ]);
 
   const failedWorkflows = await sb
@@ -94,6 +109,18 @@ async function loadDashboard() {
     .select("id", { count: "exact", head: true })
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
+
+  // Compute pipeline value from ALL packages (simple sum — filter by proposal status not needed here)
+  const pipelineValueRaw = (proposalPackages.data ?? []).reduce(
+    (sum, pkg) => sum + (Number(pkg.price_brl) || 0), 0
+  );
+
+  // Conversion: proposals sent (approved+contract) / total non-rejected proposals
+  const totalProposalsSent = (approvedProposals.count ?? 0) + (contractProposals.count ?? 0);
+  const totalProposalsAll = proposals.count ?? 1;
+  const conversionRate = totalProposalsAll > 0
+    ? Math.round((totalProposalsSent / totalProposalsAll) * 100)
+    : 0;
 
   const cleanAudit = (recentAudit.data ?? []).filter(
     (a) => !HIDDEN_AUDIT_ACTIONS.some((hidden) => a.action.startsWith(hidden))
@@ -109,6 +136,12 @@ async function loadDashboard() {
     recentProposals: recentProposals.data ?? [],
     recentEmails: recentEmails.data ?? [],
     recentAudit: cleanAudit,
+    // New KPIs
+    approvedProposalCount: approvedProposals.count ?? 0,
+    sentEmailCount: sentEmails.count ?? 0,
+    activeContractCount: contractProposals.count ?? 0,
+    pipelineValueBrl: pipelineValueRaw,
+    conversionRate,
   };
 }
 
@@ -301,6 +334,64 @@ export default async function DashboardPage() {
             </Card>
           </Link>
         ))}
+      </div>
+
+      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <DollarSign className="h-4 w-4 text-emerald-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pipeline Value</span>
+          </div>
+          {d.pipelineValueBrl > 0 ? (
+            <>
+              <div className="text-xl font-bold text-emerald-700">
+                {d.pipelineValueBrl >= 1_000_000
+                  ? `R$ ${(d.pipelineValueBrl / 1_000_000).toFixed(1)}M`
+                  : d.pipelineValueBrl >= 1_000
+                  ? `R$ ${(d.pipelineValueBrl / 1_000).toFixed(0)}K`
+                  : `R$ ${d.pipelineValueBrl.toLocaleString("pt-BR")}`}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">from approved + under review packages</p>
+            </>
+          ) : (
+            <>
+              <div className="text-xl font-bold text-muted-foreground">—</div>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Add pricing packages to proposals</p>
+            </>
+          )}
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <BarChart2 className="h-4 w-4 text-blue-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversion Rate</span>
+          </div>
+          <div className={`text-xl font-bold ${d.conversionRate >= 30 ? "text-emerald-700" : d.conversionRate >= 10 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {d.conversionRate}%
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {d.approvedProposalCount} approved + {d.activeContractCount} contracts / {d.proposalCount} total
+          </p>
+        </div>
+
+        <Link href="/proposals?status=active_contract" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Contracts</span>
+          </div>
+          <div className="text-xl font-bold text-amber-600">{d.activeContractCount}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">signed sponsors</p>
+        </Link>
+
+        <Link href="/emails" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <Send className="h-4 w-4 text-sky-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Emails Sent</span>
+          </div>
+          <div className="text-xl font-bold text-sky-700">{d.sentEmailCount}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">total outreach emails</p>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

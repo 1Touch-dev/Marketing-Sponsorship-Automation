@@ -134,6 +134,10 @@ export async function generateEmailWithTemplate(args: {
         bodyText = replaceTemplateVariables(bodyText, args.variables);
       }
 
+      // Ensure proposal link CTA is present even if Claude omitted it
+      bodyHtml = injectProposalLinkIfMissing(bodyHtml, args.variables.proposal_link);
+      bodyText = injectProposalLinkTextIfMissing(bodyText, args.variables.proposal_link);
+
       return {
         output: { subject, body_text: bodyText, body_html: bodyHtml },
         templateId: template.id,
@@ -146,15 +150,51 @@ export async function generateEmailWithTemplate(args: {
 
   if (hasUnresolvedVariables(filledSubject + filledHtml)) return null;
 
+  // Ensure every email has a proposal link CTA even if the template omits it.
+  // We append a minimal branded block only when: proposal_link is non-empty
+  // AND neither the filled HTML nor text already contains the link.
+  const ensuredHtml = injectProposalLinkIfMissing(filledHtml, args.variables.proposal_link);
+  const ensuredText = injectProposalLinkTextIfMissing(
+    filledText || filledHtml.replace(/<[^>]+>/g, " "),
+    args.variables.proposal_link
+  );
+
   return {
     output: {
       subject: filledSubject,
-      body_text: filledText || filledHtml.replace(/<[^>]+>/g, " "),
-      body_html: filledHtml,
+      body_text: ensuredText,
+      body_html: ensuredHtml,
     },
     templateId: template.id,
     templateName: template.name,
   };
+}
+
+/**
+ * Appends a "Ver Proposta" CTA button to the HTML body if the template
+ * does not already include the proposal link.
+ */
+function injectProposalLinkIfMissing(html: string, proposalLink: string): string {
+  if (!proposalLink || html.includes(proposalLink)) return html;
+  const ctaBlock = `
+<div style="margin:24px 0;text-align:center;">
+  <a href="${proposalLink}"
+     style="display:inline-block;background:#006B3F;color:#ffffff;font-weight:700;font-size:15px;
+            text-decoration:none;padding:14px 32px;border-radius:8px;">
+    Ver Proposta Completa →
+  </a>
+</div>
+<p style="font-size:12px;color:#888;text-align:center;">
+  Ou acesse: <a href="${proposalLink}" style="color:#006B3F;">${proposalLink}</a>
+</p>`;
+  // Insert before closing </body> or append at end
+  if (html.includes("</body>")) return html.replace("</body>", `${ctaBlock}</body>`);
+  return html + ctaBlock;
+}
+
+function injectProposalLinkTextIfMissing(text: string, proposalLink: string): string {
+  if (!proposalLink || text.includes(proposalLink)) return text;
+  return text + `\n\nVer Proposta Completa: ${proposalLink}`;
 }
 
 export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>) {
