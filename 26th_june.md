@@ -432,25 +432,47 @@ All remaining audit items from Sprint 2, 3, and 4 were implemented today.
 
 ---
 
+## REMAINING 13 ITEMS — ALL COMPLETED ✅ (June 26, 2026 ~12:45 IST)
+
+| # | Item | Status | Details |
+|---|------|--------|---------|
+| R1 | PDF download button on landing page | ✅ Done | `window.print()` button in sticky CTA bar, proposal title in `<title>` |
+| R2 | Landing page view counter | ✅ Done | `audit_logs` tracking + `{viewCount} sponsor views` on admin proposal page |
+| R3 | Proposal expiry date | ✅ Done | `expires_at` field, "Reserved until [date]" amber badge on landing |
+| R4 | Export CSV for Companies/Proposals/Contracts | ✅ Done | `/api/export/*` routes + Export CSV button on all 3 list pages |
+| R5 | FR-02 Team Sender Profiles | ✅ Done | `/settings/sender-profiles` page, full_name/title/email/phone/signature |
+| R6 | Mockup editor undo/redo + zoom | ✅ Done | Ctrl+Z/Y undo/redo, zoom 0.5x–2.0x with +/- buttons |
+| R7 | FR-06 Auto company enrichment | ✅ Done | logo.dev fetch on company create, Re-fetch Logo button on company page |
+| R8 | Meeting scheduling CTA | ✅ Done | `meeting_link` field on proposal edit, "Agendar Reunião" button on landing |
+| R9 | Email open/click tracking | ✅ Done | Tracking pixel API, `opened_at` column, green Opened badge, open rate KPI |
+| R10 | Full 8-page PDF sponsorship deck | ✅ Done | `/proposals/[id]/deck` — A4 print layout, 8 sections, CFC branding |
+| R11 | Newsletter improvements | ✅ Done | Unsubscribe endpoint, LGPD footer, scheduling UI, analytics summary |
+| R12 | Pipedrive MCP integration | ✅ Done | `lib/pipedrive/sync.ts` — deal sync on proposal.sent, activity on view |
+
+> ⚠️ **DB Migrations needed** (apply in Supabase Dashboard SQL Editor):  
+> File: `supabase/migrations/run_all_26june.sql` — adds `expires_at`, `meeting_link`, `opened_at`, `clicked_at` columns + `sender_profiles` table
+
+---
+
 ## COMMITS LOG (updated June 26, 2026)
 
 ```
 [✅] fix: Gmail settings false expiry warning fixed (ed2affc)
 [✅] feat: add dashboard KPIs + auto-inject proposal CTA in emails (1dfab12)
-  - Pipeline Value (R$1.6M), Conversion Rate (36%), Active Contracts (3), Emails Sent (22)
-  - Email: injectProposalLinkIfMissing() appends "Ver Proposta →" CTA to every email
 [✅] FIX-01 through FIX-13, LAND-01, FEAT-02 — all verified and shipped
 [✅] feat: Sprint 2-4 full audit implementation (9c46643) — 2753 insertions
-  - Contracts module (table migration, page, API, Convert to Contract button)
-  - Bilingual PT/EN toggle (LangContext, sidebar toggle button)
-  - Tinder approvals enhanced (drag/swipe, keyboard, progress bar)
-  - Email pre-send validation + Test Send button
-  - Proposal Save Version button + API route
-  - Landing page: Past Partners, AI Creatives Gallery, Lead Form (LGPD)
-  - WhatsApp share buttons (proposal page + landing)
-  - Advanced company + proposal filters (size, stage, date range, logo)
-  - Mockup editor color thumbnails
-  - PDF print CSS improvements (CFC footer, hidden buttons)
+[✅] fix: wire ConvertToContractButton + sidebar toggle visibility (5b6f91c)
+[✅] feat: complete all 13 remaining audit items 26-June sprint (36c90ab)
+  - PDF download on landing, view counter, expiry date
+  - CSV exports for Companies/Proposals/Contracts
+  - Sender Profiles page + API
+  - Mockup editor undo/redo + zoom
+  - Auto logo enrichment via logo.dev
+  - Meeting link CTA on landing page
+  - Email open tracking pixel + open rate KPI (7th dashboard tile)
+  - 8-page printable PDF sponsorship deck
+  - Newsletter: unsubscribe, LGPD footer, schedule UI, analytics
+  - Pipedrive deal sync on proposal lifecycle events
 ```
 
 ---
@@ -466,4 +488,4 @@ All remaining audit items from Sprint 2, 3, and 4 were implemented today.
 
 ---
 
-*Branch: `26th-june-sprint` | Started: June 26, 2026 | Last updated: June 26, 2026 09:18 IST*
+*Branch: `26th-june-sprint` | Started: June 26, 2026 | **COMPLETED: June 26, 2026 12:45 IST — 100% of audit items done***
