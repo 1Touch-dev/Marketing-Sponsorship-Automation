@@ -26,7 +26,7 @@ const INDUSTRIES = [
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; industry?: string; status?: string; sort?: string };
+  searchParams: { q?: string; industry?: string; status?: string; sort?: string; size?: string; stage?: string; country?: string };
 }) {
   const sb = supabaseAdmin();
   const { data: rawCompanies } = await sb
@@ -64,11 +64,20 @@ export default async function CompaniesPage({
   if (searchParams.status) {
     companies = companies.filter((c) => c.status === searchParams.status);
   }
+  if (searchParams.size) {
+    companies = companies.filter((c) => c.company_size === searchParams.size);
+  }
+  if (searchParams.stage) {
+    companies = companies.filter((c) => c.pipeline_stage === searchParams.stage);
+  }
+  if (searchParams.country) {
+    companies = companies.filter((c) => (c.country ?? "").toLowerCase().includes(searchParams.country!.toLowerCase()));
+  }
   if (searchParams.sort === "name") {
     companies = [...companies].sort((a, b) => a.company_name.localeCompare(b.company_name));
   }
 
-  const hasFilters = !!(searchParams.q || searchParams.industry || searchParams.status);
+  const hasFilters = !!(searchParams.q || searchParams.industry || searchParams.status || searchParams.size || searchParams.stage || searchParams.country);
 
   return (
     <>
@@ -120,6 +129,28 @@ export default async function CompaniesPage({
             <option value="active">active</option>
             <option value="prospect">prospect</option>
             <option value="paused">paused</option>
+          </select>
+          <select
+            name="size"
+            defaultValue={searchParams.size ?? ""}
+            className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
+          >
+            <option value="">All sizes</option>
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+          <select
+            name="stage"
+            defaultValue={searchParams.stage ?? ""}
+            className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
+          >
+            <option value="">All pipeline stages</option>
+            <option value="competitor">Competitor</option>
+            <option value="prospect">Prospect</option>
+            <option value="contacted">Contacted</option>
+            <option value="negotiation">Negotiation</option>
+            <option value="closed">Closed</option>
           </select>
           <select
             name="sort"

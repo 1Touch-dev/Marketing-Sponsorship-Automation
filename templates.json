@@ -1,0 +1,12 @@
+[
+    {
+      "name": "Follow-up Week 1",
+      "subject": "Re: {{company_name}} × Coritiba FC",
+      "body_html": "<p>{{contact_name}}, checking in. {{proposal_link}}</p>"
+    },
+    {
+      "name": "Final Reminder",
+      "subject": "Last chance — {{company_name}} × Coritiba FC",
+      "body_html": "<p>Hi {{contact_name}}, final follow-up.</p>"
+    }
+  ]

@@ -188,17 +188,32 @@ export function MockupEditorClient() {
         {/* Template picker */}
         <div className="rounded-xl border bg-card p-4 space-y-2">
           <div className="text-sm font-semibold">Template</div>
-          <div className="space-y-1.5">
+          <div className="grid grid-cols-1 gap-1.5">
             {TEMPLATES.map(t => (
               <button
                 key={t.id}
                 onClick={() => { setSelectedTemplate(t); setLogos([]); setSelectedId(null); }}
-                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
-                  selectedTemplate.id === t.id ? "bg-primary/10 text-primary font-medium" : "hover:bg-accent"
+                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors border-2 ${
+                  selectedTemplate.id === t.id ? "border-primary bg-primary/10 text-primary font-medium" : "border-transparent hover:bg-accent"
                 }`}
               >
-                <div className="font-medium">{t.label}</div>
-                <div className="text-xs text-muted-foreground">{t.description}</div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className="rounded flex-shrink-0 flex items-center justify-center text-[8px] font-bold text-white/70"
+                    style={{
+                      background: t.bgColor,
+                      width: t.width > t.height ? 40 : 28,
+                      height: t.width > t.height ? 22 : 36,
+                      minWidth: t.width > t.height ? 40 : 28,
+                    }}
+                  >
+                    {t.zones.length}z
+                  </div>
+                  <div>
+                    <div className="font-medium text-xs">{t.label}</div>
+                    <div className="text-[10px] text-muted-foreground leading-tight">{t.description}</div>
+                  </div>
+                </div>
               </button>
             ))}
           </div>

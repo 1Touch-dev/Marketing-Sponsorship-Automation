@@ -27,7 +27,7 @@ type ProposalRow = {
 export default async function ProposalsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; company?: string; industry?: string; sort?: string };
+  searchParams: { q?: string; status?: string; company?: string; industry?: string; sort?: string; date_from?: string; date_to?: string; has_logo?: string };
 }) {
   const sb = supabaseAdmin();
 
@@ -68,12 +68,27 @@ export default async function ProposalsPage({
       (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime(),
     );
   }
+  if (searchParams.date_from) {
+    proposals = proposals.filter((p) => new Date(p.created_at) >= new Date(searchParams.date_from!));
+  }
+  if (searchParams.date_to) {
+    proposals = proposals.filter((p) => new Date(p.created_at) <= new Date(searchParams.date_to! + "T23:59:59"));
+  }
+  if (searchParams.has_logo === "yes") {
+    proposals = proposals.filter((p) => !!(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
+  }
+  if (searchParams.has_logo === "no") {
+    proposals = proposals.filter((p) => !(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
+  }
 
   const hasFilters = !!(
     searchParams.q ||
     searchParams.status ||
     searchParams.company ||
-    searchParams.industry
+    searchParams.industry ||
+    searchParams.date_from ||
+    searchParams.date_to ||
+    searchParams.has_logo
   );
 
   // Group by status for grouped view
@@ -145,6 +160,27 @@ export default async function ProposalsPage({
           >
             <option value="">Newest first</option>
             <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-1">
+            <label className="text-xs text-muted-foreground">From:</label>
+            <input type="date" name="date_from" defaultValue={searchParams.date_from ?? ""}
+              className="rounded-md border bg-background px-2 py-1.5 text-sm outline-none" />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-xs text-muted-foreground">To:</label>
+            <input type="date" name="date_to" defaultValue={searchParams.date_to ?? ""}
+              className="rounded-md border bg-background px-2 py-1.5 text-sm outline-none" />
+          </div>
+          <select
+            name="has_logo"
+            defaultValue={searchParams.has_logo ?? ""}
+            className="rounded-md border bg-background px-3 py-1.5 text-sm outline-none"
+          >
+            <option value="">Any logo status</option>
+            <option value="yes">Has logo</option>
+            <option value="no">No logo uploaded</option>
           </select>
         </div>
         <div className="flex gap-2 pt-1">

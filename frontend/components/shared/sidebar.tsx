@@ -34,9 +34,24 @@ import {
   Users,
   LogOut,
   Newspaper,
+  FileCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
+import { useLang } from "@/lib/i18n/lang-context";
+
+function LangToggle() {
+  const { lang, toggle } = useLang();
+  return (
+    <button
+      onClick={toggle}
+      title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
+      className="text-[10px] font-semibold rounded border px-1.5 py-0.5 hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+    >
+      {lang === "pt" ? "EN" : "PT"}
+    </button>
+  );
+}
 
 function GlobalSearchCompact() {
   const [open, setOpen] = React.useState(false);
@@ -69,6 +84,7 @@ const NAV: NavItem[] = [
   { href: "/companies", label: "Companies", icon: Building2, group: "core" },
   { href: "/contacts", label: "Contacts", icon: Users, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
+  { href: "/contracts", label: "Contracts", icon: FileCheck, group: "core" },
   { href: "/reports", label: "Sponsor Reports", icon: Trophy, group: "core" },
   // Proposal workflow
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
@@ -230,11 +246,12 @@ export function Sidebar() {
         <NavLinks />
       </nav>
       <CurrentUserBadge />
-      <div className="px-3 py-2 border-t">
+      <div className="px-3 py-2 border-t flex items-center justify-between gap-2">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
           Platform v2.0 · Live
         </div>
+        <LangToggle />
       </div>
     </aside>
   );

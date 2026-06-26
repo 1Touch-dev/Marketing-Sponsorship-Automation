@@ -23,6 +23,8 @@ import {
   DollarSign,
   BarChart2,
   Send,
+  CalendarCheck,
+  ImageIcon,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -110,6 +112,38 @@ async function loadDashboard() {
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
 
+  // Gmail OAuth status check
+  const gmailStatus = await sb
+    .from("users")
+    .select("metadata")
+    .limit(1)
+    .maybeSingle()
+    .then(r => {
+      const tokens = (r.data?.metadata as Record<string, unknown> | null)?.gmail_tokens as Record<string, unknown> | null;
+      return {
+        connected: !!(tokens?.access_token && tokens?.refresh_token),
+        expired: tokens?.expiry_date ? (tokens.expiry_date as number) < Date.now() && !tokens?.refresh_token : false,
+      };
+    });
+
+  // Proposals sent this month
+  const thisMonthStart = new Date();
+  thisMonthStart.setDate(1);
+  thisMonthStart.setHours(0, 0, 0, 0);
+  const proposalsSentThisMonth = await sb
+    .from("emails")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "sent")
+    .gte("created_at", thisMonthStart.toISOString());
+
+  // Image generation job stats
+  const imageJobStats = await sb.from("image_generation_jobs").select("status").then(r => {
+    const jobs = r.data ?? [];
+    const completed = jobs.filter(j => j.status === "completed").length;
+    const total = jobs.length;
+    return { completed, total, rate: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  });
+
   // Compute pipeline value from ALL packages (simple sum — filter by proposal status not needed here)
   const pipelineValueRaw = (proposalPackages.data ?? []).reduce(
     (sum, pkg) => sum + (Number(pkg.price_brl) || 0), 0
@@ -136,12 +170,16 @@ async function loadDashboard() {
     recentProposals: recentProposals.data ?? [],
     recentEmails: recentEmails.data ?? [],
     recentAudit: cleanAudit,
-    // New KPIs
+    // KPIs
     approvedProposalCount: approvedProposals.count ?? 0,
     sentEmailCount: sentEmails.count ?? 0,
     activeContractCount: contractProposals.count ?? 0,
     pipelineValueBrl: pipelineValueRaw,
     conversionRate,
+    // New KPIs
+    gmailStatus,
+    proposalsSentThisMonthCount: proposalsSentThisMonth.count ?? 0,
+    imageJobStats,
   };
 }
 
@@ -273,6 +311,20 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* Gmail OAuth expired banner */}
+      {d.gmailStatus.expired && (
+        <div className="flex items-center gap-3 rounded-lg border border-red-400 bg-red-50 dark:bg-red-900/20 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" />
+          <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+            ⚠️ Gmail OAuth expired — outbound emails are failing. Reconnect in{" "}
+            <Link href="/settings" className="underline">
+              Settings
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+
       {/* Coritiba FC platform context */}
       <div className="rounded-xl border bg-gradient-to-r from-green-900 to-green-800 p-4 text-white">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -336,8 +388,8 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPI Strip — Pipeline Value, Conversion Rate, Contracts, Emails Sent, Sent This Month, Image Gen Rate */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="h-4 w-4 text-emerald-600" />
@@ -392,6 +444,28 @@ export default async function DashboardPage() {
           <div className="text-xl font-bold text-sky-700">{d.sentEmailCount}</div>
           <p className="text-[10px] text-muted-foreground mt-0.5">total outreach emails</p>
         </Link>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <CalendarCheck className="h-4 w-4 text-violet-600" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sent This Month</span>
+          </div>
+          <div className="text-xl font-bold text-violet-600">{d.proposalsSentThisMonthCount}</div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">emails sent this month</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <ImageIcon className="h-4 w-4 text-rose-500" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Image Gen Rate</span>
+          </div>
+          <div className={`text-xl font-bold ${d.imageJobStats.rate >= 80 ? "text-emerald-700" : d.imageJobStats.rate >= 50 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {d.imageJobStats.total > 0 ? `${d.imageJobStats.rate}% success` : "—"}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {d.imageJobStats.completed}/{d.imageJobStats.total} jobs completed
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

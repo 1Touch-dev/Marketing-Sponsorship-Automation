@@ -7,6 +7,7 @@ import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-im
 import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 import { PhoneCall, Calendar, ThumbsUp } from "lucide-react";
 import Image from "next/image";
+import { LeadInterestForm } from "./lead-interest-form";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,9 @@ export default async function PublicProposalViewPage({ params }: { params: { tok
           inventory_items: (p.inventory_items as Record<string, unknown>[]) ?? [],
         }))}
       />
+
+      {/* ─── Lead Capture Form — before sticky CTA ─── */}
+      <LeadInterestForm proposalId={p.id} companyName={company?.company_name ?? ""} />
 
       {/* ─── Sponsor CTA strip — fixed at bottom ─── */}
       <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003300] via-[#006B3F] to-[#004d00] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">

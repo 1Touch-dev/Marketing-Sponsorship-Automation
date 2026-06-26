@@ -451,6 +451,21 @@ export function ProposalLandingPage({
               </div>
             </div>
           </div>
+
+          {/* Past Partners Bar */}
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              Marcas que confiam no Coritiba FC
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-500 font-medium mr-1">Alguns de nossos parceiros:</span>
+              {["Heineken", "Ambev", "Banco Itaú", "Toyota", "Red Bull", "Claro", "TIM"].map((brand) => (
+                <span key={brand} className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                  {brand}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Executive summary */}
@@ -583,6 +598,28 @@ export function ProposalLandingPage({
           <Section id="pricing" title="Opções de Investimento" badge="Pacotes de Patrocínio"
             subtitle="Três níveis de parceria para se adaptar ao seu orçamento e objetivos estratégicos">
             <PricingTiers tiers={pricingTiers} />
+          </Section>
+        )}
+
+        {/* AI Creatives Gallery — only shown when there are approved images */}
+        {approvedImages.length > 0 && (
+          <Section id="creatives" title="📸 Visuais da Campanha" badge="Criações Aprovadas"
+            subtitle="Materiais visuais gerados para esta campanha de patrocínio">
+            <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+              {approvedImages.map((img, idx) => (
+                <div
+                  key={img.url ?? idx}
+                  className="shrink-0 snap-start w-[280px] h-[200px] rounded-xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt={img.prompt ?? `Visual da campanha ${idx + 1}`}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ))}
+            </div>
           </Section>
         )}
 
