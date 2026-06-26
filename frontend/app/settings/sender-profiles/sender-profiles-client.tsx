@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
@@ -8,20 +9,28 @@ import { Plus, Trash2, Star, User } from "lucide-react";
 type Profile = { id: string; full_name: string; title: string | null; email: string; phone: string | null; linkedin_url: string | null; html_signature: string | null; is_default: boolean };
 
 export function SenderProfilesClient({ initialProfiles }: { initialProfiles: Profile[] }) {
-  const [profiles] = useState(initialProfiles);
+  const [profiles, setProfiles] = useState(initialProfiles);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ full_name: "", title: "", email: "", phone: "", linkedin_url: "", html_signature: "", is_default: false });
   const { toast } = useToast();
   const router = useRouter();
 
+  useEffect(() => { setProfiles(initialProfiles); }, [initialProfiles]);
+
   async function handleAdd() {
     if (!form.full_name || !form.email) { toast({ variant: "destructive", title: "Name and email are required" }); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/sender-profiles", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) { toast({ title: "✓ Sender profile added" }); setShowForm(false); router.refresh(); }
-      else { const d = await res.json() as { error?: string }; toast({ variant: "destructive", title: d.error ?? "Failed" }); }
+      if (res.ok) {
+        const created = await res.json() as { data?: Profile };
+        if (created?.data) setProfiles(prev => [...prev, created.data!]);
+        toast({ title: "✓ Sender profile added" });
+        setShowForm(false);
+        setForm({ full_name: "", title: "", email: "", phone: "", linkedin_url: "", html_signature: "", is_default: false });
+        router.refresh();
+      } else { const d = await res.json() as { error?: string }; toast({ variant: "destructive", title: d.error ?? "Failed" }); }
     } finally { setSaving(false); }
   }
 

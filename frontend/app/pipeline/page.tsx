@@ -3,9 +3,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Users, DollarSign, Calendar, Plus, AlertCircle, ArrowRight, Activity, CheckCircle, Target } from "lucide-react";
+import { TrendingUp, DollarSign, Plus, Activity, CheckCircle, Target, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { PipelineLeadForm } from "./pipeline-lead-form";
 
 export const dynamic = "force-dynamic";
 
@@ -22,39 +21,34 @@ const STAGES = [
 export default async function PipelinePage() {
   const sb = supabaseAdmin();
 
-  let leads: Record<string, unknown>[] = [];
-  let companies: Record<string, unknown>[] = [];
-  let migrationNeeded = false;
+  // Use companies table with pipeline_stage — no separate table needed
+  const { data: companiesRaw } = await sb
+    .from("companies")
+    .select("id, company_name, industry, status, pipeline_stage, estimated_value, updated_at")
+    .not("pipeline_stage", "is", null)
+    .order("updated_at", { ascending: false });
 
-  try {
-    const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
-      .from("pipeline_leads" as "companies")
-      .select("*")
-      .eq("status", "active")
-      .order("created_at", { ascending: false });
+  type PipelineCompany = {
+    id: string;
+    company_name: string;
+    industry?: string | null;
+    status?: string | null;
+    pipeline_stage?: string | null;
+    estimated_value?: number | null;
+    updated_at?: string | null;
+  };
 
-    if (error?.message?.includes("not find") || error?.message?.includes("does not exist")) {
-      migrationNeeded = true;
-    } else {
-      leads = (data ?? []) as Record<string, unknown>[];
-    }
-  } catch {
-    migrationNeeded = true;
-  }
+  const companies = (companiesRaw ?? []) as PipelineCompany[];
 
-  if (!migrationNeeded) {
-    const { data } = await sb.from("companies").select("id, company_name").eq("status", "active").order("company_name").limit(100);
-    companies = (data ?? []) as Record<string, unknown>[];
-  }
-
-  const stageGroups = STAGES.reduce<Record<string, Record<string, unknown>[]>>((acc, s) => {
-    acc[s.key] = leads.filter((l) => l.stage === s.key);
+  const stageGroups = STAGES.reduce<Record<string, PipelineCompany[]>>((acc, s) => {
+    acc[s.key] = companies.filter((c) => c.pipeline_stage === s.key);
     return acc;
   }, {});
 
-  const totalValue = leads.reduce((sum, l) => sum + (Number(l.value) || 0), 0);
-  const wonValue = stageGroups["closed_won"].reduce((sum, l) => sum + (Number(l.value) || 0), 0);
-  const activeLeads = leads.filter((l) => !["closed_won", "closed_lost"].includes(l.stage as string));
+  const totalValue = companies.reduce((sum, c) => sum + (Number(c.estimated_value) || 0), 0);
+  const wonValue = stageGroups["closed_won"].reduce((sum, c) => sum + (Number(c.estimated_value) || 0), 0);
+  const activeLeads = companies.filter((c) => !["closed_won", "closed_lost"].includes(c.pipeline_stage ?? ""));
+  const migrationNeeded = false;
 
   return (
     <div className="space-y-6">
@@ -72,19 +66,7 @@ export default async function PipelinePage() {
         }
       />
 
-      {migrationNeeded && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-800">Database Migration Required</p>
-            <p className="text-sm text-amber-700 mt-1">
-              Go to{" "}
-              <a href="/coritiba-intelligence" className="underline font-medium">Coritiba Intelligence</a>{" "}
-              and apply the database migrations to enable this module.
-            </p>
-          </div>
-        </div>
-      )}
+      {migrationNeeded && null}
 
       {/* Pipedrive notice */}
       <Card className="border-blue-200 bg-blue-50/30">
@@ -108,7 +90,7 @@ export default async function PipelinePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Active Leads" value={activeLeads.length.toString()} icon={<Target className="h-4 w-4" />} color="blue" />
+      <StatCard label="Active Leads" value={activeLeads.length.toString()} icon={<Target className="h-4 w-4" />} color="blue" />
         <StatCard label="Won Deals" value={stageGroups["closed_won"].length.toString()} icon={<CheckCircle className="h-4 w-4" />} color="green" />
         <StatCard label="Pipeline Value" value={totalValue > 0 ? `R$ ${(totalValue / 1000).toFixed(0)}K` : "—"} icon={<DollarSign className="h-4 w-4" />} color="purple" />
         <StatCard label="Revenue Won" value={wonValue > 0 ? `R$ ${(wonValue / 1000).toFixed(0)}K` : "—"} icon={<TrendingUp className="h-4 w-4" />} color="amber" />
@@ -117,30 +99,30 @@ export default async function PipelinePage() {
       {/* Pipeline stages */}
       <div className="space-y-4">
         {STAGES.filter((s) => s.key !== "closed_lost" || stageGroups["closed_lost"].length > 0).map((stage) => {
-          const stageLeads = stageGroups[stage.key] || [];
-          if (stageLeads.length === 0 && stage.key === "closed_won") return null;
+          const stageCompanies = stageGroups[stage.key] || [];
+          if (stageCompanies.length === 0 && stage.key === "closed_won") return null;
           return (
             <Card key={stage.key}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${stage.color}`}>{stage.label}</span>
-                  <span className="text-muted-foreground">({stageLeads.length})</span>
-                  {stageLeads.length > 0 && (
+                  <span className="text-muted-foreground">({stageCompanies.length})</span>
+                  {stageCompanies.length > 0 && (
                     <span className="ml-auto text-xs text-muted-foreground">
-                      R$ {stageLeads.reduce((s, l) => s + (Number(l.value) || 0), 0).toLocaleString("pt-BR")}
+                      R$ {stageCompanies.reduce((s, c) => s + (Number(c.estimated_value) || 0), 0).toLocaleString("pt-BR")}
                     </span>
                   )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                {stageLeads.length > 0 ? (
+                {stageCompanies.length > 0 ? (
                   <div className="divide-y">
-                    {stageLeads.map((lead) => (
-                      <LeadRow key={lead.id as string} lead={lead} />
+                    {stageCompanies.map((company) => (
+                      <CompanyRow key={company.id} company={company} />
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground py-2">No leads in this stage</p>
+                  <p className="text-sm text-muted-foreground py-2">No companies in this stage</p>
                 )}
               </CardContent>
             </Card>
@@ -148,50 +130,32 @@ export default async function PipelinePage() {
         })}
       </div>
 
-      {/* Add form */}
-      {!migrationNeeded && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Pipeline Lead
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PipelineLeadForm companies={companies} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
 
-function LeadRow({ lead }: { lead: Record<string, unknown> }) {
+type PipelineCompany = {
+  id: string; company_name: string; industry?: string | null; status?: string | null;
+  pipeline_stage?: string | null; estimated_value?: number | null; updated_at?: string | null;
+};
+
+function CompanyRow({ company }: { company: PipelineCompany }) {
   return (
     <div className="py-3 flex items-center gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium truncate">{lead.title as string}</p>
-          {!!lead.source && <Badge variant="outline" className="text-xs capitalize shrink-0">{lead.source as string}</Badge>}
+          <Link href={`/companies/${company.id}`} className="text-sm font-medium truncate hover:underline text-primary">
+            {company.company_name}
+          </Link>
+          {company.industry && <Badge variant="outline" className="text-xs capitalize shrink-0">{company.industry}</Badge>}
         </div>
-        {!!lead.owner && <p className="text-xs text-muted-foreground mt-0.5">Owner: {lead.owner as string}</p>}
-        {!!lead.next_followup && (
-          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            Follow-up: {new Date(lead.next_followup as string).toLocaleDateString("pt-BR")}
-          </p>
-        )}
+        {company.status && <p className="text-xs text-muted-foreground mt-0.5 capitalize">Status: {company.status}</p>}
       </div>
       <div className="shrink-0 text-right space-y-0.5">
-        {!!lead.value && <p className="text-sm font-medium">R$ {Number(lead.value).toLocaleString("pt-BR")}</p>}
-        {lead.probability !== undefined && lead.probability !== null && (
-          <p className="text-xs text-muted-foreground">{lead.probability as number}% probability</p>
-        )}
-        {!!lead.proposal_id && (
-          <Link href={`/proposals/${lead.proposal_id}`} className="text-xs text-blue-600 hover:underline block">
-            View Proposal
-          </Link>
-        )}
+        {company.estimated_value ? <p className="text-sm font-medium">R$ {Number(company.estimated_value).toLocaleString("pt-BR")}</p> : null}
+        <Link href={`/companies/${company.id}`} className="text-xs text-blue-600 hover:underline block">
+          View →
+        </Link>
       </div>
     </div>
   );

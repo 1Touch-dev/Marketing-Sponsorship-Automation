@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
-import { useLang } from "@/lib/i18n/lang-context";
+import { useLang, t } from "@/lib/i18n/lang-context";
 
 function LangToggle() {
   const { lang, toggle } = useLang();
@@ -122,19 +122,20 @@ const NAV: NavItem[] = [
   { href: "/users", label: "Team & Roles", icon: Users, group: "system", adminOnly: true },
 ];
 
-const GROUPS: Record<string, string> = {
-  core: "CRM",
-  proposals: "Proposal Workflow",
-  intelligence: "Intelligence",
-  media: "Media & Visuals",
-  integrations: "Integrations",
-  system: "System",
+const GROUPS: Record<string, { pt: string; en: string }> = {
+  core: { pt: "CRM", en: "CRM" },
+  proposals: { pt: "Fluxo de Propostas", en: "Proposal Workflow" },
+  intelligence: { pt: "Inteligência", en: "Intelligence" },
+  media: { pt: "Mídia & Visuais", en: "Media & Visuals" },
+  integrations: { pt: "Integrações", en: "Integrations" },
+  system: { pt: "Sistema", en: "System" },
 };
 
 function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebarCollapsed?: boolean }) {
   const pathname = usePathname();
   const [groupCollapsed, setGroupCollapsed] = React.useState<Record<string, boolean>>({});
   const { role } = useUserRole();
+  const { lang } = useLang();
 
   const groupedItems = NAV.reduce<Record<string, NavItem[]>>((acc, item) => {
     if (item.adminOnly && role !== "admin") return acc;
@@ -158,7 +159,7 @@ function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebar
                 onClick={() => setGroupCollapsed((c) => ({ ...c, [group]: !c[group] }))}
                 className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
               >
-                <span>{groupLabel}</span>
+                <span>{groupLabel[lang]}</span>
                 <ChevronDown className={cn("h-3 w-3 transition-transform", isGroupCollapsed && "-rotate-90")} />
               </button>
             )}
@@ -184,7 +185,7 @@ function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebar
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
-                      {!sidebarCollapsed && <span>{item.label}</span>}
+                      {!sidebarCollapsed && <span>{t(item.label, lang)}</span>}
                     </Link>
                   );
                 })}

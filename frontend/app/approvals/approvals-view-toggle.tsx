@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function ApprovalsViewToggle({ items, listView }: Props) {
-  const [mode, setMode] = useState<"list" | "cards">("list");
+  const [mode, setMode] = useState<"list" | "cards">("cards");
 
   return (
     <>
