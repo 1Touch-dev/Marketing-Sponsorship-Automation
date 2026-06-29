@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { OfficialJerseyMockup } from "./official-jersey-mockup";
 import { AICreativesGenerator } from "./ai-creatives-generator";
 import { ProposalImageManager } from "./proposal-image-manager";
+import { StadiumOutdoorMockup } from "./stadium-outdoor-mockup";
 import type { StrategyVariant } from "@/lib/ai/schemas";
 
 export type ProposalGraphicsPanelProps = {
@@ -70,7 +71,34 @@ export function ProposalGraphicsPanel({
         </div>
       </div>
 
-      {/* Card 2: AI Creatives */}
+      {/* Card 2: Stadium / Outdoor Mockup */}
+      <div className="rounded-xl border-2 border-amber-200 bg-white dark:bg-slate-900 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200">
+          <span className="text-xl">🏟️</span>
+          <div>
+            <div className="font-semibold text-sm text-amber-900 dark:text-amber-200">Stadium / Outdoor Mockup</div>
+            <div className="text-xs text-amber-700 dark:text-amber-400">
+              Real Couto Pereira photos · LED boards · Main stand · Exterior facade · 5 zones
+            </div>
+          </div>
+          {hasLogo && (
+            <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-600 text-white font-medium shrink-0">
+              ✓ Logo ready
+            </span>
+          )}
+        </div>
+        <div className="p-4">
+          <StadiumOutdoorMockup
+            proposalId={proposalId}
+            companyId={companyId}
+            companyName={companyName}
+            sponsorLogoUrl={sponsorLogoUrl}
+            onGenerated={() => setRefreshKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+
+      {/* Card 3: AI Creatives */}
       <div className="rounded-xl border-2 border-indigo-200 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200">
           <span className="text-xl">✨</span>
@@ -93,7 +121,7 @@ export function ProposalGraphicsPanel({
         </div>
       </div>
 
-      {/* Card 3: All saved images */}
+      {/* Card 4: All saved images */}
       <div className="rounded-xl border border-slate-200 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200">
           <span className="text-xl">🖼️</span>

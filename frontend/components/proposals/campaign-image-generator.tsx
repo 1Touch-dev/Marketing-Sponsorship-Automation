@@ -40,9 +40,25 @@ function buildPromptForStrategy(
     `Campaign concept: "${strategy.label}". ` +
     `Key activations: ${activations}. ` +
     `Scene: packed stadium, match day atmosphere, 40,000 fans in green and white, golden broadcast lighting, ` +
-    `massive LED advertising boards showing "${companyName}" branding. ` +
+    `massive LED advertising boards showing "${companyName}" branding, perimeter hoardings around the pitch. ` +
     `${logoNote}` +
     `Cinematic 16:9 widescreen, commercial advertising photography quality, high contrast, vibrant colors.`
+  );
+}
+
+/** Build an outdoor/billboard-specific prompt */
+function buildOutdoorPrompt(companyName: string, logoUrl?: string | null): string {
+  const logoNote = logoUrl
+    ? `${companyName} logo clearly on LED board and perimeter hoarding. `
+    : `${companyName} brand name on LED boards and pitch-side advertising. `;
+  return (
+    `Photorealistic outdoor sports advertising: ${companyName} sponsor branding at Estádio Couto Pereira, ` +
+    `Coritiba FC home ground, Curitiba, Paraná, Brazil. ` +
+    `Close-up view of green LED perimeter advertising board at pitch level, ` +
+    `${companyName} brand clearly displayed. ` +
+    `${logoNote}` +
+    `Match day atmosphere, broadcast-quality floodlit stadium, fans in green and white in background. ` +
+    `Cinematic 16:9 widescreen, commercial photography quality, sharp focus on the advertising board.`
   );
 }
 
@@ -75,16 +91,23 @@ export function CampaignImageGenerator({
       const logoNote = uploadedLogoUrl
         ? `${companyName} logo clearly shown on Coritiba FC jersey and advertising boards. `
         : `${companyName} brand name displayed on jersey and stadium signage. `;
+      // Main campaign creative
       prompts.push({
         prompt:
           `Photorealistic sports marketing campaign image: ${companyName} sponsors Coritiba FC ` +
           `(dark green and white football kit, Estádio Couto Pereira, Curitiba, Brazil). ` +
           `${campaignTitle ? `Campaign: "${campaignTitle}". ` : ""}` +
           `Packed stadium with 40,000 fans, match day golden broadcast lighting, ` +
-          `giant LED advertising boards showing "${companyName}" branding. ` +
+          `giant LED advertising boards showing "${companyName}" branding, perimeter hoardings. ` +
           `${logoNote}` +
           `Cinematic 16:9 widescreen, high-quality commercial advertising photography.`,
         job_type: "campaign_creative",
+      });
+      // Outdoor / LED board specific creative
+      prompts.push({
+        prompt: buildOutdoorPrompt(companyName, uploadedLogoUrl),
+        job_type: "outdoor_creative",
+        strategy_label: "Outdoor — LED Board",
       });
     }
     return prompts;

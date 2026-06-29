@@ -73,9 +73,23 @@ function buildFallbackPrompt(
     `(dark green and white football kit, Estádio Couto Pereira, Curitiba, Brazil). ` +
     `${campaignTitle ? `Campaign: "${campaignTitle}". ` : ""}` +
     `Packed stadium with 40,000 fans, match day golden broadcast lighting, ` +
-    `giant LED advertising boards showing "${companyName}" branding. ` +
+    `giant LED advertising boards and perimeter hoardings showing "${companyName}" branding. ` +
     `${logoNote}` +
     `Cinematic 16:9 widescreen, high-quality commercial advertising photography.`
+  );
+}
+
+function buildOutdoorPrompt(companyName: string, logoUrl?: string | null): string {
+  const logoNote = logoUrl
+    ? `${companyName} logo on pitch-side LED board. `
+    : `${companyName} brand name on LED advertising board. `;
+  return (
+    `Photorealistic outdoor sports advertising mockup: ${companyName} branding at Estádio Couto Pereira, ` +
+    `Coritiba FC, Curitiba, Paraná, Brazil. ` +
+    `Close-up of green LED perimeter advertising board at pitch level with "${companyName}" clearly displayed. ` +
+    `${logoNote}` +
+    `Match day atmosphere, broadcast-quality floodlit stadium, fans in green and white, ` +
+    `cinematic 16:9 widescreen, sharp focus on advertising board.`
   );
 }
 
@@ -105,6 +119,10 @@ export function AICreativesGenerator({
     return [
       {
         prompt: buildFallbackPrompt(companyName, campaignTitle, uploadedLogoUrl),
+      },
+      {
+        prompt: buildOutdoorPrompt(companyName, uploadedLogoUrl),
+        strategyLabel: "Outdoor — LED Board",
       },
     ];
   };
@@ -178,7 +196,7 @@ export function AICreativesGenerator({
   };
 
   const hasStrategies = strategyVariants && strategyVariants.length > 0;
-  const imageCount = hasStrategies ? Math.min(strategyVariants!.length, 3) : 1;
+  const imageCount = hasStrategies ? Math.min(strategyVariants!.length, 3) : 2;
 
   return (
     <div className="space-y-4">
