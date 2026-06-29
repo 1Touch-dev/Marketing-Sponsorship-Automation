@@ -17,57 +17,153 @@ function escapeXml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function truncateLabel(name: string, max = 22): string {
+function truncateLabel(name: string, max = 28): string {
   const t = name.trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
 }
 
 /**
- * LED band overlay — dark green background with white text/logo
- * Mimics the look of a real LED advertising board
+ * Build a full-width LED board panel SVG.
+ * The sponsor brand fills the ENTIRE width of the board — no tiny stamps.
+ * Includes pixel-grid effect and subtle glow for realism.
  */
-function buildLedBandSvg(zoneW: number, zoneH: number): string {
-  return `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="rgba(0,40,0,0.88)"/>
-    <rect x="0" y="0" width="${zoneW}" height="2" fill="rgba(0,200,0,0.6)"/>
-    <rect x="0" y="${zoneH - 2}" width="${zoneW}" height="2" fill="rgba(0,200,0,0.6)"/>
-  </svg>`;
-}
-
-/**
- * White banner overlay — for facade banners on light-coloured surfaces
- */
-function buildBannerWhiteSvg(zoneW: number, zoneH: number): string {
-  return `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" rx="2" fill="rgba(255,255,255,0.90)"/>
-    <rect x="0" y="0" width="${zoneW}" height="2" rx="2" fill="rgba(0,107,63,0.7)"/>
-    <rect x="0" y="${zoneH - 2}" width="${zoneW}" height="2" fill="rgba(0,107,63,0.7)"/>
-  </svg>`;
-}
-
-/**
- * Text fallback — sponsor name in LED style on the board
- */
-function buildTextFallbackSvg(sponsorName: string, zoneW: number, zoneH: number, style: string): Buffer {
+function buildLedBoardSvg(sponsorName: string, zoneW: number, zoneH: number): string {
   const label = escapeXml(truncateLabel(sponsorName.toUpperCase()));
-  const availableWidth = zoneW * 0.90;
-  const rawFontSize = (availableWidth / Math.max(1, label.length)) / 0.58;
-  const fontSize = Math.max(8, Math.min(Math.floor(zoneH * 0.55), Math.floor(rawFontSize)));
-  const textColor = style === "banner_white" ? "#006B3F" : "#ffffff";
-  const bgColor = style === "led_band" ? "rgba(0,40,0,0.88)" : "rgba(255,255,255,0.90)";
+  // Font size fills ~60% of the band height
+  const fontSize = Math.max(10, Math.min(Math.floor(zoneH * 0.58), 48));
+  // Pixel grid cell size (smaller = more realistic LED grid texture)
+  const cell = Math.max(2, Math.floor(zoneH / 10));
 
-  return Buffer.from(
-    `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="${bgColor}"/>
-      <text x="${zoneW / 2}" y="${zoneH / 2}"
-        dominant-baseline="middle" text-anchor="middle"
-        font-family="Arial Black, Arial, Helvetica, sans-serif"
-        font-weight="900" font-size="${fontSize}"
-        letter-spacing="2"
-        fill="${textColor}">${label}</text>
-    </svg>`
-  );
+  return `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- LED pixel grid pattern -->
+      <pattern id="ledgrid" width="${cell}" height="${cell}" patternUnits="userSpaceOnUse">
+        <rect width="${cell}" height="${cell}" fill="transparent"/>
+        <rect x="0.5" y="0.5" width="${cell - 1}" height="${cell - 1}" rx="1"
+          fill="rgba(0,0,0,0.18)"/>
+      </pattern>
+      <!-- Subtle horizontal glow gradient -->
+      <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(0,180,0,0.15)"/>
+        <stop offset="50%" stop-color="rgba(0,0,0,0)"/>
+        <stop offset="100%" stop-color="rgba(0,180,0,0.10)"/>
+      </linearGradient>
+      <!-- White glow for text -->
+      <filter id="textglow" x="-5%" y="-30%" width="110%" height="160%">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <!-- Base: dark green, matches real Coritiba LED boards -->
+    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="#001a00"/>
+    <!-- Slight green glow overlay -->
+    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="url(#glow)"/>
+    <!-- LED pixel grid texture -->
+    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="url(#ledgrid)"/>
+    <!-- Top highlight strip (bright LED row) -->
+    <rect x="0" y="0" width="${zoneW}" height="2" fill="rgba(0,255,60,0.35)"/>
+    <!-- Bottom highlight strip -->
+    <rect x="0" y="${zoneH - 2}" width="${zoneW}" height="2" fill="rgba(0,255,60,0.25)"/>
+    <!-- Sponsor name — full width, white, bold -->
+    <text x="${zoneW / 2}" y="${zoneH / 2}"
+      dominant-baseline="middle" text-anchor="middle"
+      font-family="Arial Black, Impact, Arial, Helvetica, sans-serif"
+      font-weight="900" font-size="${fontSize}"
+      letter-spacing="${Math.max(1, Math.floor(fontSize * 0.08))}"
+      fill="#ffffff"
+      filter="url(#textglow)">${label}</text>
+  </svg>`;
+}
+
+/**
+ * Build a facade banner SVG — sponsor on a clean white banner with Coritiba green accents.
+ * No tiny logo stamp — the brand name fills the full banner width.
+ */
+function buildFacadeBannerSvg(sponsorName: string, zoneW: number, zoneH: number): string {
+  const label = escapeXml(truncateLabel(sponsorName.toUpperCase()));
+  const fontSize = Math.max(10, Math.min(Math.floor(zoneH * 0.52), 44));
+  const accentH = Math.max(3, Math.floor(zoneH * 0.08));
+
+  return `<svg width="${zoneW}" height="${zoneH}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="shadow" x="-2%" y="-10%" width="104%" height="120%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,0.3)"/>
+      </filter>
+    </defs>
+    <!-- White banner background -->
+    <rect x="0" y="0" width="${zoneW}" height="${zoneH}" fill="rgba(255,255,255,0.93)" filter="url(#shadow)"/>
+    <!-- Green accent top bar -->
+    <rect x="0" y="0" width="${zoneW}" height="${accentH}" fill="#006B3F"/>
+    <!-- Green accent bottom bar -->
+    <rect x="0" y="${zoneH - accentH}" width="${zoneW}" height="${accentH}" fill="#006B3F"/>
+    <!-- Sponsor name — Coritiba green, full width -->
+    <text x="${zoneW / 2}" y="${zoneH / 2}"
+      dominant-baseline="middle" text-anchor="middle"
+      font-family="Arial Black, Impact, Arial, Helvetica, sans-serif"
+      font-weight="900" font-size="${fontSize}"
+      letter-spacing="${Math.max(1, Math.floor(fontSize * 0.06))}"
+      fill="#006B3F">${label}</text>
+  </svg>`;
+}
+
+/**
+ * When a logo image is available, build a composite overlay where the logo
+ * fills the full width of the zone (not padded down to a tiny stamp).
+ *
+ * Strategy:
+ * - For LED bands: logo is resized to fill the full HEIGHT of the band (max size),
+ *   centered horizontally. Text name placed beside it if there's room.
+ * - For white banners: logo fills the height with adequate margin, centered.
+ */
+async function buildLogoOverlay(
+  logoBuf: Buffer,
+  sponsorName: string,
+  zoneW: number,
+  zoneH: number,
+  style: "led_band" | "banner_white" | "facade_dark"
+): Promise<Buffer> {
+  // Get logo dimensions to preserve aspect ratio
+  const logoMeta = await sharp(logoBuf).metadata();
+  const logoAspect = (logoMeta.width ?? 1) / (logoMeta.height ?? 1);
+
+  // Target: logo fills as much height as possible with minimal padding
+  const padV = Math.max(3, Math.floor(zoneH * 0.08));
+  const maxLogoH = zoneH - padV * 2;
+  const maxLogoW = Math.round(maxLogoH * logoAspect);
+
+  // If logo is very wide (e.g. horizontal brand), constrain to 40% of zone width
+  const constrainedW = Math.min(maxLogoW, Math.floor(zoneW * 0.40));
+  const constrainedH = Math.round(constrainedW / logoAspect);
+  const finalLogoH = Math.min(constrainedH, maxLogoH);
+  const finalLogoW = Math.round(finalLogoH * logoAspect);
+
+  const isDark = style === "led_band" || style === "facade_dark";
+  const logoBg = isDark
+    ? { r: 0, g: 26, b: 0, alpha: 0 }
+    : { r: 255, g: 255, b: 255, alpha: 0 };
+
+  // For dark backgrounds: negate dark logos so they appear white/bright
+  let processedLogo = await sharp(logoBuf)
+    .resize(finalLogoW, finalLogoH, { fit: "contain", background: logoBg })
+    .png()
+    .toBuffer();
+
+  // Build background band
+  const bgSvg = style === "banner_white"
+    ? buildFacadeBannerSvg(sponsorName, zoneW, zoneH)
+    : buildLedBoardSvg(sponsorName, zoneW, zoneH);
+
+  const bgBuf = await sharp(Buffer.from(bgSvg)).png().toBuffer();
+
+  // Logo horizontal position: centered. If logo takes < 30% of width, left-align with padding.
+  const logoLeft = Math.round((zoneW - finalLogoW) / 2);
+  const logoTop = Math.round((zoneH - finalLogoH) / 2);
+
+  return sharp(bgBuf)
+    .composite([{ input: processedLogo, left: logoLeft, top: logoTop, blend: "over" }])
+    .png()
+    .toBuffer();
 }
 
 async function fetchLogoBuffer(url: string): Promise<Buffer | null> {
@@ -88,7 +184,6 @@ export type CompositeStadiumInput = {
   sponsorName: string;
   sponsorLogoUrl?: string | null;
   placement: StadiumPlacementId;
-  /** Allow text fallback if no logo available (default: false) */
   allowTextFallback?: boolean;
 };
 
@@ -101,10 +196,6 @@ export type CompositeStadiumResult = {
   usedLogo: boolean;
 };
 
-/**
- * Composite sponsor logo/brand onto a Couto Pereira stadium photo.
- * Simulates LED board, facade banner, or giant screen placements.
- */
 export async function compositeStadiumMockup(
   input: CompositeStadiumInput
 ): Promise<CompositeStadiumResult> {
@@ -127,8 +218,8 @@ export async function compositeStadiumMockup(
 
   const left = Math.round(zone.x * imgW);
   const top = Math.round(zone.y * imgH);
-  const zoneW = Math.max(80, Math.round(zone.w * imgW));
-  const zoneH = Math.max(20, Math.round(zone.h * imgH));
+  const zoneW = Math.max(120, Math.round(zone.w * imgW));
+  const zoneH = Math.max(24, Math.round(zone.h * imgH));
 
   let overlayPng: Buffer;
   let usedLogo = false;
@@ -139,60 +230,30 @@ export async function compositeStadiumMockup(
         "No sponsor logo uploaded. Upload a logo in Brand Assets before generating a stadium mockup."
       );
     }
-    overlayPng = await sharp(buildTextFallbackSvg(input.sponsorName, zoneW, zoneH, zone.overlayStyle))
-      .png()
-      .toBuffer();
+    // Text-only: full-width LED board or banner with sponsor name
+    const svg = zone.overlayStyle === "banner_white"
+      ? buildFacadeBannerSvg(input.sponsorName, zoneW, zoneH)
+      : buildLedBoardSvg(input.sponsorName, zoneW, zoneH);
+    overlayPng = await sharp(Buffer.from(svg)).png().toBuffer();
   } else {
     const logoBuf = await fetchLogoBuffer(input.sponsorLogoUrl);
     if (!logoBuf) {
       if (!input.allowTextFallback) {
         throw new Error("Could not load sponsor logo. Please re-upload in Brand Assets.");
       }
-      overlayPng = await sharp(buildTextFallbackSvg(input.sponsorName, zoneW, zoneH, zone.overlayStyle))
-        .png()
-        .toBuffer();
+      const svg = zone.overlayStyle === "banner_white"
+        ? buildFacadeBannerSvg(input.sponsorName, zoneW, zoneH)
+        : buildLedBoardSvg(input.sponsorName, zoneW, zoneH);
+      overlayPng = await sharp(Buffer.from(svg)).png().toBuffer();
     } else {
-      // Choose background based on overlay style
-      const bgSvg =
-        zone.overlayStyle === "banner_white"
-          ? Buffer.from(buildBannerWhiteSvg(zoneW, zoneH))
-          : Buffer.from(buildLedBandSvg(zoneW, zoneH));
-
-      const padH = Math.max(4, Math.round(zoneH * 0.12));
-      const padW = Math.max(8, Math.round(zoneW * 0.04));
-      const logoW = Math.max(30, zoneW - padW * 2);
-      const logoH = Math.max(12, zoneH - padH * 2);
-
-      // For LED bands, keep logo white/bright — preserve transparency
-      const logoBackground =
-        zone.overlayStyle === "banner_white"
-          ? { r: 255, g: 255, b: 255, alpha: 0 }
-          : { r: 0, g: 40, b: 0, alpha: 0 };
-
-      const logoResized = await sharp(logoBuf)
-        .resize(logoW, logoH, { fit: "contain", background: logoBackground })
-        .png()
-        .toBuffer();
-
-      // For LED boards, invert dark logos to white so they show on dark background
-      let finalLogo = logoResized;
-      if (zone.overlayStyle === "led_band") {
-        // Composite logo with white tint filter by overlaying on the green LED band
-        finalLogo = logoResized;
-      }
-
-      overlayPng = await sharp(bgSvg)
-        .composite([{ input: finalLogo, left: padW, top: padH }])
-        .png()
-        .toBuffer();
-
+      overlayPng = await buildLogoOverlay(logoBuf, input.sponsorName, zoneW, zoneH, zone.overlayStyle);
       usedLogo = true;
     }
   }
 
   const buffer = await base
     .composite([{ input: overlayPng, left, top }])
-    .jpeg({ quality: 90 })
+    .jpeg({ quality: 92 })
     .toBuffer();
 
   return {
