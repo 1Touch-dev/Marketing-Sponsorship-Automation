@@ -97,13 +97,30 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         `}</style>
       </head>
       <body>
-        {/* Print button - hidden in print */}
-        <div className="no-print" style={{position:"fixed",top:16,right:16,zIndex:999}}>
+        {/* Print controls - hidden in print */}
+        <div className="no-print" style={{position:"fixed",top:16,right:16,zIndex:999,display:"flex",gap:8}}>
+          <a
+            href={`/proposals/${proposal.id}/deck`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{background:"#374151",color:"white",border:"none",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}}
+          >
+            ↗ Open in Browser
+          </a>
           <button
+            type="button"
+            style={{background:"#006400",color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13}}
             onClick={undefined}
-            style={{background:"#006400",color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:14}}
-            dangerouslySetInnerHTML={{__html:"<span onclick=\"window.print()\">Print / Save PDF</span>"}}
-          />
+            data-print="true"
+            suppressHydrationWarning
+          >
+            🖨 Print / Save PDF
+          </button>
+          <script dangerouslySetInnerHTML={{__html:`
+            document.querySelector('[data-print="true"]').addEventListener('click', function() {
+              window.print();
+            });
+          `}} />
         </div>
 
         {/* PAGE 1 — COVER */}
