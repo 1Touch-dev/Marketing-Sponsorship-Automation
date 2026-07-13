@@ -32,7 +32,10 @@ export function PipedriveStatusCard() {
       const res = await fetch("/api/crm?include_status=1");
       if (res.ok) {
         const data = await res.json() as CrmStatus;
-        setStatus(data);
+        // validate structure before setting
+        if (data && typeof data.pipedrive_configured === "boolean") {
+          setStatus(data);
+        }
       }
     } catch {
       // silently fail
@@ -162,10 +165,10 @@ export function PipedriveStatusCard() {
         )}
 
         {/* Recent error log */}
-        {status && status.recent_errors.length > 0 && (
+        {status && (status.recent_errors ?? []).length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last {status.recent_errors.length} failed sync{status.recent_errors.length !== 1 ? "s" : ""}</p>
-            {status.recent_errors.map((err, i) => (
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Last {(status.recent_errors ?? []).length} failed sync{(status.recent_errors ?? []).length !== 1 ? "s" : ""}</p>
+            {(status.recent_errors ?? []).map((err, i) => (
               <div key={i} className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs space-y-0.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-amber-800">{err.method} {err.path}</span>
