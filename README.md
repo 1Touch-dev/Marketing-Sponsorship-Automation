@@ -3,9 +3,9 @@
 AI-powered commercial sponsorship platform for Coritiba FC. Stack: **Next.js 14 (App Router)**, **Supabase (PostgreSQL + Storage)**, **AWS Bedrock (Claude Sonnet 4)**, **Pipedrive CRM**, **Hunter.io**, **Apollo.io**, **Apify**, **Replicate LoRA**, **OpenAI (gpt-image-1)**, **PM2**, **ngrok**.
 
 **Production URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Branch:** `26th-june-sprint`  
-**Last updated:** 26 June 2026  
-**Platform health:** ✅ 9/10 — All audit items completed (see `26th_june.md`)
+**Active Branch:** `26-july-sprint`  
+**Last Updated:** 13 July 2026  
+**Platform Health:** ✅ 100% — All bugs + all 17 feature requests complete. Image generation pending James's confirmation.
 
 ---
 
@@ -14,203 +14,139 @@ AI-powered commercial sponsorship platform for Coritiba FC. Stack: **Next.js 14 
 ```bash
 cd frontend
 npm install
-cp .env.local.example .env.local    # fill in Supabase, OpenAI, Bedrock, Pipedrive keys
+cp .env.local.example .env.local    # fill in Supabase, OpenAI, Bedrock, Pipedrive, Apollo keys
 npm run dev                          # http://localhost:3000
 
 # Production (PM2)
 npm run build
-pm2 start npm --name sponsorship-platform -- start
+pm2 start ecosystem.config.cjs       # starts Next.js + ngrok tunnel
+pm2 save                             # survive reboots
 ```
 
 ---
 
-## Full Feature Set
+## Feature Set
 
 ### CRM & Companies
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Company list | `/companies` | 536+ companies, search, filter by industry/status/size/pipeline/country, Export CSV |
-| Company detail | `/companies/[id]` | Full profile, edit, Outreach Agent, Hunter contacts, AI intelligence, proposals list |
-| Add company | `/companies/new` | Full form, auto-enrichment via logo.dev, competitor tracking |
-| Pipeline board | `/pipeline` | Kanban view by `pipeline_stage`, reads from `companies` table |
-| Contacts | `/contacts` | Contact lookup, Hunter.io/Apollo.io discovery with Save buttons |
-| Competitor tracking | Status: `competitor` | Red badge, filters on `/companies`, saved from Apify discovery |
-| Inline industry edit | Company detail | Click-to-edit dropdown, no full form reload |
-| Auto logo enrichment | On create / Re-fetch | `logo.dev` API auto-fetches logo on company creation |
+| Company list | `/companies` | 536+ companies, search + 5 filters (industry/status/size/pipeline/country), Export CSV |
+| Company detail | `/companies/[id]` | Full profile, AI intelligence, contacts, proposals, Sponsorship Fit Score, Run Outreach Agent |
+| Sponsorship Fit Score | Company detail sidebar | AI-scored 1-10 with rationale, color-coded badge |
+| Contacts Save | Company detail → Contacts | Save contacts per row or bulk Save All; Saved ✓ badge |
+| Add Competitors to CRM | Company detail → Competitors | Add button with duplicate check; bulk Add All |
+| Inline industry edit | Company detail | Click-to-edit dropdown, no page reload |
+| Pipedrive sync | `/system` + auto | PipedriveStatusCard shows API token health, queue, Sync Now button |
 
 ### Proposals
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Proposals list | `/proposals` | All proposals, filters (date range, has_logo), Export CSV |
-| Create proposal | `/proposals/new` | 7-type wizard (Patrocínio Puro, LdI, Bartering, Naming Rights, Social Impact, Digital-First, Other) |
-| Proposal detail | `/proposals/[id]` | Full detail, action bar with Save Version / Ver Deck PDF / Convert to Contract / WhatsApp share |
-| Edit proposal | `/proposals/[id]/edit` | All fields incl. `expires_at`, `meeting_link` (Calendly/Cal.com) |
-| Proposal versioning | Save Version button | Snapshots proposal to `proposal_versions`, bumps version number |
-| 8-page PDF deck | `/proposals/[id]/deck` | Printable A4 deck: cover, club profile, inventory, mockups, pricing, case studies |
-| Bulk approve | `/proposals/bulk-approve` | Batch approve/reject proposals |
-| Public share link | `/proposals/view/[token]` | Full sponsor landing page — no admin sidebar |
-
-### Sponsor Landing Page (Public)
-| Feature | Description |
-|---------|-------------|
-| Hero section | CFC crest + sponsor logo, proposal title, APPROVED badge |
-| Club stats bar | Founded 1909, 1.5M followers, Couto Pereira 40,502 capacity |
-| Full proposal content | All sections rendered from proposal data |
-| AI Creatives gallery | Approved campaign images |
-| Past Partners bar | Historical sponsor logos |
-| Lead capture form | Name/company/email/phone/message + LGPD consent → `audit_logs` |
-| Sticky CTA bar | "Tenho Interesse" / "Falar com equipe" / "Agendar Reunião" / "Salvar como PDF" |
-| Expiry badge | Amber "Reserved until [date]" if `expires_at` set |
-| A/B testing | `?v=B` param → "Quero Saber Mais" CTA + "Variant B" badge |
-| View tracking | Every view logged to `audit_logs`, count shown on admin proposal page |
-| Print/PDF | `window.print()` — sidebar hidden, CFC footer, print-color-adjust |
-
-### Email & Outreach
-| Feature | Route | Description |
-|---------|-------|-------------|
-| Emails list | `/emails` | All emails, status badges |
-| Email detail | `/emails/[id]` | View, edit, send, test send, pre-send placeholder validation |
-| Generate email | Via proposal approve flow | Bedrock-personalized using team sender, auto-injects proposal CTA button |
-| Placeholder validation | Pre-send | Blocks send if `[Nome]`, `{{contact_name}}`, etc. still unresolved |
-| Send test | Email detail | "Send Test to Myself" button with email input |
-| Email templates | `/settings/email-templates` | CRUD, HTML/markdown, `{{variables}}` support |
-| Email tracking | Pixel + link wrapping | `/api/emails/[id]/pixel` — logs `opened_at`; `/api/emails/[id]/click` — logs `clicked_at`, redirects |
-| Newsletter | `/newsletter` | Compose + schedule + analytics (total sent, unsubscribes, open rate) |
-| Unsubscribe | `/api/newsletter/unsubscribe?email=` | Portuguese confirmation page, LGPD compliant |
-| Sender profiles | `/settings/sender-profiles` | Team members as email senders (full_name, title, email, signature) |
+| Proposals list | `/proposals` | All proposals, filter by date/status/logo, Export CSV |
+| Create proposal | `/proposals/new` | 7-type wizard — auto-selects package counterparts, Select All/Deselect All per category |
+| Proposal detail | `/proposals/[id]` | WhatsApp share (Day 3/Day 7 templates), A/B test panel, Version history |
+| 8-page PDF deck | `/proposals/[id]/deck` | Full-screen A4 preview, no sidebar, Print/Save PDF button, dynamic content per asset type |
+| Bulk proposals | `/proposals/bulk` | 3-step: select companies → configure → Tinder review queue |
+| Public share link | `/proposals/view/[token]` | Full sponsor landing page, lead capture, sticky CTA, view tracking |
 
 ### Approvals
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Approval queue | `/approvals` | Proposals, campaigns, and emails awaiting review |
-| Card (Tinder) UI | Default view | Drag/swipe, keyboard: → or L = Approve, ← or J = Reject, E = Edit |
-| Progress bar | Card header | "X of Y reviewed" with gradient progress bar |
-| Post-approve email | Modal | Immediately prompt to select email template + send after approving a proposal |
-| List UI | Toggle button | Switch to list view if preferred |
+| Tinder card view | `/approvals` | Drag/swipe or keyboard: → Approve, ← Reject, E Edit |
+| Queue tabs | `/approvals` | All (167) / Proposals / Campaigns / Emails |
+| List view | Toggle button | Switch between card and list mode |
+
+### Email & Outreach
+| Feature | Route | Description |
+|---------|-------|-------------|
+| Email generation | Via proposal flow | Bedrock-personalized, team sender auto-selected |
+| Placeholder validation | Pre-send | Blocks send if `[Nome]`, `{{variable}}` etc. unresolved |
+| Sender profiles | `/settings/sender-profiles` | Team members as email senders |
+| Newsletter config | `/settings/newsletter` | Schedule, template builder, industry segments, analytics |
 
 ### Campaigns
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Campaign list | `/campaigns` | All campaigns with status, company, AI badge |
-| Create campaign | `/campaigns/new` | Company selector with live search, strategy picker |
-| Bulk campaigns | `/campaigns/bulk` | Generate for all companies in an industry; data completeness warning |
-| Campaign detail | `/campaigns/[id]` | Full campaign, inventory picker, AI brief |
+| Bulk campaigns | `/campaigns/bulk` | Portuguese industry labels, generate for multiple companies |
+| Campaign list | `/campaigns` | All campaigns with AI badge, company, status |
 
 ### Image Generation & Media
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Official jersey mockups | Proposal > Graphics | `sharp` composite on official CFC kit; 7 placement zones; sponsor logo required; CFC crest locked |
-| AI campaign creatives | Proposal > Graphics | OpenAI gpt-image-1, 1536×1024; full-screen prompt review modal; cost estimate shown |
-| Mockup editor | `/mockup-editor` | Canvas editor with undo/redo (Ctrl+Z/Y), zoom (0.5x–2.0x), color-coded templates |
-| Asset library | `/assets` | Browse + manage uploaded brand assets |
-| Bulk logo upload | Proposals list | Upload single logo to multiple proposals at once |
+| Jersey mockup | Proposal → Graphics | sharp composite on official CFC kit; 7 placement zones; background removal |
+| Stadium mockup | Proposal → Graphics | Replicate Flux-fill inpainting on 5 real Couto Pereira photos; history gallery on load |
+| AI campaign creatives | Proposal → Graphics | gpt-image-1, prompt review modal, approve/reject results |
+| Mockup editor | `/mockup-editor` | 9 templates: Jersey, LED Board, Social 1:1, Press Backdrop, Scoreboard, OOH Billboard, Digital Banner, Social Story; Attach to Proposal |
 
 ### Contracts
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Contracts list | `/contracts` | All contracts with KPI summary bar, Export CSV |
-| Convert to Contract | Proposal detail | Modal: contract number (auto CTR-2026-XXXX), value, dates, deal type |
-| API | `/api/contracts` | GET (list) + POST (create) |
+| Contracts list | `/contracts` | Expiry alert banner (red/amber/yellow), Renovar button per row |
+| Revenue tracking | Dashboard + Reports | Total active revenue, pipeline value, avg deal size |
 
-### Intelligence
+### Reports & Analytics
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Coritiba Intel | `/coritiba-intelligence` | AI-powered market intelligence, competitor discovery (Apify) |
-| Company intelligence | Company detail | AI analysis of sponsorship fit, marketing goals, strategy recommendations |
-| Hunter.io contacts | Company detail > Contacts tab | Domain search, email discovery, Save buttons |
-| Apollo.io contacts | Company detail > Contacts tab | Similar to Hunter, save results to DB |
-| Competitor tracking | AI + manual | Save from Apify results; competitor status = red badge |
-| AI Inventory suggestion | Company detail | AI recommends inventory package + proposal type |
-
-### Outreach Agent
-| Feature | Route | Description |
-|---------|-------|-------------|
-| Run Agent | Company detail > "Run Agent" | Full supervised pipeline: enrich → intelligence → proposal → email → Pipedrive |
-| Step 1 | enrich_contacts | Hunter + Apollo contact discovery |
-| Step 2 | scrape_company_intelligence | Apify/LinkedIn signals |
-| Step 3 | generate_personalized_proposal | Bedrock proposal (⏸ approval gate) |
-| Step 4 | generate_personalized_email | Bedrock email using team sender (⏸ approval gate) |
-| Step 5 | send_email | Actual send + Pipedrive activity log |
-| Cancel | Mid-flight | `runIdRef` cancels immediately via DELETE /api/agent/runs/[id] |
-| SSE progress | Real-time | Server-Sent Events stream progress to UI |
-
-### Pipedrive Integration
-| Feature | Description |
-|---------|-------------|
-| Deal sync | Proposal status changes → Pipedrive deal update |
-| Activity log | Email sent → Pipedrive activity created |
-| Scheduled sync | `/api/system/pipedrive-sync` (Bearer-secured) — sync cold deals, expiring contracts |
-| Manual trigger | `/system` page → "Run Pipedrive Sync Now" button |
+| Revenue vs Target | `/reports` | Progress bar vs R$2M annual target |
+| Win Rate | `/reports` | Won / closed proposals % |
+| Proposals by Month | `/reports` | 6-month bar chart |
+| Revenue by Deal Type | `/reports` | Horizontal breakdown |
+| Active sponsors | `/reports` | Cards with monthly report generation |
+| CSV exports | `/reports` | Companies, Proposals, Contracts, Revenue, Emails |
 
 ### Dashboard KPIs
 | Tile | Description |
 |------|-------------|
-| Active Companies | Total companies in DB |
-| Proposals | Total + "X need review" |
-| Campaigns | Total AI-generated |
-| Pending Approvals | Action required count |
-| Follow-ups | Overdue tasks |
-| System Status | API health |
-| Active Contracts | Signed sponsors count + value |
-| Emails Sent | Total outreach emails |
-| Email Open Rate | % opened / sent |
-| Email Click Rate | Click count tracked |
-| Pipeline Value | Total approved + under review value (R$) |
-| Conversion Rate | Approved + contracts / total proposals |
-| Proposals Sent This Month | Monthly activity |
-| Image Gen Rate | Jobs completed / total |
-
-### Reports & Exports
-| Feature | Route | Description |
-|---------|-------|-------------|
-| Reports | `/reports` | Sponsor activity, monthly breakdowns, data exports section |
-| Export companies | `/api/export/companies` | Full CSV of all companies |
-| Export proposals | `/api/export/proposals` | Full CSV of all proposals |
-| Export contracts | `/api/export/contracts` | Full CSV of all contracts |
-| Export revenue | `/api/export/revenue` | Revenue summary CSV |
-| Export emails | `/api/export/emails` | Email campaign CSV |
-| Audit log | `/audit` | Full audit trail of all platform events |
+| Total Active Revenue | From signed contracts |
+| Pipeline Value | Approved + under review packages |
+| Avg Deal Size | Per active contract |
+| Active Companies | 536+ |
+| Proposals | 126, with 16 needing review |
+| Campaigns | 163 AI-generated |
+| Pending Approvals | 16 action required |
+| System Status | All healthy |
 
 ### Settings & Admin
 | Feature | Route | Description |
 |---------|-------|-------------|
-| Settings | `/settings` | Gmail OAuth status, API keys, system config |
-| Gmail OAuth | `/settings` → Connect Gmail | OAuth2 flow, token stored in DB |
-| Sender profiles | `/settings/sender-profiles` | Manage team email senders |
-| Email templates | `/settings/email-templates` | CRUD, JSON import |
-| Team & Roles | `/settings/team` | Users, roles (admin/sales_rep/approver/viewer) |
-| System | `/system` | Service health, Pipedrive sync trigger, cron setup guide |
+| System health | `/system` | Service status, environment variables, PipedriveStatusCard, maintenance actions |
+| Newsletter | `/settings/newsletter` | Full newsletter pipeline config |
+| Email templates | `/settings/email-templates` | CRUD with `{{variable}}` and `[Bracket]` support |
+| Sender profiles | `/settings/sender-profiles` | Team email senders |
+| Team & Roles | `/settings/team` | RBAC — admin/sales_rep/approver/viewer |
 
 ### UI / UX
 | Feature | Description |
 |---------|-------------|
-| Sidebar collapse | Toggle to 60px icon-only mode |
-| PT/EN language toggle | Bottom of sidebar; all nav labels and group headers translate |
-| Breadcrumbs | Dynamic breadcrumbs on all major pages via `ContentWrapper` |
-| Responsive | `flex-wrap` on action bars; mobile nav bar |
-| Dark mode | Tailwind `dark:` classes throughout |
+| PT/EN toggle | Bottom of sidebar — active language highlighted, all nav labels translate |
+| Sidebar collapse | Icon-only mode |
+| Breadcrumbs | Dynamic on all pages |
+| Responsive | Mobile nav bar, flex-wrap action bars |
+| Dark mode | Tailwind dark: classes throughout |
 
 ---
 
 ## Graphics Architecture
 
 ```
-Proposal > Visuais / Graphics section
-├── 👕 Jersey Mockup — Official (green card)
-│   └── sharp composite on official CFC kit base
-│       7 placement zones: Peito, Manga E/D, Costas, Shorts, Meiões
-│       Sponsor logo required (generate blocked otherwise)
-│       CFC crest is LOCKED — never changes
+Proposal > Visuais / Graphics
+├── 👕 Jersey Mockup
+│   └── sharp composite on coritiba-jersey-2026-clean.jpg
+│   └── 7 placement zones, background removal from sponsor logo
+│   └── Official Coritiba badge locked (from Wikimedia SVG)
 │
-├── ✨ AI Campaign Creatives (indigo card)
-│   └── OpenAI gpt-image-1, 1536×1024 (16:9)
-│       Full-screen prompt review + edit modal before generation
-│       Cost estimate shown (~$0.04/image)
-│       Strategies: Stadium Scene, LED Board, Match Day, Training, Social
+├── 🏟️ Stadium Mockup
+│   └── Replicate Flux-fill-dev inpainting on 5 real Couto Pereira photos
+│   └── History loaded on mount — previous placements shown as gallery
 │
-└── 🖼️ Saved Images (slate card)
-    └── Gallery of all generated/uploaded assets
-        Approve before they appear on sponsor landing page
+├── ✨ AI Campaign Creatives
+│   └── OpenAI gpt-image-1 · 1536×1024 (16:9)
+│   └── Prompt review modal before generation
+│   └── Approve/Reject/Download results grid
+│
+└── 🖼️ Mockup Editor (/mockup-editor)
+    └── 9 templates across 5 categories: Jersey, Stadium, Social, Digital, Print
+    └── Attach to Proposal panel
+    └── Export PNG 2x
 ```
 
 ---
@@ -221,33 +157,11 @@ Proposal > Visuais / Graphics section
 [Run Agent] on /companies/[id]
    │
    ▼
-1. enrich_contacts
-   └── Hunter.io domain search + Apollo.io lookup
-   └── Saves contacts with source=hunter/apollo
-   │
-   ▼
-2. scrape_company_intelligence
-   └── Apify LinkedIn/web signals
-   └── Saves to company.intelligence JSON
-   │
-   ▼
-3. generate_personalized_proposal
-   └── Bedrock Claude Sonnet 4
-   └── Proposal type auto-selected based on company profile
-   └── ⏸ APPROVAL GATE — human reviews proposal in /approvals
-   │
-   ▼  [after proposal approved]
-4. generate_personalized_email
-   └── Bedrock personalization using proposal + intelligence
-   └── Team sender auto-selected (default sender profile)
-   └── Proposal CTA button auto-injected
-   └── ⏸ APPROVAL GATE — human reviews email in /approvals
-   │
-   ▼  [after email approved]
-5. send_email
-   └── Actual send via Gmail OAuth / configured provider
-   └── Pipedrive activity logged
-   └── email.opened_at / clicked_at tracked via pixel
+1. enrich_contacts        — Hunter.io + Apollo.io, save with Save/Save All buttons
+2. scrape_intelligence    — Apify LinkedIn/web signals
+3. generate_proposal      — Bedrock Claude Sonnet 4 ⏸ APPROVAL GATE
+4. generate_email         — Bedrock personalization, sender profile auto-selected ⏸ APPROVAL GATE
+5. send_email             — Gmail OAuth send + Pipedrive activity log
 ```
 
 ---
@@ -256,17 +170,27 @@ Proposal > Visuais / Graphics section
 
 | Table | Description |
 |-------|-------------|
-| `companies` | 536+ prospect/competitor companies |
-| `proposals` | Sponsorship proposals with versioning |
-| `proposal_versions` | Snapshot history of proposals |
-| `proposal_variants` | A/B test variants |
+| `companies` | 536+ prospect/competitor companies with `sponsorship_fit_score` |
+| `proposals` | Sponsorship proposals with versioning + `ab_test_config` |
+| `proposal_versions` | Snapshot history |
 | `campaigns` | AI-generated marketing campaigns |
-| `emails` | Outreach emails with tracking |
-| `contracts` | Signed sponsorship contracts |
+| `emails` | Outreach emails with tracking + `sender_profile_id` |
+| `contracts` | Signed contracts with `renewed_from_contract_id`, `pdf_url` |
 | `sender_profiles` | Team email senders |
+| `contacts` | Saved contacts from Hunter/Apollo |
+| `newsletter_segments` | Newsletter target segments |
+| `inventory_items` | Sponsorship catalog with `period`, `quantity`, `responsible` |
 | `audit_logs` | Full activity log |
 | `image_generation_jobs` | AI image queue |
-| `inventory_items` | Sponsorship inventory catalog |
+
+---
+
+## Supabase Migrations Applied
+
+| File | Date | Description |
+|------|------|-------------|
+| `0036_inventory_period_qty_responsible.sql` | 13 Jul 2026 | period, quantity, responsible on inventory_items |
+| `0037_26july_sprint.sql` | 13 Jul 2026 | sponsorship_fit_score, sender_profile_id, ab_test_config, newsletter_segments, contacts, renewed_from_contract_id, pdf_url |
 
 ---
 
@@ -274,30 +198,58 @@ Proposal > Visuais / Graphics section
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_DB_PASSWORD=
 OPENAI_API_KEY=                    # gpt-image-1 image generation
-AWS_BEDROCK_REGION=               # Claude Sonnet 4 via Bedrock
+AWS_REGION=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
+BEDROCK_MODEL_ID=
+APOLLO_API_KEY=                    # Updated 13 July 2026
+APIFY_API_TOKEN=
+SERPAPI_KEY=
 PIPEDRIVE_API_KEY=
-GOOGLE_CLIENT_ID=                  # Gmail OAuth
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=
-DEFAULT_FROM_EMAIL=
-MSA_INTERNAL_WEBHOOK_SECRET=       # Secures /api/system/* endpoints
+NEXTAUTH_SECRET=
+INTERNAL_API_SECRET=               # Secures /api/system/* endpoints
 NEXT_PUBLIC_APP_URL=               # Canonical URL for share links
+ANNUAL_REVENUE_TARGET=2000000      # Optional — defaults to R$2M
 ```
 
 ---
 
-## Known Limitations
+## PM2 Process Management
 
-1. **Pipeline data** — Pipeline board works but companies need `pipeline_stage` set via edit form
-2. **Gmail OAuth** — May need periodic reconnect at `/settings`
-3. **Replicate LoRA** — 2024 kit model; 2026 retrain needs new stadium/jersey photos
-4. **Email tracking KPIs** — Show 0% for emails sent before tracking was deployed (Jun 26)
-5. **Pipeline drag-drop** — Not implemented; change stage via company edit form
+```bash
+# Start everything
+pm2 start ecosystem.config.cjs
+
+# Check status
+pm2 list
+
+# Restart after code changes
+pm2 restart sponsorship-platform
+
+# Logs
+pm2 logs sponsorship-platform --lines 50
+
+# Save process list (survives reboots)
+pm2 save
+```
+
+`ecosystem.config.cjs` runs:
+- `sponsorship-platform` — `node_modules/.bin/next start` on port 3000
+- `ngrok-tunnel` — exposes port 3000 at the production URL
 
 ---
 
-*See `26th_june.md` for complete audit coverage and sprint logs.*
+## Known Pending Items
+
+1. **Image generation strategy** — awaiting James's confirmation on jersey (real photo vs LoRA) and stadium quality approach
+2. **LoRA retraining** — 2026 kit training data organized and ready; awaiting James's go-ahead
+3. **Pipedrive live key** — `PIPEDRIVE_API_KEY` set in .env; test with real pipeline data when ready
+4. **Pipeline drag-drop** — stage change currently via company edit form; drag-drop not implemented
+
+---
+
+*Sprint logs: `13th_July.md` · `26th_july.md` · `26th_june.md` · `MASTER_TASK_LIST.md`*

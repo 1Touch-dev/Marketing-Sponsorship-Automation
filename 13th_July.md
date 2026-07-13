@@ -1,105 +1,165 @@
-# 13th July Sprint — Status Report
+# 13th July Sprint — Complete Status Report
 ## Market Sponsorship Automation · Coritiba FC Commercial Platform
 
 **Date**: 13 July 2026  
-**Branch**: `13-july-sprint` (based on `origin/29th-june-sprint`)  
-**Engineer**: Cursor Agent
+**Branch**: `26-july-sprint` (based on `13-july-sprint`)  
+**Engineer**: Cursor Agent  
+**Scope**: All bugs from audit PDF, all 17 feature requests, platform live verification + fixes
 
 ---
 
-## ✅ COMPLETED THIS SPRINT
+## ✅ COMPLETED TODAY (13 July 2026)
 
-### 1. Inventory Module Upgrades
-- Added **Period**, **Quantity**, **Responsible** fields to `ItemForm` in `inventory-manager.tsx`
-- Added **"All Items" consolidated tab** showing all physical + digital items together
-- Made **Pencil edit icon always visible** (removed opacity-0/group-hover)
-- Updated API `route.ts`: added `force-dynamic`, expanded `newCols` to include `period`, `quantity`, `responsible`
-- Created migration: `supabase/migrations/0036_inventory_period_qty_responsible.sql`
+### 🔴 Critical Bugs Fixed (P0/P1) — All 9 Done
 
-### 2. Proposals — UX Improvements
-- Fixed **dropdown contrast** in company search input (added `text-foreground`, `placeholder:text-slate-400`)
-- Fixed **stale inventory data**: removed `dbInventory.length === 0` guard so step 3 always re-fetches fresh data with `cache: "no-store"`
-- Added **Select All / Deselect All** buttons per category in step 3
-- Added **Pencil edit icons** on step 5 summary for each section (type, company, components, strategies)
-- Imported `Pencil` from `lucide-react`
-
-### 3. Pipeline — Template Card
-- Updated `STAGES` to include **4-stage Coritiba template** (Contact Lead → Diagnosis & Presentation → Prepare Proposal → Negotiation & Contract) while retaining legacy stages for backward-compat
-- Added **green "Coritiba Sponsorship Pipeline Template" card** showing all 4 stages at top of pipeline page
-
-### 4. Dashboard — Revenue KPIs
-- Added `contracts` table query to `loadDashboard()` for `total_value`
-- Computed `totalRevenueBrl`, `signedContractCount`, `avgDealSizeBrl`
-- Added **Revenue Hero section** at top of dashboard with 3 KPI cards:
-  - Total Active Revenue (R$)
-  - Pipeline Value (R$)
-  - Avg Deal Size (R$)
-
-### 5. Sponsorship Deck — Dynamic Content
-- Added `ASSET_DECK_CONTENT` constant with 5 variations: `jersey`, `led_board`, `vip_area`, `social_post`, `default`
-- Fetched `proposal_packages` to determine `primaryCategory`
-- Pages 3 (Opportunity), 4 (Package), 5 (Campaign Concept) now render **asset-specific content**
-- Page 4 also shows actual `proposal_packages` data when available
-
-### 6. Stadium Mockup — History Loading
-- Added `useEffect` in `stadium-outdoor-mockup.tsx` to fetch `/api/media/stadium-mockup/history` on mount
-- Displays **previously generated placements** as clickable thumbnail gallery
-- History API already had correct `job_type: "stadium_mockup_official"` ✓
-
-### 7. Infrastructure
-- Added to `.gitignore`: `assets/`, `training-data/`, `acervo_raw/`, `preprocessing_report.json`, `PREPROCESSING_REPORT.md`, `IMAGE_GENERATION_REQUIREMENTS.md`, `*.zip`
-- Apollo API key `APOLLO_API_KEY` updated in `.env` (already confirmed by user)
-- `ngrok-policy.yml` present for browser warning bypass
+| Bug | What Was Fixed | File |
+|-----|----------------|------|
+| **BUG-01** | Sponsor `/view` page — public layout confirmed, no sidebar for sponsors | `(public)/layout.tsx` |
+| **BUG-02** | Custom inventory categories — free-text input when "Custom" selected | `inventory-manager.tsx` |
+| **BUG-03** | Auto-include package counterparts — jersey → auto-selects training kit, press backdrop | `proposal-wizard.tsx` |
+| **BUG-04** | Bulk campaigns Portuguese industry labels — already fixed, confirmed live | `campaigns/bulk/page.tsx` |
+| **BUG-05** | Apollo/Hunter contacts — Save button per contact + Save All banner + Saved ✓ badge | `company-ai-analysis.tsx` |
+| **BUG-06** | Pipedrive sync — PipedriveStatusCard with API token check, sync queue, Sync Now button | `system/pipedrive-status-card.tsx` |
+| **BUG-07** | Company Industry inline edit — already implemented, confirmed live | `inline-industry-edit.tsx` |
+| **BUG-08** | Competitors tab — Add to CRM button with duplicate check + bulk Add All | `company-ai-analysis.tsx` |
+| **BUG-09** | Bulk campaign company selector search — already implemented, confirmed live | `campaigns/bulk/page.tsx` |
 
 ---
 
-## ❌ BLOCKED / PENDING
+### 🟡 Feature Requests Implemented — All 17 Done
 
-### Image Generation (Awaiting James)
-- Jersey mockup strategy: real photo compositing vs LoRA AI generation
-- Stadium mockup: current real photo approach vs higher quality inpainting
-- AI Campaign Creatives: example campaign images from James
-- LoRA retraining: awaiting James's confirmation on dataset
-
-### Manual Actions Required
-1. **Supabase migration**: Run `supabase/migrations/0036_inventory_period_qty_responsible.sql` in Supabase SQL editor to add `period`, `quantity`, `responsible` columns to `inventory_items`
-2. **GitHub push**: History was rewritten to remove a Replicate API token from `training-data/start_training.py`. Push is now clean — run `git push -u origin 13-july-sprint --force` (safe as this branch was never merged)
-3. **PM2 restart**: Run `pm2 restart all --update-env` to pick up `.env` changes
-
----
-
-## 🔬 TESTING CHECKLIST
-
-| Feature | Status |
-|---|---|
-| Inventory: Period/Quantity/Responsible fields | ✅ Implemented |
-| Inventory: All Items tab | ✅ Implemented |
-| Inventory: Always-visible Pencil icon | ✅ Implemented |
-| Proposals: Company search contrast | ✅ Fixed |
-| Proposals: Fresh inventory at step 3 | ✅ Fixed |
-| Proposals: Select All/Deselect All | ✅ Implemented |
-| Proposals: Pencil edit icons on summary | ✅ Implemented |
-| Pipeline: 4-stage template card | ✅ Implemented |
-| Dashboard: Revenue Hero KPIs | ✅ Implemented |
-| Deck PDF: Dynamic per asset type | ✅ Implemented |
-| Stadium: Load previous mockups on open | ✅ Implemented |
-| Apollo API enrichment | ✅ API key updated |
+| FR | Feature | File |
+|----|---------|------|
+| **FR-01** | Sponsor landing page — full 10-section redesign, sticky CTA, lead form | `(public)/proposals/view/[token]/page.tsx` |
+| **FR-02** | Email variable substitution — `[Nome]`/`{{variable}}` both handled + pre-send validation blocks | `lib/email/template-engine.ts`, `api/emails/[id]/send/route.ts` |
+| **FR-03** | Team sender profiles — send-from dropdown in email composer | `settings/sender-profiles/` |
+| **FR-04** | Image generation 6-step flow — prompt review modal, results grid, Approve/Reject/Download | Proposal graphics section |
+| **FR-05** | Tinder-style approvals — card swipe, keyboard shortcuts (→ Approve, ← Reject, E Edit) | `approvals/page.tsx` |
+| **FR-06** | Sponsorship deck PDF — 8-page redesign confirmed live | `proposals/[id]/deck/page.tsx` |
+| **FR-07** | Reports FR-07 KPIs — Revenue vs Target progress bar, Win Rate %, Proposals by Month chart, Revenue by Deal Type | `reports/page.tsx` |
+| **FR-08** | Filters on Companies, Proposals, Inventory pages | Multiple pages |
+| **FR-09** | Mockup editor — 4 new templates: OOH Billboard 16:9, Digital Banner 728×90, Social Story 9:16 + Attach to Proposal | `mockup-editor/mockup-editor-client.tsx` |
+| **FR-10** | Proposal versioning — Save Version button + version history panel | `proposals/[id]/page.tsx` |
+| **FR-11** | Sponsorship Fit Score — 1-10 score card on company detail + AI rationale | `companies/[id]/page.tsx` |
+| **FR-12** | WhatsApp integration — send button + Day 3 / Day 7 follow-up dropdown templates | `proposals/[id]/page.tsx` |
+| **FR-13** | Contract module — expiry alerts (red/amber/yellow), Renovar button, renewal wizard | `contracts/page.tsx` |
+| **FR-14** | A/B testing module on proposal landing page | `proposals/[id]/ab-test-panel.tsx` |
+| **FR-15** | Weekly newsletter settings UI + template builder + analytics | `settings/newsletter/page.tsx` |
+| **FR-16** | PT/EN language toggle — "PT \| EN" in sidebar with active language highlighted | `components/shared/sidebar.tsx` |
+| **FR-17** | Bulk proposals — 3-step wizard with Tinder review UI | `proposals/bulk/page.tsx` |
 
 ---
 
-## 📁 FILES CHANGED
+### 🔧 Infrastructure & Post-Audit Fixes (Today)
+
+| Fix | Details |
+|-----|---------|
+| **PM2 crash-loop fix** | `ecosystem.config.cjs` changed from `script: "npm"` + `interpreter: "none"` to `node_modules/.bin/next` + `interpreter: "node"` — eliminated 30+ restart loop |
+| **Reports page FR-07** | Old "Sponsor Reports" page replaced with full analytics: Revenue vs Target, Win Rate, Proposals bar chart, Revenue by Deal Type |
+| **System page PipedriveStatusCard** | Imported and rendered `PipedriveStatusCard` on `/system` — was built but never imported |
+| **System page crash fix** | `PipedriveStatusCard` null-safety: validate API response structure before `setStatus()`, safe fallback for `recent_errors ?? []` |
+| **Deck page — half-white layout** | Root cause: `width: 210mm` inside `AppShell` left half viewport empty white + admin sidebar injected. Fixed: added `/deck` to `isPublicView` in `app-shell.tsx` + rewrote layout as standalone centered A4 preview with dark toolbar |
+| **Deck page — nested HTML** | `<html><body>` inside Next.js layout caused invalid nesting + sidebar breadcrumb inside deck. Fixed: replaced with proper React fragment + `.deck-wrap` / `.deck-page` CSS |
+
+---
+
+### 📊 Database Migrations Applied
+
+| Migration | Tables/Columns Added |
+|-----------|---------------------|
+| `0036_inventory_period_qty_responsible.sql` | `inventory_items.period`, `inventory_items.quantity`, `inventory_items.responsible` |
+| `0037_26july_sprint.sql` | `companies.sponsorship_fit_score`, `emails.sender_profile_id`, `proposals.ab_test_config`, `newsletter_segments` table, `contacts` table, `contracts.renewed_from_contract_id`, `contracts.pdf_url` |
+
+---
+
+## 🔴 STILL PENDING (Awaiting James — Image Generation)
+
+| Item | Blocker | Notes |
+|------|---------|-------|
+| Jersey mockup strategy | James to confirm: real photo compositing vs LoRA AI | Assets from Dropbox are preprocessed and ready |
+| Stadium mockup quality | James to confirm: current real photo approach vs higher quality inpainting | 5 Couto Pereira photos already integrated |
+| AI Campaign Creatives | James to provide example campaign images | Brand guidelines exist; 3 stock images ready |
+| LoRA retraining on 2026 kit | James to confirm dataset | `training-data/` organized and ready |
+
+---
+
+## ✅ LIVE VERIFICATION — Browser Audit (13 July 2026)
+
+All pages verified live on https://eligibly-facing-unloved.ngrok-free.dev
+
+| Page | Status | Notes |
+|------|--------|-------|
+| Dashboard `/` | ✅ | Revenue Hero R$1650K pipeline, 536 companies, 16 pending approvals |
+| Companies `/companies` | ✅ | Search + 5 filters (industry/status/size/pipeline/country) |
+| Approvals `/approvals` | ✅ | Tinder card view, 167 items, queue tabs, keyboard shortcuts |
+| Inventory `/inventory` | ✅ | All Items tab, 100+ items, Custom Category, Period/Qty/Responsible |
+| Pipeline `/pipeline` | ✅ | 4-stage Coritiba template card visible |
+| Contracts `/contracts` | ✅ | Loads, no contracts yet |
+| Reports `/reports` | ✅ | FR-07: Revenue vs Target, Win Rate 100%, bar charts working |
+| Mockup Editor `/mockup-editor` | ✅ | All 9 templates including OOH, Digital Banner, Social Story |
+| Newsletter `/settings/newsletter` | ✅ | Full config, template builder, analytics |
+| Bulk Proposals `/proposals/bulk` | ✅ | 3-step wizard with PT industry filters |
+| Bulk Campaigns `/campaigns/bulk` | ✅ | Portuguese industry labels, company search |
+| System `/system` | ✅ | PipedriveStatusCard renders, no crash |
+| Deck PDF `/proposals/[id]/deck` | ✅ FIXED | Full-width, no sidebar, no half-empty white, print button works |
+
+---
+
+## 📁 ALL FILES CHANGED (Full Sprint)
 
 ```
-frontend/app/inventory/inventory-manager.tsx      — Period/Qty/Responsible + All Items tab
-frontend/app/api/inventory/route.ts               — force-dynamic + expanded newCols
-frontend/app/proposals/new/proposal-wizard.tsx    — contrast fix + select all + pencil icons
-frontend/app/pipeline/page.tsx                    — 4-stage template card
-frontend/app/page.tsx                             — Revenue Hero KPIs
-frontend/app/proposals/[id]/deck/page.tsx         — ASSET_DECK_CONTENT + dynamic rendering
-frontend/components/proposals/stadium-outdoor-mockup.tsx — useEffect history + gallery
-frontend/app/api/media/stadium-mockup/history/route.ts   — (already correct)
-supabase/migrations/0036_inventory_period_qty_responsible.sql — NEW migration
-.gitignore                                        — added large asset dirs
-MASTER_TASK_LIST.md                               — updated
-ngrok-policy.yml                                  — browser warning bypass
+# Core Bug Fixes & Features
+frontend/app/inventory/inventory-manager.tsx         — BUG-02, custom categories + Period/Qty/Responsible
+frontend/app/api/inventory/route.ts                  — force-dynamic + newCols
+frontend/app/proposals/new/proposal-wizard.tsx       — BUG-03, FR counterparts + UX improvements
+frontend/app/pipeline/page.tsx                       — 4-stage Coritiba template card
+frontend/app/page.tsx                                — FR-07 Revenue Hero KPIs
+frontend/app/proposals/[id]/deck/page.tsx            — FR-06 dynamic deck + FIXED layout (no sidebar)
+frontend/app/proposals/[id]/page.tsx                 — FR-12 WhatsApp, FR-14 A/B panel, FR-10 versioning
+frontend/app/proposals/bulk/page.tsx                 — FR-17 Bulk proposals Tinder wizard (NEW)
+frontend/app/approvals/page.tsx                      — FR-05 Tinder card view + keyboard shortcuts
+frontend/app/campaigns/bulk/page.tsx                 — BUG-04 PT labels confirmed
+frontend/app/companies/[id]/page.tsx                 — FR-11 Sponsorship Fit Score card
+frontend/app/companies/[id]/company-ai-analysis.tsx  — BUG-05 Save contacts, BUG-08 Add competitors
+frontend/app/contracts/page.tsx                      — FR-13 expiry alerts + Renovar button
+frontend/app/reports/page.tsx                        — FR-07 KPI tiles + bar charts (REWROTE today)
+frontend/app/system/page.tsx                         — PipedriveStatusCard import + crash fix
+frontend/app/system/pipedrive-status-card.tsx        — BUG-06 + null-safety fix (today)
+frontend/app/settings/newsletter/page.tsx            — FR-15 newsletter config (NEW)
+frontend/app/mockup-editor/mockup-editor-client.tsx  — FR-09 new templates
+frontend/components/shared/sidebar.tsx               — FR-16 PT/EN toggle
+frontend/components/shared/app-shell.tsx             — FIXED deck route isPublicView (today)
+frontend/lib/email/template-engine.ts                — FR-02 [Nome] / {{var}} substitution
+frontend/app/api/emails/[id]/send/route.ts           — FR-02 pre-send validation
+frontend/(public)/proposals/view/[token]/page.tsx    — FR-01 sponsor landing page
+frontend/app/proposals/[id]/ab-test-panel.tsx        — FR-14 A/B testing (NEW)
+frontend/app/proposals/[id]/version-history-panel.tsx — FR-10 versioning (NEW)
+
+# Database
+supabase/migrations/0036_inventory_period_qty_responsible.sql
+supabase/migrations/0037_26july_sprint.sql
+
+# Infrastructure
+ecosystem.config.cjs                                 — PM2 script fix (node_modules/.bin/next)
+ngrok-policy.yml                                     — browser warning bypass
+.gitignore                                           — assets/, training-data/, *.zip excluded
+
+# Documentation
+MASTER_TASK_LIST.md                                  — updated
+13th_July.md                                         — this document
+26th_july.md                                         — 26-july sprint log
+README.md                                            — updated today
 ```
+
+---
+
+## 🗂️ BRANCH / DEPLOY STATUS
+
+| Item | Status |
+|------|--------|
+| Branch | `26-july-sprint` |
+| GitHub | ✅ Pushed (`67a9d97`) |
+| PM2 | ✅ Online, 0 restarts |
+| HTTP | ✅ 200 on localhost:3000 |
+| ngrok | ✅ https://eligibly-facing-unloved.ngrok-free.dev |
+| Supabase migrations | ✅ Both confirmed applied by user |
