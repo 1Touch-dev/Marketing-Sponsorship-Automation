@@ -90,30 +90,42 @@
 
 ## 🏟️ IMAGE GENERATION
 
+> **Status updated 13 July 2026** — James confirmed all 3 approaches. Implementation starts 14 July.
+
 ### Jersey Mockup
+**Approach confirmed by James**: Real 2026 kit photo + composite sponsor logo on ANY selected placement zone (not just chest).
+
+- [x] `jersey-placements.ts` — 7 zones built: chest, chest_above_name, sleeve_left, sleeve_right, back, shorts, socks
 - [x] Base jersey image (coritiba-jersey-2026-clean.jpg)
 - [x] Official Coritiba badge (from Wikimedia SVG)
 - [x] Sponsor logo compositing with background removal
 - [x] gpt-image-1 fallback for text sponsors
-- [ ] **PENDING**: Awaiting James confirmation on strategy (real photos vs AI)
+- [ ] **TODO**: Add `number` placement zone (jersey number on back panel)
+- [ ] **TODO**: Test all 7 existing zones end-to-end with sample logos
+- [ ] **WAITING**: James may send real 2026 player photo dataset — if so, update base image + re-calibrate zones
 
 ### Stadium / Outdoor Mockup
-- [x] 5 placements across 4 real Couto Pereira photos
-- [x] Replicate Flux-fill-dev inpainting + sharp compositor fallback
-- [x] History API: `/api/media/stadium-mockup/history`
-- [x] **useEffect to load previously generated mockups on mount** (13-July sprint)
-- [x] **History gallery in component** (13-July sprint)
-- [ ] **PENDING**: Awaiting James confirmation on strategy
+**Approach confirmed by James**: "Yes exactly" — real Couto Pereira photo + LED board compositing.
+
+- [x] 5 placements across 4 real Couto Pereira photos ✅
+- [x] Replicate Flux-fill-dev inpainting + sharp compositor fallback ✅
+- [x] History API + history gallery on mount ✅
+- **Nothing to change — fully confirmed and built.**
 
 ### AI Campaign Creatives
-- [x] Brand context (COUTO_SCENE, kit colors, visual identity)
+**Approach confirmed by James**: "Yes" — editorial/lifestyle style like "Curitiba é Coritiba" 2026 campaign. Person wearing jersey in real setting, sponsor branding integrated naturally.
+
+- [x] gpt-image-1 architecture exists
 - [x] 3 images per campaign (stadium, LED close-up, jersey)
-- [ ] **PENDING**: Awaiting James assets (example campaign images)
+- [ ] **TODO**: Craft editorial/lifestyle prompts matching "Curitiba é Coritiba" visual tone
+- [ ] **TODO**: Reference Dropbox acervo campaign images for style guidance
+- [ ] **TODO**: Pass sponsor logo as reference image to gpt-image-1 /edits endpoint
+- [ ] **TODO**: Generate 3 scene types: matchday street scene, training ground, fan lifestyle
 
 ### LoRA Training
 - [x] Training data organized from Dropbox acervo (Coritiba assets)
 - [x] Training script: `training-data/start_training.py`
-- [ ] **PENDING**: Retrain after James confirms preferred dataset
+- [ ] **WAITING**: James may send 2026 kit player photo dataset for jersey base images
 
 ---
 
@@ -233,10 +245,21 @@
 
 ---
 
-## 🔜 NEXT SPRINT (Awaiting James)
+## 🔜 NEXT SPRINT — Image Generation (Starting 14 July 2026)
 
-- [ ] Image generation strategy confirmation from James
-- [ ] Jersey: real photo base vs LoRA AI generation
-- [ ] Stadium: real photo compositing (current) vs higher quality inpainting
-- [ ] AI Campaign Creatives: example campaign images from James
-- [ ] LoRA retraining on 2026 kit photos (once James confirms)
+All approaches confirmed by James on 13 July 2026.
+
+### Jersey Mockup (14 July)
+- [ ] Add `number` placement zone to `jersey-placements.ts`
+- [ ] End-to-end test all 7 zones with sample logos
+- [ ] If James sends player photo dataset: update base image + recalibrate zones
+- [ ] User can select any zone (or multiple) from the jersey mockup UI
+
+### AI Campaign Creative (14 July)
+- [ ] Craft editorial/lifestyle prompts — "Curitiba é Coritiba" 2026 campaign style
+- [ ] Pass sponsor logo as reference to gpt-image-1 /edits
+- [ ] Generate 3 scene types: matchday street, training ground, fan lifestyle
+- [ ] Test quality and iterate prompts until output is presentation-ready
+
+### Stadium Mockup (14 July — regression test only)
+- [ ] Regression test existing implementation — already confirmed correct by James

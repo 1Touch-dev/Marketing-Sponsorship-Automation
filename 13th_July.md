@@ -163,3 +163,85 @@ README.md                                            — updated today
 | HTTP | ✅ 200 on localhost:3000 |
 | ngrok | ✅ https://eligibly-facing-unloved.ngrok-free.dev |
 | Supabase migrations | ✅ Both confirmed applied by user |
+
+---
+
+## 🗣️ JAMES REPLY — Image Generation (13 July 2026, 4:44 PM)
+
+Original message sent to James asking to confirm all 3 generation types. His reply:
+
+> 1. Not only chest. All sponsorship locations. Can be on different placements on jersey. Shoulders, back, number, etc. I can get you a dataset for this if needed
+> 2. Yes exactly
+> 3. Yes
+
+---
+
+## 📋 IMAGE GENERATION — What James Confirmed + What To Build
+
+### 1. Jersey Mockup ✅ Confirmed + 1 Addition Needed
+**Approach**: Real 2026 Coritiba kit photo → composite sponsor logo on the selected placement zone.
+
+**What James confirmed**:
+- NOT just the chest — ALL placement locations are needed
+- Specific zones: chest, shoulders (both), back, jersey number, shorts, socks
+- He may provide a better photo dataset of 2026 kit
+
+**What we already have built** (`jersey-placements.ts`):
+| Zone ID | Label | Status |
+|---------|-------|--------|
+| `chest_sponsor` | Chest — Main sponsor | ✅ Built |
+| `chest_above_name` | Chest — Above name (small) | ✅ Built |
+| `sleeve_left` | Left sleeve | ✅ Built |
+| `sleeve_right` | Right sleeve | ✅ Built |
+| `back` | Back (upper) | ✅ Built |
+| `shorts` | Shorts | ✅ Built |
+| `socks` | Socks | ✅ Built |
+| `number` | Jersey number (back) | ❌ Missing — add tomorrow |
+
+**What to do tomorrow**:
+- [ ] Add `number` placement zone to `jersey-placements.ts` (back panel, where the player number sits — typically below back-upper, around y=0.20–0.28 on back panel)
+- [ ] Confirm base photo: currently using `coritiba-jersey-2026-clean.jpg` (flat kit photo). James may send real player photos — if so, switch base to player-worn photos and re-calibrate zones
+- [ ] Test all 7 existing zones end-to-end in the jersey mockup generator
+- [ ] If James sends dataset: organise by kit type (home/away/goalkeeper/training), update base image selector in the UI
+
+---
+
+### 2. Stadium / Outdoor Mockup ✅ Fully Confirmed — No Changes Needed
+**Approach**: Real Couto Pereira matchday photo → composite sponsor name/logo onto LED perimeter board or banner.
+
+James said: **"Yes exactly"** — what we built is right.
+
+**Current status**: Already implemented. 5 Couto Pereira photos, LED compositing, history gallery. ✅
+
+**Nothing to change.**
+
+---
+
+### 3. AI Campaign Creative ✅ Fully Confirmed — Ready to Implement
+**Approach**: Generate editorial/lifestyle style image using gpt-image-1 — person wearing Coritiba jersey in a real-world setting, sponsor branding naturally integrated. Style = "Curitiba é Coritiba" 2026 campaign.
+
+James said: **"Yes"** — confirmed.
+
+**Current status**: Architecture exists (gpt-image-1 endpoint, 3-image generation per campaign). Needs better prompts to match the "Curitiba é Coritiba" editorial style.
+
+**What to do tomorrow**:
+- [ ] Craft refined prompts targeting editorial/lifestyle look — not generic product placement
+- [ ] Reference the "Curitiba é Coritiba" campaign images from Dropbox acervo for visual tone
+- [ ] Ensure sponsor logo is passed as a reference image to gpt-image-1 `/edits` endpoint so it appears authentically in the scene
+- [ ] Generate 3 scene types per campaign: matchday street scene, training ground, fan lifestyle
+- [ ] Test output quality and iterate on prompts
+
+---
+
+## 🔜 TOMORROW'S WORK — Image Generation Sprint
+
+### Priority Order
+1. **Jersey — add `number` zone** (30 min) — quick code change to `jersey-placements.ts`
+2. **Jersey — test all 7 zones** (1 hr) — end-to-end test with sample logos on each zone
+3. **Jersey — await James's dataset** — if he sends real player photos, update base image
+4. **AI Campaign — prompt engineering** (2 hr) — editorial/lifestyle prompts referencing Curitiba é Coritiba style
+5. **AI Campaign — test generation** (1 hr) — generate examples with sample sponsor logos
+6. **Stadium — already done**, just regression test (30 min)
+
+### No blockers for Jersey and AI Campaign — can start tomorrow morning.
+### Stadium is unblocked too — James confirmed approach ✅
