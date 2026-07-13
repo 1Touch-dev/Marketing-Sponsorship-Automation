@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { MaintenanceActions } from "./maintenance-actions";
 import { PipedriveSyncButton } from "./pipedrive-sync-button";
+import { PipedriveStatusCard } from "./pipedrive-status-card";
 import { getEnvSummary } from "@/lib/env-validation";
 
 export const dynamic = "force-dynamic";
@@ -292,6 +293,9 @@ export default async function SystemMaintenancePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Pipedrive Status Card */}
+      <PipedriveStatusCard />
 
       {/* Pipedrive Sync */}
       <Card>

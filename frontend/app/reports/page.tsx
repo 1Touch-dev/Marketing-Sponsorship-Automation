@@ -5,10 +5,12 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FileText, TrendingUp, CalendarCheck, AlertCircle, Trophy, ExternalLink } from "lucide-react";
+import { FileText, TrendingUp, AlertCircle, Trophy, ExternalLink, Target, CheckCircle2, BarChart3, Award } from "lucide-react";
 import { GenerateReportButton } from "./generate-report-button";
 
 export const dynamic = "force-dynamic";
+
+const ANNUAL_REVENUE_TARGET = Number(process.env.ANNUAL_REVENUE_TARGET ?? 2_000_000);
 
 type ActiveSponsor = {
   id: string;
@@ -25,29 +27,156 @@ type ActiveSponsor = {
 export default async function ReportsPage() {
   const sb = supabaseAdmin();
 
-  // Active sponsors = proposals with status active_contract
-  const { data: activeSponsors } = await sb
-    .from("proposals")
-    .select("id, title, status, version, created_at, updated_at, share_token, companies(id, company_name, industry, contact_name, contact_email), campaigns(title)")
-    .eq("status", "active_contract")
-    .order("updated_at", { ascending: false });
+  // Parallel data fetching for KPIs + sponsor tracking
+  const [
+    { data: activeSponsors },
+    { data: pipelineProposals },
+    { data: wonProposals },
+    { data: lostProposals },
+    { data: contractsData },
+    { data: proposalsByMonth },
+  ] = await Promise.all([
+    sb.from("proposals").select("id, title, status, version, created_at, updated_at, share_token, companies(id, company_name, industry, contact_name, contact_email), campaigns(title)").eq("status", "active_contract").order("updated_at", { ascending: false }),
+    sb.from("proposals").select("id, title, status, updated_at, companies(company_name, industry)").in("status", ["approved", "under_review"]).order("updated_at", { ascending: false }).limit(10),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "active_contract"),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+    sb.from("contracts").select("total_value_brl, deal_type, created_at").order("created_at", { ascending: false }).limit(50),
+    sb.from("proposals").select("created_at").gte("created_at", new Date(Date.now() - 180 * 86400000).toISOString()).order("created_at", { ascending: true }),
+  ]);
 
   const sponsors = (activeSponsors ?? []) as unknown as ActiveSponsor[];
 
-  // Upcoming — proposals approved but not yet in contract
-  const { data: pipelineProposals } = await sb
-    .from("proposals")
-    .select("id, title, status, updated_at, companies(company_name, industry)")
-    .in("status", ["approved", "under_review"])
-    .order("updated_at", { ascending: false })
-    .limit(10);
+  // Revenue calculations
+  const totalRevenue = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value_brl) || 0), 0);
+  const revenueProgress = Math.min(100, Math.round((totalRevenue / ANNUAL_REVENUE_TARGET) * 100));
+
+  // Win rate
+  const wonCount = (wonProposals as unknown as { count?: number } | null)?.count ?? sponsors.length;
+  const lostCount = (lostProposals as unknown as { count?: number } | null)?.count ?? 0;
+  const totalClosed = wonCount + lostCount;
+  const winRate = totalClosed > 0 ? Math.round((wonCount / totalClosed) * 100) : 0;
+
+  // Revenue by deal type
+  const revenueByType: Record<string, number> = {};
+  for (const c of contractsData ?? []) {
+    const t = c.deal_type || "Direct";
+    revenueByType[t] = (revenueByType[t] ?? 0) + (Number(c.total_value_brl) || 0);
+  }
+
+  // Proposals created per month (last 6 months)
+  const monthCounts: Record<string, number> = {};
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthCounts[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`] = 0;
+  }
+  for (const p of proposalsByMonth ?? []) {
+    const key = (p.created_at as string).slice(0, 7);
+    if (key in monthCounts) monthCounts[key] = (monthCounts[key] ?? 0) + 1;
+  }
+  const monthKeys = Object.keys(monthCounts);
+  const maxMonthCount = Math.max(1, ...Object.values(monthCounts));
+  const monthLabels: Record<string, string> = { "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr", "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago", "09": "Set", "10": "Out", "11": "Nov", "12": "Dez" };
 
   return (
     <>
       <PageHeader
-        title="Sponsor Reports"
-        description="Monthly activation reports and status for active Coritiba FC sponsorship deals"
+        title="Reports & Analytics"
+        description="Revenue performance, pipeline health, and sponsor activation status"
       />
+
+      {/* ── FR-07: Revenue vs Target KPI tiles ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        {/* Revenue vs Target */}
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-4 w-4 text-emerald-600" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Revenue vs Annual Target</span>
+            </div>
+            <div className="text-2xl font-bold text-emerald-700 mb-1">
+              {totalRevenue > 0 ? `R$ ${(totalRevenue / 1000).toFixed(0)}K` : "—"}
+              <span className="text-sm font-normal text-muted-foreground ml-1">/ R$ {(ANNUAL_REVENUE_TARGET / 1000).toFixed(0)}K</span>
+            </div>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2">
+              <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${revenueProgress}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{revenueProgress}% of annual target</p>
+          </CardContent>
+        </Card>
+
+        {/* Win Rate */}
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Win Rate</span>
+            </div>
+            <div className="text-2xl font-bold text-blue-700">{winRate}%</div>
+            <p className="text-xs text-muted-foreground mt-1">{wonCount} won · {lostCount} lost · {totalClosed} closed</p>
+          </CardContent>
+        </Card>
+
+        {/* Active Sponsors */}
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Award className="h-4 w-4 text-amber-600" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Sponsors</span>
+            </div>
+            <div className="text-2xl font-bold text-amber-700">{sponsors.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">{(pipelineProposals ?? []).length} more in pipeline</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Proposals by Month chart ── */}
+      <Card className="mb-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Proposals Created — Last 6 Months</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3 h-32">
+            {monthKeys.map(key => {
+              const count = monthCounts[key] ?? 0;
+              const pct = Math.round((count / maxMonthCount) * 100);
+              const month = monthLabels[key.slice(5)] ?? key.slice(5);
+              return (
+                <div key={key} className="flex flex-col items-center gap-1 flex-1">
+                  <span className="text-xs text-muted-foreground font-medium">{count > 0 ? count : ""}</span>
+                  <div className="w-full rounded-t-sm bg-primary/80 transition-all" style={{ height: `${Math.max(4, pct)}%`, minHeight: count > 0 ? "8px" : "4px" }} />
+                  <span className="text-[10px] text-muted-foreground">{month}</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Revenue by Deal Type ── */}
+      {Object.keys(revenueByType).length > 0 && (
+        <Card className="mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2"><BarChart3 className="h-4 w-4 text-emerald-600" /> Revenue by Deal Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {Object.entries(revenueByType).sort((a, b) => b[1] - a[1]).map(([type, val]) => {
+                const pct = Math.round((val / totalRevenue) * 100);
+                return (
+                  <div key={type} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{type}</span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs font-medium text-emerald-700 w-20 text-right">R$ {(val / 1000).toFixed(0)}K</span>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {sponsors.length === 0 ? (
         <Card className="border-dashed">

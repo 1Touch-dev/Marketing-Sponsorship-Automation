@@ -11,9 +11,9 @@ module.exports = {
     {
       name: "sponsorship-platform",
       cwd: "/home/ubuntu/Market_Sponsorship_Automation/frontend",
-      script: "npm",
+      script: "node_modules/.bin/next",
       args: "start",
-      interpreter: "none",
+      interpreter: "node",
       env: {
         NODE_ENV: "production",
       },
