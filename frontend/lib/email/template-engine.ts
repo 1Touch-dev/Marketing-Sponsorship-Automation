@@ -14,6 +14,16 @@ export type EmailTemplateVariables = {
 };
 
 const VAR_PATTERN = /\{\{\s*([a-z_]+)\s*\}\}/gi;
+// Also match Portuguese bracket style: [Nome], [Empresa], [Link], [Valor]
+const BRACKET_VAR_PATTERN = /\[(Nome|Empresa|Valor|Link|Contato|Gerente)\]/gi;
+const BRACKET_VAR_MAP: Record<string, keyof EmailTemplateVariables> = {
+  nome: "contact_name",
+  empresa: "company_name",
+  link: "proposal_link",
+  valor: "proposal_summary",
+  contato: "contact_name",
+  gerente: "sender_name",
+};
 
 export function replaceTemplateVariables(
   text: string,
@@ -22,20 +32,42 @@ export function replaceTemplateVariables(
   const map: Record<string, string> = {
     company_name: vars.company_name,
     contact_name: vars.contact_name,
+    nome_contato: vars.contact_name,
     contact_title: vars.contact_title,
     proposal_summary: vars.proposal_summary,
     proposal_link: vars.proposal_link,
+    link_proposta: vars.proposal_link,
     sender_name: vars.sender_name,
+    nome_gerente: vars.sender_name,
     sender_title: vars.sender_title,
+    empresa: vars.company_name,
+    valor_proposta: vars.proposal_summary,
   };
-  return text.replace(VAR_PATTERN, (_, key: string) => {
+  // Replace {{variable}} format
+  let result = text.replace(VAR_PATTERN, (_, key: string) => {
     const k = key.toLowerCase();
     return map[k] ?? "";
   });
+  // Replace [Nome] / [Empresa] bracket format
+  result = result.replace(BRACKET_VAR_PATTERN, (_, key: string) => {
+    const varKey = BRACKET_VAR_MAP[key.toLowerCase()];
+    if (!varKey) return `[${key}]`;
+    return vars[varKey] ?? `[${key}]`;
+  });
+  return result;
 }
 
-export function hasUnresolvedVariables(text: string): boolean {
-  return /\{\{[^}]+\}\}/.test(text);
+export function hasUnresolvedVariables(text: string): string[] {
+  const unresolved: string[] = [];
+  const bracketMatches = text.match(/\[[A-Z][a-záéíóúâêîôûãõç]+\]/g) ?? [];
+  const handlebarMatches = text.match(/\{\{[^}]+\}\}/g) ?? [];
+  unresolved.push(...bracketMatches, ...handlebarMatches);
+  return unresolved;
+}
+
+/** @deprecated Use hasUnresolvedVariables() which returns the list */
+export function emailHasUnresolved(text: string): boolean {
+  return hasUnresolvedVariables(text).length > 0;
 }
 
 export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> {
@@ -128,7 +160,7 @@ export async function generateEmailWithTemplate(args: {
       let bodyHtml = vr.data.body_html ?? `<p>${vr.data.body_text.replace(/\n/g, "</p><p>")}</p>`;
       let bodyText = vr.data.body_text;
 
-      if (hasUnresolvedVariables(subject + bodyHtml + bodyText)) {
+      if (hasUnresolvedVariables(subject + bodyHtml + bodyText).length > 0) {
         subject = replaceTemplateVariables(subject, args.variables);
         bodyHtml = replaceTemplateVariables(bodyHtml, args.variables);
         bodyText = replaceTemplateVariables(bodyText, args.variables);
@@ -148,7 +180,7 @@ export async function generateEmailWithTemplate(args: {
     }
   }
 
-  if (hasUnresolvedVariables(filledSubject + filledHtml)) return null;
+  if (hasUnresolvedVariables(filledSubject + filledHtml).length > 0) return null;
 
   // Ensure every email has a proposal link CTA even if the template omits it.
   // We append a minimal branded block only when: proposal_link is non-empty

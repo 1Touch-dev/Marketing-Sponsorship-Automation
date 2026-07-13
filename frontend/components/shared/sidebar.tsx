@@ -38,6 +38,7 @@ import {
   LogOut,
   Newspaper,
   FileCheck,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -49,9 +50,11 @@ function LangToggle() {
     <button
       onClick={toggle}
       title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
-      className="text-[10px] font-semibold rounded border px-1.5 py-0.5 hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+      className="flex items-center gap-0.5 rounded border overflow-hidden text-[10px] font-semibold hover:opacity-90 transition-opacity"
     >
-      {lang === "pt" ? "EN" : "PT"}
+      <span className={`px-1.5 py-0.5 ${lang === "pt" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>PT</span>
+      <span className="text-muted-foreground px-0.5">|</span>
+      <span className={`px-1.5 py-0.5 ${lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>EN</span>
     </button>
   );
 }
@@ -88,7 +91,7 @@ const NAV: NavItem[] = [
   { href: "/contacts", label: "Contacts", icon: Users, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
   { href: "/contracts", label: "Contracts", icon: FileCheck, group: "core" },
-  { href: "/reports", label: "Sponsor Reports", icon: Trophy, group: "core" },
+  { href: "/reports", label: "Reports", icon: BarChart3, group: "core" },
   // Proposal workflow
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
   { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
@@ -107,6 +110,7 @@ const NAV: NavItem[] = [
   { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
   { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
   { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
+  { href: "/settings/newsletter", label: "Newsletter Config", icon: Newspaper, group: "intelligence" },
   // Media & Assets
   { href: "/media-generation", label: "AI Image Gen", icon: Sparkles, group: "media" },
   { href: "/mockup-editor", label: "Mockup Editor", icon: Layers, group: "media" },

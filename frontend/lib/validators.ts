@@ -43,6 +43,7 @@ export const proposalUpdateSchema = z.object({
     .passthrough()
     .optional(),
   edit_reason: z.string().max(300).optional(),
+  ab_test_config: z.record(z.unknown()).nullable().optional(),
 });
 
 export const approvalSchema = z.object({

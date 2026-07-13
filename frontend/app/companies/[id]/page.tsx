@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Building2, Globe, Calendar, Tag, Users, Briefcase,
   TrendingUp, Brain, Target, ArrowLeft, Plus, Pencil,
-  MapPin, Phone, Mail, Activity, Zap, FileText
+  MapPin, Phone, Mail, Activity, Zap, FileText, Trophy
 } from "lucide-react";
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
@@ -186,6 +186,54 @@ export default async function CompanyDetailPage({
 
         {/* Right column — sidebar */}
         <div className="space-y-4">
+
+          {/* Sponsorship Fit Score */}
+          {intelligence && (intelligence.coritiba_fit_score !== undefined || intelligence.sponsorship_fit_score !== undefined) && (() => {
+            const fitScore = intelligence.coritiba_fit_score ?? intelligence.sponsorship_fit_score;
+            const scoreNum = typeof fitScore === "number" ? fitScore : Number(fitScore);
+            const rationale = intelligence.coritiba_fit_rationale as string | undefined;
+            const colorClass = scoreNum >= 8
+              ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+              : scoreNum >= 5
+              ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+              : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
+            const badgeClass = scoreNum >= 8
+              ? "bg-green-600 text-white"
+              : scoreNum >= 5
+              ? "bg-amber-500 text-white"
+              : "bg-red-500 text-white";
+            const labelClass = scoreNum >= 8
+              ? "text-green-700 dark:text-green-400"
+              : scoreNum >= 5
+              ? "text-amber-700 dark:text-amber-400"
+              : "text-red-700 dark:text-red-400";
+            return (
+              <Card className={`border ${colorClass}`}>
+                <CardHeader className="pb-2">
+                  <CardTitle className={`text-sm uppercase tracking-wide flex items-center gap-2 ${labelClass}`}>
+                    <Trophy className="h-4 w-4" />
+                    Sponsorship Fit
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-3xl font-bold rounded-full h-14 w-14 flex items-center justify-center shrink-0 ${badgeClass}`}>
+                      {scoreNum}
+                    </span>
+                    <div>
+                      <p className={`text-xs font-medium ${labelClass}`}>Score out of 10</p>
+                      <p className={`text-xs mt-0.5 ${labelClass}`}>
+                        {scoreNum >= 8 ? "Excellent fit" : scoreNum >= 5 ? "Good potential" : "Low priority"}
+                      </p>
+                    </div>
+                  </div>
+                  {rationale && (
+                    <p className={`text-xs leading-relaxed ${labelClass}`}>{rationale}</p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* AI Inventory Suggestion */}
           <InventorySuggestionPanel companyId={company.id} companyName={company.company_name} />

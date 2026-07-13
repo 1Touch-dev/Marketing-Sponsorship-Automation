@@ -23,6 +23,7 @@ const PHYSICAL_CATEGORIES: Record<string, string> = {
   stadium_branding: "Stadium Branding",
   training_kit: "Training Kit",
   vip_area: "VIP Area",
+  custom: "Custom Category",
 };
 
 const DIGITAL_CATEGORIES: Record<string, string> = {
@@ -34,7 +35,13 @@ const DIGITAL_CATEGORIES: Record<string, string> = {
   sponsored_content: "Sponsored Content",
   email_newsletter: "Email Newsletter",
   app_push: "App Push Notification",
+  custom: "Custom Category",
 };
+
+const ALL_KNOWN_CATEGORIES = new Set([
+  ...Object.keys(PHYSICAL_CATEGORIES),
+  ...Object.keys(DIGITAL_CATEGORIES),
+]);
 
 const AVAILABILITY_COLORS: Record<string, string> = {
   available: "text-green-700 bg-green-50 border-green-200",
@@ -65,6 +72,17 @@ function ItemForm({
   const [inventoryType, setInventoryType] = useState<string>(
     (initialData?.inventory_type as string) ?? "physical"
   );
+
+  // Determine initial category select value: if stored category is not a known key, treat as custom
+  const storedCategory = (initialData?.category as string) ?? "";
+  const isStoredCategoryUnknown = storedCategory && !ALL_KNOWN_CATEGORIES.has(storedCategory);
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    isStoredCategoryUnknown ? "custom" : storedCategory
+  );
+  const [customCategoryName, setCustomCategoryName] = useState<string>(
+    isStoredCategoryUnknown ? storedCategory : ""
+  );
+
   const catMap = inventoryType === "physical" ? physicalCategories : digitalCategories;
   const isEdit = !!initialData?.id;
 
@@ -73,11 +91,15 @@ function ItemForm({
     setSaving(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const rawCategory = String(fd.get("category") ?? "");
+    const resolvedCategory = rawCategory === "custom"
+      ? String(fd.get("custom_category_name") ?? "").trim()
+      : rawCategory;
     const payload: Record<string, unknown> = {
       name: String(fd.get("name") ?? "").trim(),
       description: String(fd.get("description") ?? "").trim() || null,
       inventory_type: inventoryType,
-      category: String(fd.get("category") ?? ""),
+      category: resolvedCategory,
       price_min: fd.get("price_min") ? Number(fd.get("price_min")) : null,
       price_max: fd.get("price_max") ? Number(fd.get("price_max")) : null,
       unit: String(fd.get("unit") ?? "").trim() || null,
@@ -156,9 +178,26 @@ function ItemForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="category" className="text-xs">Category *</Label>
-          <select id="category" name="category" className={selectCls} required defaultValue={initialData?.category as string}>
+          <select
+            id="category"
+            name="category"
+            className={selectCls}
+            required
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+          >
             {Object.entries(catMap).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
+          {selectedCategory === "custom" && (
+            <Input
+              name="custom_category_name"
+              required
+              value={customCategoryName}
+              onChange={e => setCustomCategoryName(e.target.value)}
+              placeholder="Enter custom category name..."
+              className="mt-1.5 text-sm"
+            />
+          )}
         </div>
       </div>
 
@@ -395,9 +434,28 @@ export function InventoryManager({ initialItems }: { initialItems: Item[] }) {
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [activeTab, setActiveTab] = useState<"physical" | "digital" | "all">("physical");
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(Object.keys(PHYSICAL_CATEGORIES)));
+  const [filterAvailability, setFilterAvailability] = useState<string>("");
+  const [filterCategory, setFilterCategory] = useState<string>("");
+  const [filterPriceMin, setFilterPriceMin] = useState<string>("");
+  const [filterPriceMax, setFilterPriceMax] = useState<string>("");
+  const [filterSearch, setFilterSearch] = useState<string>("");
 
   const catMap = activeTab === "physical" ? PHYSICAL_CATEGORIES : activeTab === "digital" ? DIGITAL_CATEGORIES : { ...PHYSICAL_CATEGORIES, ...DIGITAL_CATEGORIES };
   const tabItems = activeTab === "all" ? items : items.filter((i) => i.inventory_type === activeTab);
+
+  const filteredItems = tabItems.filter((i) => {
+    if (filterAvailability && i.availability !== filterAvailability) return false;
+    if (filterCategory && i.category !== filterCategory) return false;
+    if (filterPriceMin && (Number(i.price_min) || 0) < Number(filterPriceMin)) return false;
+    if (filterPriceMax && (Number(i.price_max) || 0) > Number(filterPriceMax)) return false;
+    if (filterSearch) {
+      const q = filterSearch.toLowerCase();
+      if (!(String(i.name ?? "").toLowerCase().includes(q) || String(i.description ?? "").toLowerCase().includes(q))) return false;
+    }
+    return true;
+  });
+
+  const hasFilters = !!(filterAvailability || filterCategory || filterPriceMin || filterPriceMax || filterSearch);
 
   const byCategory = tabItems.reduce<Record<string, Item[]>>((acc, item) => {
     const cat = (item.category as string) || "other";

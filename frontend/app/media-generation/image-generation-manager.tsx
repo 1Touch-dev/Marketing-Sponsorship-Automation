@@ -4,13 +4,12 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  Sparkles, Check, X, Loader2, Plus, Eye, Download, Wand2,
-  Image as ImageIcon, Clock, Zap, ExternalLink,
+  Sparkles, Check, X, Loader2, Plus, Eye, Wand2,
+  Download,
 } from "lucide-react";
 
 type Job = Record<string, unknown>;
@@ -44,6 +43,22 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
 
+type StyleOption = "photorealistic" | "illustrated" | "minimalist";
+type FormatOption = "1024x1024" | "1536x1024" | "1024x1536";
+type QuantityOption = 1 | 3 | 5;
+
+const STYLE_LABELS: Record<StyleOption, string> = {
+  photorealistic: "Photorealistic",
+  illustrated: "Illustrated",
+  minimalist: "Minimalist",
+};
+
+const FORMAT_LABELS: Record<FormatOption, string> = {
+  "1024x1024": "Square 1:1",
+  "1536x1024": "Landscape 16:9",
+  "1024x1536": "Portrait 9:16",
+};
+
 export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: Job[]; proposals: Job[]; companies: Job[] }) {
   const { toast } = useToast();
   const [localJobs, setLocalJobs] = useState<Job[]>(jobs);
@@ -52,6 +67,17 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
   const [previewJob, setPreviewJob] = useState<Job | null>(null);
   const [linkingJobId, setLinkingJobId] = useState<string | null>(null);
   const [linkProposalId, setLinkProposalId] = useState<string>("");
+
+  // Prompt Review Modal state
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewPrompt, setReviewPrompt] = useState("");
+  const [reviewStyle, setReviewStyle] = useState<StyleOption>("photorealistic");
+  const [reviewFormat, setReviewFormat] = useState<FormatOption>("1024x1024");
+  const [reviewQuantity, setReviewQuantity] = useState<QuantityOption>(1);
+  const [reviewSaveToLibrary, setReviewSaveToLibrary] = useState(false);
+
+  // Per-image approved state: jobId -> Set of image indices
+  const [approvedImages, setApprovedImages] = useState<Record<string, Set<number>>>({});
 
   // New job form state
   const [form, setForm] = useState({
@@ -93,17 +119,43 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     }
   }
 
-  /** One-click: create → approve → generate */
-  async function createAndGenerate() {
+  /** Open the Prompt Review Modal before generating */
+  function openReviewModal() {
     if (!form.prompt.trim()) return;
+    setReviewPrompt(form.prompt);
+    setReviewStyle("photorealistic");
+    setReviewFormat(form.size as FormatOption ?? "1024x1024");
+    setReviewQuantity(1);
+    setReviewSaveToLibrary(false);
+    setShowReviewModal(true);
+  }
+
+  /** Called after user clicks "Confirm & Generate" in the modal */
+  async function confirmAndGenerate() {
+    if (!reviewPrompt.trim()) return;
+    setShowReviewModal(false);
     setLoadingId("new_generate");
+
+    // Apply style modifier to prompt if not already present
+    const styleModifier: Record<StyleOption, string> = {
+      photorealistic: "photorealistic, high detail, professional photography",
+      illustrated: "illustrated, artistic, vibrant illustration style",
+      minimalist: "minimalist, clean lines, simple composition, flat design",
+    };
+    const styledPrompt = reviewPrompt.includes(styleModifier[reviewStyle])
+      ? reviewPrompt
+      : `${reviewPrompt}, ${styleModifier[reviewStyle]}`;
+
     try {
       // Step 1: create
       const payload = {
         ...form,
+        prompt: styledPrompt,
+        size: reviewFormat,
+        n_images: reviewQuantity,
         proposal_id: form.proposal_id?.trim() || undefined,
         company_id: form.company_id?.trim() || undefined,
-        style_notes: form.style_notes?.trim() || undefined,
+        style_notes: `${reviewStyle}${form.style_notes ? ` · ${form.style_notes}` : ""}`,
         triggered_by: "manual",
       };
       const res1 = await fetch("/api/image-generation", {
@@ -225,8 +277,22 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
     } finally { setLoadingId(null); }
   }
 
-  async function linkImageToProposal(jobId: string, proposalId: string) {
-    if (!proposalId.trim()) return;
+  function toggleApproveImage(jobId: string, imgIndex: number) {
+    setApprovedImages(prev => {
+      const set = new Set(prev[jobId] ?? []);
+      if (set.has(imgIndex)) set.delete(imgIndex);
+      else set.add(imgIndex);
+      return { ...prev, [jobId]: set };
+    });
+    // Persist approval status via PATCH
+    fetch("/api/image-generation", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, action: "approve", approved_by: "admin" }),
+    }).catch(() => { /* non-fatal */ });
+  }
+
+  async function linkImageToProposal(jobId: string, proposalId: string) {    if (!proposalId.trim()) return;
     setLoadingId(jobId + "_link");
     try {
       const res = await fetch("/api/image-generation", {
@@ -338,7 +404,7 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
             </div>
           </div>
           <div className="flex gap-2 pt-1 flex-wrap">
-            <Button size="sm" onClick={createAndGenerate} disabled={!!loadingId} className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white">
+            <Button size="sm" onClick={openReviewModal} disabled={!!loadingId} className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white">
               {loadingId === "new_generate" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               Generate Now
             </Button>
@@ -460,24 +526,189 @@ export function ImageGenerationManager({ jobs, proposals, companies }: { jobs: J
 
                 {/* Generated image preview (inline thumbnails) */}
                 {status === "completed" && (outputs.length > 0 || !!job.selected_url) && (
-                  <div className="mt-3 flex gap-2 flex-wrap">
-                    {(outputs.length > 0 ? outputs : [{ url: job.selected_url as string }]).map((img, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={i}
-                        src={img.url}
-                        alt="Generated"
-                        className="w-32 h-20 object-cover rounded-lg border cursor-pointer hover:opacity-80 hover:ring-2 ring-primary/50 transition-all"
-                        onClick={() => setPreviewJob({ ...job, _preview_url: img.url })}
-                        title="Click to enlarge"
-                      />
-                    ))}
+                  <div className="mt-3 space-y-2">
+                    <div className="text-xs text-muted-foreground font-medium">Generated images</div>
+                    <div className="flex gap-2 flex-wrap">
+                      {(outputs.length > 0 ? outputs : [{ url: job.selected_url as string }]).map((img, i) => {
+                        const isApproved = approvedImages[jobId]?.has(i) ?? false;
+                        return (
+                          <div key={i} className="relative group">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.url}
+                              alt="Generated"
+                              className={`w-32 h-20 object-cover rounded-lg border cursor-pointer transition-all hover:opacity-90 ${isApproved ? "ring-2 ring-green-500" : "hover:ring-2 ring-primary/50"}`}
+                              onClick={() => setPreviewJob({ ...job, _preview_url: img.url })}
+                              title="Click to enlarge"
+                            />
+                            {isApproved && (
+                              <span className="absolute top-1 left-1 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                <Check className="h-2.5 w-2.5" /> Approved
+                              </span>
+                            )}
+                            {/* Per-image action buttons — visible on hover */}
+                            <div className="absolute bottom-1 inset-x-1 flex gap-0.5 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                title={isApproved ? "Remove approval" : "Approve"}
+                                onClick={() => toggleApproveImage(jobId, i)}
+                                className={`flex-1 flex items-center justify-center gap-0.5 rounded text-[10px] font-semibold py-0.5 ${isApproved ? "bg-green-600 text-white" : "bg-white/90 text-green-700 hover:bg-green-50"}`}
+                              >
+                                <Check className="h-2.5 w-2.5" />
+                              </button>
+                              <button
+                                title="Regenerate"
+                                onClick={() => retryJob(jobId)}
+                                disabled={!!loadingId}
+                                className="flex-1 flex items-center justify-center rounded text-[10px] font-semibold py-0.5 bg-white/90 text-purple-700 hover:bg-purple-50"
+                              >
+                                <Sparkles className="h-2.5 w-2.5" />
+                              </button>
+                              <a
+                                href={img.url}
+                                download
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Download"
+                                className="flex-1 flex items-center justify-center rounded text-[10px] font-semibold py-0.5 bg-white/90 text-slate-700 hover:bg-slate-50"
+                              >
+                                <Download className="h-2.5 w-2.5" />
+                              </a>
+                              <button
+                                title="Delete (reject)"
+                                onClick={() => rejectJob(jobId)}
+                                disabled={!!loadingId}
+                                className="flex-1 flex items-center justify-center rounded text-[10px] font-semibold py-0.5 bg-white/90 text-red-600 hover:bg-red-50"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Prompt Review Modal — shown before job is dispatched */}
+      {showReviewModal && typeof document !== "undefined" && createPortal(
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 99998, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+          onClick={() => setShowReviewModal(false)}
+        >
+          <div
+            style={{ background: "white", borderRadius: "1rem", maxWidth: "560px", width: "100%", padding: "1.5rem", maxHeight: "90vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: "1rem" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "1.1rem", margin: 0 }}>Review prompt before generating</p>
+                <p style={{ fontSize: "0.8rem", color: "#6b7280", margin: "2px 0 0" }}>Edit the prompt, choose style and format, then confirm.</p>
+              </div>
+              <button onClick={() => setShowReviewModal(false)} style={{ padding: "0.25rem", border: "none", background: "transparent", cursor: "pointer", fontSize: "1.25rem", color: "#6b7280" }}>✕</button>
+            </div>
+
+            {/* Editable prompt */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Prompt *</label>
+              <textarea
+                value={reviewPrompt}
+                onChange={e => setReviewPrompt(e.target.value)}
+                rows={5}
+                style={{ width: "100%", border: "1px solid #d1d5db", borderRadius: "0.5rem", padding: "0.625rem", fontSize: "0.85rem", lineHeight: 1.5, resize: "vertical", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {/* Style + Format row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Style</label>
+                <select
+                  value={reviewStyle}
+                  onChange={e => setReviewStyle(e.target.value as StyleOption)}
+                  style={{ border: "1px solid #d1d5db", borderRadius: "0.5rem", padding: "0.5rem 0.75rem", fontSize: "0.85rem", background: "white" }}
+                >
+                  {(Object.keys(STYLE_LABELS) as StyleOption[]).map(s => (
+                    <option key={s} value={s}>{STYLE_LABELS[s]}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Format</label>
+                <select
+                  value={reviewFormat}
+                  onChange={e => setReviewFormat(e.target.value as FormatOption)}
+                  style={{ border: "1px solid #d1d5db", borderRadius: "0.5rem", padding: "0.5rem 0.75rem", fontSize: "0.85rem", background: "white" }}
+                >
+                  {(Object.keys(FORMAT_LABELS) as FormatOption[]).map(f => (
+                    <option key={f} value={f}>{FORMAT_LABELS[f]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Quantity */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+              <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#374151" }}>Number of images</label>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                {([1, 3, 5] as QuantityOption[]).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setReviewQuantity(n)}
+                    style={{
+                      flex: 1, padding: "0.5rem", border: "2px solid",
+                      borderColor: reviewQuantity === n ? "#7c3aed" : "#e5e7eb",
+                      borderRadius: "0.5rem", fontSize: "0.875rem", fontWeight: reviewQuantity === n ? 700 : 400,
+                      background: reviewQuantity === n ? "#ede9fe" : "white",
+                      color: reviewQuantity === n ? "#5b21b6" : "#374151",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {n} {n === 1 ? "image" : "images"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Save to Library checkbox */}
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.875rem", color: "#374151" }}>
+              <input
+                type="checkbox"
+                checked={reviewSaveToLibrary}
+                onChange={e => setReviewSaveToLibrary(e.target.checked)}
+                style={{ width: "1rem", height: "1rem", accentColor: "#7c3aed" }}
+              />
+              Save to Library (link to proposal if one is selected)
+            </label>
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: "0.75rem", paddingTop: "0.25rem" }}>
+              <button
+                onClick={() => setShowReviewModal(false)}
+                style={{ flex: 1, padding: "0.625rem", border: "1px solid #d1d5db", borderRadius: "0.5rem", background: "white", cursor: "pointer", fontSize: "0.875rem", color: "#374151" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAndGenerate}
+                disabled={!reviewPrompt.trim()}
+                style={{
+                  flex: 2, padding: "0.625rem", border: "none", borderRadius: "0.5rem",
+                  background: reviewPrompt.trim() ? "#7c3aed" : "#c4b5fd",
+                  color: "white", cursor: reviewPrompt.trim() ? "pointer" : "not-allowed",
+                  fontSize: "0.875rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.375rem",
+                }}
+              >
+                ✨ Confirm &amp; Generate
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Image preview modal — rendered via portal to escape layout constraints */}

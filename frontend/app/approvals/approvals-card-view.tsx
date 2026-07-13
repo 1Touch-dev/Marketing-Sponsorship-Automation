@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { Check, X, Pencil, ChevronLeft, ChevronRight, Mail, Loader2, ExternalLink, PartyPopper, Building2 } from "lucide-react";
+import { Check, X, Pencil, ChevronLeft, ChevronRight, Mail, Loader2, ExternalLink, PartyPopper, Building2, Keyboard } from "lucide-react";
 
 export type ApprovalItem = {
   id: string;
@@ -28,8 +28,10 @@ type Props = {
 };
 
 type DecisionMap = Record<string, "approved" | "rejected">;
+type QueueTab = "all" | "proposal" | "campaign" | "email";
 
 export function ApprovalsCardView({ items }: Props) {
+  const [queueTab, setQueueTab] = useState<QueueTab>("all");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<DecisionMap>({});
@@ -45,28 +47,45 @@ export function ApprovalsCardView({ items }: Props) {
 
   // Drag/swipe state
   const [dragDelta, setDragDelta] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const touchStartX = useRef<number>(0);
   const touchStartY = useRef<number>(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const currentItem = items[currentIndex] ?? null;
-  const reviewedCount = reviewed.size;
-  const allDone = reviewedCount === items.length && items.length > 0;
+  // Queue filtering by tab
+  const queueItems = queueTab === "all" ? items : items.filter(i => i.type === queueTab);
+
+  const currentItem = queueItems[currentIndex] ?? null;
+  const reviewedCount = queueItems.filter(i => reviewed.has(i.id)).length;
+  const allDone = reviewedCount === queueItems.length && queueItems.length > 0;
 
   const approvedCount = Object.values(decisions).filter((d) => d === "approved").length;
   const rejectedCount = Object.values(decisions).filter((d) => d === "rejected").length;
 
+  const typeCountMap: Record<QueueTab, number> = {
+    all: items.length,
+    proposal: items.filter(i => i.type === "proposal").length,
+    campaign: items.filter(i => i.type === "campaign").length,
+    email: items.filter(i => i.type === "email").length,
+  };
+
   const goNext = useCallback(() => {
-    setCurrentIndex((i) => Math.min(i + 1, items.length - 1));
+    setCurrentIndex((i) => Math.min(i + 1, queueItems.length - 1));
     setDragDelta(0);
-  }, [items.length]);
+  }, [queueItems.length]);
 
   const goPrev = useCallback(() => {
     setCurrentIndex((i) => Math.max(i - 1, 0));
     setDragDelta(0);
   }, []);
+
+  // Reset index when tab changes
+  useEffect(() => {
+    setCurrentIndex(0);
+    setDragDelta(0);
+  }, [queueTab]);
 
   const fetchTemplates = useCallback(async () => {
     setLoadingTemplates(true);
@@ -88,6 +107,7 @@ export function ApprovalsCardView({ items }: Props) {
     async (action: "approved" | "rejected") => {
       if (!currentItem || loading) return;
       setLoading(true);
+      setIsAnimating(true);
 
       const apiMap: Record<ApprovalItem["type"], string> = {
         proposal: `/api/proposals/${currentItem.id}/approve`,
@@ -112,22 +132,29 @@ export function ApprovalsCardView({ items }: Props) {
           setReviewed((prev) => new Set(prev).add(currentItem.id));
           setDecisions((prev) => ({ ...prev, [currentItem.id]: action }));
 
-          if (action === "approved" && currentItem.type === "proposal") {
-            setApprovedItem(currentItem);
-            setShowEmailPicker(true);
-            fetchTemplates();
-          } else if (currentIndex < items.length - 1) {
-            goNext();
-          }
+          setTimeout(() => {
+            setIsAnimating(false);
+            setDragDelta(0);
+            if (action === "approved" && currentItem.type === "proposal") {
+              setApprovedItem(currentItem);
+              setShowEmailPicker(true);
+              void fetchTemplates();
+            } else if (currentIndex < queueItems.length - 1) {
+              goNext();
+            }
+          }, 300);
+        } else {
+          setIsAnimating(false);
+          setDragDelta(0);
         }
       } catch {
-        // silently fail - user can retry
+        setIsAnimating(false);
+        setDragDelta(0);
       } finally {
         setLoading(false);
-        setDragDelta(0);
       }
     },
-    [currentItem, currentIndex, items.length, goNext, loading, fetchTemplates],
+    [currentItem, currentIndex, queueItems.length, goNext, loading, fetchTemplates],
   );
 
   const handleSendEmail = useCallback(async () => {
@@ -152,13 +179,13 @@ export function ApprovalsCardView({ items }: Props) {
       }
 
       setShowEmailPicker(false);
-      if (currentIndex < items.length - 1) goNext();
+      if (currentIndex < queueItems.length - 1) goNext();
     } catch {
       // silently fail
     } finally {
       setSendingEmail(false);
     }
-  }, [approvedItem, selectedTemplate, currentIndex, items.length, goNext]);
+  }, [approvedItem, selectedTemplate, currentIndex, queueItems.length, goNext]);
 
   const handleEdit = useCallback(() => {
     if (!currentItem) return;
@@ -180,9 +207,9 @@ export function ApprovalsCardView({ items }: Props) {
     if (!isDragging.current) return;
     isDragging.current = false;
     if (dragDelta > 80) {
-      handleAction("approved");
+      void handleAction("approved");
     } else if (dragDelta < -80) {
-      handleAction("rejected");
+      void handleAction("rejected");
     } else {
       setDragDelta(0);
     }
@@ -191,20 +218,22 @@ export function ApprovalsCardView({ items }: Props) {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      // Don't fire when typing in inputs
+      if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "SELECT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
       if (showEmailPicker) {
         if (e.key === "Escape") {
           setShowEmailPicker(false);
-          if (currentIndex < items.length - 1) goNext();
+          if (currentIndex < queueItems.length - 1) goNext();
         }
         return;
       }
-      if (e.key === "ArrowRight" || e.key === "l" || e.key === "L") handleAction("approved");
-      if (e.key === "ArrowLeft" || e.key === "j" || e.key === "J") handleAction("rejected");
+      if (e.key === "ArrowRight" || e.key === "l" || e.key === "L") void handleAction("approved");
+      if (e.key === "ArrowLeft" || e.key === "j" || e.key === "J") void handleAction("rejected");
       if (e.key === "e" || e.key === "E") handleEdit();
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [goNext, handleAction, handleEdit, showEmailPicker, currentIndex, items.length]);
+  }, [goNext, handleAction, handleEdit, showEmailPicker, currentIndex, queueItems.length]);
 
   if (items.length === 0) {
     return (
@@ -223,7 +252,7 @@ export function ApprovalsCardView({ items }: Props) {
         </div>
         <div className="text-center space-y-1">
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Review Complete!</h2>
-          <p className="text-muted-foreground">You've reviewed all {items.length} item{items.length !== 1 ? "s" : ""}.</p>
+          <p className="text-muted-foreground">You've reviewed all {queueItems.length} item{queueItems.length !== 1 ? "s" : ""} in this queue.</p>
         </div>
         <div className="flex gap-6">
           <div className="flex flex-col items-center gap-1">
@@ -258,6 +287,13 @@ export function ApprovalsCardView({ items }: Props) {
   const dragPercent = Math.min(Math.abs(dragDelta) / 100, 1);
   const isSwipingRight = dragDelta > 10;
   const isSwipingLeft = dragDelta < -10;
+
+  const tabLabels: Array<{ key: QueueTab; label: string }> = [
+    { key: "all", label: "All" },
+    { key: "proposal", label: "Proposals" },
+    { key: "campaign", label: "Campaigns" },
+    { key: "email", label: "Emails" },
+  ];
 
   return (
     <div className="flex flex-col items-center gap-4 select-none">
@@ -308,7 +344,7 @@ export function ApprovalsCardView({ items }: Props) {
                 className="flex-1"
                 onClick={() => {
                   setShowEmailPicker(false);
-                  if (currentIndex < items.length - 1) goNext();
+                  if (currentIndex < queueItems.length - 1) goNext();
                 }}
               >
                 Pular
@@ -325,7 +361,7 @@ export function ApprovalsCardView({ items }: Props) {
               </Button>
               <Button
                 className="flex-1 gap-1.5"
-                onClick={handleSendEmail}
+                onClick={() => void handleSendEmail()}
                 disabled={!selectedTemplate || sendingEmail}
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
@@ -336,20 +372,44 @@ export function ApprovalsCardView({ items }: Props) {
         </div>
       )}
 
+      {/* Queue tabs */}
+      <div className="w-full max-w-2xl flex items-center gap-1 bg-muted/40 rounded-xl p-1 border">
+        {tabLabels.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setQueueTab(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+              queueTab === tab.key
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+            {typeCountMap[tab.key] > 0 && (
+              <span className={`text-xs rounded-full px-1.5 py-0.5 font-semibold ${
+                queueTab === tab.key ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              }`}>
+                {typeCountMap[tab.key]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Progress bar */}
       <div className="w-full max-w-2xl space-y-1">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            {reviewedCount} of {items.length} reviewed
+            {reviewedCount} of {queueItems.length} reviewed
           </span>
           <span className="text-muted-foreground text-xs">
-            {items.length - reviewedCount} remaining
+            {queueItems.length - reviewedCount} remaining
           </span>
         </div>
         <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full transition-all duration-500"
-            style={{ width: `${(reviewedCount / items.length) * 100}%` }}
+            style={{ width: `${queueItems.length > 0 ? (reviewedCount / queueItems.length) * 100 : 0}%` }}
           />
         </div>
       </div>
@@ -359,8 +419,8 @@ export function ApprovalsCardView({ items }: Props) {
         <Button variant="ghost" size="icon" onClick={goPrev} disabled={currentIndex === 0}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="min-w-[60px] text-center">{currentIndex + 1} / {items.length}</span>
-        <Button variant="ghost" size="icon" onClick={goNext} disabled={currentIndex === items.length - 1}>
+        <span className="min-w-[60px] text-center">{currentIndex + 1} / {queueItems.length}</span>
+        <Button variant="ghost" size="icon" onClick={goNext} disabled={currentIndex === queueItems.length - 1}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -394,10 +454,13 @@ export function ApprovalsCardView({ items }: Props) {
 
           <Card
             ref={cardRef}
-            className="w-full cursor-grab active:cursor-grabbing transition-shadow hover:shadow-lg"
+            className="w-full cursor-grab active:cursor-grabbing hover:shadow-lg"
             style={{
-              transform: `translateX(${dragDelta}px) rotate(${dragDelta * 0.03}deg)`,
-              transition: isDragging.current ? "none" : "transform 0.3s ease",
+              transform: isAnimating
+                ? `translateX(${dragDelta > 0 ? "120%" : "-120%"}) rotate(${dragDelta > 0 ? 15 : -15}deg)`
+                : `translateX(${dragDelta}px) rotate(${dragDelta * 0.03}deg)`,
+              transition: isDragging.current ? "none" : "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              opacity: isAnimating ? 0 : 1,
             }}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
@@ -418,8 +481,8 @@ export function ApprovalsCardView({ items }: Props) {
               const dx = e.changedTouches[0].clientX - touchStartX.current;
               const dy = e.changedTouches[0].clientY - touchStartY.current;
               if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-                if (dx > 0) handleAction("approved");
-                else handleAction("rejected");
+                if (dx > 0) void handleAction("approved");
+                else void handleAction("rejected");
               } else {
                 setDragDelta(0);
               }
@@ -437,7 +500,7 @@ export function ApprovalsCardView({ items }: Props) {
                     <Badge variant="success">Reviewed</Badge>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">{currentIndex + 1}/{items.length}</span>
+                <span className="text-xs text-muted-foreground">{currentIndex + 1}/{queueItems.length}</span>
               </div>
 
               {/* Company name — prominent */}
@@ -468,7 +531,7 @@ export function ApprovalsCardView({ items }: Props) {
               <Button
                 variant="destructive"
                 size="lg"
-                onClick={() => handleAction("rejected")}
+                onClick={() => void handleAction("rejected")}
                 disabled={loading}
                 className="min-w-[120px] gap-2"
               >
@@ -486,7 +549,7 @@ export function ApprovalsCardView({ items }: Props) {
               </Button>
               <Button
                 size="lg"
-                onClick={() => handleAction("approved")}
+                onClick={() => void handleAction("approved")}
                 disabled={loading}
                 className="min-w-[120px] gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
@@ -499,10 +562,11 @@ export function ApprovalsCardView({ items }: Props) {
       )}
 
       {/* Keyboard shortcuts hint */}
-      <p className="text-xs text-muted-foreground text-center">
-        <kbd className="border rounded px-1 font-mono">→</kbd> / <kbd className="border rounded px-1 font-mono">L</kbd> Approve
+      <p className="text-xs text-muted-foreground text-center flex items-center gap-1 flex-wrap justify-center">
+        <Keyboard className="h-3 w-3" />
+        <kbd className="border rounded px-1 font-mono">→</kbd> Approve
         {" · "}
-        <kbd className="border rounded px-1 font-mono">←</kbd> / <kbd className="border rounded px-1 font-mono">J</kbd> Reject
+        <kbd className="border rounded px-1 font-mono">←</kbd> Reject
         {" · "}
         <kbd className="border rounded px-1 font-mono">E</kbd> Edit
         {" · "}
@@ -511,3 +575,4 @@ export function ApprovalsCardView({ items }: Props) {
     </div>
   );
 }
+

@@ -367,20 +367,23 @@ export function CompanyAIAnalysis({
                   No competitor data yet. Use &quot;Scrape Website&quot; to auto-discover competitors.
                 </div>
               ) : (
-                competitors.map((comp, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
-                    <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm">{comp.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{comp.reason}</div>
-                      {comp.sponsorship_spend && <div className="text-xs text-muted-foreground mt-0.5">Spend: {comp.sponsorship_spend}</div>}
+                <>
+                  <AddAllCompetitorsButton competitors={competitors} industry={industry} />
+                  {competitors.map((comp, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                      <Building2 className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{comp.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{comp.reason}</div>
+                        {comp.sponsorship_spend && <div className="text-xs text-muted-foreground mt-0.5">Spend: {comp.sponsorship_spend}</div>}
+                      </div>
+                      {comp.website && (
+                        <a href={`https://${comp.website}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3.5 w-3.5" /></a>
+                      )}
+                      <CompetitorActions name={comp.name} website={comp.website} industry={industry} />
                     </div>
-                    {comp.website && (
-                      <a href={`https://${comp.website}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><ExternalLink className="h-3.5 w-3.5" /></a>
-                    )}
-                    <CompetitorActions name={comp.name} website={comp.website} industry={industry} />
-                  </div>
-                ))
+                  ))}
+                </>
               )}
               {!!sponsorshipProfile.estimated_budget_range && (
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
@@ -682,6 +685,31 @@ export function CompanyAIAnalysis({
                       </div>
                     )}
 
+                    {/* Save All Found Contacts button */}
+                    {(decisionMakers.length > 0 || otherContacts.length > 0) && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800">
+                        <div className="text-xs text-green-800 dark:text-green-300 font-medium">
+                          {savedContactEmails.size > 0
+                            ? <span className="flex items-center gap-1.5"><CheckCheck className="h-3.5 w-3.5 text-green-600" /> {savedContactEmails.size} contact{savedContactEmails.size !== 1 ? "s" : ""} saved</span>
+                            : <span>{decisionMakers.length + otherContacts.length} contacts found</span>
+                          }
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                          disabled={savingContacts || (decisionMakers.length + otherContacts.length > 0 && [...decisionMakers, ...otherContacts].every(c => savedContactEmails.has(c.email)))}
+                          onClick={() => {
+                            const all = [...decisionMakers, ...otherContacts].filter(c => !savedContactEmails.has(c.email));
+                            saveContacts(all.map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })));
+                          }}
+                        >
+                          {savingContacts ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
+                          {[...decisionMakers, ...otherContacts].every(c => savedContactEmails.has(c.email)) ? "All Saved ✓" : "Save All Found Contacts"}
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Hunter decision makers */}
                     {decisionMakers.length > 0 && (
                       <div>
@@ -694,7 +722,7 @@ export function CompanyAIAnalysis({
                             variant="outline"
                             className="h-6 text-xs gap-1 text-green-700 border-green-300"
                             disabled={savingContacts}
-                            onClick={() => saveContacts(decisionMakers.map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
+                            onClick={() => saveContacts(decisionMakers.filter(c => !savedContactEmails.has(c.email)).map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
                           >
                             <UserPlus className="h-3 w-3" /> Save all
                           </Button>
@@ -718,13 +746,20 @@ export function CompanyAIAnalysis({
                                   <Linkedin className="h-3.5 w-3.5" />
                                 </a>
                               )}
-                              <button
-                                onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
-                                className="text-xs rounded px-2 py-1 border transition-colors shrink-0"
-                                title="Save contact"
-                              >
-                                {savedContactEmails.has(c.email) ? <CheckCheck className="h-3.5 w-3.5 text-green-600" /> : <UserPlus className="h-3.5 w-3.5 text-muted-foreground hover:text-green-600" />}
-                              </button>
+                              {savedContactEmails.has(c.email) ? (
+                                <span className="text-xs rounded px-2 py-1 bg-green-100 text-green-700 border border-green-300 shrink-0 flex items-center gap-1">
+                                  <CheckCheck className="h-3 w-3" /> Saved ✓
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
+                                  disabled={savingContacts}
+                                  className="text-xs rounded px-2 py-1 border border-gray-200 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-colors shrink-0 flex items-center gap-1"
+                                  title="Save contact"
+                                >
+                                  <UserPlus className="h-3.5 w-3.5" /> Save
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -743,7 +778,7 @@ export function CompanyAIAnalysis({
                             variant="outline"
                             className="h-6 text-xs gap-1 text-green-700 border-green-300"
                             disabled={savingContacts}
-                            onClick={() => saveContacts(otherContacts.map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
+                            onClick={() => saveContacts(otherContacts.filter(c => !savedContactEmails.has(c.email)).map((c) => ({ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" as const })))}
                           >
                             <UserPlus className="h-3 w-3" /> Save all
                           </Button>
@@ -756,13 +791,20 @@ export function CompanyAIAnalysis({
                               {c.full_name && <span className="text-xs text-muted-foreground truncate max-w-[120px]">{c.full_name}</span>}
                               {c.position && <span className="text-xs text-muted-foreground truncate max-w-[100px]">{c.position}</span>}
                               <span className="text-xs text-muted-foreground shrink-0">{c.confidence}%</span>
-                              <button
-                                onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
-                                className="text-xs rounded px-1.5 py-0.5 border transition-colors shrink-0 ml-1"
-                                title="Save contact"
-                              >
-                                {savedContactEmails.has(c.email) ? <CheckCheck className="h-3 w-3 text-green-600" /> : <UserPlus className="h-3 w-3 text-muted-foreground hover:text-green-600" />}
-                              </button>
+                              {savedContactEmails.has(c.email) ? (
+                                <span className="text-xs rounded px-1.5 py-0.5 bg-green-100 text-green-700 border border-green-300 shrink-0 ml-1 flex items-center gap-1">
+                                  <CheckCheck className="h-3 w-3" /> Saved ✓
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => saveContacts([{ email: c.email, full_name: c.full_name, title: c.position ?? undefined, department: c.department ?? undefined, seniority: c.seniority ?? undefined, confidence: c.confidence, source: "hunter" }])}
+                                  disabled={savingContacts}
+                                  className="text-xs rounded px-1.5 py-0.5 border border-gray-200 hover:border-green-400 hover:bg-green-50 hover:text-green-700 transition-colors shrink-0 ml-1 flex items-center gap-1"
+                                  title="Save contact"
+                                >
+                                  <UserPlus className="h-3 w-3" /> Save
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -987,6 +1029,7 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
   const [saving, setSaving] = useState(false);
   const [proposing, setProposing] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [alreadyInDb, setAlreadyInDb] = useState(false);
 
   async function ensureCompany(): Promise<string> {
     if (companyId) return companyId;
@@ -998,12 +1041,24 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
         website: website ? (website.startsWith("http") ? website : `https://${website}`) : undefined,
         industry: industry ?? undefined,
         status: "prospect",
-        notes: "Added from competitor analysis",
+        notes: "Competitor sponsor - identified via AI intelligence",
+        tags: ["competitor-sponsor"],
       }),
     });
-    const j = await res.json() as { data?: { id: string }; error?: string };
+    const j = await res.json() as { data?: { id: string }; id?: string; error?: string };
+    if (res.status === 409) {
+      // Already exists — grab id from response if available
+      const existingId = j.data?.id ?? j.id ?? null;
+      if (existingId) {
+        setCompanyId(existingId);
+        setAlreadyInDb(true);
+        return existingId;
+      }
+      setAlreadyInDb(true);
+      throw new Error("already_exists");
+    }
     if (!res.ok) throw new Error(j?.error ?? "Failed to create company");
-    const id = j.data?.id;
+    const id = j.data?.id ?? j.id;
     if (!id) throw new Error("No company id returned");
     setCompanyId(id);
     return id;
@@ -1013,9 +1068,16 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
     setSaving(true);
     try {
       await ensureCompany();
-      toast({ variant: "success", title: `${name} added to companies!` });
+      if (!alreadyInDb) {
+        toast({ variant: "success", title: `${name} added to CRM!` });
+      } else {
+        toast({ variant: "default", title: `${name} already exists in CRM` });
+      }
     } catch (err) {
-      toast({ variant: "destructive", title: "Failed to add competitor", description: err instanceof Error ? err.message : "Unknown" });
+      const msg = err instanceof Error ? err.message : "Unknown";
+      if (msg !== "already_exists") {
+        toast({ variant: "destructive", title: "Failed to add competitor", description: msg });
+      }
     } finally {
       setSaving(false);
     }
@@ -1037,11 +1099,10 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
       toast({ variant: "success", title: "Proposal created" });
       window.location.href = `/proposals/${proposalId}`;
     } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Create proposal failed",
-        description: err instanceof Error ? err.message : "Unknown",
-      });
+      const msg = err instanceof Error ? err.message : "Unknown";
+      if (msg !== "already_exists") {
+        toast({ variant: "destructive", title: "Create proposal failed", description: msg });
+      }
     } finally {
       setProposing(false);
     }
@@ -1049,20 +1110,27 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
 
   return (
     <div className="flex flex-col gap-1 shrink-0">
-      <button
-        onClick={addToDb}
-        disabled={saving || !!companyId}
-        className="text-xs rounded px-2 py-1 border transition-colors flex items-center gap-1 text-muted-foreground hover:text-primary hover:border-primary/50"
-        title="Add to company database"
-      >
-        {companyId ? (
-          <><CheckCircle className="h-3 w-3" /> In DB</>
-        ) : saving ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <><Building2 className="h-3 w-3" /> Add to DB</>
-        )}
-      </button>
+      {alreadyInDb && !companyId ? (
+        <span className="text-xs rounded px-2 py-1 bg-amber-50 text-amber-700 border border-amber-300 flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" /> Already in DB
+        </span>
+      ) : companyId ? (
+        <a
+          href={`/companies/${companyId}`}
+          className="text-xs rounded px-2 py-1 bg-green-50 text-green-700 border border-green-300 hover:bg-green-100 transition-colors flex items-center gap-1"
+        >
+          <CheckCircle className="h-3 w-3" /> Added ✓
+        </a>
+      ) : (
+        <button
+          onClick={addToDb}
+          disabled={saving}
+          className="text-xs rounded px-2 py-1 border transition-colors flex items-center gap-1 text-muted-foreground hover:text-primary hover:border-primary/50"
+          title="Add to CRM"
+        >
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Building2 className="h-3 w-3" /> Add to CRM</>}
+        </button>
+      )}
       <button
         onClick={createProposal}
         disabled={proposing}
@@ -1071,6 +1139,59 @@ function CompetitorActions({ name, website, industry }: { name: string; website?
       >
         {proposing ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Sparkles className="h-3 w-3" /> Create Proposal</>}
       </button>
+    </div>
+  );
+}
+
+function AddAllCompetitorsButton({ competitors, industry }: { competitors: Array<{ name: string; website?: string }>; industry: string | null }) {
+  const { toast } = useToast();
+  const [adding, setAdding] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
+  const [done, setDone] = useState(false);
+
+  async function addAll() {
+    setAdding(true);
+    let saved = 0;
+    for (const comp of competitors) {
+      try {
+        const res = await fetch("/api/companies", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            company_name: comp.name,
+            website: comp.website ? (comp.website.startsWith("http") ? comp.website : `https://${comp.website}`) : undefined,
+            industry: industry ?? undefined,
+            status: "prospect",
+            notes: "Competitor sponsor - identified via AI intelligence",
+            tags: ["competitor-sponsor"],
+          }),
+        });
+        if (res.ok || res.status === 409) saved++;
+      } catch {
+        // continue on error
+      }
+    }
+    setAddedCount(saved);
+    setDone(true);
+    setAdding(false);
+    toast({ variant: "success", title: `${saved} competitor${saved !== 1 ? "s" : ""} added to CRM` });
+  }
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-200 dark:border-indigo-800">
+      <p className="text-xs text-indigo-800 dark:text-indigo-300 font-medium">
+        {done ? <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-green-600" /> {addedCount} companies added to CRM</span> : `${competitors.length} competitors found`}
+      </p>
+      <Button
+        size="sm"
+        variant="default"
+        className="h-7 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+        disabled={adding || done}
+        onClick={addAll}
+      >
+        {adding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Building2 className="h-3 w-3" />}
+        {done ? "All Added ✓" : "Add All Competitors"}
+      </Button>
     </div>
   );
 }

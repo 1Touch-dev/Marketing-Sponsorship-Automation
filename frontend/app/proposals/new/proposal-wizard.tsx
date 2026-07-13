@@ -74,7 +74,16 @@ const SOCIAL_COMPONENTS: Component[] = [
   { id: "community_health", name: "Community Health", category: "health", type: "social", icon: Heart, price: "IR Dedutível" },
 ];
 
-// ── Strategies ─────────────────────────────────────────────────────────────
+// ── Package counterpart auto-selection ──────────────────────────────────────
+// When a primary category item is selected, these related categories are auto-included
+const PACKAGE_COUNTERPARTS: Record<string, string[]> = {
+  jersey: ["training_kit", "press_backdrop"],
+  led_board: ["scoreboard", "banner"],
+  vip_area: ["press_backdrop"],
+  social_post: ["stories", "reels"],
+};
+
+
 const ALL_STRATEGIES: Strategy[] = [
   { key: "awareness", label: "Brand Awareness", description: "Maximum visibility — LED, jersey, TV exposure, city-wide recognition", icon: Globe, color: "blue" },
   { key: "fan_engagement", label: "Fan Engagement", description: "Deep fan connection — activations, experiences, loyalty programs", icon: Users, color: "green" },
@@ -226,14 +235,35 @@ export function ProposalWizard({
       setSelectedInventoryLines(prev => prev.filter(l => l.inventory_id !== item.id));
     } else {
       const price = getPriceForCompany(item);
-      setSelectedInventoryLines(prev => [...prev, {
+      const newLine = {
         inventory_id: item.id,
         name: item.name,
         quantity: 1,
         scope: item.unit_type ?? "per_season",
         slot_timing: item.slot_timing ?? null,
         price_agreed: price,
-      }]);
+      };
+      // Auto-include counterpart categories
+      const counterpartCategories = PACKAGE_COUNTERPARTS[item.category ?? ""] ?? [];
+      const counterpartItems = counterpartCategories.length > 0
+        ? dbInventory.filter(i =>
+            counterpartCategories.includes(i.category ?? "") &&
+            !selectedInventoryLines.find(l => l.inventory_id === i.id) &&
+            i.id !== item.id
+          )
+        : [];
+      const counterpartLines = counterpartItems.map(ci => ({
+        inventory_id: ci.id,
+        name: ci.name,
+        quantity: 1,
+        scope: ci.unit_type ?? "per_season",
+        slot_timing: ci.slot_timing ?? null,
+        price_agreed: getPriceForCompany(ci),
+      }));
+      if (counterpartLines.length > 0) {
+        toast({ title: `Auto-selected ${counterpartLines.length} counterpart item${counterpartLines.length > 1 ? "s" : ""}`, description: counterpartItems.map(ci => ci.name).join(", ") });
+      }
+      setSelectedInventoryLines(prev => [...prev, newLine, ...counterpartLines]);
     }
   }
 

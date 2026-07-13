@@ -39,7 +39,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     ...(existing.content as ProposalContent),
     ...(parsed.data.content ?? {}),
   };
-  const updated = {
+  const updated: Record<string, unknown> = {
     title: parsed.data.title ?? existing.title,
     content: mergedContent,
     content_md: renderMarkdown(mergedContent),
@@ -50,6 +50,9 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
         ? existing.status
         : "under_review",
   };
+  if ("ab_test_config" in parsed.data) {
+    updated.ab_test_config = parsed.data.ab_test_config ?? null;
+  }
 
   const { data: saved, error: updErr } = await sb
     .from("proposals")

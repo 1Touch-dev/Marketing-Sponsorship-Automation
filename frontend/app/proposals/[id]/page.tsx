@@ -19,8 +19,10 @@ import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-br
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
+import { VersionHistoryPanel } from "@/components/proposals/version-history-panel";
 import { ConvertToContractButton } from "@/components/proposals/convert-to-contract-button";
 import { ProposalPackages } from "@/components/proposals/proposal-packages";
+import { ABTestPanel } from "./ab-test-panel";
 import type { ProposalContent } from "@/types/database";
 import type { StrategyVariant, PricingTier, VisualPrompt, CompanyIntelligence, ExecutionBrief } from "@/lib/ai/schemas";
 
@@ -37,7 +39,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
 
   const { data: versions } = await sb
     .from("proposal_versions")
-    .select("version, edit_reason, created_at")
+    .select("id, version, title, edit_reason, edited_by, created_at, content, content_md")
     .eq("proposal_id", proposal.id)
     .order("version", { ascending: false });
 
@@ -66,6 +68,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     visual_prompts?: VisualPrompt[] | null;
     intelligence?: CompanyIntelligence | null;
     share_token?: string | null;
+    ab_test_config?: Record<string, unknown> | null;
   };
 
   const p = proposal as EnrichedProposal;
@@ -383,42 +386,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <span className="text-lg">🕓</span> Version History
-                {versions?.length ? (
-                  <span className="ml-auto text-xs font-normal text-muted-foreground">
-                    {versions.length} snapshot{versions.length !== 1 ? "s" : ""}
-                  </span>
-                ) : null}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              {versions?.length ? (
-                <ol className="relative border-l border-slate-200 dark:border-slate-700 space-y-0">
-                  {versions.map((v, idx) => (
-                    <li key={v.version} className="ml-4 pb-4 last:pb-0">
-                      <span
-                        className={`absolute -left-[7px] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-slate-900 ${idx === 0 ? "bg-indigo-500" : "bg-slate-300 dark:bg-slate-600"}`}
-                      />
-                      <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                        <span className={`font-semibold ${idx === 0 ? "text-indigo-600 dark:text-indigo-400" : ""}`}>
-                          v{v.version}
-                        </span>
-                        <span className="text-xs text-muted-foreground shrink-0">{formatDate(v.created_at)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug">
-                        {v.edit_reason ?? "—"}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="text-muted-foreground text-sm">No snapshots yet — click &quot;Save Version&quot; to create one.</p>
-              )}
-            </CardContent>
-          </Card>
+          <VersionHistoryPanel versions={(versions ?? []) as Parameters<typeof VersionHistoryPanel>[0]["versions"]} />
         </div>
 
         <div className="space-y-6">
@@ -488,6 +456,18 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           <ProposalPackages proposalId={proposal.id} />
         </CardContent>
       </Card>
+
+      {/* A/B Test Panel */}
+      <div className="mt-6">
+        <ABTestPanel
+          proposalId={proposal.id}
+          initialConfig={
+            p.ab_test_config
+              ? (p.ab_test_config as { element: "hero_text" | "cta_text" | "package_layout"; variant_a: string; variant_b: string; created_at: string })
+              : null
+          }
+        />
+      </div>
     </>
   );
 }

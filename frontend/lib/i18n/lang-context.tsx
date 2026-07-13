@@ -64,6 +64,8 @@ export const T: Record<string, Record<Lang, string>> = {
   "Maintenance": { pt: "Manutenção", en: "Maintenance" },
   "Settings": { pt: "Configurações", en: "Settings" },
   "Team & Roles": { pt: "Equipe & Perfis", en: "Team & Roles" },
+  "Intelligence": { pt: "Inteligência", en: "Intelligence" },
+  "Sender Profiles": { pt: "Perfis de Envio", en: "Sender Profiles" },
 };
 
 export function t(key: string, lang: Lang): string {

@@ -35,6 +35,21 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
   }
 
+  // Pre-send validation: block if [Nome] or {{variable}} placeholders are unresolved
+  const { hasUnresolvedVariables } = await import("@/lib/email/template-engine");
+  const bodyToCheck = (email.body_html ?? "") + (email.body_text ?? "") + (email.subject ?? "");
+  const unresolvedPlaceholders = hasUnresolvedVariables(bodyToCheck);
+  if (unresolvedPlaceholders.length > 0) {
+    return NextResponse.json(
+      {
+        error: "Email contains unresolved placeholders. Please fix before sending.",
+        placeholders: unresolvedPlaceholders,
+        hint: "Common fixes: select a sender profile, or ensure the proposal has a linked company with a contact name."
+      },
+      { status: 400 }
+    );
+  }
+
   const eventId = await startWorkflow({
     workflow_name: mode === "send" ? "email.send" : "email.draft",
     entity_type: "email",

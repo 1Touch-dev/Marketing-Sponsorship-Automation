@@ -211,6 +211,7 @@ export interface ProposalVersion {
   id: string;
   proposal_id: string;
   version: number;
+  title: string | null;
   content: ProposalContent;
   content_md: string | null;
   edited_by: string | null;
