@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Loader2,
   CheckCircle2,
@@ -51,6 +51,34 @@ export function StadiumOutdoorMockup({
   const [image, setImage] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [historyImages, setHistoryImages] = useState<GeneratedImage[]>([]);
+
+  // Load previously generated mockups on mount
+  useEffect(() => {
+    if (!proposalId) return;
+    fetch(`/api/media/stadium-mockup/history?proposal_id=${proposalId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.jobs?.length) {
+          setHistoryImages(d.jobs.map((j: { selected_url: string; placement_zone: string; display_label: string; generation_ms: number }) => ({
+            url: j.selected_url,
+            placement: j.placement_zone as StadiumPlacementId,
+            basePhoto: j.display_label ?? j.placement_zone,
+            durationMs: j.generation_ms ?? 0,
+          })));
+          // Show the most recent one
+          const first = d.jobs[0];
+          setPlacement(first.placement_zone as StadiumPlacementId);
+          setImage({
+            url: first.selected_url,
+            placement: first.placement_zone as StadiumPlacementId,
+            basePhoto: first.display_label ?? first.placement_zone,
+            durationMs: first.generation_ms ?? 0,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [proposalId]);
 
   const hasLogo = !!sponsorLogoUrl;
   const selectedZone = STADIUM_PLACEMENTS.find((p) => p.id === placement);
@@ -260,6 +288,28 @@ export function StadiumOutdoorMockup({
                 <Download className="h-3 w-3" /> Download
               </a>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+      {/* History: previously generated mockups for other placements */}
+      {historyImages.length > 1 && (
+        <div className="mt-2">
+          <div className="text-xs font-semibold text-slate-500 mb-2">Previously generated placements</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {historyImages.map((h) => (
+              <button
+                key={h.placement}
+                onClick={() => { setPlacement(h.placement); setImage(h); }}
+                className={`relative rounded-lg overflow-hidden border-2 transition-all ${placement === h.placement ? "border-amber-400" : "border-transparent hover:border-amber-200"}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={h.url} alt={h.placement} className="w-full h-20 object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] px-1.5 py-1 truncate">
+                  {PLACEMENT_ICONS[h.placement] ?? "📍"} {h.placement.replace(/_/g, " ")}
+                </div>
+              </button>
+            ))}
           </div>
         </div>
       )}

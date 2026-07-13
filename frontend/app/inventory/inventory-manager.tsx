@@ -92,6 +92,10 @@ function ItemForm({
       production_cost: fd.get("production_cost") ? Number(fd.get("production_cost")) : null,
       setup_hours: fd.get("setup_hours") ? Number(fd.get("setup_hours")) : null,
       line_items: String(fd.get("line_items") ?? "").trim() || null,
+      // Operational fields
+      period: String(fd.get("period") ?? "").trim() || null,
+      quantity: fd.get("quantity") ? Number(fd.get("quantity")) : null,
+      responsible: String(fd.get("responsible") ?? "").trim() || null,
     };
     try {
       const url = isEdit ? `/api/inventory/${initialData!.id}` : "/api/inventory";
@@ -247,6 +251,25 @@ function ItemForm({
         </div>
       )}
 
+      {/* Operational fields */}
+      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 space-y-3">
+        <p className="text-xs font-semibold text-slate-600">Operational Details</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="period" className="text-xs">Period</Label>
+            <Input id="period" name="period" defaultValue={initialData?.period as string} placeholder="e.g. Jan–Dec 2026" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="quantity" className="text-xs">Quantity</Label>
+            <Input id="quantity" name="quantity" type="number" defaultValue={initialData?.quantity as number} placeholder="e.g. 20" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="responsible" className="text-xs">Responsible</Label>
+            <Input id="responsible" name="responsible" defaultValue={initialData?.responsible as string} placeholder="e.g. Marketing Team" />
+          </div>
+        </div>
+      </div>
+
       {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-2">{error}</div>}
 
       <div className="flex items-center gap-2">
@@ -343,7 +366,7 @@ function InventoryRow({
           )}
           {!!item.unit && <p className="text-xs text-muted-foreground">{item.unit as string}</p>}
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 transition-opacity">
           <button
             onClick={() => onEdit(item)}
             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"
@@ -370,11 +393,11 @@ export function InventoryManager({ initialItems }: { initialItems: Item[] }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Item | null>(null);
-  const [activeTab, setActiveTab] = useState<"physical" | "digital">("physical");
+  const [activeTab, setActiveTab] = useState<"physical" | "digital" | "all">("physical");
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(Object.keys(PHYSICAL_CATEGORIES)));
 
-  const catMap = activeTab === "physical" ? PHYSICAL_CATEGORIES : DIGITAL_CATEGORIES;
-  const tabItems = items.filter((i) => i.inventory_type === activeTab);
+  const catMap = activeTab === "physical" ? PHYSICAL_CATEGORIES : activeTab === "digital" ? DIGITAL_CATEGORIES : { ...PHYSICAL_CATEGORIES, ...DIGITAL_CATEGORIES };
+  const tabItems = activeTab === "all" ? items : items.filter((i) => i.inventory_type === activeTab);
 
   const byCategory = tabItems.reduce<Record<string, Item[]>>((acc, item) => {
     const cat = (item.category as string) || "other";
@@ -444,7 +467,7 @@ export function InventoryManager({ initialItems }: { initialItems: Item[] }) {
       {/* Header with Add button */}
       <div className="flex items-center justify-between">
         <div className="flex gap-2">
-          {(["physical", "digital"] as const).map((t) => (
+          {(["physical", "digital", "all"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setActiveTab(t)}
@@ -452,8 +475,8 @@ export function InventoryManager({ initialItems }: { initialItems: Item[] }) {
                 activeTab === t ? "bg-primary text-primary-foreground border-primary" : "bg-background border-input hover:bg-muted"
               }`}
             >
-              {t === "physical" ? <Package className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
-              {t} Inventory
+              {t === "physical" ? <Package className="h-4 w-4" /> : t === "digital" ? <Smartphone className="h-4 w-4" /> : <BarChart3 className="h-4 w-4" />}
+              {t === "all" ? "All Items" : `${t} Inventory`}
             </button>
           ))}
         </div>

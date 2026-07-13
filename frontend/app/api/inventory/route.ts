@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const sb = supabaseAdmin();
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
   // Strip any new operational fields if the DB hasn't been migrated yet
   // They'll be silently dropped; the migration adds them properly
   const safeBody = { ...body };
-  const newCols = ["avg_views", "content_hours", "team_required", "production_cost", "setup_hours", "line_items"];
+  const newCols = ["avg_views", "content_hours", "team_required", "production_cost", "setup_hours", "line_items", "period", "quantity", "responsible"];
 
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("inventory_items" as "companies")

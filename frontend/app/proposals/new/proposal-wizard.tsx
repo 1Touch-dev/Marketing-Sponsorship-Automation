@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toaster";
 import {
   Check, ChevronRight, ChevronLeft, Sparkles, Building2,
   Package, Brain, Zap, FileText, Users, Globe, MapPin,
-  TrendingUp, Heart, Repeat2, Loader2, Star,
+  TrendingUp, Heart, Repeat2, Loader2, Star, Pencil,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -199,17 +199,17 @@ export function ProposalWizard({
     });
   }, [sessionKey]);
 
-  // Fetch live inventory when reaching step 3 (sponsorship/mixed)
+  // Fetch live inventory when reaching step 3 (sponsorship/mixed) — always refetch for freshness
   useEffect(() => {
-    if (step === 3 && (proposalType === "sponsorship" || proposalType === "mixed") && dbInventory.length === 0) {
+    if (step === 3 && (proposalType === "sponsorship" || proposalType === "mixed")) {
       setInventoryLoading(true);
-      fetch("/api/inventory?status=active")
+      fetch("/api/inventory?status=active", { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
         .then(r => r.json())
         .then(d => setDbInventory(d.items ?? d.data ?? []))
         .catch(() => {})
         .finally(() => setInventoryLoading(false));
     }
-  }, [step, proposalType, dbInventory.length]);
+  }, [step, proposalType]);
 
   function getPriceForCompany(item: DbInventoryItem): number | null {
     const size = selectedCompany?.company_size ?? "medium";
@@ -374,7 +374,7 @@ export function ProposalWizard({
               placeholder="Search companies..."
               value={companySearch}
               onChange={e => setCompanySearch(e.target.value)}
-              className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+              className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-ring"
             />
             <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
               {filteredCompanies.map(c => (
@@ -468,7 +468,20 @@ export function ProposalWizard({
                   };
                   return (
                     <div key={cat}>
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{catLabel[cat] ?? cat}</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{catLabel[cat] ?? cat}</div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => items.forEach(item => { if (!selectedInventoryLines.find(l => l.inventory_id === item.id)) toggleInventoryLine(item); })}
+                            className="text-xs text-primary hover:underline"
+                          >Select all</button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            onClick={() => setSelectedInventoryLines(prev => prev.filter(l => !items.find(i => i.id === l.inventory_id)))}
+                            className="text-xs text-slate-400 hover:text-slate-600 hover:underline"
+                          >Deselect all</button>
+                        </div>
+                      </div>
                       <div className="space-y-1.5">
                         {items.map(item => {
                           const line = selectedInventoryLines.find(l => l.inventory_id === item.id);
@@ -633,20 +646,36 @@ export function ProposalWizard({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border p-4 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Proposal type</span><span className="font-medium capitalize">{proposalType.replace(/_/g, " ")}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Company</span><span className="font-medium">{selectedCompany?.company_name ?? "—"}</span></div>
+              <div className="flex justify-between items-center"><span className="text-muted-foreground">Proposal type</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium capitalize">{proposalType.replace(/_/g, " ")}</span>
+                  <button onClick={() => setStep(1)} className="text-slate-400 hover:text-primary" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center"><span className="text-muted-foreground">Company</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{selectedCompany?.company_name ?? "—"}</span>
+                  <button onClick={() => setStep(2)} className="text-slate-400 hover:text-primary" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
               <div className="flex justify-between items-start"><span className="text-muted-foreground">Components</span>
-                <span className="font-medium text-right max-w-[60%]">
-                  {selectedComponents.length > 0 ? `${selectedComponents.length} selected` : "None (AI will choose)"}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-right max-w-[55%]">
+                    {selectedComponents.length > 0 ? `${selectedComponents.length} selected` : "None (AI will choose)"}
+                  </span>
+                  <button onClick={() => setStep(3)} className="text-slate-400 hover:text-primary" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
               <div className="flex justify-between items-start"><span className="text-muted-foreground">Strategies</span>
-                <span className="font-medium text-right max-w-[60%]">
-                  {selectedStrategies.length > 0
-                    ? ALL_STRATEGIES.filter(s => selectedStrategies.includes(s.key)).map(s => s.label).join(", ")
-                    : "AI will recommend"
-                  }
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-right max-w-[55%]">
+                    {selectedStrategies.length > 0
+                      ? ALL_STRATEGIES.filter(s => selectedStrategies.includes(s.key)).map(s => s.label).join(", ")
+                      : "AI will recommend"
+                    }
+                  </span>
+                  <button onClick={() => setStep(4)} className="text-slate-400 hover:text-primary" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
             </div>
             <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 text-xs text-green-700 dark:text-green-300">

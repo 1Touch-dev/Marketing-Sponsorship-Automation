@@ -9,13 +9,17 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 const STAGES = [
-  { key: "prospect",        label: "Prospect",           color: "bg-gray-100 text-gray-700",    border: "border-gray-200" },
-  { key: "qualified",       label: "Qualified",          color: "bg-blue-100 text-blue-700",    border: "border-blue-200" },
-  { key: "contacted",       label: "Contacted",          color: "bg-indigo-100 text-indigo-700", border: "border-indigo-200" },
-  { key: "proposal_sent",   label: "Proposal Sent",      color: "bg-purple-100 text-purple-700", border: "border-purple-200" },
-  { key: "negotiation",     label: "Negotiation",        color: "bg-amber-100 text-amber-700",  border: "border-amber-200" },
-  { key: "closed_won",      label: "Closed Won",         color: "bg-green-100 text-green-700",  border: "border-green-200" },
-  { key: "closed_lost",     label: "Closed Lost",        color: "bg-red-100 text-red-700",      border: "border-red-200" },
+  { key: "contact_lead",      label: "Contact Lead",             color: "bg-sky-100 text-sky-700",      border: "border-sky-200" },
+  { key: "diagnosis",         label: "Diagnosis & Presentation", color: "bg-indigo-100 text-indigo-700", border: "border-indigo-200" },
+  { key: "prepare_proposal",  label: "Prepare Proposal",         color: "bg-purple-100 text-purple-700", border: "border-purple-200" },
+  { key: "negotiation",       label: "Negotiation & Contract",   color: "bg-amber-100 text-amber-700",  border: "border-amber-200" },
+  // Legacy stages kept for backward-compat
+  { key: "prospect",          label: "Prospect",                 color: "bg-gray-100 text-gray-700",    border: "border-gray-200" },
+  { key: "qualified",         label: "Qualified",                color: "bg-blue-100 text-blue-700",    border: "border-blue-200" },
+  { key: "contacted",         label: "Contacted",                color: "bg-indigo-100 text-indigo-700", border: "border-indigo-200" },
+  { key: "proposal_sent",     label: "Proposal Sent",            color: "bg-purple-100 text-purple-700", border: "border-purple-200" },
+  { key: "closed_won",        label: "Closed Won",               color: "bg-green-100 text-green-700",  border: "border-green-200" },
+  { key: "closed_lost",       label: "Closed Lost",              color: "bg-red-100 text-red-700",      border: "border-red-200" },
 ];
 
 export default async function PipelinePage() {
@@ -98,6 +102,28 @@ export default async function PipelinePage() {
 
       {/* Pipeline stages */}
       <div className="space-y-4">
+        {/* Coritiba Sponsorship Pipeline Template */}
+        <Card className="border-green-300 bg-green-50/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Coritiba Sponsorship Pipeline Template</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "contact_lead", label: "1. Contact Lead", color: "bg-sky-100 text-sky-700" },
+                { key: "diagnosis", label: "2. Diagnosis & Presentation", color: "bg-indigo-100 text-indigo-700" },
+                { key: "prepare_proposal", label: "3. Prepare Proposal", color: "bg-purple-100 text-purple-700" },
+                { key: "negotiation", label: "4. Negotiation & Contract", color: "bg-amber-100 text-amber-700" },
+              ].map((s) => (
+                <span key={s.key} className={`px-3 py-1.5 rounded-full text-xs font-medium ${s.color}`}>{s.label}</span>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Standard 4-stage commercial funnel for Coritiba FC sponsorship deals. Assign leads to stages using the company profile.</p>
+          </CardContent>
+        </Card>
+
         {STAGES.filter((s) => s.key !== "closed_lost" || stageGroups["closed_lost"].length > 0).map((stage) => {
           const stageCompanies = stageGroups[stage.key] || [];
           if (stageCompanies.length === 0 && stage.key === "closed_won") return null;

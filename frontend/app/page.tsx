@@ -114,6 +114,15 @@ async function loadDashboard() {
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
 
+  // Revenue from signed contracts
+  const { data: contractsData } = await sb
+    .from("contracts")
+    .select("total_value")
+    .eq("status", "active");
+  const totalRevenueBrl = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value) || 0), 0);
+  const signedContractCount = contractsData?.length ?? 0;
+  const avgDealSizeBrl = signedContractCount > 0 ? Math.round(totalRevenueBrl / signedContractCount) : 0;
+
   const { count: openedEmailsCount } = await sb
     .from("emails")
     .select("id", { count: "exact", head: true })
@@ -197,6 +206,10 @@ async function loadDashboard() {
     openRate,
     openedEmailsCount: openedEmailsCount ?? 0,
     clickedEmailCount: clickedEmails ?? 0,
+    // Revenue KPIs
+    totalRevenueBrl,
+    signedContractCount,
+    avgDealSizeBrl,
   };
 }
 
@@ -314,6 +327,37 @@ export default async function DashboardPage() {
           </div>
         }
       />
+
+      {/* Revenue Hero */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-5">
+          <div className="flex items-center gap-2 text-xs text-green-700 font-medium mb-1 uppercase tracking-wide">
+            <DollarSign className="h-4 w-4" /> Total Active Revenue
+          </div>
+          <p className="text-3xl font-extrabold text-green-800">
+            {d.totalRevenueBrl > 0 ? `R$ ${(d.totalRevenueBrl / 1000).toFixed(0)}K` : "—"}
+          </p>
+          <p className="text-xs text-green-600 mt-1">{d.signedContractCount} active contracts</p>
+        </div>
+        <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-5">
+          <div className="flex items-center gap-2 text-xs text-blue-700 font-medium mb-1 uppercase tracking-wide">
+            <BarChart2 className="h-4 w-4" /> Pipeline Value
+          </div>
+          <p className="text-3xl font-extrabold text-blue-800">
+            {d.pipelineValueBrl > 0 ? `R$ ${(d.pipelineValueBrl / 1000).toFixed(0)}K` : "—"}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">{d.approvedProposalCount} approved proposals</p>
+        </div>
+        <div className="rounded-xl border-2 border-purple-200 bg-purple-50 p-5">
+          <div className="flex items-center gap-2 text-xs text-purple-700 font-medium mb-1 uppercase tracking-wide">
+            <TrendingUp className="h-4 w-4" /> Avg Deal Size
+          </div>
+          <p className="text-3xl font-extrabold text-purple-800">
+            {d.avgDealSizeBrl > 0 ? `R$ ${(d.avgDealSizeBrl / 1000).toFixed(0)}K` : "—"}
+          </p>
+          <p className="text-xs text-purple-600 mt-1">per active contract</p>
+        </div>
+      </div>
 
       {/* System alert: failed workflows */}
       {d.failedWorkflowCount > 0 && (

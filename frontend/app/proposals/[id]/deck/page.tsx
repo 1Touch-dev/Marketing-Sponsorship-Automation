@@ -4,6 +4,56 @@ import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+const ASSET_DECK_CONTENT: Record<string, {
+  opportunityTitle: string;
+  opportunityText: string;
+  activationIdeas: string[];
+  packageHighlights: string[];
+  campaignConcept: string;
+  tvValue: string;
+}> = {
+  jersey: {
+    opportunityTitle: "Visibilidade no Uniforme Oficial",
+    opportunityText: "A camisa do Coritiba é um veículo de mídia em movimento — vista em campo, nas redes sociais, na TV e nas arquibancadas por milhares de torcedores a cada partida.",
+    activationIdeas: ["Logo na camisa titular e visitante", "Aparições em TV aberta e streaming", "Conteúdo de jogadores nas redes sociais", "Camisas autografadas para ativações"],
+    packageHighlights: ["Presença em todas as partidas da temporada", "Exposição em TV, streaming e cobertura jornalística", "Direito de uso da imagem da camisa em campanhas próprias", "Kit de arte oficial para aprovações"],
+    campaignConcept: "Sua marca veste as cores verde e branco em cada jogo do Coritiba — do Couto Pereira à televisão nacional.",
+    tvValue: "300M+ alcance acumulado em TV/streaming na temporada",
+  },
+  led_board: {
+    opportunityTitle: "LED Perimetral — Visibilidade Máxima em Campo",
+    opportunityText: "Os painéis LED do Couto Pereira garantem exposição direta durante transmissões, com presença garantida nos cortes de câmera e replays.",
+    activationIdeas: ["Exibição rotativa durante partidas", "Posicionamento estratégico próximo ao gol", "Integração com momentos de gol e escanteio", "Pacote de frames por partida"],
+    packageHighlights: ["Presença garantida em transmissões de TV", "Alta frequência de exposição por partida", "Coordenação com equipe de broadcast", "Relatório de exposição pós-jogo"],
+    campaignConcept: "Da tela LED ao prime time: sua marca no centro das emoções do futebol paranaense.",
+    tvValue: "Visibilidade comprovada em transmissões nacionais — média 45s de exposição por partida",
+  },
+  vip_area: {
+    opportunityTitle: "Experiência VIP — B2B e Hospitalidade Premium",
+    opportunityText: "O camarote do Coritiba é o ambiente ideal para relacionamento com clientes, parceiros e executivos em dias de jogo.",
+    activationIdeas: ["Naming rights do camarote VIP", "Convites para clientes estratégicos", "Branding exclusivo no espaço", "Ativações de produto/serviço no matchday"],
+    packageHighlights: ["Acesso VIP para convidados por jogo", "Branding no espaço e material de hospitalidade", "Foto/vídeo profissional do evento", "Integração com hospitalidade do clube"],
+    campaignConcept: "Transforme o matchday em oportunidade de negócio — sua marca no centro da experiência premium do Coritiba.",
+    tvValue: "Cobertura em conteúdo de bastidores e redes sociais do clube",
+  },
+  social_post: {
+    opportunityTitle: "Presença Digital — Redes Sociais do Coritiba",
+    opportunityText: "Com mais de 500 mil seguidores nas redes, o Coritiba FC conecta sua marca diretamente ao torcedor engajado.",
+    activationIdeas: ["Posts patrocinados no Instagram e Facebook", "Stories e Reels com jogadores", "Conteúdo exclusivo de bastidores", "Sorteios e ativações digitais"],
+    packageHighlights: ["Posts na conta oficial do clube", "Alcance orgânico qualificado", "Relatório de engajamento e alcance", "Direito de repost e compartilhamento"],
+    campaignConcept: "Do estádio para o feed: sua marca na conversa digital do Coritiba com seus torcedores.",
+    tvValue: "500K+ seguidores engajados nas redes sociais oficiais",
+  },
+  default: {
+    opportunityTitle: "Por que patrocinar o Coritiba FC?",
+    opportunityText: "Uma parceria com o Coritiba FC oferece visibilidade em partidas para mais de 40.000 torcedores, presença nos uniformes durante toda a temporada, e ativações criativas que conectam sua marca ao coração verde e branco do Paraná.",
+    activationIdeas: ["Presença em partidas no Couto Pereira", "Exposição em TV e streaming", "Ativações digitais e nas redes sociais", "Relacionamento com jogadores e staff"],
+    packageHighlights: ["Visibilidade em campo e fora dele", "Associação com clube centenário", "Acesso ao mercado paranaense", "Conteúdo co-branded"],
+    campaignConcept: "Verde, branco e a sua marca — juntos pelo futebol paranaense.",
+    tvValue: "300M+ alcance acumulado em TV/streaming na temporada",
+  },
+};
+
 export default async function ProposalDeckPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const { data: proposal } = await sb
@@ -13,6 +63,17 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
     .single();
 
   if (!proposal) notFound();
+
+  const { data: packages } = await sb
+    .from("proposal_packages")
+    .select("name, description, price_brl, category")
+    .eq("proposal_id", params.id);
+
+  // Determine primary asset category from packages for dynamic content
+  const primaryCategory = (packages ?? []).length > 0
+    ? (packages![0].category ?? "default")
+    : "default";
+  const assetContent = ASSET_DECK_CONTENT[primaryCategory] ?? ASSET_DECK_CONTENT.default;
 
   const content = (proposal.content ?? {}) as Record<string, unknown>;
   const company = proposal.companies as { company_name: string; logo_url?: string | null; industry?: string | null } | null;
@@ -88,29 +149,26 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         <div className="page" style={{padding:"48px",background:"white"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>A Oportunidade</div>
-            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Por que patrocinar o Coritiba FC?</h2>
+            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>{assetContent.opportunityTitle}</h2>
           </div>
           <div style={{marginBottom:24}}>
-            {(content.campaign_rationale as string | undefined) && (
-              <p style={{color:"#374151",lineHeight:1.7,fontSize:14,marginBottom:16}}>{content.campaign_rationale as string}</p>
-            )}
+            <p style={{color:"#374151",lineHeight:1.7,fontSize:14,marginBottom:16}}>
+              {(content.campaign_rationale as string | undefined) ?? assetContent.opportunityText}
+            </p>
             {(content.sponsorship_value as string | undefined) && (
               <p style={{color:"#374151",lineHeight:1.7,fontSize:14}}>{content.sponsorship_value as string}</p>
             )}
-            {!(content.campaign_rationale as string | undefined) && !(content.sponsorship_value as string | undefined) && (
-              <p style={{color:"#374151",lineHeight:1.7,fontSize:14}}>
-                Uma parceria com o Coritiba FC oferece visibilidade em partidas para mais de 40.000 torcedores,
-                presença nos uniformes durante toda a temporada, e ativações criativas que conectam sua marca
-                ao coração verde e branco do Paraná.
-              </p>
-            )}
           </div>
-          {(content.activation_plan as string | undefined) && (
-            <div style={{background:"#f0fdf4",borderRadius:12,padding:20}}>
-              <div style={{fontSize:12,fontWeight:600,color:"#006400",textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Plano de Ativação</div>
-              <p style={{color:"#374151",fontSize:13,lineHeight:1.6,whiteSpace:"pre-line"}}>{content.activation_plan as string}</p>
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:20}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#006400",textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Principais Ativações</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {assetContent.activationIdeas.map((idea, i) => (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#374151"}}>
+                  <span style={{color:"#006400",fontWeight:700}}>→</span> {idea}
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {/* PAGE 4 — PACKAGE */}
@@ -119,8 +177,18 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Pacote de Patrocínio</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>O que está incluído</h2>
           </div>
-          {(content.deliverables as string[] | undefined)?.length ? (
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          {(packages ?? []).length > 0 ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24}}>
+              {packages!.map((pkg, i) => (
+                <div key={i} style={{padding:16,border:"1px solid #e5e7eb",borderRadius:8,background:"#f9fafb"}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#1a1a1a",marginBottom:4}}>{pkg.name}</div>
+                  {pkg.description && <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>{pkg.description}</div>}
+                  {pkg.price_brl && <div style={{fontSize:14,fontWeight:700,color:"#006400"}}>R$ {Number(pkg.price_brl).toLocaleString("pt-BR")}</div>}
+                </div>
+              ))}
+            </div>
+          ) : (content.deliverables as string[] | undefined)?.length ? (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:24}}>
               {(content.deliverables as string[]).map((d, i) => (
                 <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:12,border:"1px solid #e5e7eb",borderRadius:8}}>
                   <div style={{width:20,height:20,borderRadius:"50%",background:"#006400",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -130,9 +198,18 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
                 </div>
               ))}
             </div>
-          ) : (
-            <p style={{color:"#6b7280",fontSize:14}}>Detalhes do pacote disponíveis na proposta completa.</p>
-          )}
+          ) : null}
+          <div style={{background:"#f0fdf4",borderRadius:12,padding:16}}>
+            <div style={{fontSize:11,fontWeight:600,color:"#006400",textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Destaques do Pacote</div>
+            {assetContent.packageHighlights.map((h, i) => (
+              <div key={i} style={{display:"flex",gap:8,fontSize:13,color:"#374151",marginBottom:6}}>
+                <span style={{color:"#006400",fontWeight:700,flexShrink:0}}>✓</span> {h}
+              </div>
+            ))}
+            <div style={{marginTop:12,padding:12,background:"#dcfce7",borderRadius:8,fontSize:12,color:"#14532d",fontWeight:500}}>
+              📺 {assetContent.tvValue}
+            </div>
+          </div>
         </div>
 
         {/* PAGE 5 — CAMPAIGN CONCEPT */}
@@ -141,9 +218,9 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#86efac",marginBottom:4}}>Conceito de Campanha</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"white"}}>{(content.campaign_name as string | undefined) ?? "Campanha Verde e Branco"}</h2>
           </div>
-          {(content.campaign_concept as string | undefined) && (
-            <p style={{color:"rgba(255,255,255,0.9)",lineHeight:1.7,fontSize:15,marginBottom:24}}>{content.campaign_concept as string}</p>
-          )}
+          <p style={{color:"rgba(255,255,255,0.9)",lineHeight:1.7,fontSize:15,marginBottom:24}}>
+            {(content.campaign_concept as string | undefined) ?? assetContent.campaignConcept}
+          </p>
           {(content.cta as string | undefined) && (
             <div style={{background:"rgba(255,255,255,0.1)",borderRadius:12,padding:20}}>
               <p style={{color:"#86efac",fontSize:16,fontWeight:600}}>{content.cta as string}</p>

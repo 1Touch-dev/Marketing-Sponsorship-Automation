@@ -53,3 +53,12 @@ jersey-assets/coritiba_jersey_lora_training_v2.zip
 *.bak
 Market_Sponsorship_Automation.bak/
 frontend/.env.local
+
+# Acervo / training data — large binaries stay on server only
+assets/
+training-data/
+acervo_raw/
+preprocessing_report.json
+PREPROCESSING_REPORT.md
+IMAGE_GENERATION_REQUIREMENTS.md
+*.zip
