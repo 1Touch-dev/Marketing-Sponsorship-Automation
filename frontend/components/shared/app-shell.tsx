@@ -15,7 +15,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // sponsors don't see internal navigation when we share the direct link
   const isPublicView =
     pathname.startsWith("/proposals/view/") ||
-    /^\/proposals\/[^/]+\/view$/.test(pathname);
+    /^\/proposals\/[^/]+\/view$/.test(pathname) ||
+    /^\/proposals\/[^/]+\/deck$/.test(pathname);
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {

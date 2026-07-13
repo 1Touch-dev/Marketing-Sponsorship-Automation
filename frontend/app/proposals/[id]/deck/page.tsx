@@ -80,51 +80,49 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
   const currentYear = new Date().getFullYear();
 
   return (
-    <html lang="pt-BR">
-      <head>
-        <meta charSet="utf-8" />
-        <title>{proposal.title} — Proposta de Patrocínio Coritiba FC</title>
-        <style>{`
-          @page { size: A4; margin: 0; }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: 'Inter', -apple-system, sans-serif; }
-          .page { width: 210mm; min-height: 297mm; page-break-after: always; position: relative; overflow: hidden; }
-          .page:last-child { page-break-after: auto; }
-          @media print {
-            .no-print { display: none !important; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          }
-        `}</style>
-      </head>
-      <body>
-        {/* Print controls - hidden in print */}
-        <div className="no-print" style={{position:"fixed",top:16,right:16,zIndex:999,display:"flex",gap:8}}>
-          <a
-            href={`/proposals/${proposal.id}/deck`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{background:"#374151",color:"white",border:"none",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}}
-          >
-            ↗ Open in Browser
-          </a>
-          <button
-            type="button"
-            style={{background:"#006400",color:"white",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13}}
-            onClick={undefined}
-            data-print="true"
-            suppressHydrationWarning
-          >
-            🖨 Print / Save PDF
-          </button>
-          <script dangerouslySetInnerHTML={{__html:`
-            document.querySelector('[data-print="true"]').addEventListener('click', function() {
-              window.print();
-            });
-          `}} />
+    <>
+      <style>{`
+        @page { size: A4; margin: 0; }
+        .deck-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+        .deck-wrap { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #e5e7eb; min-height: 100vh; padding: 0; }
+        .deck-page { width: 210mm; min-height: 297mm; margin: 0 auto 32px; position: relative; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.18); }
+        .deck-toolbar { width: 100%; background: #1a1a1a; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        @media print {
+          .deck-toolbar { display: none !important; }
+          .deck-wrap { background: white; padding: 0; }
+          .deck-page { box-shadow: none; margin: 0; width: 100%; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        @media screen and (max-width: 900px) {
+          .deck-page { width: 100%; min-height: auto; }
+        }
+      `}</style>
+      <div className="deck-wrap">
+        {/* Toolbar */}
+        <div className="deck-toolbar">
+          <div style={{color:"white",fontWeight:700,fontSize:14}}>Coritiba FC · Proposta de Patrocínio</div>
+          <div style={{display:"flex",gap:8}}>
+            <a
+              href={`/proposals/${proposal.id}`}
+              style={{background:"#374151",color:"white",border:"none",borderRadius:6,padding:"7px 14px",cursor:"pointer",fontSize:13,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}}
+            >
+              ← Voltar
+            </a>
+            <button
+              type="button"
+              style={{background:"#006400",color:"white",border:"none",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}
+              onClick={undefined}
+              data-print="true"
+              suppressHydrationWarning
+            >
+              🖨 Imprimir / Salvar PDF
+            </button>
+            <script dangerouslySetInnerHTML={{__html:`document.querySelector('[data-print="true"]').addEventListener('click',function(){window.print()});`}} />
+          </div>
         </div>
 
         {/* PAGE 1 — COVER */}
-        <div className="page" style={{background:"linear-gradient(135deg,#006400 0%,#004d00 60%,#001a00 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px"}}>
+        <div className="deck-page" style={{background:"linear-gradient(135deg,#006400 0%,#004d00 60%,#001a00 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",marginBottom:48}}>
             <div style={{color:"white",fontSize:28,fontWeight:800,letterSpacing:-1}}>Coritiba FC</div>
             {company?.logo_url && (
@@ -142,7 +140,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 2 — CLUB PROFILE */}
-        <div className="page" style={{padding:"48px",background:"white"}}>
+        <div className="deck-page" style={{padding:"48px",background:"white"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Sobre o Clube</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Coritiba Foot Ball Club</h2>
@@ -163,7 +161,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 3 — THE OPPORTUNITY */}
-        <div className="page" style={{padding:"48px",background:"white"}}>
+        <div className="deck-page" style={{padding:"48px",background:"white"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>A Oportunidade</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>{assetContent.opportunityTitle}</h2>
@@ -189,7 +187,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 4 — PACKAGE */}
-        <div className="page" style={{padding:"48px",background:"white"}}>
+        <div className="deck-page" style={{padding:"48px",background:"white"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Pacote de Patrocínio</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>O que está incluído</h2>
@@ -230,7 +228,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 5 — CAMPAIGN CONCEPT */}
-        <div className="page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+        <div className="deck-page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
           <div style={{borderLeft:"4px solid #4ade80",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#86efac",marginBottom:4}}>Conceito de Campanha</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"white"}}>{(content.campaign_name as string | undefined) ?? "Campanha Verde e Branco"}</h2>
@@ -246,7 +244,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 6 — INVESTMENT */}
-        <div className="page" style={{padding:"48px",background:"white"}}>
+        <div className="deck-page" style={{padding:"48px",background:"white"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Investimento</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Condições Comerciais</h2>
@@ -266,8 +264,8 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           </div>
         </div>
 
-        {/* PAGE 7 — VISUAL MOCKUPS placeholder */}
-        <div className="page" style={{padding:"48px",background:"#f9fafb",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}>
+        {/* PAGE 7 — VISUAL MOCKUPS */}
+        <div className="deck-page" style={{padding:"48px",background:"#f9fafb",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center"}}>
           <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32,alignSelf:"flex-start"}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Visuais da Campanha</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Mockups e Criações</h2>
@@ -283,7 +281,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         </div>
 
         {/* PAGE 8 — NEXT STEPS */}
-        <div className="page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+        <div className="deck-page" style={{padding:"48px",background:"linear-gradient(135deg,#006400 0%,#004d00 100%)",display:"flex",flexDirection:"column",justifyContent:"center"}}>
           <div style={{borderLeft:"4px solid #4ade80",paddingLeft:16,marginBottom:40}}>
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#86efac",marginBottom:4}}>Próximos Passos</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"white"}}>Como avançar</h2>
@@ -312,7 +310,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             </div>
           </div>
         </div>
-      </body>
-    </html>
+      </div>
+    </>
   );
 }
