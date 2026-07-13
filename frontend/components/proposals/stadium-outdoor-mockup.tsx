@@ -291,7 +291,7 @@ export function StadiumOutdoorMockup({
           </div>
         </div>
       )}
-    </div>
+
       {/* History: previously generated mockups for other placements */}
       {historyImages.length > 1 && (
         <div className="mt-2">
