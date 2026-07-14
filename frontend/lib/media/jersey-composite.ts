@@ -4,10 +4,16 @@ import sharp from "sharp";
 import type { JerseyPlacementId } from "./jersey-placements";
 import { getPlacement } from "./jersey-placements";
 
-const BASE_FILENAME = "coritiba-jersey-base.jpg";
+const KIT_FILENAMES: Record<string, string> = {
+  flat: "coritiba-jersey-base.jpg",
+  home: "coritiba-jersey-home.jpg",
+  training: "coritiba-jersey-training.jpg",
+  goalkeeper: "coritiba-jersey-goalkeeper.jpg",
+};
 
-function baseImagePath(): string {
-  return path.join(process.cwd(), "public", "mockups", BASE_FILENAME);
+function baseImagePath(kitType?: string): string {
+  const filename = KIT_FILENAMES[kitType ?? "flat"] ?? KIT_FILENAMES.flat;
+  return path.join(process.cwd(), "public", "mockups", filename);
 }
 
 function escapeXml(s: string): string {
@@ -95,6 +101,7 @@ export type CompositeJerseyInput = {
   sponsorName: string;
   sponsorLogoUrl?: string | null;
   placement?: JerseyPlacementId;
+  kitType?: "flat" | "home" | "training" | "goalkeeper";
   /**
    * When true, fall back to a text badge if the logo can't be fetched.
    * Default: false — logo is REQUIRED; a missing/broken logo throws an error
@@ -109,6 +116,7 @@ export type CompositeJerseyResult = {
   height: number;
   placement: JerseyPlacementId;
   usedLogo: boolean;
+  kitType: string;
 };
 
 /**
@@ -126,7 +134,7 @@ export async function compositeJerseyMockup(
     throw new Error(`Placement "${placementId}" is not available yet`);
   }
 
-  const basePath = baseImagePath();
+  const basePath = baseImagePath(input.kitType);
   try {
     await fs.access(basePath);
   } catch {
@@ -200,5 +208,6 @@ export async function compositeJerseyMockup(
     height: imgH,
     placement: placementId,
     usedLogo,
+    kitType: input.kitType ?? "flat",
   };
 }

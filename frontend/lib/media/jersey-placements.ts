@@ -24,6 +24,7 @@ export type JerseyPlacementId =
   | "sleeve_left"
   | "sleeve_right"
   | "back"
+  | "number"
   | "shorts"
   | "socks";
 
@@ -122,6 +123,20 @@ export const JERSEY_PLACEMENTS: PlacementZone[] = [
     y: 0.102,
     w: 0.315,
     h: 0.082,
+    enabled: true,
+  },
+  {
+    id: "number",
+    label: "Back — Number",
+    labelPt: "Costas — Número",
+    description: "Sponsor placement on the player number on the back panel — max 10 cm per official manual",
+    // Pixel-verified: back jersey panel x=334-767. Number sits centre-upper-back.
+    // Number zone: x=490-660 (170px wide) → w=170/858=0.198
+    // Number height: y=215-310 (95px tall) → h=95/1080=0.088
+    x: 0.571,
+    y: 0.199,
+    w: 0.198,
+    h: 0.088,
     enabled: true,
   },
   {

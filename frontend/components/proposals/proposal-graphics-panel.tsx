@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { OfficialJerseyMockup } from "./official-jersey-mockup";
-import { AICreativesGenerator } from "./ai-creatives-generator";
+import { AiCampaignCreative } from "./ai-campaign-creative";
 import { ProposalImageManager } from "./proposal-image-manager";
 import { StadiumOutdoorMockup } from "./stadium-outdoor-mockup";
 import type { StrategyVariant } from "@/lib/ai/schemas";
@@ -65,7 +65,6 @@ export function ProposalGraphicsPanel({
             companyId={companyId}
             companyName={companyName}
             sponsorLogoUrl={sponsorLogoUrl}
-            showPlacementPreview={!compact}
             onGenerated={() => setRefreshKey((k) => k + 1)}
           />
         </div>
@@ -98,24 +97,23 @@ export function ProposalGraphicsPanel({
         </div>
       </div>
 
-      {/* Card 3: AI Creatives */}
+      {/* Card 3: AI Campaign Creative — gpt-image-2 editorial lifestyle */}
       <div className="rounded-xl border-2 border-indigo-200 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200">
           <span className="text-xl">✨</span>
           <div>
-            <div className="font-semibold text-sm text-indigo-900 dark:text-indigo-200">AI Campaign Creatives</div>
+            <div className="font-semibold text-sm text-indigo-900 dark:text-indigo-200">AI Campaign Creative</div>
             <div className="text-xs text-indigo-700 dark:text-indigo-400">
-              Stadium scenes · Concept-based · Assign to marketing strategies
+              Editorial lifestyle images · "Curitiba é Coritiba" style · gpt-image-2 · 3 scene types
             </div>
           </div>
         </div>
         <div className="p-4">
-          <AICreativesGenerator
+          <AiCampaignCreative
             proposalId={proposalId}
+            companyId={companyId}
             companyName={companyName}
-            strategyVariants={strategyVariants}
-            campaignTitle={campaignTitle}
-            uploadedLogoUrl={sponsorLogoUrl}
+            sponsorLogoUrl={sponsorLogoUrl}
             onGenerated={() => setRefreshKey((k) => k + 1)}
           />
         </div>

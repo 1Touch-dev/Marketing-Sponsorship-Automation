@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       sponsor_name: string;
       sponsor_logo_url?: string | null;
       placement?: JerseyPlacementId;
+      kit_type?: "flat" | "home" | "training" | "goalkeeper";
       proposal_id?: string;
       company_id?: string;
       save_to_proposal?: boolean;
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
       sponsorName,
       sponsorLogoUrl: body.sponsor_logo_url,
       placement,
+      kitType: body.kit_type ?? "flat",
     });
 
     const sb = supabaseAdmin();
@@ -127,6 +129,7 @@ export async function POST(req: Request) {
       success: true,
       url: publicUrl,
       placement,
+      kit_type: result.kitType,
       used_logo: result.usedLogo,
       duration_ms: durationMs,
       job_id: jobId,
