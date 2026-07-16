@@ -18,11 +18,7 @@ export type StadiumPlacementId =
   | "exterior_facade"
   | "scoreboard";
 
-export type StadiumBaseId =
-  | "matchday"
-  | "aerial_day"
-  | "night"
-  | "overhead";
+export type StadiumBaseId = "matchday" | "aerial_day" | "night" | "overhead";
 
 export type StadiumZone = {
   id: StadiumPlacementId;
@@ -41,7 +37,10 @@ export type StadiumZone = {
   enabled: boolean;
 };
 
-export const STADIUM_BASES: Record<StadiumBaseId, { filename: string; label: string; labelPt: string }> = {
+export const STADIUM_BASES: Record<
+  StadiumBaseId,
+  { filename: string; label: string; labelPt: string }
+> = {
   matchday: {
     filename: "couto-pereira-matchday.jpg",
     label: "Match Day — Pitch-side LED Boards",
@@ -86,11 +85,10 @@ export const STADIUM_PLACEMENTS: StadiumZone[] = [
     labelPt: "Placa LED — Beira do Campo (Centro)",
     description: "Full-width sponsor LED board running the entire pitch-side during match day",
     basePhoto: "matchday",
-    // Full-width green LED boards at the bottom of the stands: x=0–1920, y=810–876
-    x: 0.0,     // 0/1920 — starts at left edge
-    y: 0.750,   // 810/1080
-    w: 1.0,     // full width 1920/1920
-    h: 0.061,   // 66/1080
+    x: 0.0, // full width from left edge
+    y: 0.918, // bottom band where LED boards are
+    w: 1.0, // full image width for maximum impact
+    h: 0.082, // taller band for clearer branding
     overlayStyle: "led_band",
     enabled: true,
   },
@@ -100,11 +98,10 @@ export const STADIUM_PLACEMENTS: StadiumZone[] = [
     labelPt: "Placa LED — Extremo do Gol",
     description: "Sponsor LED board at the left goal end of the pitch-side boards",
     basePhoto: "matchday",
-    // Left section of the LED boards: x=0–480, y=810–876
-    x: 0.0,     // 0/1920
-    y: 0.750,   // 810/1080
-    w: 0.250,   // 480/1920
-    h: 0.061,   // 66/1080
+    x: 0.0,
+    y: 0.918,
+    w: 0.3, // left 30% of image — near-goal section
+    h: 0.082,
     overlayStyle: "led_band",
     enabled: true,
   },
@@ -112,13 +109,14 @@ export const STADIUM_PLACEMENTS: StadiumZone[] = [
     id: "main_stand_facade",
     label: "Main Stand — Facade Banner",
     labelPt: "Tribuna Principal — Banner na Fachada",
-    description: "Sponsor banner on the main stand white facade wall between the lights and CORITIBA FOOT BALL CLUB text",
+    description:
+      "Sponsor banner on the main stand white facade wall between the lights and CORITIBA FOOT BALL CLUB text",
     basePhoto: "matchday",
-    // White facade wall between lights and "CORITIBA FOOT BALL CLUB": x=430–1490, y=648–686
-    x: 0.2240,  // 430/1920
-    y: 0.6000,  // 648/1080
-    w: 0.5521,  // 1060/1920
-    h: 0.0352,  // 38/1080
+    // Upper white facade fascia above the floodlights, clear of the club-name lettering.
+    x: 0.28,
+    y: 0.5,
+    w: 0.44,
+    h: 0.055,
     overlayStyle: "banner_white",
     enabled: true,
   },
@@ -126,13 +124,15 @@ export const STADIUM_PLACEMENTS: StadiumZone[] = [
     id: "exterior_facade",
     label: "Exterior Facade — LED Ring (Night)",
     labelPt: "Fachada Exterior — Painel LED (Noite)",
-    description: "Sponsor brand on the exterior stadium LED facade ring visible in the night aerial shot",
+    description:
+      "Sponsor brand on the exterior stadium LED facade ring visible in the night aerial shot",
     basePhoto: "night",
-    // Exterior LED ring: x=300–1050, y=582–636
-    x: 0.1563,  // 300/1920
-    y: 0.5389,  // 582/1080
-    w: 0.3906,  // 750/1920
-    h: 0.0500,  // 54/1080
+    // Night image: Green LED ring around exterior stadium at ~y=0.60-0.71
+    // Ring spans from left to center: x=0.10-0.65, y=0.62-0.70
+    x: 0.12, // start from left side of visible ring
+    y: 0.63, // where the green LED band runs
+    w: 0.5, // cover the visible portion of the ring
+    h: 0.055, // height of the LED ring
     overlayStyle: "led_band",
     enabled: true,
   },
@@ -142,11 +142,12 @@ export const STADIUM_PLACEMENTS: StadiumZone[] = [
     labelPt: "Placar / Perimetral (Vista Aérea)",
     description: "Sponsor on the near-side perimeter boards visible from the aerial daytime shot",
     basePhoto: "aerial_day",
-    // Near-side perimeter boards in aerial: x=55–510, y=600–640
-    x: 0.0286,  // 55/1920
-    y: 0.5556,  // 600/1080
-    w: 0.2370,  // 455/1920
-    h: 0.0370,  // 40/1080
+    // Aerial day: near-side perimeter boards are the GREEN strips on left side of pitch
+    // The green boards run horizontally: x=0.01-0.28, y=0.52-0.57
+    x: 0.01, // from left edge
+    y: 0.52, // where green perimeter boards are visible
+    w: 0.26, // width of visible near-side boards
+    h: 0.048, // height of the perimeter board band
     overlayStyle: "led_band",
     enabled: true,
   },

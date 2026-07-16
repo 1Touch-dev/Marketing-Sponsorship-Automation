@@ -189,7 +189,7 @@ git checkout -b 14-july-sprint
 #### Step 2.1 — Create campaign creative API endpoint (45 min)
 - New file: `frontend/app/api/media/campaign-creative/route.ts`
 - [ ] Accept: `sponsor_name`, `sponsor_logo_url`, `scene_type` (`matchday_street` | `training_ground` | `fan_lifestyle`), `proposal_id?`, `company_id?`
-- [ ] Use OpenAI `gpt-image-1` `/v1/images/generations` endpoint (1024×1024, `quality: "high"`)
+- [ ] Use OpenAI `gpt-image-2` `/v1/images/generations` endpoint (1024×1024, `quality: "high"`)
 - [ ] Build scene-specific prompt per `scene_type`:
 
   **`matchday_street`:**

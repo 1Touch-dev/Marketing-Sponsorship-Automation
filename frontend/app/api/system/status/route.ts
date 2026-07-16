@@ -36,7 +36,7 @@ export async function GET() {
       },
       openai: {
         status: openaiKey.startsWith("sk-") ? "active" : "unconfigured",
-        label: "OpenAI (gpt-image-1)",
+        label: "OpenAI (gpt-image-2)",
         description: openaiKey.startsWith("sk-") ? "Image generation ready" : "Key missing or invalid",
       },
       apify: {

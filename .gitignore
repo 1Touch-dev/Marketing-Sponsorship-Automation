@@ -62,3 +62,15 @@ preprocessing_report.json
 PREPROCESSING_REPORT.md
 IMAGE_GENERATION_REQUIREMENTS.md
 *.zip
+
+# Scratch / debug image-pipeline artifacts (dev-only, not for repo)
+frontend/public/mockups/_*
+frontend/public/mockups/_base_candidates/
+frontend/test_compositing.mjs
+frontend/test_production.mjs
+test_compositing.mjs
+test_all_image_gen.sh
+image.png
+"Comercial Deck - Coritiba Master_Betting.pdf"
+"Market Sponsorship Automation.pdf"
+

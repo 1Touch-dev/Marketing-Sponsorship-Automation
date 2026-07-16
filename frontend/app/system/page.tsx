@@ -69,7 +69,7 @@ export default async function SystemMaintenancePage() {
   const services = [
     { id: "supabase", label: "Supabase DB", status: "active", description: "Database connected", icon: Database },
     { id: "bedrock", label: "AWS Bedrock (Claude)", status: bedrockConfigured ? "active" : "missing", description: bedrockConfigured ? "AI generation ready" : "Configure AWS credentials", icon: Cpu },
-    { id: "openai", label: "OpenAI (gpt-image-1)", status: openaiConfigured ? "active" : "missing", description: openaiConfigured ? "Image generation ready" : "Add OPENAI_API_KEY", icon: Zap },
+    { id: "openai", label: "OpenAI (gpt-image-2)", status: openaiConfigured ? "active" : "missing", description: openaiConfigured ? "Image generation ready" : "Add OPENAI_API_KEY", icon: Zap },
     { id: "serpapi", label: "SerpAPI", status: serpConfigured ? "configured" : "missing", description: serpConfigured ? "Key set — verify at serpapi.com/manage-api-key" : "Add SERPAPI_KEY to .env for competitor discovery", icon: Globe },
     { id: "playwright", label: "Playwright", status: "optional", description: "Browser scraping — run: npx playwright install", icon: Globe },
     { id: "pipedrive", label: "Pipedrive CRM", status: "placeholder", description: "Architecture ready — no API key required yet", icon: Key },

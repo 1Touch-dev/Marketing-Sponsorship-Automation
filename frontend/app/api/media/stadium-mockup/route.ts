@@ -11,10 +11,9 @@ import { getStadiumPlacement, STADIUM_BASES } from "@/lib/media/stadium-placemen
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
+import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 
-export const maxDuration = 60;
-
-const STORAGE_BUCKET = "campaign-assets";
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -22,7 +21,7 @@ export async function POST(req: Request) {
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Try again in 60 seconds." },
-      { status: 429, headers: rateLimitHeaders(rl) }
+      { status: 429, headers: rateLimitHeaders(rl) },
     );
   }
 
@@ -31,9 +30,11 @@ export async function POST(req: Request) {
       sponsor_name: string;
       sponsor_logo_url?: string | null;
       placement: StadiumPlacementId;
+      custom_base_url?: string | null;
       proposal_id?: string;
       company_id?: string;
       save_to_proposal?: boolean;
+      debug?: boolean;
     };
 
     const sponsorName = body.sponsor_name?.trim();
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     if (!zone?.enabled) {
       return NextResponse.json(
         { error: `Placement "${placement}" is not available` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,29 +56,23 @@ export async function POST(req: Request) {
       sponsorName,
       sponsorLogoUrl: body.sponsor_logo_url,
       placement,
+      customBaseUrl: body.custom_base_url,
     });
 
     const sb = supabaseAdmin();
-    const filename = `stadium-mockups/${body.proposal_id ?? "standalone"}_${placement}_${Date.now()}.jpg`;
-
-    const { data: uploadData, error: uploadErr } = await sb.storage
-      .from(STORAGE_BUCKET)
-      .upload(filename, result.buffer, {
-        contentType: "image/jpeg",
-        upsert: true,
-      });
-
-    let publicUrl: string;
-    if (uploadErr) {
-      publicUrl = `data:image/jpeg;base64,${result.buffer.toString("base64")}`;
-    } else {
-      const pathKey = uploadData?.path ?? filename;
-      const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(pathKey);
-      publicUrl = urlData.publicUrl;
-    }
+    const filename = `stadium-mockups/${body.proposal_id ?? "standalone"}_${placement}_${result.generationId}.png`;
+    const publicUrl = await storeGeneratedPng(filename, result.buffer);
+    const debugPath = await persistImageDebugArtifacts({
+      category: "stadium",
+      debug: result.debug,
+      width: result.width,
+      height: result.height,
+      generationMs: result.generationMs,
+      force: body.debug === true,
+    });
 
     const durationMs = Date.now() - startMs;
-    const baseInfo = STADIUM_BASES[result.basePhoto];
+    const baseInfo = STADIUM_BASES[result.basePhoto as keyof typeof STADIUM_BASES];
     const displayLabel = `Estádio — ${zone.labelPt}`;
     const promptNote = `Stadium mockup — ${sponsorName} on ${zone.labelPt} (${baseInfo.labelPt})`;
 
@@ -92,10 +87,11 @@ export async function POST(req: Request) {
           status: "completed",
           prompt: promptNote,
           placement_zone: placement,
-          inventory_label: "stadium_led_board",
+          inventory_label:
+            zone.overlayStyle === "banner_white" ? "stadium_banner" : "stadium_led_board",
           display_label: displayLabel,
-          provider: "stadium_composite",
-          model: "couto-pereira-photo-overlay",
+          provider: "openai",
+          model: result.model,
           output_urls: [{ url: publicUrl, index: 0 }],
           selected_url: publicUrl,
           generation_ms: durationMs,
@@ -118,6 +114,10 @@ export async function POST(req: Request) {
         base_photo: result.basePhoto,
         sponsor_name: sponsorName,
         used_logo: result.usedLogo,
+        model: result.model,
+        quality: result.quality,
+        generation_id: result.generationId,
+        debug_path: debugPath,
         proposal_id: body.proposal_id ?? null,
         duration_ms: durationMs,
       },
@@ -131,13 +131,19 @@ export async function POST(req: Request) {
       used_logo: result.usedLogo,
       duration_ms: durationMs,
       job_id: jobId,
-      provider: "stadium_composite",
+      provider: "openai",
+      model: result.model,
+      quality: result.quality,
+      generation_id: result.generationId,
+      debug_path: debugPath,
+      resolution: { width: result.width, height: result.height },
+      logo_preprocessing: result.logo,
       base_image: baseInfo.label,
     });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Stadium mockup failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -13,6 +13,7 @@ export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
   const { toast } = useToast();
   const [recipient, setRecipient] = useState("");
   const [contact, setContact] = useState("");
+  const [flowType, setFlowType] = useState<"intro" | "follow_up" | "negotiation" | "barter">("intro");
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -26,6 +27,7 @@ export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
           proposal_id: proposalId,
           recipient,
           contact_name: contact || undefined,
+          flow_type: flowType,
         }),
       });
       const j = await res.json();
@@ -54,6 +56,20 @@ export function GenerateEmailPanel({ proposalId }: { proposalId: string }) {
           <div className="space-y-1.5">
             <Label htmlFor="contact">Contact name</Label>
             <Input id="contact" value={contact} onChange={(e) => setContact(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="flow">Email flow</Label>
+            <select
+              id="flow"
+              value={flowType}
+              onChange={(e) => setFlowType(e.target.value as typeof flowType)}
+              className="w-full text-sm border rounded-md px-3 py-2 bg-background outline-none focus:ring-2 ring-primary/30"
+            >
+              <option value="intro">Introdução / Outreach</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="negotiation">Negociação</option>
+              <option value="barter">Barter / Permuta</option>
+            </select>
           </div>
           <Button type="submit" disabled={busy || !recipient} className="w-full">
             {busy ? "Drafting…" : "Generate email"}

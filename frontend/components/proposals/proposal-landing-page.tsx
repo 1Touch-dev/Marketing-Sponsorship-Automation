@@ -15,6 +15,7 @@ import {
   TrendingUp, Users, MapPin, Target, CheckCircle2, Building2,
   ArrowRight, Trophy, Tv2, Zap, Globe, Megaphone, BarChart3,
   Star, Shield, ChevronDown, ChevronUp, Calendar, Play,
+  Image as ImageIcon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -637,6 +638,27 @@ export function ProposalLandingPage({
                     className="w-full h-full object-contain"
                   />
                 </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Image placeholder — admin-only prompt to generate visuals when none exist yet.
+            Never shown on the public/shared proposal. */}
+        {adminMode && approvedImages.length === 0 && (
+          <Section id="creatives" title="📸 Visuais da Campanha" badge="A gerar"
+            subtitle="Espaços reservados para os visuais desta proposta — gere-os para personalizar a apresentação">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {["Mockup da Camisa", "Mockup do Estádio (LED)", "Criativo de Campanha"].map((label) => (
+                <a
+                  key={label}
+                  href="#graphics"
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-green-400 hover:bg-green-50/50 transition-colors"
+                >
+                  <ImageIcon className="h-7 w-7 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-600">{label}</span>
+                  <span className="text-[11px] text-slate-400">Placeholder — gerar visual</span>
+                </a>
               ))}
             </div>
           </Section>

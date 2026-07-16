@@ -525,3 +525,90 @@ export function followupEmailPrompt(args: {
     ].join("\n"),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Negotiation email — flexes scope/price/terms to move toward closing
+// ---------------------------------------------------------------------------
+export function negotiationEmailPrompt(args: {
+  company: CompanyContext;
+  proposalTitle: string;
+  proposalSummary: string;
+  contactName?: string | null;
+  proposalLink?: string | null;
+  senderName?: string | null;
+  senderTitle?: string | null;
+}) {
+  const senderBlock = args.senderName
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
+    : "Sender: Departamento Comercial, Coritiba FC";
+  return {
+    system: [
+      "You write persuasive B2B negotiation emails in Brazilian Portuguese for Coritiba FC's commercial department.",
+      "Goal: move a warm prospect toward closing by offering flexibility on scope, price, term length or added counterparts.",
+      "Tone: collaborative, confident, solution-oriented — never desperate, never discount for its own sake.",
+      "Propose concrete next steps (e.g. a 15-minute call) and reference the proposal link.",
+      "Keep under 180 words. Output MUST be valid JSON. No markdown fences.",
+    ].join("\n"),
+    user: [
+      `Company: ${args.company.company_name}`,
+      args.contactName ? `Contact name: ${args.contactName}` : null,
+      `Proposal title: ${args.proposalTitle}`,
+      `Proposal summary: ${args.proposalSummary}`,
+      args.proposalLink ? `Proposal link (MUST appear in body): ${args.proposalLink}` : null,
+      senderBlock,
+      "",
+      "Write a negotiation email that offers to adjust scope/value/terms so the deal fits their budget. Return JSON:",
+      `{
+  "subject": "subject line — signal flexibility / next step",
+  "body_text": "plain text body with CTA + proposal link",
+  "body_html": "<p>...</p> body with a 'Ver Proposta →' link"
+}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Barter / permuta email — proposes exchanging goods/services for exposure
+// ---------------------------------------------------------------------------
+export function barterEmailPrompt(args: {
+  company: CompanyContext;
+  proposalTitle: string;
+  proposalSummary: string;
+  contactName?: string | null;
+  proposalLink?: string | null;
+  senderName?: string | null;
+  senderTitle?: string | null;
+}) {
+  const senderBlock = args.senderName
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
+    : "Sender: Departamento Comercial, Coritiba FC";
+  return {
+    system: [
+      "You write B2B barter (permuta) proposal emails in Brazilian Portuguese for Coritiba FC's commercial department.",
+      "Goal: propose a permuta where part of the sponsorship investment is paid with the prospect's own products/services, reducing their cash outlay while still delivering brand exposure via Coritiba FC's sponsorship inventory.",
+      "Tone: creative, win-win, practical. Make the exchange feel low-risk and high-value.",
+      "Reference the proposal link and suggest a quick call to define the exchange mix.",
+      "Keep under 180 words. Output MUST be valid JSON. No markdown fences.",
+    ].join("\n"),
+    user: [
+      `Company: ${args.company.company_name}`,
+      args.company.industry ? `Industry (their goods/services): ${args.company.industry}` : null,
+      args.contactName ? `Contact name: ${args.contactName}` : null,
+      `Proposal title: ${args.proposalTitle}`,
+      `Proposal summary: ${args.proposalSummary}`,
+      args.proposalLink ? `Proposal link (MUST appear in body): ${args.proposalLink}` : null,
+      senderBlock,
+      "",
+      "Write a barter/permuta email proposing to exchange their goods/services for sponsorship exposure. Return JSON:",
+      `{
+  "subject": "subject line — mention permuta / barter opportunity",
+  "body_text": "plain text body with CTA + proposal link",
+  "body_html": "<p>...</p> body with a 'Ver Proposta →' link"
+}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}

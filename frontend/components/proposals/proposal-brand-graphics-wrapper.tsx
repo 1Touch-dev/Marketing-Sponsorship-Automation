@@ -71,9 +71,11 @@ export function ProposalBrandGraphicsWrapper({
         companyName={companyName}
         existingAssets={existingAssets}
         hasLogo={!!logoUrl}
+        activeLogoUrl={logoUrl}
         strategyVariants={strategyVariants}
         campaignTitle={campaignTitle}
         onLogoUploaded={(url) => setLogoUrl(url)}
+        onLogoRemoved={(url) => setLogoUrl(url)}
       />
     </>
   );

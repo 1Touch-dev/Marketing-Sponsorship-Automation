@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
-import { outreachEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { outreachEmailPrompt, negotiationEmailPrompt, barterEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import {
-  loadDefaultEmailTemplate,
+  loadEmailTemplateForFlow,
   generateEmailWithTemplate,
   resolveDefaultSender,
   injectTrackingPixel,
@@ -84,7 +84,9 @@ export async function POST(req: Request) {
   let attempt = 0;
   let templateMeta: { template_id?: string; template_name?: string } = {};
 
-  const emailTemplate = await loadDefaultEmailTemplate();
+  const flowType = parsed.data.flow_type ?? "intro";
+
+  const emailTemplate = await loadEmailTemplateForFlow(flowType, parsed.data.template_id);
   if (emailTemplate) {
     const templated = await generateEmailWithTemplate({
       template: emailTemplate,
@@ -102,7 +104,7 @@ export async function POST(req: Request) {
   }
 
   if (!validated) {
-    const { system, user } = outreachEmailPrompt({
+    const promptArgs = {
       company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
       proposalTitle: proposal.title,
       proposalSummary: summary,
@@ -110,7 +112,13 @@ export async function POST(req: Request) {
       senderName,
       senderTitle,
       proposalLink,
-    });
+    };
+    const { system, user } =
+      flowType === "negotiation"
+        ? negotiationEmailPrompt(promptArgs)
+        : flowType === "barter"
+          ? barterEmailPrompt(promptArgs)
+          : outreachEmailPrompt(promptArgs);
 
     while (attempt < MAX_RETRIES) {
       attempt++;
@@ -176,28 +184,40 @@ export async function POST(req: Request) {
     bodyHtml += imgSection;
   }
 
-  const { data: row, error: insErr } = await sb
+  const emailInsert: Record<string, unknown> = {
+    proposal_id: proposal.id,
+    recipient: parsed.data.recipient,
+    subject: validated.subject,
+    body_text: validated.body_text,
+    body_html: bodyHtml,
+    status: "pending_approval",
+    generated_by: "bedrock-claude",
+    sender: env.DEFAULT_FROM_EMAIL ?? null,
+    prompt_version: PROMPT_VERSION,
+    flow_type: flowType,
+    metadata: {
+      model_id: env.BEDROCK_MODEL_ID,
+      ...templateMeta,
+      variables_resolved: templateVars,
+    },
+  };
+
+  let { data: row, error: insErr } = await sb
     .from("emails")
-    .insert(
-      guardColumns("emails", {
-        proposal_id: proposal.id,
-        recipient: parsed.data.recipient,
-        subject: validated.subject,
-        body_text: validated.body_text,
-        body_html: bodyHtml,
-        status: "pending_approval",
-        generated_by: "bedrock-claude",
-        sender: env.DEFAULT_FROM_EMAIL ?? null,
-        prompt_version: PROMPT_VERSION,
-        metadata: {
-          model_id: env.BEDROCK_MODEL_ID,
-          ...templateMeta,
-          variables_resolved: templateVars,
-        },
-      }),
-    )
+    .insert(guardColumns("emails", emailInsert))
     .select("*")
     .single();
+
+  // Defensive: if the flow_type column has not been migrated yet (0038), retry
+  // without it so email generation keeps working before the migration is applied.
+  if (insErr && /flow_type/.test(insErr.message ?? "")) {
+    const { flow_type: _dropped, ...withoutFlow } = emailInsert;
+    ({ data: row, error: insErr } = await sb
+      .from("emails")
+      .insert(guardColumns("emails", withoutFlow))
+      .select("*")
+      .single());
+  }
 
   if (insErr || !row) {
     if (eventId) await failWorkflow(eventId, insErr?.message ?? "Insert failed");

@@ -17,10 +17,14 @@ interface BrandAssetsCardProps {
   companyName: string;
   existingAssets: UploadedAsset[];
   hasLogo: boolean;
+  /** Current active logo URL, highlighted in the asset grid. */
+  activeLogoUrl?: string | null;
   strategyVariants?: StrategyVariant[] | null;
   campaignTitle?: string;
   /** Called with the uploaded file URL when a new logo is successfully uploaded */
   onLogoUploaded?: (url: string) => void;
+  /** Called with the new active logo URL (or null) after a logo is deleted */
+  onLogoRemoved?: (url: string | null) => void;
 }
 
 export function BrandAssetsCard({
@@ -28,9 +32,11 @@ export function BrandAssetsCard({
   companyName,
   existingAssets,
   hasLogo: initialHasLogo,
+  activeLogoUrl,
   strategyVariants,
   campaignTitle,
   onLogoUploaded,
+  onLogoRemoved,
 }: BrandAssetsCardProps) {
   const [hasLogo, setHasLogo] = useState(initialHasLogo);
   const [autoGenerating, setAutoGenerating] = useState(false);
@@ -124,7 +130,12 @@ export function BrandAssetsCard({
         <AssetUploader
           proposalId={proposalId}
           existingAssets={existingAssets}
+          activeLogoUrl={activeLogoUrl}
           onUpload={handleUpload}
+          onLogoChanged={(url) => {
+            setHasLogo(!!url);
+            onLogoRemoved?.(url);
+          }}
         />
       </CardContent>
     </Card>

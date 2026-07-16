@@ -387,7 +387,7 @@ export function AICreativesGenerator({
 
               {/* Cost estimate */}
               <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-center justify-between text-xs text-slate-500">
-                <span>Estimated cost: ~${(pendingPrompts.length * 0.04).toFixed(2)} · Model: gpt-image-1</span>
+                <span>Estimated cost: ~${(pendingPrompts.length * 0.04).toFixed(2)} · Model: gpt-image-2</span>
                 <span>Size: 1536×1024 (16:9)</span>
               </div>
             </div>

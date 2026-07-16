@@ -7,14 +7,17 @@
 import { NextResponse } from "next/server";
 import { compositeJerseyMockup } from "@/lib/media/jersey-composite";
 import type { JerseyPlacementId } from "@/lib/media/jersey-placements";
-import { getPlacement, isPlacementAvailable } from "@/lib/media/jersey-placements";
+import {
+  getPlacement,
+  isPlacementAvailable,
+  isPlacementVisibleForKit,
+} from "@/lib/media/jersey-placements";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
+import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 
-export const maxDuration = 60;
-
-const STORAGE_BUCKET = "campaign-assets";
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -22,7 +25,7 @@ export async function POST(req: Request) {
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Try again in 60 seconds." },
-      { status: 429, headers: rateLimitHeaders(rl) }
+      { status: 429, headers: rateLimitHeaders(rl) },
     );
   }
 
@@ -32,9 +35,11 @@ export async function POST(req: Request) {
       sponsor_logo_url?: string | null;
       placement?: JerseyPlacementId;
       kit_type?: "flat" | "home" | "training" | "goalkeeper";
+      custom_base_url?: string | null;
       proposal_id?: string;
       company_id?: string;
       save_to_proposal?: boolean;
+      debug?: boolean;
     };
 
     const sponsorName = body.sponsor_name?.trim();
@@ -43,10 +48,19 @@ export async function POST(req: Request) {
     }
 
     const placement = (body.placement ?? "chest_sponsor") as JerseyPlacementId;
+    const kitType = body.kit_type ?? "flat";
     if (!isPlacementAvailable(placement)) {
       return NextResponse.json(
         { error: `Placement "${placement}" is not available yet (awaiting kit photos / retrain)` },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+    if (!isPlacementVisibleForKit(placement, kitType) && !body.custom_base_url) {
+      return NextResponse.json(
+        {
+          error: `Placement "${placement}" is not visible in the ${kitType} source photograph`,
+        },
+        { status: 400 },
       );
     }
 
@@ -55,27 +69,21 @@ export async function POST(req: Request) {
       sponsorName,
       sponsorLogoUrl: body.sponsor_logo_url,
       placement,
-      kitType: body.kit_type ?? "flat",
+      kitType,
+      customBaseUrl: body.custom_base_url,
     });
 
     const sb = supabaseAdmin();
-    const filename = `jersey-mockups/${body.proposal_id ?? "standalone"}_${placement}_${Date.now()}.jpg`;
-
-    const { data: uploadData, error: uploadErr } = await sb.storage
-      .from(STORAGE_BUCKET)
-      .upload(filename, result.buffer, {
-        contentType: "image/jpeg",
-        upsert: true,
-      });
-
-    let publicUrl: string;
-    if (uploadErr) {
-      publicUrl = `data:image/jpeg;base64,${result.buffer.toString("base64")}`;
-    } else {
-      const pathKey = uploadData?.path ?? filename;
-      const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(pathKey);
-      publicUrl = urlData.publicUrl;
-    }
+    const filename = `jersey-mockups/${body.proposal_id ?? "standalone"}_${placement}_${result.generationId}.png`;
+    const publicUrl = await storeGeneratedPng(filename, result.buffer);
+    const debugPath = await persistImageDebugArtifacts({
+      category: "jersey",
+      debug: result.debug,
+      width: result.width,
+      height: result.height,
+      generationMs: result.generationMs,
+      force: body.debug === true,
+    });
 
     const durationMs = Date.now() - startMs;
     const placementMeta = getPlacement(placement);
@@ -95,10 +103,14 @@ export async function POST(req: Request) {
           status: "completed",
           prompt: promptNote,
           placement_zone: placement,
-          inventory_label: placement.startsWith("chest") ? "jersey_chest" : placement.includes("sleeve") ? "jersey_sleeve" : "jersey_chest",
+          inventory_label: placement.startsWith("chest")
+            ? "jersey_chest"
+            : placement.includes("sleeve")
+              ? "jersey_sleeve"
+              : "jersey_chest",
           display_label: displayLabel,
-          provider: "jersey_composite",
-          model: "official-kit-overlay",
+          provider: "openai",
+          model: result.model,
           output_urls: [{ url: publicUrl, index: 0 }],
           selected_url: publicUrl,
           generation_ms: durationMs,
@@ -120,6 +132,10 @@ export async function POST(req: Request) {
         placement,
         sponsor_name: sponsorName,
         used_logo: result.usedLogo,
+        model: result.model,
+        quality: result.quality,
+        generation_id: result.generationId,
+        debug_path: debugPath,
         proposal_id: body.proposal_id ?? null,
         duration_ms: durationMs,
       },
@@ -133,13 +149,19 @@ export async function POST(req: Request) {
       used_logo: result.usedLogo,
       duration_ms: durationMs,
       job_id: jobId,
-      provider: "jersey_composite",
+      provider: "openai",
+      model: result.model,
+      quality: result.quality,
+      generation_id: result.generationId,
+      debug_path: debugPath,
+      resolution: { width: result.width, height: result.height },
+      logo_preprocessing: result.logo,
       crest_rule: "Club crest baked into official photo — never modified",
     });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Jersey mockup failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

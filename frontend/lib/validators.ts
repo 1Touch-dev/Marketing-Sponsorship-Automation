@@ -57,6 +57,8 @@ export const emailGenerateSchema = z.object({
   proposal_id: z.string().uuid(),
   recipient: z.string().email(),
   contact_name: z.string().max(120).optional(),
+  flow_type: z.enum(["intro", "follow_up", "negotiation", "barter"]).optional(),
+  template_id: z.string().uuid().optional(),
 });
 
 export const emailApproveSchema = z.object({

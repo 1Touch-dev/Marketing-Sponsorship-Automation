@@ -93,6 +93,46 @@ export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> 
   return normalizeTemplate(data);
 }
 
+/**
+ * Loads an email template for a specific flow. Priority:
+ *   1. explicit templateId
+ *   2. an active template whose flow_type matches (prefer is_default within the flow)
+ *   3. the global default template (intro)
+ * Falls back gracefully if the flow_type column has not been migrated yet.
+ */
+export async function loadEmailTemplateForFlow(
+  flowType?: string | null,
+  templateId?: string | null,
+): Promise<EmailTemplate | null> {
+  const sb = supabaseAdmin();
+
+  if (templateId) {
+    const { data } = await sb
+      .from("email_templates")
+      .select("*")
+      .eq("id", templateId)
+      .eq("active", true)
+      .maybeSingle();
+    if (data) return normalizeTemplate(data);
+  }
+
+  if (flowType && flowType !== "intro") {
+    const { data, error } = await sb
+      .from("email_templates")
+      .select("*")
+      .eq("active", true)
+      .eq("flow_type", flowType)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    // If flow_type column doesn't exist yet, fall through to the default template.
+    if (!error && data) return normalizeTemplate(data);
+  }
+
+  return loadDefaultEmailTemplate();
+}
+
 function normalizeTemplate(row: Record<string, unknown> | null): EmailTemplate | null {
   if (!row) return null;
   let variables: string[] = [];

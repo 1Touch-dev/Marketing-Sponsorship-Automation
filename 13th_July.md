@@ -218,16 +218,16 @@ James said: **"Yes exactly"** — what we built is right.
 ---
 
 ### 3. AI Campaign Creative ✅ Fully Confirmed — Ready to Implement
-**Approach**: Generate editorial/lifestyle style image using gpt-image-1 — person wearing Coritiba jersey in a real-world setting, sponsor branding naturally integrated. Style = "Curitiba é Coritiba" 2026 campaign.
+**Approach**: Generate editorial/lifestyle style image using gpt-image-2 — person wearing Coritiba jersey in a real-world setting, sponsor branding naturally integrated. Style = "Curitiba é Coritiba" 2026 campaign.
 
 James said: **"Yes"** — confirmed.
 
-**Current status**: Architecture exists (gpt-image-1 endpoint, 3-image generation per campaign). Needs better prompts to match the "Curitiba é Coritiba" editorial style.
+**Current status**: Architecture exists (gpt-image-2 endpoint, 3-image generation per campaign). Needs better prompts to match the "Curitiba é Coritiba" editorial style.
 
 **What to do tomorrow**:
 - [ ] Craft refined prompts targeting editorial/lifestyle look — not generic product placement
 - [ ] Reference the "Curitiba é Coritiba" campaign images from Dropbox acervo for visual tone
-- [ ] Ensure sponsor logo is passed as a reference image to gpt-image-1 `/edits` endpoint so it appears authentically in the scene
+- [ ] Ensure sponsor logo is passed as a reference image to gpt-image-2 `/edits` endpoint so it appears authentically in the scene
 - [ ] Generate 3 scene types per campaign: matchday street scene, training ground, fan lifestyle
 - [ ] Test output quality and iterate on prompts
 

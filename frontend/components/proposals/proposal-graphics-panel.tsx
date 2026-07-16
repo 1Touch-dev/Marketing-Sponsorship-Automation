@@ -37,8 +37,8 @@ export function ProposalGraphicsPanel({
           <span className="text-lg leading-none mt-0.5">⚠️</span>
           <div>
             <strong>Sponsor logo required</strong> — upload the logo in the{" "}
-            <strong>Brand Assets</strong> section above to unlock jersey mockups.
-            AI campaign images can still be generated without it.
+            <strong>Brand Assets</strong> section above to unlock jersey mockups. Jersey, stadium,
+            and campaign mockups require the exact sponsor artwork.
           </div>
         </div>
       )}
@@ -48,7 +48,9 @@ export function ProposalGraphicsPanel({
         <div className="flex items-center gap-2.5 px-4 py-3 bg-green-50 dark:bg-green-950/30 border-b border-green-200">
           <span className="text-xl">👕</span>
           <div>
-            <div className="font-semibold text-sm text-green-900 dark:text-green-200">Jersey Mockup — Official</div>
+            <div className="font-semibold text-sm text-green-900 dark:text-green-200">
+              Jersey Mockup — Official
+            </div>
             <div className="text-xs text-green-700 dark:text-green-400">
               Your logo composited onto the real Coritiba kit photo · Crest is never altered
             </div>
@@ -75,7 +77,9 @@ export function ProposalGraphicsPanel({
         <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200">
           <span className="text-xl">🏟️</span>
           <div>
-            <div className="font-semibold text-sm text-amber-900 dark:text-amber-200">Stadium / Outdoor Mockup</div>
+            <div className="font-semibold text-sm text-amber-900 dark:text-amber-200">
+              Stadium / Outdoor Mockup
+            </div>
             <div className="text-xs text-amber-700 dark:text-amber-400">
               Real Couto Pereira photos · LED boards · Main stand · Exterior facade · 5 zones
             </div>
@@ -97,14 +101,16 @@ export function ProposalGraphicsPanel({
         </div>
       </div>
 
-      {/* Card 3: AI Campaign Creative — gpt-image-2 editorial lifestyle */}
+      {/* Card 3: Fidelity-checked AI campaign creative */}
       <div className="rounded-xl border-2 border-indigo-200 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-200">
           <span className="text-xl">✨</span>
           <div>
-            <div className="font-semibold text-sm text-indigo-900 dark:text-indigo-200">AI Campaign Creative</div>
+            <div className="font-semibold text-sm text-indigo-900 dark:text-indigo-200">
+              AI Campaign Creative
+            </div>
             <div className="text-xs text-indigo-700 dark:text-indigo-400">
-              Editorial lifestyle images · "Curitiba é Coritiba" style · gpt-image-2 · 3 scene types
+              Real source photos · exact sponsor artwork · automated fidelity review · 3 scene types
             </div>
           </div>
         </div>
@@ -124,7 +130,9 @@ export function ProposalGraphicsPanel({
         <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200">
           <span className="text-xl">🖼️</span>
           <div>
-            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">Saved Images</div>
+            <div className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+              Saved Images
+            </div>
             <div className="text-xs text-slate-500">All generated images for this proposal</div>
           </div>
         </div>

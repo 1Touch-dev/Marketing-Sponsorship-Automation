@@ -39,6 +39,9 @@ import {
   Newspaper,
   FileCheck,
   BarChart3,
+  Radar,
+  Workflow,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -99,14 +102,17 @@ const NAV: NavItem[] = [
   { href: "/campaigns/bulk", label: "Bulk Campaigns", icon: Zap, group: "proposals" },
   { href: "/proposals/bulk-approve", label: "Bulk Approve", icon: CheckSquare, group: "proposals" },
   { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
+  { href: "/settings/proposal-templates", label: "Presentation Templates", icon: LayoutTemplate, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
   { href: "/settings/email-templates", label: "Email Templates", icon: ScrollText, group: "proposals" },
+  { href: "/settings/email-flows", label: "Email Flows", icon: Workflow, group: "proposals" },
   { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
   { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
   { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },
   // Intelligence
   { href: "/coritiba-intelligence", label: "Coritiba Intel", icon: Trophy, group: "intelligence" },
+  { href: "/product-discovery", label: "Product Discovery", icon: Radar, group: "intelligence" },
   { href: "/inventory", label: "Inventory", icon: Package, group: "intelligence" },
   { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
   { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },

@@ -519,7 +519,7 @@ You have now completed the full workflow:
 ✅ Proposal created via wizard (6 steps, personalised AI output)
 ✅ Approval flow completed (Draft → Under Review → Approved)
 ✅ Share token generated (public URL ready)
-✅ Jersey mockup image generated (gpt-image-1)
+✅ Jersey mockup image generated (gpt-image-2)
 ✅ LED board image generated (wide format)
 ✅ Landing page complete (all sections + images embedded)
 ✅ PDF exported (7-page professional document)
@@ -978,7 +978,7 @@ Search across:
 | Inventory Suggestions | Claude (AWS Bedrock) | "Suggest Inventory" button on company page sidebar |
 | Campaign Generation | Claude (AWS Bedrock) | "Generate ideas" on campaigns page |
 | Proposal Generation | Claude (AWS Bedrock) | "Generate Proposal" in wizard Step 5 |
-| AI Image Generation | OpenAI gpt-image-1 | "Generate Now" button in media-generation |
+| AI Image Generation | OpenAI gpt-image-2 | "Generate Now" button in media-generation |
 
 ---
 

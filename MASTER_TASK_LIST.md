@@ -99,7 +99,7 @@
 - [x] Base jersey image (coritiba-jersey-2026-clean.jpg)
 - [x] Official Coritiba badge (from Wikimedia SVG)
 - [x] Sponsor logo compositing with background removal
-- [x] gpt-image-1 fallback for text sponsors
+- [x] gpt-image-2 fallback for text sponsors
 - [ ] **TODO**: Add `number` placement zone (jersey number on back panel)
 - [ ] **TODO**: Test all 7 existing zones end-to-end with sample logos
 - [ ] **WAITING**: James may send real 2026 player photo dataset — if so, update base image + re-calibrate zones
@@ -115,11 +115,11 @@
 ### AI Campaign Creatives
 **Approach confirmed by James**: "Yes" — editorial/lifestyle style like "Curitiba é Coritiba" 2026 campaign. Person wearing jersey in real setting, sponsor branding integrated naturally.
 
-- [x] gpt-image-1 architecture exists
+- [x] gpt-image-2 architecture exists
 - [x] 3 images per campaign (stadium, LED close-up, jersey)
 - [ ] **TODO**: Craft editorial/lifestyle prompts matching "Curitiba é Coritiba" visual tone
 - [ ] **TODO**: Reference Dropbox acervo campaign images for style guidance
-- [ ] **TODO**: Pass sponsor logo as reference image to gpt-image-1 /edits endpoint
+- [ ] **TODO**: Pass sponsor logo as reference image to gpt-image-2 /edits endpoint
 - [ ] **TODO**: Generate 3 scene types: matchday street scene, training ground, fan lifestyle
 
 ### LoRA Training
@@ -257,7 +257,7 @@ All approaches confirmed by James on 13 July 2026.
 
 ### AI Campaign Creative (14 July)
 - [ ] Craft editorial/lifestyle prompts — "Curitiba é Coritiba" 2026 campaign style
-- [ ] Pass sponsor logo as reference to gpt-image-1 /edits
+- [ ] Pass sponsor logo as reference to gpt-image-2 /edits
 - [ ] Generate 3 scene types: matchday street, training ground, fan lifestyle
 - [ ] Test quality and iterate prompts until output is presentation-ready
 

@@ -76,19 +76,12 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   existingAssets.push({ url, name: file.name, path });
   await sb.from("proposals").update({ content: { ...content, uploaded_assets: existingAssets } }).eq("id", id);
 
-  // Also update companies.logo_url so the graphics panel can see the logo
-  // immediately (the panel reads from company record, not uploaded_assets).
+  // Also update companies.logo_url so the graphics panel and all mockup
+  // generators use THIS logo. The most recently uploaded logo always wins:
+  // uploading a new logo overrides the previous one everywhere.
   const companyId = (proposal as { company_id?: string | null }).company_id;
   if (companyId) {
-    const { data: company } = await sb
-      .from("companies")
-      .select("logo_url")
-      .eq("id", companyId)
-      .maybeSingle();
-    // Only write if not already set — first uploaded logo wins as the primary logo
-    if (!company?.logo_url) {
-      await sb.from("companies").update({ logo_url: url }).eq("id", companyId);
-    }
+    await sb.from("companies").update({ logo_url: url }).eq("id", companyId);
   }
 
   await recordAudit({
@@ -99,4 +92,80 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
 
   return NextResponse.json({ url, path, name: file.name, company_logo_updated: !!(companyId) }, { status: 201 });
+}
+
+/**
+ * DELETE /api/proposals/:id/upload-asset
+ * Body: { path: string }
+ * Removes an uploaded asset from storage + proposal content. If the deleted
+ * asset was the company's active logo, logo_url is reset to the most recent
+ * remaining asset (or cleared if none remain).
+ */
+export async function DELETE(req: Request, ctx: { params: { id: string } }) {
+  const sb = supabaseAdmin();
+  const { id } = ctx.params;
+
+  let body: { path?: string };
+  try {
+    body = (await req.json()) as { path?: string };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const path = body.path?.trim();
+  if (!path) return NextResponse.json({ error: "Asset path required" }, { status: 400 });
+
+  const { data: proposal } = await sb
+    .from("proposals")
+    .select("id, company_id, content")
+    .eq("id", id)
+    .maybeSingle();
+  if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+
+  // Only allow deleting assets that belong to this proposal.
+  if (!path.startsWith(`proposals/${id}/`)) {
+    return NextResponse.json({ error: "Asset does not belong to this proposal" }, { status: 403 });
+  }
+
+  const content = ((proposal as { content?: Record<string, unknown> }).content ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const existingAssets =
+    (content.uploaded_assets as Array<{ url: string; name: string; path: string }>) ?? [];
+  const deleted = existingAssets.find((a) => a.path === path);
+  const remaining = existingAssets.filter((a) => a.path !== path);
+
+  await (sb as any).storage.from("proposal-assets").remove([path]);
+
+  await sb
+    .from("proposals")
+    .update({ content: { ...content, uploaded_assets: remaining } })
+    .eq("id", id);
+
+  // If the deleted asset was the active company logo, promote the most recent
+  // remaining asset (or clear the logo entirely).
+  let newLogoUrl: string | null = null;
+  const companyId = (proposal as { company_id?: string | null }).company_id;
+  if (companyId) {
+    const { data: company } = await sb
+      .from("companies")
+      .select("logo_url")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (deleted && company?.logo_url === deleted.url) {
+      newLogoUrl = remaining.length ? remaining[remaining.length - 1].url : null;
+      await sb.from("companies").update({ logo_url: newLogoUrl }).eq("id", companyId);
+    } else {
+      newLogoUrl = company?.logo_url ?? null;
+    }
+  }
+
+  await recordAudit({
+    entity_type: "proposal",
+    entity_id: id,
+    action: "proposal.asset_deleted",
+    metadata: { path, url: deleted?.url ?? null },
+  });
+
+  return NextResponse.json({ deleted: true, logo_url: newLogoUrl }, { status: 200 });
 }

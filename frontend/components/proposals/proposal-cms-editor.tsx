@@ -8,6 +8,7 @@ import { ProposalLandingPage } from "./proposal-landing-page";
 import { LandingTemplateMinimal, LandingTemplatePackages, LandingTemplateOneOffer, LandingTemplateInventoryMenu } from "./proposal-landing-templates";
 import { InlineEdit } from "./inline-edit";
 import { ProposalGraphicsPanel } from "./proposal-graphics-panel";
+import { SaveAsTemplateButton } from "./save-as-template-button";
 import { cn } from "@/lib/utils";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
 
@@ -157,6 +158,7 @@ export function ProposalCMSEditor({
           >
             {editMode ? <><Eye className="h-3.5 w-3.5" /> Sair da Edição</> : <><Edit3 className="h-3.5 w-3.5" /> Editar Proposta</>}
           </button>
+          <SaveAsTemplateButton proposalId={proposal.id} defaultIndustry={company.industry} />
         </div>
       </div>
 

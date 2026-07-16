@@ -62,12 +62,14 @@ type GeneratedCreative = {
   url: string;
   sceneType: SceneType;
   durationMs: number;
+  model: string;
 };
 
 export function AiCampaignCreative({
   proposalId,
   companyId,
   companyName,
+  sponsorLogoUrl,
   onGenerated,
 }: AiCampaignCreativeProps) {
   const [scene, setScene] = useState<SceneType>("matchday_street");
@@ -77,6 +79,7 @@ export function AiCampaignCreative({
 
   const currentCreative = creatives.find((c) => c.sceneType === scene) ?? null;
   const activeScene = SCENES.find((s) => s.id === scene)!;
+  const hasLogo = Boolean(sponsorLogoUrl);
 
   const generate = async () => {
     setLoading(true);
@@ -88,6 +91,7 @@ export function AiCampaignCreative({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sponsor_name: companyName,
+          sponsor_logo_url: sponsorLogoUrl,
           scene_type: scene,
           proposal_id: proposalId,
           company_id: companyId,
@@ -101,6 +105,7 @@ export function AiCampaignCreative({
         url: data.url,
         sceneType: scene,
         durationMs: data.duration_ms ?? 0,
+        model: data.model ?? "gpt-image-2",
       };
       setCreatives((prev) => [
         ...prev.filter((c) => c.sceneType !== scene),
@@ -120,9 +125,14 @@ export function AiCampaignCreative({
       <div className="flex items-start gap-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 p-3">
         <Sparkles className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
         <p className="text-xs text-indigo-700 dark:text-indigo-300">
-          <strong>AI Campaign Creative</strong> — generates editorial/lifestyle images in the style of the
-          {" "}<em>"Curitiba é Coritiba"</em> 2026 campaign. Real-feel photography, not a product mock.
-          Powered by <strong>gpt-image-2</strong> (OpenAI).
+          <strong>AI Campaign Creative</strong> — generates editorial/lifestyle images in the style
+          of the <em>"Curitiba é Coritiba"</em> 2026 campaign. Real-feel photography, not a product
+          mock. Uses your uploaded logo as the exact brand reference.
+          {!hasLogo && (
+            <span className="ml-1 font-semibold text-amber-700">
+              Upload a sponsor logo to enable generation.
+            </span>
+          )}
         </p>
       </div>
 
@@ -136,7 +146,10 @@ export function AiCampaignCreative({
             <button
               key={s.id}
               type="button"
-              onClick={() => { setScene(s.id); setError(null); }}
+              onClick={() => {
+                setScene(s.id);
+                setError(null);
+              }}
               className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-all ${
                 scene === s.id
                   ? "border-indigo-500 bg-indigo-50 shadow-sm"
@@ -148,7 +161,9 @@ export function AiCampaignCreative({
               </div>
               <div>
                 <div className="text-xs font-semibold text-slate-800">{s.labelPt}</div>
-                <div className="text-[10px] text-slate-400 leading-snug mt-0.5">{s.description}</div>
+                <div className="text-[10px] text-slate-400 leading-snug mt-0.5">
+                  {s.description}
+                </div>
               </div>
             </button>
           ))}
@@ -172,20 +187,26 @@ export function AiCampaignCreative({
       {/* Generate */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-400">
-          ~20–40s · gpt-image-2 · 1024×1024 high quality · Saved to proposal
+          High quality PNG · Single-pass edit · Saved to proposal
         </p>
         <button
           type="button"
           onClick={generate}
-          disabled={loading}
+          disabled={loading || !hasLogo}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-4 py-2 text-sm font-semibold transition-colors shrink-0"
         >
           {loading ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+            </>
           ) : currentCreative ? (
-            <><RefreshCw className="h-4 w-4" /> Regenerate</>
+            <>
+              <RefreshCw className="h-4 w-4" /> Regenerate
+            </>
           ) : (
-            <><Sparkles className="h-4 w-4" /> Generate Creative</>
+            <>
+              <Sparkles className="h-4 w-4" /> Generate Creative
+            </>
           )}
         </button>
       </div>
@@ -196,7 +217,7 @@ export function AiCampaignCreative({
           <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mx-auto mb-3" />
           <p className="text-sm font-medium text-indigo-700">Generating editorial creative…</p>
           <p className="text-xs text-indigo-400 mt-1">
-            gpt-image-2 is composing a {activeScene.label.toLowerCase()} scene for {companyName}
+            The production image pipeline is editing a real source photograph for {companyName}
           </p>
         </div>
       )}
@@ -213,7 +234,8 @@ export function AiCampaignCreative({
           <div className="p-3 flex items-center justify-between gap-2 bg-indigo-50 border-t border-indigo-200">
             <div>
               <div className="text-xs font-semibold text-indigo-800 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" /> {activeScene.labelPt} · gpt-image-2
+                <CheckCircle2 className="h-3.5 w-3.5" /> {activeScene.labelPt} ·{" "}
+                {currentCreative.model}
               </div>
               <div className="text-xs text-indigo-500 mt-0.5">
                 Generated in {(currentCreative.durationMs / 1000).toFixed(1)}s · Saved to proposal
@@ -256,7 +278,9 @@ export function AiCampaignCreative({
                   type="button"
                   onClick={() => setScene(c.sceneType)}
                   className={`rounded-lg overflow-hidden border-2 transition-all ${
-                    isActive ? "border-indigo-500 shadow" : "border-slate-200 hover:border-indigo-300 opacity-70 hover:opacity-100"
+                    isActive
+                      ? "border-indigo-500 shadow"
+                      : "border-slate-200 hover:border-indigo-300 opacity-70 hover:opacity-100"
                   }`}
                   title={s?.labelPt}
                 >

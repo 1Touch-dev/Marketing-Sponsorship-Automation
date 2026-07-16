@@ -29,6 +29,7 @@ type GeneratedImage = {
   placement: StadiumPlacementId;
   basePhoto: string;
   durationMs: number;
+  model?: string;
 };
 
 const PLACEMENT_ICONS: Record<string, string> = {
@@ -52,20 +53,50 @@ export function StadiumOutdoorMockup({
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [historyImages, setHistoryImages] = useState<GeneratedImage[]>([]);
+  const [customBase, setCustomBase] = useState<{ dataUrl: string; name: string } | null>(null);
+
+  const handleCustomBase = (file: File | null) => {
+    setError(null);
+    if (!file) {
+      setCustomBase(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Base image must be an image file (PNG or JPG).");
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      setError("Base image must be under 25 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setCustomBase({ dataUrl: String(reader.result), name: file.name });
+    reader.onerror = () => setError("Could not read the base image.");
+    reader.readAsDataURL(file);
+  };
 
   // Load previously generated mockups on mount
   useEffect(() => {
     if (!proposalId) return;
     fetch(`/api/media/stadium-mockup/history?proposal_id=${proposalId}`)
-      .then(r => r.json())
-      .then(d => {
+      .then((r) => r.json())
+      .then((d) => {
         if (d.jobs?.length) {
-          setHistoryImages(d.jobs.map((j: { selected_url: string; placement_zone: string; display_label: string; generation_ms: number }) => ({
-            url: j.selected_url,
-            placement: j.placement_zone as StadiumPlacementId,
-            basePhoto: j.display_label ?? j.placement_zone,
-            durationMs: j.generation_ms ?? 0,
-          })));
+          setHistoryImages(
+            d.jobs.map(
+              (j: {
+                selected_url: string;
+                placement_zone: string;
+                display_label: string;
+                generation_ms: number;
+              }) => ({
+                url: j.selected_url,
+                placement: j.placement_zone as StadiumPlacementId,
+                basePhoto: j.display_label ?? j.placement_zone,
+                durationMs: j.generation_ms ?? 0,
+              }),
+            ),
+          );
           // Show the most recent one
           const first = d.jobs[0];
           setPlacement(first.placement_zone as StadiumPlacementId);
@@ -97,14 +128,19 @@ export function StadiumOutdoorMockup({
           sponsor_name: companyName,
           sponsor_logo_url: sponsorLogoUrl ?? undefined,
           placement,
+          custom_base_url: customBase?.dataUrl ?? undefined,
           proposal_id: proposalId,
           company_id: companyId,
           save_to_proposal: true,
         }),
       });
-      const data = await res.json() as {
-        url?: string; duration_ms?: number; base_photo?: string;
-        base_image?: string; error?: string;
+      const data = (await res.json()) as {
+        url?: string;
+        duration_ms?: number;
+        base_photo?: string;
+        base_image?: string;
+        error?: string;
+        model?: string;
       };
       if (!res.ok) throw new Error(data.error ?? "Stadium mockup generation failed");
 
@@ -113,6 +149,7 @@ export function StadiumOutdoorMockup({
         placement,
         basePhoto: data.base_image ?? "",
         durationMs: data.duration_ms ?? 0,
+        model: data.model,
       });
       onGenerated?.();
     } catch (e) {
@@ -129,7 +166,8 @@ export function StadiumOutdoorMockup({
         <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-slate-600 dark:text-slate-300">
           <strong>Real Couto Pereira photos</strong> — your logo is composited onto actual stadium
-          advertising boards. 5 placements across 4 different photos (match day, aerial, night, drone).
+          advertising boards. 5 placements across 4 different photos (match day, aerial, night,
+          drone).
           {hasLogo ? (
             <span className="ml-1 text-green-600 font-medium">✓ Logo ready.</span>
           ) : (
@@ -180,12 +218,47 @@ export function StadiumOutdoorMockup({
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 flex items-center gap-2">
           <span className="text-base">{PLACEMENT_ICONS[selectedZone.id] ?? "📍"}</span>
           <div>
-            <strong>Base photo:</strong> {baseInfo.label}
+            <strong>Base photo:</strong> {customBase ? "Your uploaded image" : baseInfo.label}
             <span className="mx-1.5 text-amber-400">·</span>
             <strong>Placement:</strong> {selectedZone.labelPt}
           </div>
         </div>
       )}
+
+      {/* Optional custom base image */}
+      <div>
+        <div className="text-xs font-semibold text-slate-600 mb-2">
+          Base Image{" "}
+          <span className="text-slate-400 font-normal">
+            — optional: upload your own stadium photo, otherwise the real Couto Pereira photo is used
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white hover:border-amber-300 px-3 py-2 text-xs font-medium text-slate-600 cursor-pointer transition-colors">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleCustomBase(e.target.files?.[0] ?? null)}
+            />
+            {customBase ? "Change base image" : "Upload base image"}
+          </label>
+          {customBase && (
+            <>
+              <span className="text-xs text-green-700 font-medium truncate max-w-[160px]">
+                {customBase.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCustomBase(null)}
+                className="text-xs text-slate-400 hover:text-red-500"
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Error */}
       {error && (
@@ -207,9 +280,13 @@ export function StadiumOutdoorMockup({
           className="flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-4 py-2 text-sm font-semibold transition-colors shrink-0"
         >
           {loading ? (
-            <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Generating…
+            </>
           ) : image ? (
-            <><RefreshCw className="h-4 w-4" /> Regenerate</>
+            <>
+              <RefreshCw className="h-4 w-4" /> Regenerate
+            </>
           ) : (
             <>🏟️ Generate Outdoor Mockup</>
           )}
@@ -232,8 +309,12 @@ export function StadiumOutdoorMockup({
               </p>
             </div>
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-1">
-              <div><strong>Photo:</strong> {baseInfo.label}</div>
-              <div><strong>Placement:</strong> {selectedZone.description}</div>
+              <div>
+                <strong>Photo:</strong> {baseInfo.label}
+              </div>
+              <div>
+                <strong>Placement:</strong> {selectedZone.description}
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -268,7 +349,8 @@ export function StadiumOutdoorMockup({
                 <CheckCircle2 className="h-3.5 w-3.5" /> Stadium mockup · {selectedZone?.labelPt}
               </div>
               <div className="text-xs text-amber-600 mt-0.5">
-                {image.basePhoto} · Generated in {(image.durationMs / 1000).toFixed(1)}s · Saved to proposal
+                {image.basePhoto} · {image.model ?? "OpenAI"} · Generated in{" "}
+                {(image.durationMs / 1000).toFixed(1)}s
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -282,7 +364,7 @@ export function StadiumOutdoorMockup({
               </a>
               <a
                 href={image.url}
-                download={`${companyName.replace(/\s+/g, "_")}_stadium_${placement}.jpg`}
+                download={`${companyName.replace(/\s+/g, "_")}_stadium_${placement}.png`}
                 className="flex items-center gap-1 rounded-lg bg-slate-700 hover:bg-slate-900 text-white px-2.5 py-1.5 text-xs font-medium"
               >
                 <Download className="h-3 w-3" /> Download
@@ -295,12 +377,17 @@ export function StadiumOutdoorMockup({
       {/* History: previously generated mockups for other placements */}
       {historyImages.length > 1 && (
         <div className="mt-2">
-          <div className="text-xs font-semibold text-slate-500 mb-2">Previously generated placements</div>
+          <div className="text-xs font-semibold text-slate-500 mb-2">
+            Previously generated placements
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {historyImages.map((h) => (
               <button
                 key={h.placement}
-                onClick={() => { setPlacement(h.placement); setImage(h); }}
+                onClick={() => {
+                  setPlacement(h.placement);
+                  setImage(h);
+                }}
                 className={`relative rounded-lg overflow-hidden border-2 transition-all ${placement === h.placement ? "border-amber-400" : "border-transparent hover:border-amber-200"}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
