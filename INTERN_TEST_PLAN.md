@@ -639,7 +639,7 @@ These tests validate features shipped on the 5 June / final-polish sprints. Veri
 
 | Step | Action | Expected | Pass |
 |------|--------|----------|------|
-| 1 | Draft/approved proposal → **Gerar Criativos** | Image job `completed` (gpt-image-1) | [ ] |
+| 1 | Draft/approved proposal → **Gerar Criativos** | Image job `completed` (gpt-image-2) | [ ] |
 | 2 | **Gerar mockup oficial** | Jersey mockup job completed | [ ] |
 | 3 | Approve images → open public landing | Images visible on landing | [ ] |
 

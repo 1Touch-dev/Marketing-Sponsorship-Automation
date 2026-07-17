@@ -334,7 +334,7 @@ James confirmed Hunter.io as the email discovery tool for this phase.
 | **Inventory** | Digital + physical fields, execution briefs |
 | **Mockups** | Konva editor, Coritiba jersey template |
 | **Landing page** | Public share links, KPIs, upcoming matches section |
-| **Media** | Image generation (OpenAI gpt-image-1 + **Replicate FLUX LoRA**) |
+| **Media** | Image generation (OpenAI gpt-image-2 + **Replicate FLUX LoRA**) |
 | **Enrichment** | **Hunter.io** — decision maker emails, confidence %, seniority; **Apify** social + ads signals |
 | **Barter** | Barter workflow |
 | **Lei de Incentivo** | Dedicated pipeline |
@@ -638,7 +638,7 @@ Both scenes generated in ~10s. Sponsor branding placement confirmed.
 | **Inventory** | Digital + physical fields, execution briefs |
 | **Mockups** | Konva editor, Coritiba jersey template |
 | **Landing page** | Public share links, KPIs, upcoming matches section |
-| **Media** | Image generation (OpenAI gpt-image-1 + **Replicate FLUX LoRA**) |
+| **Media** | Image generation (OpenAI gpt-image-2 + **Replicate FLUX LoRA**) |
 | **Barter** | Barter workflow |
 | **Lei de Incentivo** | Dedicated pipeline |
 | **Health** | `/api/system/health` — DB, Bedrock, Pipedrive, Replicate all healthy |

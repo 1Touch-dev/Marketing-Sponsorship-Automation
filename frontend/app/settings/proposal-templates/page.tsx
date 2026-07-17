@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProposalTemplatesManager } from "./proposal-templates-manager";
+import { UploadHtmlTemplateButton } from "./upload-html-template-button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function ProposalTemplatesPage() {
       <PageHeader
         title="Presentation Templates"
         description="Reusable, industry-tagged proposal templates. Save any proposal as a template, then reuse its pages and image placeholders for new personalized presentations."
+        actions={<UploadHtmlTemplateButton />}
       />
       <ProposalTemplatesManager initialTemplates={templates} migrationPending={migrationPending} />
     </>

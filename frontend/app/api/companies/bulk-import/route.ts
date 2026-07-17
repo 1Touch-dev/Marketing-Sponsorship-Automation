@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -199,6 +200,14 @@ export async function POST(req: Request) {
           id: inserted.id,
         });
         created++;
+        // Fire-and-forget logo scrape — don't block the CSV import loop on network I/O.
+        if (website) {
+          void fetchAndStoreCompanyLogo({
+            companyId: inserted.id,
+            website,
+            companyName: row.company_name,
+          }).catch(() => {});
+        }
       }
     }
 

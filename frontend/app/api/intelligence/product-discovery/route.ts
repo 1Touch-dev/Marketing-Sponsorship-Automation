@@ -21,6 +21,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -246,7 +247,18 @@ async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller
       } as unknown as never)
       .select("id")
       .single();
-    if (created) saved += 1;
+    if (created) {
+      saved += 1;
+      // Fire-and-forget logo scrape — auto-discovered companies should already
+      // have a logo ready by the time someone opens the sponsor page (James: E).
+      if (s.domain) {
+        void fetchAndStoreCompanyLogo({
+          companyId: created.id,
+          domain: s.domain,
+          companyName: s.name,
+        }).catch(() => {});
+      }
+    }
   }
   return saved;
 }

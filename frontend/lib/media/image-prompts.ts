@@ -62,26 +62,54 @@ The logo must keep its exact colours, shapes, proportions, spacing and typograph
 Do not change anything else in the photograph. Keep the stadium, crowd, pitch, players, architecture, floodlights, sky, lighting, colours and camera exactly as they are. The only change allowed is the single logo on the one target surface (if that surface already shows an advertisement, the logo may sit over it). Only add the one logo.`;
 }
 
-const CAMPAIGN_SURFACE: Record<CampaignSceneType, string> = {
-  matchday_street:
-    "the natural advertising surface already present in the matchday street scene",
-
-  training_ground:
-    "the natural sponsor branding surface already present in the training ground",
-
-  fan_lifestyle:
-    "the natural branding surface already visible in the lifestyle scene",
+/**
+ * Per-scene background sponsor surface. Each entry gives the model:
+ *  1. What surface to look for first (if the stock photo already shows one).
+ *  2. A concrete fallback describing what to ADD to the out-of-focus
+ *     background when no surface is visible — this is the case that matters
+ *     most, since several of the real stock photos (e.g. the tight training
+ *     close-ups) have no banner/board in frame at all. Without an explicit
+ *     "add one" instruction the model has nowhere to put the logo and just
+ *     stamps it onto the kit next to the crest, which is why campaign
+ *     creatives could look almost identical to the source photo.
+ */
+const CAMPAIGN_SURFACE: Record<
+  CampaignSceneType,
+  { existing: string; addition: string }
+> = {
+  matchday_street: {
+    existing:
+      "a fan banner, flag or advertising board already visible in the crowd/stadium background",
+    addition:
+      "add a sponsor billboard or advertising board into the out-of-focus street/crowd background, at typical stadium signage height, matching the existing perspective, lighting and depth of field, as if the supporter is walking toward the stadium on match day",
+  },
+  training_ground: {
+    existing: "a banner, hoarding or signage already visible behind the player",
+    addition:
+      "add a sponsor banner/hoarding into the out-of-focus background behind the player, at typical training-ground signage height, matching the existing shallow depth of field, golden-hour lighting and colour grading already in the photo",
+  },
+  fan_lifestyle: {
+    existing:
+      "a sign, screen, poster or banner already visible in the background of the scene",
+    addition:
+      "add a small sponsor sign, poster or banner into the out-of-focus background, matching the existing depth of field, lighting and colour grading, so it reads as natural signage in the fan's everyday surroundings",
+  },
 };
 
 export function buildCampaignPrompt(scene: CampaignSceneType): string {
-  return `Image 1 is the original photograph.
+  const surface = CAMPAIGN_SURFACE[scene];
+  return `Image 1 is the original Coritiba FC photograph.
 Image 2 is the sponsor logo.
 
-Your only task: add the logo from Image 2 onto ${CAMPAIGN_SURFACE[scene]}, and blend it naturally into the scene — following the existing perspective, lighting, shadows and depth of field. Do nothing else.
+This is an editorial campaign creative in the "Curitiba é Coritiba" style — real-feel photography, not a product mock.
 
-Add exactly one copy of the logo, in that one place only. Never duplicate it and never place it anywhere else.
+Your task: place the logo from Image 2 onto ${surface.existing}, blending it naturally into the scene — following the existing perspective, lighting, shadows and depth of field.
+
+If no such surface is clearly visible in the photo, ${surface.addition}, then place the logo on it.
+
+Add exactly one copy of the logo, in that one place only. Never duplicate it and never place it anywhere else — and never place it on any person's clothing, kit, or body.
 
 The logo must keep its exact colours, shapes, proportions, spacing and typography. Do not redraw or change it. If it has a solid rectangular background, remove only that background.
 
-Do not change anything else in the photograph. Keep the people, environment, lighting, colours, composition and camera exactly as they are. Only add the one logo.`;
+Do not change the people, their clothing, faces, poses or any existing club branding already present. Keep the framing, lighting, colours and camera exactly as they are — only add the logo (and, if needed, the one banner/sign carrying it).`;
 }

@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.image_generation_jobs (
   style_notes      TEXT,
 
   -- Generation config
-  provider         TEXT DEFAULT 'dall-e-3',  -- 'dall-e-3' | 'gpt-image-1' | 'stability' | 'manual'
+  provider         TEXT DEFAULT 'dall-e-3',  -- 'dall-e-3' | 'gpt-image-2' | 'stability' | 'manual'
   model            TEXT DEFAULT 'dall-e-3',
   size             TEXT DEFAULT '1024x1024',
   quality          TEXT DEFAULT 'standard',  -- 'standard' | 'hd'

@@ -5,13 +5,14 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
+import { PreapproveToggle } from "./preapprove-toggle";
 import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
 import { ActivationBriefPanel } from "@/components/campaigns/activation-brief-panel";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import {
   Lightbulb, Target, Zap, MessageSquare, Trophy,
-  FileText, ArrowLeft, Tag, Users, Building2,
+  FileText, ArrowLeft, Tag, Users, Building2, Bot,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,23 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </div>
         }
       />
+
+      {/* Pre-approval + batch outreach */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4 rounded-lg border bg-muted/30 p-3">
+        <PreapproveToggle
+          campaignId={campaign.id}
+          isPreapproved={!!campaign.is_preapproved}
+          preapprovedAt={campaign.preapproved_at ?? null}
+        />
+        {campaign.is_preapproved && (
+          <Link
+            href={`/campaigns/${campaign.id}/batch`}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+          >
+            <Bot className="h-3.5 w-3.5" /> Run Outreach Agent Batch
+          </Link>
+        )}
+      </div>
 
       {/* Strategy tags */}
       {tags.length > 0 && (

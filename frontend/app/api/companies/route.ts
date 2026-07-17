@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { companyCreateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,16 @@ export async function POST(req: Request) {
     headers: { "Content-Type": "application/json" },
   }).catch(() => {
     // Silently fail — discovery is non-blocking, can be retried from the UI
+  });
+
+  // ── Fire-and-forget: auto-scrape logo so it's ready for image generation
+  // without a manual "Re-fetch Logo" click (James: logos should just show up).
+  void fetchAndStoreCompanyLogo({
+    companyId: data.id,
+    website: data.website,
+    companyName: data.company_name,
+  }).catch(() => {
+    // Silently fail — logo can still be fetched manually or re-tried in bulk
   });
 
   // ── Fire-and-forget: sync to Pipedrive as Organization ───────────────────

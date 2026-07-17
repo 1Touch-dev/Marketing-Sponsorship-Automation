@@ -393,7 +393,7 @@ Expand each group and confirm every link loads without 404:
 5. ✅ **Full-screen prompt approval modal** appears:
    - Header shows count: "Review Prompts Before Generating — 3 images"
    - Each prompt is in a separate numbered card with strategy label
-   - Cost estimate shown (e.g. ~$0.12 · Model: gpt-image-1)
+   - Cost estimate shown (e.g. ~$0.12 · Model: gpt-image-2)
    - Size shown: 1536×1024 (16:9)
 6. Click **Edit** on one prompt → textarea opens
 7. Add at the end: `heroic lighting, award-winning photo`
@@ -882,7 +882,7 @@ RECENT FIXES (regression)
 5. **Replicate LoRA** — uses 2024 kit model; 2026 retrain pending photos from James.
 6. **AI generation** — each step takes 20–90 seconds; wait before clicking again.
 7. **Jersey mockup requires logo** — generation is intentionally blocked if no logo is uploaded (this is by design, not a bug).
-8. **AI creatives** — use `gpt-image-1` (OpenAI); each image costs ~$0.04. Budget ~$0.12 per proposal for 3 strategy variants.
+8. **AI creatives** — use `gpt-image-2` (OpenAI); each image costs ~$0.04. Budget ~$0.12 per proposal for 3 strategy variants.
 9. **Competitor status** — new `competitor` pipeline stage was added to the UI and form validation. If existing competitors don't show the status badge, re-edit and save them.
 10. **Bulk campaign completeness check** — the warning is advisory. Clicking "Continue anyway" proceeds with generation. Companies with incomplete data will produce more generic AI output.
 11. **Bulk campaigns chip search** — use the full chip label e.g. **Financeiro / Bancos** not just "Financeiro"; partial chip names may return 0 companies due to exact string matching.

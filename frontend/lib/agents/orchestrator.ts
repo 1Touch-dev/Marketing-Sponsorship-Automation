@@ -16,6 +16,7 @@ import {
   toolGenerateOutreachEmail,
   toolSendEmail,
 } from "@/lib/agents/tools";
+import { resumeAgentAfterProposalApproval } from "@/lib/agents/resume";
 import type { AgentMode, AgentResult, AgentStep, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
 
@@ -42,6 +43,15 @@ export type OrchestratorInput = {
   domain: string;
   mode: AgentMode;
   created_by: string | null;
+  /**
+   * Pre-approved-campaign auto-run: when true, the orchestrator does NOT pause
+   * for proposal approval — it auto-approves the proposal, drafts the email,
+   * and stops there (still short of live send, which stays gated by
+   * `mode === "auto"` in the send_email branch below, i.e. draft + Pipedrive
+   * log only, exactly like today's manual approve-and-send).
+   */
+  auto_approve?: boolean;
+  batch_id?: string | null;
 };
 
 export async function runAgentOrchestrator(
@@ -232,11 +242,38 @@ export async function runAgentOrchestrator(
       });
 
       // Pause after personalized proposal — human approves before email
+      // (unless this run belongs to a pre-approved campaign, in which case we
+      // auto-approve the proposal and draft the email immediately, still
+      // stopping short of live send for a final human check.)
       if (
         toolCall.name === "generate_personalized_proposal" &&
         toolResult.success &&
         agentResult.proposal_id
       ) {
+        if (input.auto_approve) {
+          await persistSteps({
+            status: "paused_for_proposal_approval",
+            result: agentResult,
+          });
+
+          const resumed = await resumeAgentAfterProposalApproval(input.run_id, emit);
+          if (resumed.success) {
+            agentResult = resumed.agentResult;
+          }
+
+          emit({
+            type: "paused",
+            reason: "email_review",
+            email_id: resumed.agentResult.email_id ?? "",
+            email_subject: resumed.agentResult.email_subject ?? "",
+            email_preview: resumed.agentResult.email_preview ?? "",
+            recipient: resumed.agentResult.recipient ?? "",
+            recipient_name: resumed.agentResult.recipient_name ?? "",
+          });
+
+          return resumed.agentResult;
+        }
+
         await persistSteps({
           status: "paused_for_proposal_approval",
           result: agentResult,

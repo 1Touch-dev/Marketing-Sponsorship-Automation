@@ -2,9 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { LayoutTemplate, Trash2, Image as ImageIcon, FileText, AlertCircle, Filter } from "lucide-react";
+import { LayoutTemplate, Trash2, Image as ImageIcon, FileText, AlertCircle, Filter, FileCode, Settings2 } from "lucide-react";
 
 type ImagePlaceholder = {
   key: string;
@@ -29,6 +31,8 @@ type Template = {
   use_count?: number;
   is_default?: boolean;
   content: TemplateContent | string;
+  source_type?: "sections" | "html";
+  placeholder_config?: unknown[];
 };
 
 function parseContent(c: TemplateContent | string): TemplateContent {
@@ -123,29 +127,53 @@ export function ProposalTemplatesManager({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {visible.map((t) => {
+          const isHtml = t.source_type === "html";
           const content = parseContent(t.content);
-          const placeholders = content.image_placeholders ?? [];
+          const placeholders = isHtml
+            ? (t.placeholder_config as { token: string; kind: string }[] | undefined) ?? []
+            : content.image_placeholders ?? [];
           const sections = content.sections ?? [];
+          const imageSlotCount = isHtml
+            ? placeholders.filter((p) => (p as { kind?: string }).kind === "image").length
+            : placeholders.length;
           return (
             <div key={t.id} className="rounded-xl border bg-card p-4 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <LayoutTemplate className="h-4 w-4 text-primary" />
+                  {isHtml ? (
+                    <FileCode className="h-4 w-4 text-violet-500" />
+                  ) : (
+                    <LayoutTemplate className="h-4 w-4 text-primary" />
+                  )}
                   <span className="font-medium text-sm">{t.name}</span>
                   {t.is_default && (
                     <Badge variant="outline" className="text-[9px]">
                       Default
                     </Badge>
                   )}
+                  {isHtml && (
+                    <Badge variant="secondary" className="text-[9px]">
+                      HTML
+                    </Badge>
+                  )}
                 </div>
-                <button
-                  onClick={() => remove(t.id)}
-                  disabled={busy === t.id}
-                  className="text-red-500 hover:text-red-700 disabled:opacity-50"
-                  title="Remove template"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {isHtml && (
+                    <Link href={`/settings/proposal-templates/${t.id}`}>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+                        <Settings2 className="h-3.5 w-3.5" /> Configure &amp; render
+                      </Button>
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => remove(t.id)}
+                    disabled={busy === t.id}
+                    className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                    title="Remove template"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
@@ -156,13 +184,15 @@ export function ProposalTemplatesManager({
                     {t.industry}
                   </Badge>
                 )}
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <FileText className="h-3 w-3" /> {sections.length} page{sections.length === 1 ? "" : "s"}
-                </span>
-                {placeholders.length > 0 && (
+                {!isHtml && (
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                    <ImageIcon className="h-3 w-3" /> {placeholders.length} image slot
-                    {placeholders.length === 1 ? "" : "s"}
+                    <FileText className="h-3 w-3" /> {sections.length} page{sections.length === 1 ? "" : "s"}
+                  </span>
+                )}
+                {imageSlotCount > 0 && (
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <ImageIcon className="h-3 w-3" /> {imageSlotCount} image slot
+                    {imageSlotCount === 1 ? "" : "s"}
                   </span>
                 )}
                 {typeof t.use_count === "number" && t.use_count > 0 && (
@@ -170,9 +200,9 @@ export function ProposalTemplatesManager({
                 )}
               </div>
 
-              {placeholders.length > 0 && (
+              {!isHtml && placeholders.length > 0 && (
                 <div className="pt-1 space-y-1">
-                  {placeholders.map((p) => (
+                  {(placeholders as ImagePlaceholder[]).map((p) => (
                     <div key={p.key} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <ImageIcon className="h-3 w-3 text-primary/60" />
                       <span className="font-medium text-foreground/80">{p.label}</span>

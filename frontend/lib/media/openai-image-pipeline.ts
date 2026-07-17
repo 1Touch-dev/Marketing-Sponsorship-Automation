@@ -31,10 +31,27 @@ function getDefaultRenderer(apiKey: string): ImageRenderer {
 }
 
 /**
- * Single-pass sponsor image edit. One prompt, one OpenAI Images Edit call, one
- * PNG returned. No QA, no retries, no correction prompts — the model performs
- * the edit naturally, exactly like ChatGPT image editing. If the API fails the
- * error is surfaced directly.
+ * OpenAI's gpt-image models occasionally return a fully (or near-)black frame
+ * with a valid 200 response — a known, intermittent provider-side bug (roughly
+ * 1 in 15 generations per OpenAI's own developer community reports), unrelated
+ * to prompt or input quality. A near-zero mean brightness across all channels
+ * combined with near-zero variance means the frame carries no real image
+ * content, so we treat it as a degenerate output worth silently retrying
+ * rather than showing the sponsor a black mockup.
+ */
+async function isDegenerateOutput(buffer: Buffer): Promise<boolean> {
+  const stats = await sharp(buffer, { failOn: "error" }).stats();
+  return stats.channels.slice(0, 3).every((channel) => channel.mean < 4 && channel.stdev < 4);
+}
+
+const MAX_RENDER_ATTEMPTS = 3;
+
+/**
+ * Single-pass sponsor image edit. One prompt, one OpenAI Images Edit call per
+ * attempt, one PNG returned — no QA, no correction prompts, the model performs
+ * the edit naturally, exactly like ChatGPT image editing. The only retry logic
+ * here guards against the provider returning a degenerate (all-black/blank)
+ * frame; a genuine API failure is still surfaced directly on the first error.
  */
 export async function runSponsorImageEdit(input: {
   baseImage: Buffer;
@@ -57,22 +74,45 @@ export async function runSponsorImageEdit(input: {
   const generationId = randomUUID();
   const startedAt = Date.now();
 
-  const result = await renderer.render({
-    baseImage: input.baseImage,
-    baseFilename: input.baseFilename,
-    baseMimeType: input.baseMimeType,
-    sponsorLogo: input.sponsorLogo.processed,
-    prompt: input.prompt,
-    size: input.size,
-    quality,
-  });
+  let result: Awaited<ReturnType<ImageRenderer["render"]>> | null = null;
+  let outputMeta: sharp.Metadata | null = null;
+  let degenerateAttempts = 0;
 
-  const outputMeta = await sharp(result.buffer, { failOn: "error" }).metadata();
-  if (outputMeta.format !== "png") {
-    throw new ImageRendererError(
-      `Renderer returned ${outputMeta.format ?? "unknown"} instead of PNG`,
-      false,
-    );
+  for (let attempt = 1; attempt <= MAX_RENDER_ATTEMPTS; attempt++) {
+    const attemptResult = await renderer.render({
+      baseImage: input.baseImage,
+      baseFilename: input.baseFilename,
+      baseMimeType: input.baseMimeType,
+      sponsorLogo: input.sponsorLogo.processed,
+      prompt: input.prompt,
+      size: input.size,
+      quality,
+    });
+
+    const meta = await sharp(attemptResult.buffer, { failOn: "error" }).metadata();
+    if (meta.format !== "png") {
+      throw new ImageRendererError(
+        `Renderer returned ${meta.format ?? "unknown"} instead of PNG`,
+        false,
+      );
+    }
+
+    if (await isDegenerateOutput(attemptResult.buffer)) {
+      degenerateAttempts++;
+      if (attempt < MAX_RENDER_ATTEMPTS) continue;
+      throw new ImageRendererError(
+        `OpenAI returned a blank/black image ${degenerateAttempts} time(s) in a row — this is a known intermittent provider issue. Please try Regenerate.`,
+        true,
+      );
+    }
+
+    result = attemptResult;
+    outputMeta = meta;
+    break;
+  }
+
+  if (!result || !outputMeta) {
+    throw new ImageRendererError("Image generation failed after retries", true);
   }
 
   const baseMetadata = await sharp(input.baseImage, { failOn: "error" }).metadata();
@@ -119,6 +159,7 @@ export async function runSponsorImageEdit(input: {
           outputHeight: outputMeta.height,
           outputBytes: result.buffer.length,
           usage: result.usage,
+          degenerateRetries: degenerateAttempts,
         },
       ],
     },

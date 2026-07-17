@@ -109,7 +109,7 @@ Updated `frontend/components/proposals/proposal-graphics-panel.tsx`:
 |--------|-------|-------------|
 | 1 | 👕 Jersey Mockup — Official | Existing jersey compositor |
 | 2 | 🏟️ Stadium / Outdoor Mockup | **NEW** — Real stadium photos, LED boards, 5 zones |
-| 3 | ✨ AI Campaign Creatives | AI generation via OpenAI gpt-image-1 (now includes outdoor prompt) |
+| 3 | ✨ AI Campaign Creatives | AI generation via OpenAI gpt-image-2 (now includes outdoor prompt) |
 | 4 | 🖼️ Saved Images | All generated images for this proposal |
 
 ---
@@ -169,7 +169,7 @@ Expected: `{ "success": true, "url": "...", "placement": "led_board_main", "base
 | Item | Notes |
 |------|-------|
 | LED board pixel calibration | Coordinates are calibrated from visual inspection at 1920×1080. May need minor tweaking after visual QA on the live site |
-| Replicate FLUX LoRA | The `abhishek9302/coritiba-jersey-lora` model is fine-tuned for jerseys only — outdoor AI prompts use OpenAI gpt-image-1 instead |
+| Replicate FLUX LoRA | The `abhishek9302/coritiba-jersey-lora` model is fine-tuned for jerseys only — outdoor AI prompts use OpenAI gpt-image-2 instead |
 | Pipeline board — company Pipeline Stage | Companies need `pipeline_stage` column populated to show in Kanban (known from 26th June) |
 | Custom stadium photo upload | Currently uses James's 4 pre-selected photos. A future enhancement could allow uploading custom stadium photos |
 | LED board perspective warp | Current compositor does flat rectangular overlay. Advanced version could add perspective transform to match the angle of the real boards |

@@ -101,7 +101,7 @@ The platform is **operationally ready** for daily commercial use with known exte
 | `/api/image-generation` GET | PASS | HTTP 200 |
 | `/media-generation` page | PASS | HTTP 200 |
 | Rate limiting on POST | PASS | 5 req/min per IP |
-| Live gpt-image-1 generation | SKIP | Not run (OpenAI cost) |
+| Live gpt-image-2 generation | SKIP | Not run (OpenAI cost) |
 | Image modal portal fix | PASS | From prior sprint (createPortal) |
 
 ### Phase 8 — Mockup Editor

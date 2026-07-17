@@ -903,7 +903,7 @@ All partial/skipped conditional workflows completed with UI + API + DB + refresh
 | Email templates (`/settings/email-templates`) | ✅ |
 | Competitor → Add to DB → Create Proposal | ✅ |
 | Inventory catalog (`/inventory`) | ✅ |
-| Jersey mockups (Replicate composite) + campaign creatives (OpenAI gpt-image-1) | ✅ |
+| Jersey mockups (Replicate composite) + campaign creatives (OpenAI gpt-image-2) | ✅ |
 | Approvals (list + Vista em Cards) | ✅ |
 | Mockup editor, bulk image approve | ✅ |
 | RBAC, audit trail, monthly reports | ✅ |

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "./bulk-import-button";
+import { BulkFetchLogosButton } from "./bulk-fetch-logos-button";
 import { Building2, Globe, Calendar, Filter, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function CompaniesPage({
   const sb = supabaseAdmin();
   const { data: rawCompanies } = await sb
     .from("companies")
-    .select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type")
+    .select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type, logo_url, logo_source")
     .neq("status", "closed")
     .order("created_at", { ascending: false })
     .limit(600);
@@ -46,6 +47,8 @@ export default async function CompaniesPage({
     pipeline_stage: string | null;
     company_size: string | null;
     business_type: string | null;
+    logo_url: string | null;
+    logo_source: string | null;
   }>;
 
   if (searchParams.q) {
@@ -87,6 +90,11 @@ export default async function CompaniesPage({
         actions={
           <div className="flex items-center gap-2">
             <BulkImportButton />
+            <BulkFetchLogosButton
+              companyIds={companies.map((c) => c.id)}
+              missingCount={companies.filter((c) => !c.logo_url).length}
+              hasFilters={hasFilters}
+            />
             <a
               href="/api/export/companies"
               download
@@ -191,8 +199,13 @@ export default async function CompaniesPage({
               className="group flex items-start justify-between rounded-lg border bg-card p-4 hover:bg-accent hover:border-primary/30 transition-all"
             >
               <div className="flex items-start gap-3 min-w-0">
-                <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Building2 className="h-4 w-4 text-primary" />
+                <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                  {c.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.logo_url} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="h-4 w-4 text-primary" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium group-hover:text-primary transition-colors">{c.company_name}</div>
@@ -202,6 +215,7 @@ export default async function CompaniesPage({
                     {c.company_size && <span className="capitalize">{c.company_size}</span>}
                     {c.country && <span className="inline-flex items-center gap-1"><Globe className="h-2.5 w-2.5" /> {c.country}</span>}
                     <span className="inline-flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> added {formatDate(c.created_at)}</span>
+                    {!c.logo_url && <span className="text-amber-500">no logo</span>}
                   </div>
                 </div>
               </div>

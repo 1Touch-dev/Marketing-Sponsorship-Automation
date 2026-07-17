@@ -1,7 +1,7 @@
 # Coritiba FC Market Sponsorship Automation — Full QA Test Cases
 
 **Platform:** https://eligibly-facing-unloved.ngrok-free.dev/
-**Stack:** Next.js 14, Supabase, AWS Bedrock (Claude Sonnet 4), OpenAI (gpt-image-1), Pipedrive, Hunter.io, Apollo.io, Apify, PM2
+**Stack:** Next.js 14, Supabase, AWS Bedrock (Claude Sonnet 4), OpenAI (gpt-image-2), Pipedrive, Hunter.io, Apollo.io, Apify, PM2
 **Last Updated:** 26 June 2026
 **Total Test Cases:** 250+
 
@@ -1341,7 +1341,7 @@
 
 **Pass Criteria:** Progress indicator appears; images appear in Saved Images after generation completes (up to 120 seconds).
 
-**Notes:** Each image calls OpenAI gpt-image-1 at 1536×1024. Budget ~$0.04/image. Total ~$0.12 for 3 variants.
+**Notes:** Each image calls OpenAI gpt-image-2 at 1536×1024. Budget ~$0.04/image. Total ~$0.12 for 3 variants.
 
 ---
 

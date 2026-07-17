@@ -142,7 +142,7 @@ a03cf8e  fix: competitor status badge grey + status filter returning nothing
 1. **Gmail** — token expired 22 May. Outreach emails log to Pipedrive + DB but real inbox delivery needs OAuth reconnect.
 2. **Replicate LoRA** — uses 2024 kit model. 2026 retrain pending new stadium photos from James.
 3. **Packages landing template** — empty until pricing tiers are added to a proposal.
-4. **AI generation cost** — each campaign creative image ~$0.04 (OpenAI gpt-image-1). Budget ~$0.12 per proposal for 3 strategy variants.
+4. **AI generation cost** — each campaign creative image ~$0.04 (OpenAI gpt-image-2). Budget ~$0.12 per proposal for 3 strategy variants.
 5. **Competitor `competitor` DB enum** — added via manual SQL on Supabase dashboard. Migration file at `supabase/migrations/APPLY_9TH_JUNE.sql` if needed again.
 6. **Pipeline drag-drop** — not yet implemented. Stage changes require editing a lead directly.
 

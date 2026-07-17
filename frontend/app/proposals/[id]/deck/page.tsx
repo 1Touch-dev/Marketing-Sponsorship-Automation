@@ -1,8 +1,31 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
+import {
+  groupProposalImages,
+  resolveProposalImageLabel,
+  type ProposalImageAsset,
+} from "@/lib/proposals/proposal-images";
 
 export const dynamic = "force-dynamic";
+
+/** Keeps only the most recent image per label — jobs are re-run over time and
+ * the deck should show one representative mockup per placement, not every
+ * historical regeneration. Input must already be ordered newest-first. */
+function dedupeImagesByLabel(
+  images: ProposalImageAsset[]
+): Array<ProposalImageAsset & { label: string }> {
+  const seen = new Set<string>();
+  const out: Array<ProposalImageAsset & { label: string }> = [];
+  for (const img of images) {
+    const label = resolveProposalImageLabel(img);
+    if (seen.has(label)) continue;
+    seen.add(label);
+    out.push({ ...img, label });
+  }
+  return out;
+}
 
 const ASSET_DECK_CONTENT: Record<string, {
   opportunityTitle: string;
@@ -79,6 +102,10 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
   const company = proposal.companies as { company_name: string; logo_url?: string | null; industry?: string | null } | null;
   const currentYear = new Date().getFullYear();
 
+  const approvedImages = await fetchProposalImagesForLanding(proposal.id);
+  const { campaign: campaignVisuals, inventory: inventoryVisuals } = groupProposalImages(approvedImages);
+  const deckVisuals = dedupeImagesByLabel([...inventoryVisuals, ...campaignVisuals]).slice(0, 6);
+
   return (
     <>
       <style>{`
@@ -124,10 +151,16 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         {/* PAGE 1 — COVER */}
         <div className="deck-page" style={{background:"linear-gradient(135deg,#006400 0%,#004d00 60%,#001a00 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",marginBottom:48}}>
-            <div style={{color:"white",fontSize:28,fontWeight:800,letterSpacing:-1}}>Coritiba FC</div>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/coritiba-logo.svg" alt="Coritiba FC" style={{height:44,width:44,borderRadius:"50%",background:"white"}} />
+              <div style={{color:"white",fontSize:28,fontWeight:800,letterSpacing:-1}}>Coritiba FC</div>
+            </div>
             {company?.logo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={company.logo_url} alt={company.company_name} style={{height:60,objectFit:"contain",filter:"brightness(0) invert(1)"}} />
+              <div style={{background:"white",borderRadius:12,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={company.logo_url} alt={company.company_name} style={{height:40,maxWidth:160,objectFit:"contain"}} />
+              </div>
             )}
           </div>
           <div style={{textAlign:"center",flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
@@ -141,9 +174,13 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
 
         {/* PAGE 2 — CLUB PROFILE */}
         <div className="deck-page" style={{padding:"48px",background:"white"}}>
-          <div style={{borderLeft:"4px solid #006400",paddingLeft:16,marginBottom:32}}>
-            <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Sobre o Clube</div>
-            <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Coritiba Foot Ball Club</h2>
+          <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:32}}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/coritiba-logo.svg" alt="Coritiba FC" style={{height:56,width:56}} />
+            <div style={{borderLeft:"4px solid #006400",paddingLeft:16}}>
+              <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Sobre o Clube</div>
+              <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Coritiba Foot Ball Club</h2>
+            </div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:32}}>
             {([["40.126","Capacidade do Estádio"],["1.5M+","Torcedores no Paraná"],["300M+","Alcance TV/Streaming"],["500K+","Seguidores nas Redes"]] as [string,string][]).map(([v,l]) => (
@@ -270,14 +307,35 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             <div style={{fontSize:11,textTransform:"uppercase",letterSpacing:3,color:"#006400",marginBottom:4}}>Visuais da Campanha</div>
             <h2 style={{fontSize:28,fontWeight:700,color:"#1a1a1a"}}>Mockups e Criações</h2>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%"}}>
-            {(["Jersey Mockup","LED Board","Post de Redes Sociais","Backdrop de Imprensa"] as string[]).map(label => (
-              <div key={label} style={{background:"#e5e7eb",borderRadius:12,height:150,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <span style={{color:"#9ca3af",fontSize:13}}>{label}</span>
+          {deckVisuals.length > 0 ? (
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%"}}>
+                {deckVisuals.map((img) => (
+                  <div key={img.id} style={{background:"white",borderRadius:12,overflow:"hidden",border:"1px solid #e5e7eb"}}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.url}
+                      alt={img.label}
+                      style={{width:"100%",height:150,objectFit:"cover",display:"block"}}
+                    />
+                    <div style={{padding:"8px 12px",fontSize:12,fontWeight:600,color:"#374151"}}>{img.label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <p style={{color:"#9ca3af",fontSize:12,marginTop:16,textAlign:"center"}}>Mockups definitivos gerados após aprovação da proposta</p>
+              <p style={{color:"#9ca3af",fontSize:11,marginTop:16,textAlign:"center"}}>Mockups gerados a partir do logo oficial de {company?.company_name ?? "patrocinador"}</p>
+            </>
+          ) : (
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%"}}>
+                {(["Jersey Mockup","LED Board","Post de Redes Sociais","Backdrop de Imprensa"] as string[]).map(label => (
+                  <div key={label} style={{background:"#e5e7eb",borderRadius:12,height:150,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{color:"#9ca3af",fontSize:13}}>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{color:"#9ca3af",fontSize:12,marginTop:16,textAlign:"center"}}>Mockups definitivos gerados após aprovação da proposta</p>
+            </>
+          )}
         </div>
 
         {/* PAGE 8 — NEXT STEPS */}
