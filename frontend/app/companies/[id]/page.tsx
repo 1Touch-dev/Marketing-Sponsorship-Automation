@@ -48,7 +48,7 @@ export default async function CompanyDetailPage({
   // Fetch related campaigns
   const { data: campaigns } = await sb
     .from("campaigns")
-    .select("id, idea_title, status, created_at")
+    .select("id, title, status, created_at")
     .eq("company_id", company.id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -339,7 +339,7 @@ export default async function CompanyDetailPage({
             <CardContent className="space-y-2">
               {campaigns && campaigns.length > 0 ? campaigns.map((c) => (
                 <Link key={c.id} href={`/campaigns/${c.id}`} className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors">
-                  <span className="text-sm truncate">{c.idea_title || "Untitled"}</span>
+                  <span className="text-sm truncate">{c.title || "Untitled"}</span>
                   <StatusBadge status={c.status} />
                 </Link>
               )) : (
