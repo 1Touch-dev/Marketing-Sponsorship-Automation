@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
   "/icons/",
   "/mockups/",
   "/demo-logos/",
+  "/brand/",           // club logo/crest assets — needed on public proposal share pages
   "/api/internal/",   // secured by INTERNAL_API_SECRET instead of session
   "/api/system/",     // health checks — secured at route level if needed
 ];

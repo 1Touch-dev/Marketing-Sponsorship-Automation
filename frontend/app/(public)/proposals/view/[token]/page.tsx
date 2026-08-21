@@ -77,11 +77,11 @@ export default async function PublicProposalViewPage({
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/brand/coritiba-logo.svg"
+              src="/brand/coritiba-crest.png"
               alt="Coritiba FC"
-              width={28}
-              height={28}
-              className="rounded-full"
+              width={30}
+              height={32}
+              className="object-contain"
             />
             <div>
               <div className="text-sm font-bold text-slate-800 tracking-tight">

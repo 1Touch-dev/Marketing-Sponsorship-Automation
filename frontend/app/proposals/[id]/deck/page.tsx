@@ -157,7 +157,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 48 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/coritiba-logo.svg" alt="Coritiba FC" style={{ height: 44, width: 44, borderRadius: "50%", background: "white" }} />
+              <img src="/brand/coritiba-crest.png" alt="Coritiba FC" style={{ height: 52, width: 48, objectFit: "contain" }} />
               <div style={{ color: "white", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>Coritiba Foot Ball Club</div>
             </div>
             {company?.logo_url && (

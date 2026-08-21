@@ -314,7 +314,7 @@ export function ProposalLandingPage({
             )}
             {/* Coritiba FC chip */}
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/25 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
-              <Image src="/brand/coritiba-logo.svg" alt="Coritiba FC" width={16} height={16} className="rounded-full" />
+              <Image src="/brand/coritiba-crest.png" alt="Coritiba FC" width={16} height={17} className="object-contain" />
               Coritiba FC
             </span>
             <span className={cn("ml-auto rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider backdrop-blur-sm", statusColor)}>
@@ -326,11 +326,11 @@ export function ProposalLandingPage({
           <div className="flex flex-wrap items-center gap-4 mb-5">
             <div className="flex items-center gap-3">
               <Image
-                src="/brand/coritiba-logo.svg"
+                src="/brand/coritiba-crest.png"
                 alt="Coritiba FC"
-                width={56}
-                height={56}
-                className="rounded-full border-2 border-white/30"
+                width={58}
+                height={62}
+                className="object-contain"
               />
               <span className="text-white/50 text-2xl font-light">×</span>
               {company.logo_url ? (
@@ -578,7 +578,7 @@ export function ProposalLandingPage({
                 src={content.campaign_video_url}
                 controls
                 className="w-full h-full object-cover"
-                poster="/brand/coritiba-logo.svg"
+                poster="/brand/coritiba-crest.png"
               >
                 <source src={content.campaign_video_url} type="video/mp4" />
               </video>
@@ -756,8 +756,8 @@ export function ProposalLandingPage({
                 style={{ backgroundImage: "repeating-linear-gradient(90deg, white 0px, white 20px, transparent 20px, transparent 60px)" }} />
               <div className="relative">
                 <div className="flex justify-center mb-5">
-                  <Image src="/brand/coritiba-logo.svg" alt="Coritiba FC" width={56} height={56}
-                    className="rounded-full border-2 border-white/30" />
+                  <Image src="/brand/coritiba-crest.png" alt="Coritiba FC" width={58} height={62}
+                    className="object-contain" />
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-1.5 text-xs font-semibold text-white/70 mb-5 uppercase tracking-wider">
                   <Zap className="h-3 w-3" />
