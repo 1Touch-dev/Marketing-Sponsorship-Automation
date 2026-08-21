@@ -16,6 +16,11 @@
  *      LOGO_DEV_TOKEN for this tier to work. Falls through gracefully if not.
  *   2. Apollo.io org enrichment logo_url — if APOLLO_API_KEY is configured
  *      (already used elsewhere in this codebase for company intelligence).
+ *      Only accepted if Apollo's returned org name plausibly matches the
+ *      company name we asked about — Apollo's domain matching can return an
+ *      unrelated organization for a placeholder/generic domain (seen live:
+ *      example.com resolved to an org called "AI Sales", whose logo then got
+ *      silently composited onto that company's every jersey/stadium mockup).
  *   3. Google favicon @ 256px — always resolves, lowest quality (last resort).
  *
  * Clearbit's public Logo API (logo.clearbit.com) was permanently shut down
@@ -45,6 +50,36 @@ const HEAD_TIMEOUT_MS = 5_000;
 const LOGO_DEV_PLACEHOLDER_BYTES = "68";
 /** Below this, treat the response as a broken/placeholder image, not a real logo. */
 const MIN_PLAUSIBLE_LOGO_BYTES = 200;
+
+/** Lowercases, strips accents/legal suffixes/punctuation for name comparison. */
+function normalizeForMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(ltda|ltd|inc|s\/?a|llc|corp|co|group|grupo)\b/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * True if two company names plausibly refer to the same company — exact
+ * match, one containing the other (handles legal suffixes / location notes
+ * like "(operação PR)"), or at least one shared significant word. Missing
+ * input on either side returns true (nothing to compare, don't block).
+ */
+export function namesLikelyMatch(a?: string | null, b?: string | null): boolean {
+  const na = normalizeForMatch(a ?? "");
+  const nb = normalizeForMatch(b ?? "");
+  if (!na || !nb) return true;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const tokensA = new Set(na.split(" ").filter((t) => t.length > 2));
+  const tokensB = new Set(nb.split(" ").filter((t) => t.length > 2));
+  if (tokensA.size === 0 || tokensB.size === 0) return true;
+  for (const t of tokensA) if (tokensB.has(t)) return true;
+  return false;
+}
 
 export function extractDomain(input?: string | null): string {
   if (!input) return "";
@@ -111,7 +146,11 @@ export async function resolveCompanyLogo(opts: {
     try {
       const { enrichOrganization } = await import("@/lib/intelligence/apollo");
       const org = await enrichOrganization(domain);
-      if (org?.logo_url && (await headIsImage(org.logo_url))) {
+      if (
+        org?.logo_url &&
+        namesLikelyMatch(org.name, opts.companyName) &&
+        (await headIsImage(org.logo_url))
+      ) {
         return { logoUrl: org.logo_url, source: "apollo", domain };
       }
     } catch {
