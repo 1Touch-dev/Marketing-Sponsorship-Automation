@@ -87,7 +87,18 @@ export function WarmupStrategyPanel({ companyId }: { companyId: string }) {
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "Enroll failed");
       const seq = sequences.find((s) => s.id === selectedSequence);
-      setEnrollments((prev) => [{ ...j.data, warmup_sequences: seq ? { name: seq.name, steps: seq.steps } : undefined }, ...prev]);
+      // The POST response has no joins (matches/warmup_sequences) — enrich the
+      // optimistic card locally from state already loaded, so the "vs Opponent"
+      // line and strategy name show immediately instead of only after a reload.
+      const match = matches.find((m) => m.id === selectedMatch);
+      setEnrollments((prev) => [
+        {
+          ...j.data,
+          warmup_sequences: seq ? { name: seq.name, steps: seq.steps } : undefined,
+          matches: match ? { opponent: match.opponent, match_date: match.match_date } : null,
+        },
+        ...prev,
+      ]);
       setEnrolling(false);
       setContactName("");
       setSelectedMatch("");
