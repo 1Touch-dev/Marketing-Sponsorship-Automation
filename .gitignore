@@ -54,6 +54,9 @@ jersey-assets/coritiba_jersey_lora_training_v2.zip
 Market_Sponsorship_Automation.bak/
 frontend/.env.local
 
+# QA screenshots/evidence from manual or agent-driven test passes — local only
+qa-evidence/
+
 # Acervo / training data — large binaries stay on server only
 assets/
 training-data/
