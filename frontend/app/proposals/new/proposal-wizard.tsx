@@ -18,6 +18,7 @@ type Company = {
   website: string | null; logo_url: string | null; notes: string | null;
 };
 type Campaign = { id: string; title: string; summary: string | null; status: string };
+type MatchOption = { id: string; opponent: string; match_date: string };
 type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand";
 type Component = { id: string; name: string; category: string; type: string; icon: React.ElementType; price?: string };
 type Strategy = { key: string; label: string; description: string; icon: React.ElementType; color: string };
@@ -190,6 +191,8 @@ export function ProposalWizard({
     return null;
   });
   const [companySearch, setCompanySearch] = useState("");
+  const [matches, setMatches] = useState<MatchOption[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<string>("");
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
   const [selectedInventoryLines, setSelectedInventoryLines] = useState<SelectedInventoryLine[]>([]);
   const [dbInventory, setDbInventory] = useState<DbInventoryItem[]>([]);
@@ -207,6 +210,14 @@ export function ProposalWizard({
       body: JSON.stringify({ session_key: sessionKey, ...updates }),
     });
   }, [sessionKey]);
+
+  // Fetch upcoming matches once, for the optional per-match scoping picker in step 2
+  useEffect(() => {
+    fetch("/api/matches?limit=20", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setMatches(d.data ?? []))
+      .catch(() => {});
+  }, []);
 
   // Fetch live inventory when reaching step 3 (sponsorship/mixed) — always refetch for freshness
   useEffect(() => {
@@ -298,6 +309,7 @@ export function ProposalWizard({
           proposal_type: proposalType,
           company_id: selectedCompany.id,
           campaign_id: campaign?.id ?? null,
+          match_id: selectedMatchId || null,
           selected_components: selectedComponents,
           selected_inventory_lines: selectedInventoryLines,
           selected_strategies: selectedStrategies,
@@ -454,6 +466,28 @@ export function ProposalWizard({
                 </div>
               </div>
             )}
+
+            {/* Optional per-match scoping */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Scope to a match (optional)</label>
+              <select
+                value={selectedMatchId}
+                onChange={(e) => setSelectedMatchId(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Not tied to a specific match</option>
+                {matches.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    vs {m.opponent} · {new Date(m.match_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                  </option>
+                ))}
+              </select>
+              {matches.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No matches loaded yet — add one under <a href="/matches" className="text-primary underline">Matches</a> to enable per-match proposals.
+                </p>
+              )}
+            </div>
 
             <div className="flex justify-between pt-2">
               <Button variant="outline" onClick={back} className="gap-2"><ChevronLeft className="h-4 w-4" /> Back</Button>

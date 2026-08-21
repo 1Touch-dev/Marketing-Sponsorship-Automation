@@ -42,6 +42,8 @@ import {
   Radar,
   Workflow,
   LayoutTemplate,
+  CalendarDays,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -94,6 +96,7 @@ const NAV: NavItem[] = [
   { href: "/contacts", label: "Contacts", icon: Users, group: "core" },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
   { href: "/contracts", label: "Contracts", icon: FileCheck, group: "core" },
+  { href: "/matches", label: "Matches", icon: CalendarDays, group: "core" },
   { href: "/reports", label: "Reports", icon: BarChart3, group: "core" },
   // Proposal workflow
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
@@ -107,6 +110,7 @@ const NAV: NavItem[] = [
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
   { href: "/settings/email-templates", label: "Email Templates", icon: ScrollText, group: "proposals" },
   { href: "/settings/email-flows", label: "Email Flows", icon: Workflow, group: "proposals" },
+  { href: "/settings/warmup-sequences", label: "Warm-up Strategies", icon: Flame, group: "proposals" },
   { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
   { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
   { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },

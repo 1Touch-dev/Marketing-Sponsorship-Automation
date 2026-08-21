@@ -17,6 +17,7 @@ import { InlineIndustryEdit } from "@/components/companies/inline-industry-edit"
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
+import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
 
 export const dynamic = "force-dynamic";
@@ -118,6 +119,9 @@ export default async function CompanyDetailPage({
 
           {/* Outreach Agent */}
           <OutreachAgentPanel companyId={company.id} companyName={company.company_name} />
+
+          {/* Warm-up Strategy */}
+          <WarmupStrategyPanel companyId={company.id} />
 
           {/* Company info cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

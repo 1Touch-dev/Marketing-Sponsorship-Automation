@@ -52,26 +52,72 @@ async function resolveTextValues(companyId: string): Promise<Record<string, stri
     .eq("id", companyId)
     .maybeSingle();
 
-  const { data: proposal } = await sb
-    .from("proposals")
-    .select("title, content")
-    .eq("company_id", companyId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Try to select match_id too — tolerate migration 0042 not being applied yet
+  // (older `proposals` schema without the column) by falling back silently.
+  let proposal: Record<string, unknown> | null = null;
+  {
+    const { data, error } = await sb
+      .from("proposals")
+      .select("title, content, match_id")
+      .eq("company_id", companyId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error) proposal = data as Record<string, unknown> | null;
+    else {
+      const { data: fallback } = await sb
+        .from("proposals")
+        .select("title, content")
+        .eq("company_id", companyId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      proposal = fallback as Record<string, unknown> | null;
+    }
+  }
 
   const content = (proposal?.content as Record<string, string> | null) ?? {};
 
-  return {
+  const values: Record<string, string> = {
     COMPANY_NAME: company?.company_name ?? "",
     INDUSTRY: company?.industry ?? "",
     WEBSITE: company?.website ?? "",
     COUNTRY: company?.country ?? "",
-    PROPOSAL_TITLE: proposal?.title ?? "",
+    PROPOSAL_TITLE: (proposal?.title as string) ?? "",
     EXEC_SUMMARY: content.executive_summary ?? "",
     CAMPAIGN_RATIONALE: content.campaign_rationale ?? "",
     CTA: content.cta ?? "",
   };
+
+  // Per-match media reach — populates MATCH_* tokens when the proposal is
+  // scoped to a match (frontend/app/matches — editable views breakdown).
+  const matchId = proposal?.match_id as string | undefined;
+  if (matchId) {
+    const { data: match } = await sb
+      .from("matches")
+      .select("opponent, match_date, match_media_reach(*)")
+      .eq("id", matchId)
+      .maybeSingle();
+    if (match) {
+      const reachRaw = (match as Record<string, unknown>).match_media_reach;
+      const reach = (Array.isArray(reachRaw) ? reachRaw[0] : reachRaw) as Record<string, number> | null;
+      const official = reach?.official_views ?? 0;
+      const unofficial = reach?.unofficial_fan_views ?? 0;
+      const rival = reach?.rival_account_views ?? 0;
+      const mediaTv = reach?.media_tv_radio_views ?? 0;
+      values.MATCH_OPPONENT = (match as { opponent?: string }).opponent ?? "";
+      values.MATCH_DATE = (match as { match_date?: string }).match_date
+        ? new Date((match as { match_date: string }).match_date + "T00:00:00").toLocaleDateString("pt-BR")
+        : "";
+      values.MATCH_OFFICIAL_VIEWS = official.toLocaleString("pt-BR");
+      values.MATCH_UNOFFICIAL_VIEWS = unofficial.toLocaleString("pt-BR");
+      values.MATCH_RIVAL_VIEWS = rival.toLocaleString("pt-BR");
+      values.MATCH_MEDIA_TV_VIEWS = mediaTv.toLocaleString("pt-BR");
+      values.MATCH_TOTAL_VIEWS = (official + unofficial + rival + mediaTv).toLocaleString("pt-BR");
+    }
+  }
+
+  return values;
 }
 
 async function generateOnePlaceholderImage(

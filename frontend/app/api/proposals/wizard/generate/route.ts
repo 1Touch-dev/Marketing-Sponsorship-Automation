@@ -14,6 +14,7 @@ export async function POST(req: Request) {
       proposal_type: string;
       company_id: string;
       campaign_id?: string | null;
+      match_id?: string | null;
       selected_components?: string[];
       selected_inventory_lines?: Array<{
         inventory_id: string;
@@ -122,7 +123,9 @@ export async function POST(req: Request) {
     }
 
     // Create proposal
-    const { data: proposal, error } = await sb.from("proposals").insert({
+    // match_id is only sent when set — omitting it keeps proposal creation working
+    // even before migration 0042 (which adds the column) has been applied.
+    const proposalRow: Record<string, unknown> = {
       title: (parsed.title as string) ?? `${company.company_name} × Coritiba FC — Proposal`,
       company_id: company.id,
       campaign_id: campaignId,
@@ -132,7 +135,10 @@ export async function POST(req: Request) {
       selected_components: selectedComponents,
       selected_strategies: selectedStrategies,
       version: 1,
-    }).select("id").single();
+    };
+    if (body.match_id) proposalRow.match_id = body.match_id;
+
+    const { data: proposal, error } = await sb.from("proposals").insert(proposalRow as never).select("id").single();
 
     if (error) throw new Error(error.message);
 
