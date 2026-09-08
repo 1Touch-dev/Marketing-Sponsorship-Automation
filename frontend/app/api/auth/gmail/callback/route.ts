@@ -4,6 +4,7 @@ import { exchangeCodeForTokens, gmailClientFromTokens } from "@/lib/gmail/client
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { resolveAppUrl } from "@/lib/url";
+import { encryptSecret } from "@/lib/security/secret-crypto";
 
 export const runtime = "nodejs";
 
@@ -22,8 +23,15 @@ export const runtime = "nodejs";
  *     connected_at       // ISO timestamp of the authorization
  *   }
  *
+ * access_token/refresh_token are stored encrypted at rest (Pattern 6
+ * hardening — see lib/security/secret-crypto.ts) via encryptSecret().
+ * Callers that need to actually use them with the Gmail API must run them
+ * through decryptSecret() first; callers that only check presence/expiry
+ * (status route, settings page) can use the stored value as-is.
+ *
  * If Google does not return a new refresh_token (e.g. re-authorization),
- * the previously stored refresh_token is preserved.
+ * the previously stored refresh_token is preserved as-is (it is already
+ * encrypted from the prior write — not re-encrypted here).
  */
 export async function GET(req: Request) {
   const baseUrl = resolveAppUrl(req);
@@ -84,9 +92,17 @@ export async function GET(req: Request) {
   }
 
   // ── 4. Build enriched token payload ──────────────────────────────────────
+  // access_token is always fresh plaintext from Google here — encrypt it.
+  // refresh_token is either fresh plaintext from Google (encrypt it) or the
+  // preserved existingRefreshToken, which is already encrypted (or legacy
+  // plaintext) from a prior write — pass it through unchanged either way.
   const tokenPayload = {
-    access_token: tokens.access_token ?? null,
-    refresh_token: tokens.refresh_token ?? existingRefreshToken ?? null,
+    access_token:
+      typeof tokens.access_token === "string" ? encryptSecret(tokens.access_token) : null,
+    refresh_token:
+      typeof tokens.refresh_token === "string"
+        ? encryptSecret(tokens.refresh_token)
+        : (existingRefreshToken ?? null),
     expiry_date: tokens.expiry_date ?? null,
     scope: tokens.scope ?? null,
     token_type: tokens.token_type ?? "Bearer",

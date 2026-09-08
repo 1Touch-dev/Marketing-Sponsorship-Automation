@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { gmailClientFromTokens, listThreadMessages } from "@/lib/gmail/client";
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
+import { decryptSecret } from "@/lib/security/secret-crypto";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,7 +38,14 @@ export async function POST(req: Request) {
     );
   }
 
-  const gmail = gmailClientFromTokens(tokens);
+  // Tokens are stored encrypted at rest (Pattern 6 hardening) —
+  // decryptSecret() passes through legacy plaintext values unchanged, so
+  // this works for tokens stored before or after that change.
+  const gmail = gmailClientFromTokens({
+    access_token: tokens.access_token ? decryptSecret(tokens.access_token) : undefined,
+    refresh_token: tokens.refresh_token ? decryptSecret(tokens.refresh_token) : undefined,
+    expiry_date: tokens.expiry_date,
+  });
 
   let query = sb
     .from("emails")

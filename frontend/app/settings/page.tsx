@@ -10,6 +10,7 @@ import {
   Mail, ChevronRight,
 } from "lucide-react";
 import { BackfillButton } from "./backfill-button";
+import { GmailDisconnectButton } from "./gmail-disconnect-button";
 
 export const dynamic = "force-dynamic";
 
@@ -261,11 +262,14 @@ export default async function SettingsPage({
               </div>
             )}
 
-            <Button asChild>
-              <a href="/api/auth/gmail">{gmailConnected ? "Reconnect Gmail" : "Connect Gmail"}</a>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button asChild>
+                <a href="/api/auth/gmail">{gmailConnected ? "Reconnect Gmail" : "Connect Gmail"}</a>
+              </Button>
+              {gmailConnected && <GmailDisconnectButton />}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Scopes: gmail.compose, gmail.send, gmail.readonly, gmail.modify.
+              Scopes: gmail.compose, gmail.readonly. Tokens are encrypted at rest.
             </p>
 
             {/* Remind the operator which redirect URI must be registered in Google Cloud */}

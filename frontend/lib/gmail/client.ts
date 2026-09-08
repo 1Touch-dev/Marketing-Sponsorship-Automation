@@ -11,11 +11,18 @@ import { serverEnv } from "@/lib/env";
  *   - For the MVP we treat the DEFAULT_FROM_EMAIL user as the sender;
  *     a multi-mailbox model is Phase 2.
  */
+/**
+ * Hardening pass (master_report.md Section 8, Pattern 6 — minimum-scope
+ * grants). Audited every gmail_v1 call this codebase actually makes:
+ * users.drafts.create/send (lib/gmail/client.ts) and users.threads.get
+ * (sync-threads route) — nothing calls messages.send directly, and nothing
+ * touches labels/trash/modify. gmail.compose already covers creating AND
+ * sending drafts (and direct message sending), making gmail.send fully
+ * redundant here; gmail.modify was unused entirely. Dropped both.
+ */
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.compose",
-  "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.modify",
 ];
 
 export function oauthClient() {
@@ -126,18 +133,6 @@ export async function sendGmailDraft(gmail: gmail_v1.Gmail, draftId: string) {
   const res = await gmail.users.drafts.send({
     userId: "me",
     requestBody: { id: draftId },
-  });
-  return res.data;
-}
-
-export async function sendGmailMessage(
-  gmail: gmail_v1.Gmail,
-  args: Parameters<typeof createGmailDraft>[1],
-) {
-  const raw = encodeRfc822(args);
-  const res = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: { raw, threadId: args.threadId },
   });
   return res.data;
 }
