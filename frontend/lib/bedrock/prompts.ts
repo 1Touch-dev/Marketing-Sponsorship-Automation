@@ -302,6 +302,53 @@ export function proposalPrompt(args: {
 }
 
 // ---------------------------------------------------------------------------
+// Barter deal-term structuring (Phase 2 piece 3 — master_report.md 7.2,
+// extending Pattern 1's claim-grounding into the barter proposal type
+// specifically). Appended to proposalPrompt()'s user message when
+// proposal_type is "barter" — the base prompt/Rule 10 already forbid
+// inventing facts about the SPONSOR; this additionally forbids inventing
+// specific exchange items Coritiba doesn't actually have an open need for.
+// ---------------------------------------------------------------------------
+export interface BarterGroundingItem {
+  item_name: string;
+  category: string;
+  quantity: string | null;
+  target_price: number | null;
+  currency: string | null;
+}
+
+export function barterTermsInstructionBlock(openItems: BarterGroundingItem[]): string {
+  const itemsBlock = openItems.length
+    ? openItems
+        .map(
+          (i) =>
+            `- ${i.item_name} (${i.category})${i.quantity ? `, qty: ${i.quantity}` : ""}${
+              i.target_price ? `, target value: ${i.currency ?? "BRL"} ${i.target_price.toLocaleString("pt-BR")}` : ""
+            }`,
+        )
+        .join("\n")
+    : null;
+
+  return [
+    "",
+    "BARTER DEAL-TERM STRUCTURING (this is a barter/permuta proposal):",
+    itemsBlock
+      ? `Coritiba FC currently has these OPEN barter needs — only propose exchanging items from this real list if the sponsor's industry plausibly supplies them:\n${itemsBlock}`
+      : "Coritiba FC has no specific open barter needs on file right now — do NOT invent specific items to request. Propose a general cash + in-kind structure instead (e.g. a percentage of the sponsorship value offset by goods/services broadly typical of the sponsor's industry, described qualitatively, not as fabricated specific SKUs).",
+    "In addition to the standard proposal JSON fields, include this extra key:",
+    `"barter_terms": {
+  "exchange_items": [
+    { "item_name": "must match an item from the OPEN barter needs list above if one was provided and relevant; otherwise a general category, not a fabricated specific product", "estimated_value_brl": <number or null>, "notes": "why this fits the sponsor" }
+  ],
+  "cash_portion_pct": <0-100, the share of sponsorship value paid in cash>,
+  "exchange_portion_pct": <0-100, must sum to 100 with cash_portion_pct>,
+  "structure_notes": "2-3 sentences explaining the proposed split rationale"
+}`,
+    "Per Rule 10, only claim a specific item is something Coritiba needs if it appears in the OPEN barter needs list above — otherwise keep exchange_items general.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Pricing tiers
 // ---------------------------------------------------------------------------
 export function pricingTiersPrompt(args: {

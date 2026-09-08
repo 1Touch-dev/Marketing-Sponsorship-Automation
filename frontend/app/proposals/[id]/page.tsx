@@ -278,6 +278,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                   </div>
                 )}
                 {renderSection("Investment", (p.content as unknown as Record<string, string>)?.investment_note)}
+                {renderBarterTerms((p.content as unknown as { barter_terms?: BarterTerms })?.barter_terms)}
                 {renderSection("Call to action", (p.content as unknown as Record<string, string>)?.cta)}
                 {p.prompt_version && (
                   <div className="text-xs text-muted-foreground border-t pt-2">
@@ -478,6 +479,42 @@ function renderSection(title: string, body?: string | null) {
     <div>
       <div className="font-medium text-sm">{title}</div>
       <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{body}</p>
+    </div>
+  );
+}
+
+type BarterTerms = {
+  exchange_items?: Array<{ item_name: string; estimated_value_brl?: number | null; notes?: string }>;
+  cash_portion_pct?: number;
+  exchange_portion_pct?: number;
+  structure_notes?: string;
+};
+
+/** Phase 2 piece 3 — structured barter deal-term suggestions, see lib/bedrock/prompts.ts barterTermsInstructionBlock(). */
+function renderBarterTerms(terms?: BarterTerms) {
+  if (!terms) return null;
+  return (
+    <div>
+      <div className="font-medium text-sm">Barter deal terms</div>
+      {(terms.cash_portion_pct !== undefined || terms.exchange_portion_pct !== undefined) && (
+        <p className="text-sm text-muted-foreground mt-1">
+          {terms.cash_portion_pct ?? "?"}% cash / {terms.exchange_portion_pct ?? "?"}% exchange
+        </p>
+      )}
+      {terms.exchange_items && terms.exchange_items.length > 0 && (
+        <ul className="text-sm text-muted-foreground list-disc ml-5 mt-1">
+          {terms.exchange_items.map((it, i) => (
+            <li key={i}>
+              {it.item_name}
+              {it.estimated_value_brl ? ` — ~R$${it.estimated_value_brl.toLocaleString("pt-BR")}` : ""}
+              {it.notes ? ` (${it.notes})` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+      {terms.structure_notes && (
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{terms.structure_notes}</p>
+      )}
     </div>
   );
 }

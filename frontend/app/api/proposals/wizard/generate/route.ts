@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
-import { proposalPrompt } from "@/lib/bedrock/prompts";
+import { proposalPrompt, barterTermsInstructionBlock, type BarterGroundingItem } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 90;
 
@@ -89,6 +89,22 @@ export async function POST(req: Request) {
       : "";
     const briefContext = body.custom_brief ? `\nAdditional brief: ${body.custom_brief}` : "";
 
+    // Phase 2 piece 3 — barter deal-term structuring, grounded in Coritiba's
+    // real open barter needs rather than letting the model invent specific
+    // exchange items (extends Pattern 1's claim-grounding rule).
+    let barterContext = "";
+    if (body.proposal_type === "barter") {
+      const { data: openBarterItems } = await sb
+        .from("barter_items" as "companies")
+        .select("item_name, category, quantity, target_price, currency")
+        .eq("status", "open")
+        .order("priority", { ascending: false })
+        .limit(8);
+      barterContext = barterTermsInstructionBlock(
+        ((openBarterItems as unknown as BarterGroundingItem[]) ?? []),
+      );
+    }
+
     const strategyVariant = selectedStrategies[0]?.replace(/_/g, " ") ?? null;
 
     const { system, user } = proposalPrompt({
@@ -97,7 +113,7 @@ export async function POST(req: Request) {
       strategy_variant: strategyVariant,
     });
 
-    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext;
+    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext;
 
     const result = await invokeClaude({
       messages: [{ role: "user", content: enhancedUser }],
