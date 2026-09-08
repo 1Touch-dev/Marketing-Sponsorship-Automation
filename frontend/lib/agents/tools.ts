@@ -451,22 +451,37 @@ export async function toolSendEmail(input: {
 }): Promise<ToolResult> {
   const sb = supabaseAdmin();
 
-  try {
-    const { data: email } = await sb
-      .from("emails")
-      .select("*")
-      .eq("id", input.email_id)
-      .single();
+  // Infrastructure-enforced send gate: atomically claim the email by flipping
+  // it to a transient "sending" status, guarded on it not already being
+  // sent/sending. Two concurrent callers (double-click, retry, two approve
+  // routes) race on this single UPDATE — only one can win the WHERE clause,
+  // so at most one ever proceeds to actually send. A prior SELECT-then-UPDATE
+  // here left a real window where both could pass the check and send twice.
+  const { data: claimed } = await sb
+    .from("emails")
+    .update({ status: "sending" })
+    .eq("id", input.email_id)
+    .neq("status", "sent")
+    .neq("status", "sending")
+    .select("*")
+    .maybeSingle();
 
-    if (!email) return { success: false, data: { sent: false }, summary: "Email not found" };
-    if (email.status === "sent") {
-      return {
-        success: true,
-        data: { sent: true, already_sent: true },
-        summary: "Email was already sent",
-      };
+  if (!claimed) {
+    const { data: existing } = await sb.from("emails").select("status").eq("id", input.email_id).maybeSingle();
+    if (!existing) return { success: false, data: { sent: false }, summary: "Email not found" };
+    if (existing.status === "sent") {
+      return { success: true, data: { sent: true, already_sent: true }, summary: "Email was already sent" };
     }
+    return {
+      success: false,
+      data: { sent: false },
+      summary: `Email is currently "${existing.status}" — not sending (already in flight or in a non-sendable state)`,
+    };
+  }
 
+  const email = claimed;
+
+  try {
     let pipedriveDealId: number | null = null;
     let pipedriveOrgId: number | null = null;
 
@@ -519,6 +534,10 @@ export async function toolSendEmail(input: {
     };
   } catch (err) {
     logger.warn("Agent tool send_email failed", { error: String(err) });
+    // Release the claim so the email isn't stranded in "sending" forever —
+    // only revert if it's still "sending" (don't clobber a status a retry
+    // or another path may have already moved forward from).
+    await sb.from("emails").update({ status: "pending_approval" }).eq("id", input.email_id).eq("status", "sending");
     return {
       success: false,
       data: { sent: false },

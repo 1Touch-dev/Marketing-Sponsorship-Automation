@@ -20,17 +20,28 @@ export async function resumeAgentAfterProposalApproval(
 ): Promise<ResumeAfterProposalResult> {
   const sb = supabaseAdmin();
 
-  const { data: run } = await sb
+  // Infrastructure-enforced gate: atomically claim the run out of
+  // "paused_for_proposal_approval" into a transient "resuming" status in one
+  // guarded UPDATE, instead of reading the status and writing back later.
+  // Prevents two concurrent approve-proposal calls on the same run from both
+  // passing the check and both drafting a duplicate email.
+  const { data: claimed } = await sb
     .from("agent_runs" as "companies")
-    .select("*")
+    .update({ status: "resuming", updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
     .eq("id", runId)
+    .eq("status", "paused_for_proposal_approval")
+    .select("*")
     .maybeSingle() as unknown as { data: Record<string, unknown> | null };
 
-  if (!run) {
-    return { success: false, agentResult: {}, steps: [], error: "Run not found" };
-  }
-
-  if (run.status !== "paused_for_proposal_approval") {
+  if (!claimed) {
+    const { data: run } = await sb
+      .from("agent_runs" as "companies")
+      .select("*")
+      .eq("id", runId)
+      .maybeSingle() as unknown as { data: Record<string, unknown> | null };
+    if (!run) {
+      return { success: false, agentResult: {}, steps: [], error: "Run not found" };
+    }
     return {
       success: false,
       agentResult: (run.result as AgentResult) ?? {},
@@ -39,11 +50,15 @@ export async function resumeAgentAfterProposalApproval(
     };
   }
 
+  const run = claimed;
+
   const result = (run.result as AgentResult) ?? {};
   const steps = [...((run.steps as AgentStep[]) ?? [])];
   const proposalId = result.proposal_id;
 
   if (!proposalId) {
+    // Release the claim — nothing to resume, don't leave the run stuck as "resuming".
+    await sb.from("agent_runs" as "companies").update({ status: "paused_for_proposal_approval" } as unknown as Record<string, unknown>).eq("id", runId);
     return { success: false, agentResult: result, steps, error: "No proposal on this run" };
   }
 

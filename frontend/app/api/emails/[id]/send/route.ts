@@ -50,6 +50,27 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     );
   }
 
+  // Infrastructure-enforced send gate (mode="send" only — "draft"/"approved"
+  // has no external side effect, so it's naturally idempotent). Atomically
+  // claim the row by flipping it to a transient "sending" status guarded on
+  // it not already being sent/sending, so two concurrent send requests for
+  // the same email (double-click, retry, or this route racing the agent's
+  // own send path in lib/agents/tools.ts) can't both pass the check and
+  // both actually send. Only one request can win this UPDATE's WHERE clause.
+  if (mode === "send") {
+    const { data: claimed } = await sb
+      .from("emails")
+      .update({ status: "sending" })
+      .eq("id", email.id)
+      .neq("status", "sent")
+      .neq("status", "sending")
+      .select("id")
+      .maybeSingle();
+    if (!claimed) {
+      return NextResponse.json({ error: "Email is already sending or was just sent" }, { status: 409 });
+    }
+  }
+
   const eventId = await startWorkflow({
     workflow_name: mode === "send" ? "email.send" : "email.draft",
     entity_type: "email",
@@ -57,60 +78,75 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     metadata: { mode },
   });
 
-  // Resolve Pipedrive IDs from the linked proposal/company
-  let pipedriveDealId: number | null = null;
-  let pipedriveOrgId: number | null = null;
-  let pipedrivePersonId: number | null = null;
+  // Everything from here on can fail partway through (Pipedrive call, DB
+  // write) — if it does after we've claimed "sending" above, release the
+  // claim so the email isn't stranded in an unsendable limbo forever.
+  let activity_id: number | null = null;
+  let pdError: string | null = null;
+  let updated: Record<string, unknown> | null = null;
+  try {
+    // Resolve Pipedrive IDs from the linked proposal/company
+    let pipedriveDealId: number | null = null;
+    let pipedriveOrgId: number | null = null;
+    let pipedrivePersonId: number | null = null;
 
-  if (email.proposal_id) {
-    const ids = await resolveProposalPipedriveIds(sb, email.proposal_id);
-    pipedriveDealId = ids.dealId;
-    pipedriveOrgId = ids.orgId;
+    if (email.proposal_id) {
+      const ids = await resolveProposalPipedriveIds(sb, email.proposal_id);
+      pipedriveDealId = ids.dealId;
+      pipedriveOrgId = ids.orgId;
 
-    const { data: proposal } = await sb
-      .from("proposals")
-      .select("companies(full_intelligence)")
-      .eq("id", email.proposal_id)
-      .maybeSingle();
-    const companyData = (proposal as Record<string, unknown> | null)?.companies as Record<string, unknown> | null;
-    const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
-    pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
-  }
+      const { data: proposal } = await sb
+        .from("proposals")
+        .select("companies(full_intelligence)")
+        .eq("id", email.proposal_id)
+        .maybeSingle();
+      const companyData = (proposal as Record<string, unknown> | null)?.companies as Record<string, unknown> | null;
+      const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
+      pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
+    }
 
-  // Log to Pipedrive Activities
-  const { activity_id, error: pdError } = await logEmailToPipedrive({
-    subject: email.subject,
-    bodyHtml: email.body_html ?? email.body_text ?? "",
-    pipedrive_deal_id: pipedriveDealId,
-    pipedrive_org_id: pipedriveOrgId,
-    pipedrive_person_id: pipedrivePersonId,
-  });
+    // Log to Pipedrive Activities
+    const pdResult = await logEmailToPipedrive({
+      subject: email.subject,
+      bodyHtml: email.body_html ?? email.body_text ?? "",
+      pipedrive_deal_id: pipedriveDealId,
+      pipedrive_org_id: pipedriveOrgId,
+      pipedrive_person_id: pipedrivePersonId,
+    });
+    activity_id = pdResult.activity_id;
+    pdError = pdResult.error ?? null;
 
-  const updates: Record<string, unknown> = {
-    status: mode === "send" ? "sent" : "approved",
-    approved_at: new Date().toISOString(),
-    // Store Pipedrive activity ID in metadata field
-    metadata: {
-      ...(email.metadata as Record<string, unknown> ?? {}),
-      pipedrive_activity_id: activity_id,
-      pipedrive_error: pdError ?? null,
-    },
-  };
+    const updates: Record<string, unknown> = {
+      status: mode === "send" ? "sent" : "approved",
+      approved_at: new Date().toISOString(),
+      // Store Pipedrive activity ID in metadata field
+      metadata: {
+        ...(email.metadata as Record<string, unknown> ?? {}),
+        pipedrive_activity_id: activity_id,
+        pipedrive_error: pdError ?? null,
+      },
+    };
 
-  if (mode === "send") {
-    updates.sent_at = new Date().toISOString();
-  }
+    if (mode === "send") {
+      updates.sent_at = new Date().toISOString();
+    }
 
-  const { data: updated, error: updErr } = await sb
-    .from("emails")
-    .update(updates)
-    .eq("id", email.id)
-    .select("*")
-    .single();
+    const { data: updatedRow, error: updErr } = await sb
+      .from("emails")
+      .update(updates)
+      .eq("id", email.id)
+      .select("*")
+      .single();
 
-  if (updErr) {
-    if (eventId) await failWorkflow(eventId, updErr.message);
-    return NextResponse.json({ error: updErr.message }, { status: 500 });
+    if (updErr) throw new Error(updErr.message);
+    updated = updatedRow;
+  } catch (err) {
+    if (mode === "send") {
+      await sb.from("emails").update({ status: "pending_approval" }).eq("id", email.id).eq("status", "sending");
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    if (eventId) await failWorkflow(eventId, message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   if (eventId) {

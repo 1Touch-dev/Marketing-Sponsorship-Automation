@@ -24,6 +24,7 @@ export type EmailStatus =
   | "draft"
   | "pending_approval"
   | "approved"
+  | "sending" // transient — claimed for send, see lib/agents/tools.ts
   | "sent"
   | "opened"
   | "replied"

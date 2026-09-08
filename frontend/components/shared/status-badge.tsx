@@ -27,6 +27,7 @@ const VARIANT_MAP: Record<string, "default" | "secondary" | "success" | "warning
   active_contract: "success",
   // emails
   pending_approval: "warning",
+  sending: "info",
   opened: "info",
   replied: "success",
   bounced: "destructive",
@@ -50,6 +51,7 @@ const LABEL_MAP: Record<string, string> = {
   under_review: "Under Review",
   revision_requested: "Revision Requested",
   pending_approval: "Pending Approval",
+  sending: "Sending…",
 };
 
 export function StatusBadge({ status }: { status: AnyStatus }) {
