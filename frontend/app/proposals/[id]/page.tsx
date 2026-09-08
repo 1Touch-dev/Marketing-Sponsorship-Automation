@@ -17,6 +17,7 @@ import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
+import { getProposalEngagementStats } from "@/lib/proposals/engagement";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
 import { VersionHistoryPanel } from "@/components/proposals/version-history-panel";
@@ -52,11 +53,8 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const inlineImages = await fetchProposalImagesForLanding(proposal.id);
   const hasImages = inlineImages.length > 0;
 
-  const { count: viewCount } = await sb
-    .from("audit_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("entity_id", proposal.id)
-    .eq("action", "proposal.view");
+  const engagement = await getProposalEngagementStats(sb, proposal.id);
+  const viewCount = engagement.view_count;
 
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null; logo_url?: string | null } | null;
@@ -314,6 +312,36 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             hasImages={hasImages}
             hasLogo={hasLogo}
           />
+
+          {/* Phase 5 — engagement analytics (views, time-on-page, scroll depth) */}
+          {engagement.view_count > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Engagement</CardTitle>
+                <CardDescription>Sponsor-side share-link activity</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Views</span><span className="font-medium">{engagement.view_count}</span></div>
+                {engagement.avg_time_on_page_seconds !== null && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Avg. time on page</span><span className="font-medium">{Math.round(engagement.avg_time_on_page_seconds / 60 * 10) / 10} min</span></div>
+                )}
+                {engagement.avg_max_scroll_pct !== null && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Avg. scroll depth</span><span className="font-medium">{engagement.avg_max_scroll_pct}%</span></div>
+                )}
+                {engagement.days_since_last_view !== null && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Last viewed</span>
+                    <span className="font-medium">{engagement.days_since_last_view === 0 ? "Today" : `${engagement.days_since_last_view}d ago`}</span>
+                  </div>
+                )}
+                {engagement.days_since_last_view !== null && engagement.days_since_last_view >= 10 && ["sent", "approved"].includes(proposal.status) && (
+                  <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                    ⚠ Gone cold — no view in {engagement.days_since_last_view} days. Consider a follow-up.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Inline image preview — shown at step 4 so you can review before going live */}
           {inlineImages.length > 0 && (

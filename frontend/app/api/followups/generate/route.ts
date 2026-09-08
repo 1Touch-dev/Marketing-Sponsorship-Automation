@@ -15,7 +15,13 @@ export const maxDuration = 60;
 
 const MAX_RETRIES = 2;
 
-const inputSchema = z.object({ email_id: z.string().uuid() });
+const inputSchema = z.object({
+  email_id: z.string().uuid(),
+  // Phase 5 — gone-cold nudges (see app/api/proposals/detect-cold/route.ts)
+  // use this same generator but with a reason reflecting engagement
+  // signal rather than elapsed time since send.
+  reason: z.string().max(300).optional(),
+});
 
 type EmailRow = {
   id: string;
@@ -159,7 +165,7 @@ export async function POST(req: Request) {
       parent_email_id: typedEmail.id,
       draft_email_id: draft.id,
       suggested_body: validated.body_text,
-      reason: `Auto follow-up after ${daysSince} day(s)`,
+      reason: parsed.data.reason ?? `Auto follow-up after ${daysSince} day(s)`,
       status: "suggested",
     })
     .select("*")
