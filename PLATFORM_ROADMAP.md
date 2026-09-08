@@ -95,13 +95,17 @@ Not code. See Sections 6 and 7 below for full detail.
 - [x] Immutable, access-isolated, offsite backups on credentials separate from production. (Pattern 7) — **Done, fully verified live in production.** Daily export script uploads to a dedicated, Object-Locked (90-day, Compliance mode) S3 bucket under an IAM identity that only has `s3:PutObject`/`s3:PutObjectRetention` — no read/list/delete, so a compromised production credential can't touch existing backups. Still owed: wiring the script to an actual daily schedule (currently manual-trigger only).
 
 ### Phase 2 — Improve the text/email agents (per James's sequencing)
-- [ ] Concrete scope TBD with James/team — likely: better negotiation/barter drafting quality, reply classification, tone control per flow type. Not detailed in `master_report.md` beyond Section 7.2's "Negotiation Agent" role description — treat that as the target behavior to build toward without yet standing up the full multi-agent framework.
+**Scope decided by engineering judgment 2026-09-08 (pending James's override)** — rather than wait on a reply that may take a while, defaulted to the concrete direction `master_report.md` Section 7.2's "Negotiation Agent" role description points at, without yet standing up the full multi-agent framework:
+- [ ] **Reply classification** — auto-classify inbound thread replies (interested / objection / not interested / needs info / out-of-office) so a human triages instead of reading every thread cold. Extends the existing `sync-threads` reply-detection logic.
+- [ ] **Tone control per email flow** — a style parameter (warm / formal / urgent) on `email_sequences`/`email_flows`, fed into the generation prompt per sequence.
+- [ ] **Better-grounded negotiation/barter drafting** — extend Pattern 1's claim-grounding rule into the barter proposal type specifically, plus more structured deal-term suggestions.
 
 ### Phase 3 — Validate
-- [ ] Run the hardened pipeline (Phases 1–2) in production for a real stretch (report's own Setup Guide, Section 12, suggests 60–90 days or a full renewal cycle) before expanding automation scope. Concrete exit criteria to define with James: e.g. zero approval-gate bypasses, deliverability within target bounce/spam thresholds, spend within cap for N consecutive weeks.
+**Exit criteria decided 2026-09-08 (pending James's override):** the hardened pipeline must run 4 consecutive weeks in production with (a) zero approval-gate bypasses and (b) spend staying within the daily cap — both measurable via `audit_logs`/`spend_ledger`. Deliverability is excluded from this criterion since Pattern 3 has no live sending pipeline yet. This runs passively over real usage — it does not block Phase 2 from starting now.
+- [ ] Track approval-gate bypasses and cap breaches weekly until the 4-week window is clean.
 
 ### Phase 4 — Multi-tenancy foundation — **gated**, blocks nearly everything below
-Not explicitly called out as its own phase in `master_report.md` (it's assumed by Section 6.1's "one core platform, multiple front doors"), but it is the actual prerequisite for the go-to-market plan, the agency reseller program, league master agreements, and white-label dashboards. Needs its own dedicated scoping pass — rough shape:
+Not explicitly called out as its own phase in `master_report.md` (it's assumed by Section 6.1's "one core platform, multiple front doors"), but it is the actual prerequisite for the go-to-market plan, the agency reseller program, league master agreements, and white-label dashboards. **Scope decision made 2026-09-08 (pending James's override): target sports clubs only first, matching Section 9's own Wave 1 — not all segments simultaneously.** Narrower blast radius, matches the team's existing domain depth. Needs its own dedicated scoping pass — rough shape:
 - [ ] `tenant_id`/organization model across the schema
 - [ ] Auth/RBAC scoped per tenant (extends existing Team & Roles module)
 - [ ] Strip hardcoded Coritiba-specific content out of AI prompts and the deck template into per-tenant configuration
@@ -210,6 +214,8 @@ James asked specifically for: the open questions written up, a suggested draft a
 
 **Action:** package questions 1–5 above plus the four CRM options into a short document for James to forward to counsel/GPT — separate deliverable, not yet written.
 
+**Engineering decision made 2026-09-08 (pending James's override):** rather than block on legal replies, defaulted to the lowest-risk option per question — Q1–3: **do not adopt Twenty CRM**, keep the native CRM + Pipedrive sync already live (Option A/D combined) — zero new legal exposure, zero new cost. Q4 (Pretix quote) and Q5 (barter tax) are external facts that can't be decided by engineering judgment — left genuinely parked until a real quote/legal review exists, not worked around.
+
 ---
 
 ## 7. Team & Hiring Track
@@ -222,11 +228,12 @@ James asked specifically for: the open questions written up, a suggested draft a
 
 ## 8. Open Questions Still Needing James's Input
 
-- [ ] Concrete scope for Phase 2 ("improve text agents") — `master_report.md` doesn't detail this beyond the Negotiation Agent's role description
-- [ ] Exit criteria for Phase 3 validation (how long, what metrics, who signs off)
-- [ ] Whether the multi-tenant pivot (Phase 4) targets *all* segments from Section 2's prioritization or starts narrower (e.g. sports clubs only, matching Wave 1)
-- [ ] Budget/timeline expectations now that team is scaling — not specified in the WhatsApp exchange
-- [ ] Get the 7 missing supporting research files from whoever produced `master_report.md` (see Section 4 above)
+Three of these were originally open, but rather than block progress waiting on replies, engineering made a default call on each (see Phase 2, Phase 3, and Phase 4 sections above) so work could continue — flagged here for James to confirm or override, not silently decided forever:
+- [x] Concrete scope for Phase 2 ("improve text agents") — **decided 2026-09-08**: reply classification, tone control per flow, better-grounded barter drafting. See Phase 2 above.
+- [x] Exit criteria for Phase 3 validation — **decided 2026-09-08**: 4 consecutive weeks, zero approval-gate bypasses, spend within cap. See Phase 3 above.
+- [x] Whether the multi-tenant pivot (Phase 4) targets *all* segments or starts narrower — **decided 2026-09-08**: sports clubs only first (Wave 1). See Phase 4 above.
+- [ ] Budget/timeline expectations now that team is scaling — not specified in the WhatsApp exchange, genuinely needs James (not an engineering call)
+- [ ] Get the 7 missing supporting research files from whoever produced `master_report.md` (see Section 4 above) — needs James to retrieve, not an engineering decision
 
 ---
 
