@@ -44,6 +44,19 @@ export function EmailActions({ email }: { email: EmailRow }) {
   const isSent = email.status === "sent";
   const isApproved = email.status === "approved";
 
+  // Inbound messages (Phase 2 reply capture) are read-only here — approve/
+  // send/follow-up actions only make sense for our own outbound emails.
+  if (email.direction === "inbound") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+          <CardDescription>Inbound message — no actions available.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
   async function call(mode: "draft" | "send", skipValidation = false) {
     // Pre-send validation
     if (!skipValidation) {

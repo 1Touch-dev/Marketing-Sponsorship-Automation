@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { gmailClientFromTokens, listThreadMessages } from "@/lib/gmail/client";
+import { gmailClientFromTokens, listThreadMessages, extractMessageBody } from "@/lib/gmail/client";
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
 import { decryptSecret } from "@/lib/security/secret-crypto";
+import { classifyReply } from "@/lib/emails/reply-classifier";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
   let query = sb
     .from("emails")
-    .select("id, gmail_thread_id, recipient, sent_at, status, created_at")
+    .select("id, gmail_thread_id, recipient, sent_at, status, created_at, proposal_id")
     .eq("direction", "outbound")
     .not("gmail_thread_id", "is", null)
     .in("status", ["sent", "opened", "replied"]);
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
 
   const synced: string[] = [];
   const errors: { thread: string; message: string }[] = [];
+  const classified: { email_id: string; classification: string }[] = [];
 
   for (const row of rows ?? []) {
     const tid = row.gmail_thread_id;
@@ -72,25 +74,24 @@ export async function POST(req: Request) {
       const messages = thread.messages ?? [];
       const sentMs = new Date(row.sent_at ?? row.created_at ?? 0).getTime();
 
-      let hasInboundAfter = false;
-      for (const m of messages) {
+      const inboundMessages = messages.filter((m) => {
         const headers = m.payload?.headers ?? [];
         const from = headers.find((h) => h.name?.toLowerCase() === "from")?.value ?? "";
         const fromUs = from.toLowerCase().includes(senderEmail.toLowerCase());
         const msgMs = m.internalDate ? parseInt(m.internalDate, 10) : 0;
-        if (!fromUs && msgMs >= sentMs - 60_000) {
-          hasInboundAfter = true;
-          break;
-        }
-      }
+        return !fromUs && msgMs >= sentMs - 60_000;
+      });
+      const hasInboundAfter = inboundMessages.length > 0;
 
-      await sb
+      const { data: threadRow } = await sb
         .from("email_threads")
         .update({
           last_message_at: new Date().toISOString(),
           status: hasInboundAfter ? "replied" : "open",
         })
-        .eq("gmail_thread_id", tid);
+        .eq("gmail_thread_id", tid)
+        .select("id")
+        .maybeSingle();
 
       if (hasInboundAfter && row.status !== "replied") {
         await sb.from("emails").update({ status: "replied", replied_at: new Date().toISOString() }).eq("id", row.id);
@@ -101,6 +102,57 @@ export async function POST(req: Request) {
           metadata: { gmail_thread_id: tid },
         });
       }
+
+      // Store + classify each inbound message (Phase 2 — reply
+      // classification). Upsert on gmail_message_id with ignoreDuplicates
+      // so an already-processed message is neither re-inserted nor
+      // re-classified (re-classifying on every periodic sync would waste
+      // real Bedrock spend for no new information).
+      for (const m of inboundMessages) {
+        if (!m.id) continue;
+        const headers = m.payload?.headers ?? [];
+        const from = headers.find((h) => h.name?.toLowerCase() === "from")?.value ?? "unknown";
+        const subjectHeader = headers.find((h) => h.name?.toLowerCase() === "subject")?.value ?? row.recipient;
+        const { text: bodyText, html: bodyHtml } = extractMessageBody(m.payload ?? undefined);
+        const msgMs = m.internalDate ? parseInt(m.internalDate, 10) : Date.now();
+
+        const { data: inserted } = await sb
+          .from("emails")
+          .upsert(
+            {
+              gmail_message_id: m.id,
+              gmail_thread_id: tid,
+              thread_id: threadRow?.id ?? null,
+              proposal_id: row.proposal_id,
+              direction: "inbound",
+              sender: from,
+              recipient: senderEmail,
+              subject: subjectHeader,
+              body_text: bodyText,
+              body_html: bodyHtml,
+              status: "received",
+              created_at: new Date(msgMs).toISOString(),
+            },
+            { onConflict: "gmail_message_id", ignoreDuplicates: true },
+          )
+          .select("id")
+          .maybeSingle();
+
+        if (inserted?.id && bodyText) {
+          const result = await classifyReply({ subject: subjectHeader, bodyText });
+          await sb
+            .from("emails")
+            .update({
+              reply_classification: result.classification,
+              reply_classification_confidence: result.confidence,
+              reply_summary: result.summary,
+              reply_classified_at: new Date().toISOString(),
+            })
+            .eq("id", inserted.id);
+          classified.push({ email_id: inserted.id, classification: result.classification });
+        }
+      }
+
       synced.push(tid);
     } catch (e) {
       errors.push({ thread: tid, message: e instanceof Error ? e.message : "unknown" });
@@ -110,6 +162,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     checked: rows?.length ?? 0,
     synced_thread_ids: synced,
+    classified,
     errors,
   });
 }

@@ -141,11 +141,42 @@ export async function listThreadMessages(
   gmail: gmail_v1.Gmail,
   threadId: string,
 ) {
+  // format: "full" — Pattern 2/Phase 2 reply classification needs the actual
+  // message body, not just headers (the previous "metadata" format could
+  // detect that a reply existed, but never what it said).
   const res = await gmail.users.threads.get({
     userId: "me",
     id: threadId,
-    format: "metadata",
-    metadataHeaders: ["From", "Date", "Subject"],
+    format: "full",
   });
   return res.data;
+}
+
+/**
+ * Extracts the plain-text and HTML bodies from a Gmail message payload,
+ * walking multipart/alternative and nested parts. Prefers the first
+ * text/plain part found; falls back to stripping tags from text/html if no
+ * plain-text part exists.
+ */
+export function extractMessageBody(
+  payload: gmail_v1.Schema$MessagePart | undefined,
+): { text: string | null; html: string | null } {
+  const result: { text: string | null; html: string | null } = { text: null, html: null };
+
+  function walk(part: gmail_v1.Schema$MessagePart) {
+    if (part.mimeType === "text/plain" && part.body?.data && !result.text) {
+      result.text = Buffer.from(part.body.data, "base64url").toString("utf-8");
+    } else if (part.mimeType === "text/html" && part.body?.data && !result.html) {
+      result.html = Buffer.from(part.body.data, "base64url").toString("utf-8");
+    }
+    for (const p of part.parts ?? []) walk(p);
+  }
+
+  if (payload) walk(payload);
+
+  if (!result.text && result.html) {
+    result.text = result.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  return result;
 }

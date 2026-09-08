@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ReplyClassificationBadge } from "@/components/shared/reply-classification-badge";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 
@@ -15,7 +16,7 @@ export default async function ThreadDetailPage({ params }: { params: { id: strin
 
   const { data: messages } = await sb
     .from("emails")
-    .select("id, subject, status, direction, sender, recipient, created_at")
+    .select("id, subject, status, direction, sender, recipient, created_at, reply_classification, reply_summary")
     .eq("thread_id", thread.id)
     .order("created_at", { ascending: true });
 
@@ -37,8 +38,14 @@ export default async function ThreadDetailPage({ params }: { params: { id: strin
                 <div className="text-xs text-muted-foreground">
                   {m.direction} · {m.sender ?? "?"} → {m.recipient} · {formatDate(m.created_at)}
                 </div>
+                {m.reply_summary ? (
+                  <div className="text-xs text-muted-foreground italic mt-0.5">{m.reply_summary}</div>
+                ) : null}
               </div>
-              <StatusBadge status={m.status} />
+              <div className="flex items-center gap-2">
+                <ReplyClassificationBadge classification={m.reply_classification} />
+                <StatusBadge status={m.status} />
+              </div>
             </Link>
           )) : <p className="text-sm text-muted-foreground">No messages tracked in this thread yet.</p>}
         </CardContent>

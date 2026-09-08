@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { ReplyClassificationBadge } from "@/components/shared/reply-classification-badge";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { EmailActions } from "./email-actions";
@@ -60,6 +61,23 @@ export default async function EmailDetailPage({ params }: { params: { id: string
 
         <div className="space-y-6">
           <EmailActions email={typedEmail} />
+          {typedEmail.reply_classification ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Reply classification</CardTitle>
+                <CardDescription>AI-assessed intent — see Phase 2, master_report.md 7.2.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <ReplyClassificationBadge classification={typedEmail.reply_classification} />
+                {typedEmail.reply_summary ? <p className="text-muted-foreground">{typedEmail.reply_summary}</p> : null}
+                {typedEmail.reply_classification_confidence !== null ? (
+                  <p className="text-xs text-muted-foreground">
+                    Confidence: {Math.round((typedEmail.reply_classification_confidence ?? 0) * 100)}%
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
           <Card>
             <CardHeader>
               <CardTitle>Linked proposal</CardTitle>

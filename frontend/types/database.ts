@@ -29,7 +29,8 @@ export type EmailStatus =
   | "opened"
   | "replied"
   | "bounced"
-  | "failed";
+  | "failed"
+  | "received"; // inbound message itself, see lib/emails/reply-classifier.ts
 export type FollowupStatus = "pending" | "suggested" | "scheduled" | "sent" | "closed";
 
 export interface User {
@@ -258,6 +259,10 @@ export interface EmailRow {
   body_text: string | null;
   status: EmailStatus;
   status_reason: string | null;
+  reply_classification: string | null;
+  reply_classification_confidence: number | null;
+  reply_summary: string | null;
+  reply_classified_at: string | null;
   generated_by: string | null;
   prompt_version: string | null;
   approved_by: string | null;
