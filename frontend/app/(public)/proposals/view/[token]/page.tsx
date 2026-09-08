@@ -8,6 +8,8 @@ import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 import { PhoneCall, Calendar, ThumbsUp } from "lucide-react";
 import Image from "next/image";
 import { LeadInterestForm } from "./lead-interest-form";
+import { ProposalRoiSection } from "./roi-section";
+import { getProposalRoiData } from "@/lib/proposals/roi";
 import { PdfDownloadButton } from "./pdf-download-button";
 import { ViewTracker } from "./view-tracker";
 
@@ -42,6 +44,12 @@ export default async function PublicProposalViewPage({
   const ctaText = variant === "B" ? "Quero Saber Mais" : "Tenho Interesse";
 
   const approvedImages = await fetchProposalImagesForLanding(proposal.id);
+  const roi = await getProposalRoiData(sb, {
+    id: proposal.id,
+    match_id: (proposal as unknown as { match_id?: string | null }).match_id,
+    approved_at: proposal.approved_at,
+    created_at: proposal.created_at,
+  });
 
   const { data: packages } = await sb
     .from("proposal_packages")
@@ -140,6 +148,9 @@ export default async function PublicProposalViewPage({
           inventory_items: (p.inventory_items as Record<string, unknown>[]) ?? [],
         }))}
       />
+
+      {/* ─── Real-time ROI dashboard — only renders when real reach data exists ─── */}
+      <ProposalRoiSection roi={roi} />
 
       {/* ─── Lead Capture Form — before sticky CTA ─── */}
       <LeadInterestForm proposalId={p.id} companyName={company?.company_name ?? ""} />
