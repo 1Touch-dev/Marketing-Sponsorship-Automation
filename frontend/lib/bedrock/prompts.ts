@@ -10,9 +10,23 @@
  *  - Official brand colors: #005742 (Verde Coxa), #FFFFFF (Branco), #000000 (Preto)
  *  - Official typography: Switzer (primary), Inter (body fallback)
  *  - Official jersey max widths referenced in image/creative prompts
+ *
+ * v5.1.0:
+ *  - Phase 2 (master_report.md 7.2): optional per-call tone override
+ *    (warm/formal/urgent) on outreachEmailPrompt/negotiationEmailPrompt/
+ *    barterEmailPrompt — replaces the previously hardcoded tone line when set.
  */
 
-export const PROMPT_VERSION = "v5.0.0" as const;
+export const PROMPT_VERSION = "v5.1.0" as const;
+
+/** Phase 2 — tone control per email flow. */
+export type EmailTone = "warm" | "formal" | "urgent";
+
+const TONE_INSTRUCTIONS: Record<EmailTone, string> = {
+  warm: "Tone: warm, friendly, relationship-focused — write as if reaching out to a valued partner, not a cold prospect.",
+  formal: "Tone: formal, precise, corporate — appropriate for a conservative enterprise decision-maker; avoid casual language.",
+  urgent: "Tone: urgent but professional — convey genuine time-sensitivity (e.g. a closing window or limited inventory) without sounding pushy or desperate.",
+};
 
 export interface CompanyContext {
   company_name: string;
@@ -457,6 +471,7 @@ export function outreachEmailPrompt(args: {
   proposalLink?: string | null;
   senderName?: string | null;
   senderTitle?: string | null;
+  tone?: EmailTone;
 }) {
   const senderBlock = args.senderName
     ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
@@ -466,7 +481,7 @@ export function outreachEmailPrompt(args: {
     system: [
       "You write concise, compelling B2B sponsorship pitch emails in Brazilian Portuguese for Coritiba FC.",
       "Emails represent Coritiba FC's commercial department.",
-      "Tone: warm, confident, direct, exciting — make the sponsor feel the opportunity is unique.",
+      args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: warm, confident, direct, exciting — make the sponsor feel the opportunity is unique.",
       "Keep under 200 words. No fluff. Include a clear CTA.",
       "ALWAYS include the proposal link in the email body as a prominent CTA button/line.",
       "NEVER use [Nome] or [placeholder] — use the actual names provided.",
@@ -538,6 +553,7 @@ export function negotiationEmailPrompt(args: {
   proposalLink?: string | null;
   senderName?: string | null;
   senderTitle?: string | null;
+  tone?: EmailTone;
 }) {
   const senderBlock = args.senderName
     ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
@@ -546,7 +562,7 @@ export function negotiationEmailPrompt(args: {
     system: [
       "You write persuasive B2B negotiation emails in Brazilian Portuguese for Coritiba FC's commercial department.",
       "Goal: move a warm prospect toward closing by offering flexibility on scope, price, term length or added counterparts.",
-      "Tone: collaborative, confident, solution-oriented — never desperate, never discount for its own sake.",
+      args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: collaborative, confident, solution-oriented — never desperate, never discount for its own sake.",
       "Propose concrete next steps (e.g. a 15-minute call) and reference the proposal link.",
       "Keep under 180 words. Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
@@ -581,6 +597,7 @@ export function barterEmailPrompt(args: {
   proposalLink?: string | null;
   senderName?: string | null;
   senderTitle?: string | null;
+  tone?: EmailTone;
 }) {
   const senderBlock = args.senderName
     ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
@@ -589,7 +606,7 @@ export function barterEmailPrompt(args: {
     system: [
       "You write B2B barter (permuta) proposal emails in Brazilian Portuguese for Coritiba FC's commercial department.",
       "Goal: propose a permuta where part of the sponsorship investment is paid with the prospect's own products/services, reducing their cash outlay while still delivering brand exposure via Coritiba FC's sponsorship inventory.",
-      "Tone: creative, win-win, practical. Make the exchange feel low-risk and high-value.",
+      args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: creative, win-win, practical. Make the exchange feel low-risk and high-value.",
       "Reference the proposal link and suggest a quick call to define the exchange mix.",
       "Keep under 180 words. Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),

@@ -112,6 +112,7 @@ export async function POST(req: Request) {
       senderName,
       senderTitle,
       proposalLink,
+      tone: parsed.data.tone,
     };
     const { system, user } =
       flowType === "negotiation"
@@ -199,6 +200,7 @@ export async function POST(req: Request) {
       model_id: env.BEDROCK_MODEL_ID,
       ...templateMeta,
       variables_resolved: templateVars,
+      tone: parsed.data.tone ?? null,
     },
   };
 

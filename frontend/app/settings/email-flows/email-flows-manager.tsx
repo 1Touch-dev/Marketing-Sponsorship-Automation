@@ -8,8 +8,12 @@ import { useToast } from "@/components/ui/toaster";
 import { Loader2, Plus, Trash2, Save, Play, Workflow, AlertCircle } from "lucide-react";
 
 type FlowType = "intro" | "follow_up" | "negotiation" | "barter";
+type Tone = "warm" | "formal" | "urgent";
 
-type Step = { flow_type: FlowType; template_id: string | null; delay_days: number };
+type Step = { flow_type: FlowType; template_id: string | null; delay_days: number; tone?: Tone | null };
+
+const TONE_LABEL: Record<Tone, string> = { warm: "Warm", formal: "Formal", urgent: "Urgent" };
+const TONES: Tone[] = ["warm", "formal", "urgent"];
 
 type Sequence = {
   id: string;
@@ -57,8 +61,8 @@ export function EmailFlowsManager({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState<Step[]>([
-    { flow_type: "intro", template_id: null, delay_days: 0 },
-    { flow_type: "follow_up", template_id: null, delay_days: 4 },
+    { flow_type: "intro", template_id: null, delay_days: 0, tone: "warm" },
+    { flow_type: "follow_up", template_id: null, delay_days: 4, tone: "warm" },
   ]);
 
   const templateList = templates as unknown as TemplateLite[];
@@ -70,7 +74,7 @@ export function EmailFlowsManager({
     setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   }
   function addStep() {
-    setSteps((prev) => [...prev, { flow_type: "negotiation", template_id: null, delay_days: 7 }]);
+    setSteps((prev) => [...prev, { flow_type: "negotiation", template_id: null, delay_days: 7, tone: "warm" }]);
   }
   function removeStep(i: number) {
     setSteps((prev) => prev.filter((_, idx) => idx !== i));
@@ -95,8 +99,8 @@ export function EmailFlowsManager({
       setName("");
       setDescription("");
       setSteps([
-        { flow_type: "intro", template_id: null, delay_days: 0 },
-        { flow_type: "follow_up", template_id: null, delay_days: 4 },
+        { flow_type: "intro", template_id: null, delay_days: 0, tone: "warm" },
+        { flow_type: "follow_up", template_id: null, delay_days: 4, tone: "warm" },
       ]);
       toast({ variant: "success", title: "Flow created" });
       router.refresh();
@@ -224,6 +228,18 @@ export function EmailFlowsManager({
                   />
                   days
                 </label>
+                <select
+                  value={s.tone ?? "warm"}
+                  onChange={(e) => updateStep(i, { tone: e.target.value as Tone })}
+                  className="text-xs border rounded-md px-2 py-1.5 bg-background"
+                  title="Tone"
+                >
+                  {TONES.map((t) => (
+                    <option key={t} value={t}>
+                      {TONE_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
                 <button
                   onClick={() => removeStep(i)}
                   className="ml-auto text-red-500 hover:text-red-700"
@@ -281,6 +297,7 @@ export function EmailFlowsManager({
                     <Badge variant="secondary" className="text-[10px]">
                       {FLOW_LABEL[s.flow_type]}
                       {s.delay_days > 0 ? ` · +${s.delay_days}d` : ""}
+                      {s.tone && s.tone !== "warm" ? ` · ${TONE_LABEL[s.tone]}` : ""}
                     </Badge>
                     {i < seqSteps.length - 1 && <span className="text-muted-foreground">→</span>}
                   </React.Fragment>

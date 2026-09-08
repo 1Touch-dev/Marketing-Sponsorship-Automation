@@ -59,6 +59,10 @@ export const emailGenerateSchema = z.object({
   contact_name: z.string().max(120).optional(),
   flow_type: z.enum(["intro", "follow_up", "negotiation", "barter"]).optional(),
   template_id: z.string().uuid().optional(),
+  // Phase 2 — tone control per email flow (master_report.md 7.2). Only
+  // applies to the AI-generation path; ignored when a template is used
+  // (a saved template's own wording already fixes its tone).
+  tone: z.enum(["warm", "formal", "urgent"]).optional(),
 });
 
 export const emailApproveSchema = z.object({

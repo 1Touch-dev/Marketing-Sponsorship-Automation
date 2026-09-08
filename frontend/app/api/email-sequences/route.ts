@@ -10,6 +10,7 @@ type SequenceStep = {
   flow_type: "intro" | "follow_up" | "negotiation" | "barter";
   template_id?: string | null;
   delay_days: number;
+  tone?: "warm" | "formal" | "urgent" | null;
 };
 
 function migrationPending(error: { code?: string; message?: string } | null): boolean {

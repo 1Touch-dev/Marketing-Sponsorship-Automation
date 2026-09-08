@@ -12,6 +12,9 @@ type SequenceStep = {
   flow_type: "intro" | "follow_up" | "negotiation" | "barter";
   template_id?: string | null;
   delay_days: number;
+  // Phase 2 — tone control per step (master_report.md 7.2). Optional;
+  // falls back to each prompt's own default tone when unset.
+  tone?: "warm" | "formal" | "urgent" | null;
 };
 
 function parseSteps(raw: unknown): SequenceStep[] {
@@ -101,6 +104,7 @@ export async function POST(req: Request) {
           contact_name: e.contact_name ?? undefined,
           flow_type: step.flow_type,
           template_id: step.template_id ?? undefined,
+          tone: step.tone ?? undefined,
         }),
       });
       generated = await res.json();
