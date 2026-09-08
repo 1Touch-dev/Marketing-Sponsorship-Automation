@@ -4,6 +4,24 @@ import {
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { serverEnv } from "@/lib/env";
+import { checkDailySpendCap, recordSpend, bedrockCallCostUsd } from "@/lib/monitoring/spend-guard";
+
+/**
+ * Hardening pass (master_report.md Section 8, Pattern 5). Centralized here —
+ * both invokeClaude and converseWithTools are the only two entry points for
+ * every Bedrock call in the codebase (proposal/email generation, the
+ * Outreach Agent's tool loop, pricing tiers, etc.) — instrumenting once here
+ * covers all of them, present and future, rather than every call site
+ * separately.
+ */
+async function assertUnderSpendCap(): Promise<void> {
+  const capCheck = await checkDailySpendCap();
+  if (!capCheck.ok) {
+    throw new Error(
+      `Daily AI spend cap reached ($${capCheck.todaySpendUsd.toFixed(2)} / $${capCheck.capUsd.toFixed(2)}) — Bedrock calls are paused until tomorrow (UTC) or the cap is raised.`
+    );
+  }
+}
 
 /**
  * Anthropic Claude on Bedrock — Messages API format.
@@ -94,6 +112,7 @@ export function extractJson(text: string): unknown | null {
 export async function invokeClaude<T = unknown>(
   opts: InvokeClaudeOptions,
 ): Promise<ClaudeResult<T>> {
+  await assertUnderSpendCap();
   const env = serverEnv();
   const body = {
     anthropic_version: "bedrock-2023-05-31",
@@ -127,10 +146,20 @@ export async function invokeClaude<T = unknown>(
 
   const parsed = opts.json ? (extractJson(text) as T | null) : null;
 
+  const usage = raw?.usage ?? null;
+  if (usage) {
+    await recordSpend({
+      category: "bedrock_text",
+      provider: "aws_bedrock",
+      amountUsd: bedrockCallCostUsd(usage.input_tokens ?? 0, usage.output_tokens ?? 0),
+      metadata: { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, api: "invoke_model" },
+    });
+  }
+
   return {
     text,
     json: parsed,
-    usage: raw?.usage ?? null,
+    usage,
     raw,
   };
 }
@@ -179,6 +208,7 @@ export async function converseWithTools(opts: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<ConverseResult> {
+  await assertUnderSpendCap();
   const env = serverEnv();
 
   // ConverseCommand SDK types use nested generics that don't align cleanly with our custom message types.
@@ -210,6 +240,15 @@ export async function converseWithTools(opts: {
         toolUseId: block.toolUse.toolUseId,
       });
     }
+  }
+
+  if (response.usage) {
+    await recordSpend({
+      category: "bedrock_text",
+      provider: "aws_bedrock",
+      amountUsd: bedrockCallCostUsd(response.usage.inputTokens ?? 0, response.usage.outputTokens ?? 0),
+      metadata: { input_tokens: response.usage.inputTokens, output_tokens: response.usage.outputTokens, api: "converse" },
+    });
   }
 
   return {

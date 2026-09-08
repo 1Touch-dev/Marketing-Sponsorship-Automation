@@ -5,6 +5,7 @@ import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { compositeCampaignCreative } from "@/lib/media/campaign-composite";
 import type { CampaignSceneType } from "@/lib/media/image-prompts";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
+import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
 
 export const maxDuration = 300;
 export type SceneType = CampaignSceneType;
@@ -22,6 +23,14 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Try again in 60 seconds." },
       { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
+  const capCheck = await checkDailySpendCap();
+  if (!capCheck.ok) {
+    return NextResponse.json(
+      { error: `Daily AI spend cap reached ($${capCheck.todaySpendUsd.toFixed(2)} / $${capCheck.capUsd.toFixed(2)}). Image generation is paused until tomorrow (UTC) or the cap is raised.` },
+      { status: 503 },
     );
   }
 
@@ -115,6 +124,15 @@ export async function POST(req: Request) {
         debug_path: debugPath,
         source_filename: result.sourceFilename,
       },
+    });
+
+    await recordSpend({
+      category: "openai_image_campaign",
+      provider: "openai",
+      amountUsd: IMAGE_COST_ESTIMATES_USD[result.quality] ?? IMAGE_COST_ESTIMATES_USD.high,
+      entityType: "image_generation_job",
+      entityId: jobId,
+      metadata: { scene_type: scene, quality: result.quality, generation_id: result.generationId },
     });
 
     return NextResponse.json({

@@ -12,6 +12,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
+import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
 
 export const maxDuration = 300;
 
@@ -22,6 +23,14 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Rate limit exceeded. Try again in 60 seconds." },
       { status: 429, headers: rateLimitHeaders(rl) },
+    );
+  }
+
+  const capCheck = await checkDailySpendCap();
+  if (!capCheck.ok) {
+    return NextResponse.json(
+      { error: `Daily AI spend cap reached ($${capCheck.todaySpendUsd.toFixed(2)} / $${capCheck.capUsd.toFixed(2)}). Image generation is paused until tomorrow (UTC) or the cap is raised.` },
+      { status: 503 },
     );
   }
 
@@ -121,6 +130,15 @@ export async function POST(req: Request) {
         proposal_id: body.proposal_id ?? null,
         duration_ms: durationMs,
       },
+    });
+
+    await recordSpend({
+      category: "openai_image_stadium",
+      provider: "openai",
+      amountUsd: IMAGE_COST_ESTIMATES_USD[result.quality] ?? IMAGE_COST_ESTIMATES_USD.medium,
+      entityType: "image_generation_job",
+      entityId: jobId,
+      metadata: { placement, quality: result.quality, generation_id: result.generationId },
     });
 
     return NextResponse.json({
