@@ -1,0 +1,299 @@
+# Platform Roadmap & Knowledge Transfer — Coritiba → Multi-Tenant SaaS
+
+**Status:** Direction confirmed by James Thunder (owner) on 03 Sep 2026. This document is the single source of truth for what happens next, why, and in what order. It is written for any developer joining this project cold — read it top to bottom before touching code.
+
+**Companion documents (already in repo root):**
+- `master_report.md` — the full strategy/research report this roadmap is built from. Read it once; this document reorganizes and sequences it into something buildable.
+- `Platform-Feature-Manual.pdf` — exhaustive inventory of everything already built (58 pages, 145 API endpoints). **Read this before proposing any new feature — if it's in there, it already exists, don't rebuild it.**
+- `README.md` — technical setup, architecture, environment variables, DB schema.
+- `Sponsorship-Tech-Scouting-Report.pdf` — earlier, narrower competitive analysis (superseded in scope by `master_report.md`, kept for reference).
+
+---
+
+## 1. Project Context — For New Developers
+
+### 1.1 What this is today
+A single-tenant commercial/sponsorship-management platform built for **Coritiba FC** (Brazilian football club). It runs the club's real sponsorship pipeline: prospecting companies, AI-drafted proposals and outreach emails, AI-generated sponsor mockups (jersey/stadium/campaign), CRM (synced to a live Pipedrive account), contracts, and reporting. It is in active production use — not a prototype.
+
+### 1.2 Stack
+Next.js 14 (App Router) frontend + API routes as the only backend, Supabase Postgres, AWS Bedrock (Claude) for text generation, OpenAI `gpt-image-2` for image generation, Hunter.io/Apollo.io/Apify for prospecting/enrichment, Pipedrive for CRM sync. Deployed via PM2 + ngrok on a single EC2 instance. Full detail in `README.md`.
+
+### 1.3 Repo conventions
+- One branch per sprint (e.g. `21-Aug-sprint`), not trunk-based.
+- Supabase migrations are numbered sequentially in `supabase/migrations/` — **direct DB access from the dev box does not work** (confirmed, not worth re-testing); every schema change ships as a migration file and gets pasted into the Supabase SQL Editor by hand.
+- No CI pipeline. Verification is: `tsc --noEmit`, `next lint`, a production `next build`, and direct data-layer checks against the live Supabase REST API. There is no reliable headless-browser option on this box — UI verification is either manual (a human clicking through) or delegated to a teammate who has a real browser (Cursor's client-side browser has been used for this).
+- Dated `.md` files in the repo root (`17th_July.md` etc.) are historical sprint logs — read the most recent few for current context, don't try to read all of them.
+
+### 1.4 Current sprint state (as of this document)
+Branch `21-Aug-sprint` just shipped: per-match proposals, an editable per-match media-reach module, CRM warm-up-strategy sequencing, a full redesign of the default proposal deck, a real Coritiba crest fix, and several bug fixes found during full-pipeline QA (wrong-logo-on-mockup bug, campaigns panel showing 0 for every company, a stale auth-middleware gap on public pages). All committed and deployed to production.
+
+---
+
+## 2. The Strategic Decision (James Thunder, confirmed 03 Sep 2026)
+
+This is not a backlog of ideas — it is a confirmed direction. Paraphrasing his actual replies:
+
+1. **Yes, this is real.** The plan was always to build on the Coritiba platform, improve it, and take it to market as a product sold to other clubs (and, per `master_report.md`, potentially nonprofits/conferences/chambers/festivals beyond sports).
+2. **Team is scaling.** He's already hired 2 junior developers on trial, and wants senior candidates interviewed and the team actually used — this is no longer a one-developer sprint cadence.
+3. **Legal needs to be engaged.** He asked for the specific legal questions to be written up, with a suggested draft answer for each (to hand to an AI legal-assist tool as a starting point, not as final counsel), plus real alternatives to the Twenty CRM recommendation in the report.
+4. **Sequencing is delegated** to engineering judgment.
+5. **Order confirmed:** harden the existing automation first, then improve the text/email agents, then validate that it's solid — **before** standing up the new multi-agent teams `master_report.md` Section 7 proposes.
+
+**What this means practically:** the multi-tenant SaaS pivot is the real destination, but the report's own Section 8 (failure-pattern hardening) comes first, by James's explicit instruction — not as a suggestion engineering made up.
+
+---
+
+## 3. What's Already Built — Do Not Rebuild This
+
+Full detail in `Platform-Feature-Manual.pdf`. Condensed for orientation:
+
+| Area | Status |
+|---|---|
+| CRM & Companies (list, detail, fit score, contacts, competitors, logo scraping) | Built, live |
+| Intelligence & Discovery (product/seller discovery, company intelligence) | Built, live |
+| Outreach Agent — 5-step pipeline (enrich → scrape → propose → email → send) with approval gates | Built, live — **this is what Phase 1 below hardens** |
+| Proposals — 7-type wizard, per-match scoping, redesigned deck, bulk proposals, public share links, HTML presentation-template system | Built, live |
+| Approvals — Tinder-card queue | Built, live |
+| Email & Outreach — generation, flows/sequences, negotiation/barter templates, placeholder validation, sender profiles, newsletter | Built, live |
+| Campaigns — bulk generation, pre-approved batch runner | Built, live |
+| Image Generation — jersey (8 zones), stadium (5 zones), campaign creatives (3 scenes), manual mockup editor (9 templates) | Built, live |
+| Matches & Warm-up Strategy | Built, live (this sprint) |
+| Contracts — conversion, expiry alerts, renewal | Built, live |
+| Reports & Dashboard | Built, live |
+| Settings & Admin — Team & Roles (RBAC), sender profiles, system health | Built, live |
+| Audit log, workflow events, Pipedrive CRM sync | Built, live |
+| PT/EN bilingual UI, dark mode, responsive layout | Built, live |
+
+**Not built, and structurally required for anything in `master_report.md` beyond Coritiba itself:** multi-tenancy. There is no `tenant_id`/organization concept anywhere in the schema; Coritiba-specific facts (club stats, crest, brand voice) are hardcoded throughout the AI prompts and the deck template. This is the single biggest piece of new foundational work — see Phase 4.
+
+---
+
+## 4. Source Document Note
+
+`master_report.md` cites seven supporting research files throughout (`competitor_research.md`, `competitor_reviews_painpoints.md`, `target_audience_research.md`, `opensource_tech_research.md`, `mcp_server_research.md`, `failure_analysis_research.md`, `enterprise_and_partnership_research.md`). **None of these files exist in this repository.** Whoever produced the report has them in a separate workspace. Get them from James/the report's author before relying on any claim in `master_report.md` that says "full detail in X.md" — this roadmap treats the main report as the source of truth since the backing files aren't available to verify against.
+
+---
+
+## 5. Execution Roadmap
+
+Phases are sequential where marked **gated**; phases without that marker can run in parallel with the current phase once started.
+
+### Phase 0 — Blockers to clear before certain later phases (parallel track, start now)
+Not code. See Sections 6 and 7 below for full detail.
+- [ ] Legal questions written up and sent to James / counsel (Twenty CRM AGPL, ticketing engine AGPL, cross-tenant barter tax treatment)
+- [ ] Twenty CRM alternatives proposed to James
+- [ ] Senior developer interviews underway; junior hires actively integrated into work
+
+### Phase 1 — Harden the existing Outreach Agent (CURRENT PRIORITY, per James) — `master_report.md` Section 8
+Confirmed as the starting point. Applies to the platform as it exists today, independent of the multi-tenant decision — this makes Coritiba's live pipeline safer regardless of what happens next. Full pattern list in Appendix A.1; the three James/report flag as highest-priority:
+- [ ] **Infrastructure-enforced approval gates** (not prompt-based) — the send/approve step must be a real state-machine transition the agent literally cannot skip, not an instruction the LLM is trusted to obey. (Pattern 4)
+- [ ] **Dedicated sending-domain deliverability architecture** — separate sending domain from the primary business domain, SPF/DKIM/DMARC configured, hard per-mailbox sending-rate ramp, bounce/spam-complaint circuit breaker at 0.1–0.3%. (Pattern 3)
+- [ ] **Claim-grounding in proposal generation** — every factual claim the AI makes about a prospect must trace to a cited, timestamped enrichment field; block unsupported claims before they reach a draft. (Pattern 1)
+- [ ] Provider-abstraction/failover layer across enrichment vendors (Hunter/Apollo) so one vendor outage doesn't stall the pipeline. (Pattern 2)
+- [ ] Hard per-run/per-day spend caps + execution timeouts + a kill switch independent of the agent's own logic; real-time spend visibility, not monthly-invoice discovery. (Pattern 5)
+- [ ] Short-lived, auto-rotating OAuth tokens; minimum-scope grants; one-click integration kill switch. (Pattern 6)
+- [ ] Immutable, access-isolated, offsite backups on credentials separate from production. (Pattern 7)
+
+### Phase 2 — Improve the text/email agents (per James's sequencing)
+- [ ] Concrete scope TBD with James/team — likely: better negotiation/barter drafting quality, reply classification, tone control per flow type. Not detailed in `master_report.md` beyond Section 7.2's "Negotiation Agent" role description — treat that as the target behavior to build toward without yet standing up the full multi-agent framework.
+
+### Phase 3 — Validate
+- [ ] Run the hardened pipeline (Phases 1–2) in production for a real stretch (report's own Setup Guide, Section 12, suggests 60–90 days or a full renewal cycle) before expanding automation scope. Concrete exit criteria to define with James: e.g. zero approval-gate bypasses, deliverability within target bounce/spam thresholds, spend within cap for N consecutive weeks.
+
+### Phase 4 — Multi-tenancy foundation — **gated**, blocks nearly everything below
+Not explicitly called out as its own phase in `master_report.md` (it's assumed by Section 6.1's "one core platform, multiple front doors"), but it is the actual prerequisite for the go-to-market plan, the agency reseller program, league master agreements, and white-label dashboards. Needs its own dedicated scoping pass — rough shape:
+- [ ] `tenant_id`/organization model across the schema
+- [ ] Auth/RBAC scoped per tenant (extends existing Team & Roles module)
+- [ ] Strip hardcoded Coritiba-specific content out of AI prompts and the deck template into per-tenant configuration
+- [ ] Billing infrastructure (none exists today)
+- [ ] White-label theming per tenant
+
+### Phase 5 — P0 feature roadmap (`master_report.md` Section 4, items 1–5) — table stakes
+Some of these are buildable against the current single-tenant platform without waiting on Phase 4; flagged below.
+- [ ] Sponsor-facing real-time ROI dashboard *(can start pre-multi-tenancy)*
+- [ ] Flat, transparent, self-serve pricing tiers *(blocked on billing infra / Phase 4)*
+- [ ] Native engagement analytics on every shared proposal (views, drop-off, time-on-page) + automated "gone cold" nudge *(can start pre-multi-tenancy — extends the existing public share-link view tracking)*
+- [ ] Self-service configuration for non-admin users *(largely already true — audit against Section 3's "Feature Manual" baseline before building anything new here)*
+- [ ] Idempotent, auditable billing with itemized receipts *(blocked on Phase 4 — no billing exists yet)*
+
+### Phase 6 — P1 differentiators (`master_report.md` Section 4, items 6–10)
+- [ ] VIK/barter deal-structuring module (budget-offset tagging, contract split templates, optional cross-tenant trade marketplace with match fee) — *cross-tenant version blocked on Phase 4; the platform already has a barter proposal type and a `/barter` page as a starting point*
+- [ ] Verified deal-value benchmark database (aggregate anonymized deal data across tenants) *(blocked on Phase 4 — needs multiple tenants to aggregate across)*
+- [ ] White-space/opportunity-gap finder (cross-reference prospect's existing sponsorships against category gaps, using the AI company-intelligence already built)
+- [ ] Embedded payments in the public proposal share link (QwilrPay-style deposit collection)
+- [ ] Proof-of-delivery/fulfillment tracking portal shared with the sponsor
+
+### Phase 7 — P2 category expansion (`master_report.md` Section 4, items 11–14)
+- [ ] Event ticketing module — **legal blocker**: needs a Pretix commercial license quote before any code (see Section 6 below); recommended over Hi.Events for the seat-map/stadium use case
+- [ ] Grants/moves-management mode for the nonprofit vertical *(blocked on Phase 4)*
+- [ ] Chamber/association bundle mode (annual bundled packages) *(blocked on Phase 4)*
+- [ ] NIL/creator-deal mode as an 8th proposal type — this one is closer to standalone; could plausibly extend the existing 7-type wizard pre-multi-tenancy
+
+### Phase 8 — Agentic team expansion — **gated behind Phases 1–3**, `master_report.md` Section 7
+Explicit instruction from James: do not start this until hardening is done and validated.
+- [ ] Team 1 — Sponsorship Outreach: Discovery / Enrichment / Proposal / Outreach / Negotiation agents (extends current 5-step pipeline into a coordinated CrewAI-based team)
+- [ ] Team 2 — CRM Outreach: Pipeline Hygiene / Multi-Channel Sequencer / Renewal / Reporting agents
+- [ ] Unified post-setup orchestrator coordinating Teams 1 and 2 through the existing `/approvals` queue (reuse, don't duplicate)
+- [ ] Framework decision: report recommends CrewAI (MIT, no copyleft risk) — no counter-proposal raised yet, revisit at Phase 8 kickoff
+
+### Phase 9 — Go-to-market execution (`master_report.md` Sections 6, 9, 13) — **gated behind Phase 4**
+- [ ] Niche-specific landing pages + onboarding (`/sports-clubs`, `/nonprofits`, `/conferences`, `/chambers`, `/festivals`)
+- [ ] White-labeled client-facing dashboards per tenant
+- [ ] Segment-tuned proposal template variants (Sponsorship / Grant-ESG / Exhibitor Package)
+- [ ] Wave sequencing: Wave 1 sports clubs + nonprofits (Months 1–4) → Wave 2 conferences + chambers (Months 4–8) → Wave 3 festivals + ticketing wedge (Months 8–12) → Wave 4 youth leagues/esports/film-arts (Month 12+, only if unit economics support a lightweight self-serve tier)
+- [ ] Agency white-label reseller program (30–50% wholesale discount)
+- [ ] League/association master-agreement deals (LaLiga/KORE-style "one deal, many clubs")
+- [ ] Nonprofit channel via TechSoup + association-endorsement programs
+- [ ] VIK/barter marketplace as a growth loop (see Phase 6)
+- [ ] Fee-free/near-free ticketing as an acquisition wedge, sponsorship CRM as the real monetization layer
+- [ ] Ad strategy: fee-transparency angle vs. Ticketmaster/Eventbrite, "we measure what 81% of sponsors can't" positioning, chamber co-marketing webinars, league case studies, nonprofit-sector content marketing, ticketing-wedge retargeting
+
+### Phase 10 — Enterprise-grade readiness (`master_report.md` Section 10) — **gated, only once real enterprise deals are pending**
+Expensive and compliance-heavy; sequence per the report's own ordering, not earlier:
+- [ ] SOC 2 Type II ($20K–$100K, 6–18 weeks)
+- [ ] SSO (SAML + OIDC) + SCIM provisioning
+- [ ] Public subprocessor disclosure page (AWS Bedrock, OpenAI, Hunter, Apollo, Apify named explicitly)
+- [ ] 99.9% uptime SLA + published status page + defined RPO/RTO
+- [ ] Granular per-tenant RBAC + audit logging (extends existing Team & Roles / Audit log modules)
+- [ ] DPA template + CAIQ-Lite security packet
+- [ ] AI-use disclosure (confirm/publish no-training-by-default status for Bedrock/OpenAI usage)
+- [ ] ISO 27001 — only once EU-heavy deals justify it ($30K–$150K, 3-year cycle)
+- [ ] Multi-year contract terms (24–36 months, 18–25% prepay discount, Net 30–45)
+
+### Phase 11 — MCP server integrations (`master_report.md` Section 5) — can run opportunistically, low risk
+Wire official MCP servers where they exist instead of building custom integrations:
+- [ ] Gmail/Google Workspace
+- [ ] Pipedrive (and/or Twenty CRM, pending Section 6 decision)
+- [ ] Hunter.io
+- [ ] Apollo.io
+- [ ] Apify (highest-value — exposes 7,000+ Actors dynamically)
+- [ ] Stripe (once billing exists)
+- [ ] Slack (internal notifications)
+- [ ] GitHub (dev team's own tooling)
+- [ ] Supabase/Postgres (read-only, AI-assisted schema/reporting)
+- [ ] Custom-build required (no mature MCP exists): WhatsApp Business Cloud API, e-signature (DocuSeal/Documenso)
+- [ ] Longer-horizon: public read-only MCP server exposing the platform's own data to partner agencies/n8n workflows (2–3 quarter horizon per the report)
+
+### Phase 12 — Business model / billing implementation (`master_report.md` Section 11) — **gated behind Phase 4**
+- [ ] Core SaaS subscription tiers (flat monthly/annual, mirroring wehave's transparent-pricing model)
+- [ ] Agency white-label wholesale pricing
+- [ ] League/association master-agreement blended pricing
+- [ ] VIK/barter marketplace match-fee billing
+- [ ] Ticketing flat per-ticket fee (loss-leader, not profit center)
+- [ ] Premium add-on tier (Data Clean Room, white-label portals, dedicated CSM)
+- [ ] Nonprofit channel discount pricing
+- [ ] Cost-to-serve tracking per active seat from day one (AI inference + enrichment API costs + human review time) — do not subsidize during growth
+
+### Longer-horizon / lower-priority items (`master_report.md` Section 4, P3)
+- [ ] Data Clean Room (advanced first-party data sharing)
+- [ ] Public MCP server (see Phase 11)
+
+---
+
+## 6. Legal & Compliance Track (parallel workstream, blocks specific phases above)
+
+James asked specifically for: the open questions written up, a suggested draft answer for each (to run through an AI legal-assist tool as a starting point — **not a substitute for real counsel**), and real alternatives proposed to the Twenty CRM recommendation.
+
+| # | Question | Blocks | Status |
+|---|---|---|---|
+| 1 | Does using Twenty CRM (AGPL-3.0 core) as an internal-only ops tool avoid network-copyleft exposure, or does any customer-facing data flow through it count as "conveying" under AGPL? | Phase 4 CRM architecture decision | Not yet answered — needs real counsel |
+| 2 | If Twenty CRM is exposed customer-facing at any point, is purchasing Twenty's commercial/enterprise license the only way to avoid open-sourcing obligations, and what does that cost at our scale? | Same | Not yet answered |
+| 3 | What are viable alternatives to Twenty CRM, given the license risk? (see options below) | Same | Draft options below — final call is James's |
+| 4 | Hi.Events (AGPL-3.0 + additional terms) and Pretix (AGPLv3 + additional terms) both require either "Powered by" attribution or a commercial license to remove it — what does a Pretix commercial license actually cost, and does it fully clear AGPL disclosure obligations for a stadium seat-map use case? | Phase 7 ticketing module | Not yet answered — needs a quote from Pretix directly |
+| 5 | Cross-tenant VIK/barter trades: the platform already handles Brazil's Lei de Incentivo for Coritiba specifically, but a cross-tenant barter marketplace raises new tax/accounting questions per jurisdiction once tenants exist outside Brazil (or even across Brazilian states/entities). What's the accounting treatment, and does it change the marketplace design (e.g. match-fee structure, escrow)? | Phase 6/9 barter marketplace, Phase 12 billing | Not yet answered — needs accounting/legal review, likely per-market as expansion happens |
+
+**Twenty CRM alternatives to propose to James** (draft, pending his/legal's final call):
+- **Option A (report's own recommendation, option b):** Don't adopt Twenty at all — keep building the platform's own native CRM UI (companies/pipeline/contacts already exist and are more purpose-built for sponsorship workflows than generic Twenty tables). Lowest legal risk, no new dependency, but means owning more CRM feature surface long-term.
+- **Option B:** Twenty CRM, internal-only (back-office ops, never customer-facing) — the report's fallback if some Twenty functionality is genuinely wanted. Still needs Question 1 answered before committing.
+- **Option C:** A different open-source CRM with a permissive (non-copyleft) license — needs its own research pass; not covered in `master_report.md` since it only evaluated Twenty. Worth a short comparison pass before ruling this out.
+- **Option D:** Keep Pipedrive as the CRM system of record (it already works, is already integrated, and this sidesteps the entire licensing question) — the report doesn't seriously consider this because Pipedrive doesn't fit a multi-tenant white-label resale model, but for the *current* Coritiba instance and Phase 1–3 work, there's no urgency to replace it.
+
+**Action:** package questions 1–5 above plus the four CRM options into a short document for James to forward to counsel/GPT — separate deliverable, not yet written.
+
+---
+
+## 7. Team & Hiring Track
+
+- [ ] Interview senior developer candidates (James's explicit ask — in progress/owned outside this codebase)
+- [ ] Onboard and actively integrate the 2 junior hires (currently on trial) into real work — this roadmap's Phase 1 (hardening) is a reasonable onboarding project: scoped, well-defined, low-risk-to-production if reviewed properly
+- [ ] Once team is larger: revisit whether phases above should run in parallel across multiple developers rather than sequentially — this document assumes solo-sequential execution as the floor, not the ceiling
+
+---
+
+## 8. Open Questions Still Needing James's Input
+
+- [ ] Concrete scope for Phase 2 ("improve text agents") — `master_report.md` doesn't detail this beyond the Negotiation Agent's role description
+- [ ] Exit criteria for Phase 3 validation (how long, what metrics, who signs off)
+- [ ] Whether the multi-tenant pivot (Phase 4) targets *all* segments from Section 2's prioritization or starts narrower (e.g. sports clubs only, matching Wave 1)
+- [ ] Budget/timeline expectations now that team is scaling — not specified in the WhatsApp exchange
+- [ ] Get the 7 missing supporting research files from whoever produced `master_report.md` (see Section 4 above)
+
+---
+
+## Appendix A — Full Item Checklist Cross-Referenced to `master_report.md`
+
+Every individual item from the source report, so nothing gets lost in the phase reorganization above. Section numbers match the original document.
+
+### A.1 — Section 8, Failure-Pattern Mitigations (Phase 1)
+1. [ ] Hallucinated content — claim-grounding, block unsupported claims, stale-source fact-check before send
+2. [ ] Single data-vendor reliance — provider-abstraction/failover layer
+3. [ ] Deliverability collapse — sending-rate ramps, dedicated domain, bounce/spam circuit breaker
+4. [ ] Approval gates as prompts not infrastructure — state-machine-enforced, non-bypassable, audited
+5. [ ] Runaway automation cost — spend caps, timeouts, independent kill switch, real-time monitoring
+6. [ ] OAuth/integration compromise cascades — short-lived rotating tokens, minimum scope, kill switch
+7. [ ] Single point of failure in backups — immutable, access-isolated, offsite, separate credentials
+8. [ ] Trust-fund/liquidity mismanagement — segregate customer float from operating cash, independent audit
+9. [ ] Enterprise trust erosion from over-automation — visible "human takeover" mode, conservative marketing claims
+10. [ ] Founder/team conflict — organizational, clear decision rights before scale pressure (not a build item)
+11. [ ] Poor unit economics — price to true per-lead cost from day one, track cost-to-serve continuously
+12. [ ] Weak product-market fit — validate with design partners before broad automation, build a defensible data moat
+
+### A.2 — Section 4, Full Feature Roadmap
+- P0 (1–5): see Phase 5 above
+- P1 (6–10): see Phase 6 above
+- P2 (11–14): see Phase 7 above
+- P3 (15–16): see "Longer-horizon" under Phase 12 above
+
+### A.3 — Section 5, MCP Integrations
+See Phase 11 above — full list of 14 services and wire/build decisions.
+
+### A.4 — Section 6, Go-to-Market
+See Phase 9 above — niche productization, wave sequencing, ticketing build-vs-buy.
+
+### A.5 — Section 7, CRM Replacement & Agentic Teams
+See Phase 8 above (agentic teams) and Section 6 of this document (Twenty CRM legal track).
+
+### A.6 — Section 9, Partnership/Barter/Marketplace Strategy
+See Phase 9 above — agency reseller, league deals, TechSoup channel, VIK growth loop, fee-free ticketing wedge, barter-for-exchange co-marketing.
+
+### A.7 — Section 10, Enterprise Readiness
+See Phase 10 above — full 9-item list.
+
+### A.8 — Section 11, Business Model
+See Phase 12 above — revenue streams, cost-structure watch-items, moat/defensibility (verified deal-value benchmark database + combined end-to-end workflow).
+
+### A.9 — Section 12, Setup Guide for a New Tenant's Agentic Automation
+Operational runbook, not a build item — relevant once Phase 4 (multi-tenancy) and Phase 8 (agentic teams) both exist:
+1. Connect integrations via MCP where available
+2. Configure dedicated sending infrastructure
+3. Load inventory/rate cards
+4. Set approval-gate policy per campaign (manual for first 2–4 weeks on any new tenant)
+5. Enable Agentic Team 1, review first batch in `/approvals` before enabling batch mode
+6. Enable Agentic Team 2 (Pipeline Hygiene + Renewal immediately; Multi-Channel Sequencer only after 2 weeks of stable deliverability)
+7. Enable the unified orchestrator only after both teams run cleanly for a full renewal cycle (60–90 days)
+8. Ongoing: daily spend-cap dashboard, weekly deliverability report, monthly OAuth-token audit, quarterly backup-restore drill
+
+### A.10 — Section 13, Ad Strategies
+See Phase 9 above.
+
+### A.11 — Section 14, Gaps and Open Questions (from the original report)
+- [ ] WhatsApp Business Cloud API — no mature MCP, budget custom engineering time
+- [ ] Twenty CRM AGPL licensing — see Section 6 of this document
+- [ ] Ticketing module licensing — see Section 6 of this document
+- [ ] VIK/barter cross-jurisdiction tax treatment — see Section 6 of this document
+- [ ] Youth-league segment pricing may need a genuinely free/near-free self-serve tier — worth a dedicated pricing experiment before committing engineering resources (Phase 9, Wave 4)
+- [ ] AI-agent cost-monitoring tooling — evaluate existing LLM-ops platforms (Helicone, LangSmith) rather than building in-house (relevant to Phase 1's spend-cap item)
+
+---
+
+*Maintained as the working plan until superseded. Update phase checkboxes as work completes; don't delete completed items — mark them and move on, so this stays a true history of the roadmap, not just a snapshot of what's left.*
