@@ -5,6 +5,7 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import { serverEnv } from "@/lib/env";
 import { checkDailySpendCap, recordSpend, bedrockCallCostUsd } from "@/lib/monitoring/spend-guard";
+import { logger } from "@/lib/monitoring/logger";
 
 /**
  * Hardening pass (master_report.md Section 8, Pattern 5). Centralized here —
@@ -109,10 +110,9 @@ export function extractJson(text: string): unknown | null {
   return null;
 }
 
-export async function invokeClaude<T = unknown>(
+async function invokeClaudeViaBedrock<T = unknown>(
   opts: InvokeClaudeOptions,
 ): Promise<ClaudeResult<T>> {
-  await assertUnderSpendCap();
   const env = serverEnv();
   const body = {
     anthropic_version: "bedrock-2023-05-31",
@@ -145,23 +145,53 @@ export async function invokeClaude<T = unknown>(
       : "";
 
   const parsed = opts.json ? (extractJson(text) as T | null) : null;
-
   const usage = raw?.usage ?? null;
-  if (usage) {
+
+  return { text, json: parsed, usage, raw };
+}
+
+/**
+ * Hardening (Phase 2 continuity): Bedrock credentials can fail for reasons
+ * unrelated to our own code (rotated/deactivated AWS key, region outage).
+ * When ANTHROPIC_API_KEY is configured, a failed Bedrock call falls back to
+ * the direct Anthropic API instead of taking down every AI feature at once —
+ * same provider-abstraction principle already applied to enrichment vendors
+ * (Pattern 2). Spend cap is still enforced once up front either way.
+ */
+export async function invokeClaude<T = unknown>(
+  opts: InvokeClaudeOptions,
+): Promise<ClaudeResult<T>> {
+  await assertUnderSpendCap();
+
+  let result: ClaudeResult<T>;
+  let provider: "aws_bedrock" | "anthropic_direct";
+  try {
+    result = await invokeClaudeViaBedrock<T>(opts);
+    provider = "aws_bedrock";
+  } catch (bedrockErr) {
+    if (!serverEnv().ANTHROPIC_API_KEY) throw bedrockErr;
+    logger.warn("[bedrock] invokeClaude failed, falling back to direct Anthropic API", {
+      error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
+    });
+    const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
+    result = await invokeClaudeDirect<T>(opts);
+    provider = "anthropic_direct";
+  }
+
+  if (result.usage) {
     await recordSpend({
       category: "bedrock_text",
-      provider: "aws_bedrock",
-      amountUsd: bedrockCallCostUsd(usage.input_tokens ?? 0, usage.output_tokens ?? 0),
-      metadata: { input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, api: "invoke_model" },
+      provider,
+      amountUsd: bedrockCallCostUsd(result.usage.input_tokens ?? 0, result.usage.output_tokens ?? 0),
+      metadata: {
+        input_tokens: result.usage.input_tokens,
+        output_tokens: result.usage.output_tokens,
+        api: provider === "aws_bedrock" ? "invoke_model" : "anthropic_direct_fallback",
+      },
     });
   }
 
-  return {
-    text,
-    json: parsed,
-    usage,
-    raw,
-  };
+  return result;
 }
 
 // ── Converse API (tool use) ────────────────────────────────────────────────────
@@ -197,18 +227,13 @@ export type ConverseResult = {
   usage: { inputTokens: number; outputTokens: number } | null;
 };
 
-/**
- * Claude Converse API — supports multi-turn tool use (agentic loops).
- * Uses ConverseCommand which natively handles tool_use / tool_result turns.
- */
-export async function converseWithTools(opts: {
+async function converseWithToolsViaBedrock(opts: {
   system: string;
   messages: ConverseMessage[];
   tools: ToolDefinition[];
   maxTokens?: number;
   temperature?: number;
 }): Promise<ConverseResult> {
-  await assertUnderSpendCap();
   const env = serverEnv();
 
   // ConverseCommand SDK types use nested generics that don't align cleanly with our custom message types.
@@ -242,15 +267,6 @@ export async function converseWithTools(opts: {
     }
   }
 
-  if (response.usage) {
-    await recordSpend({
-      category: "bedrock_text",
-      provider: "aws_bedrock",
-      amountUsd: bedrockCallCostUsd(response.usage.inputTokens ?? 0, response.usage.outputTokens ?? 0),
-      metadata: { input_tokens: response.usage.inputTokens, output_tokens: response.usage.outputTokens, api: "converse" },
-    });
-  }
-
   return {
     stopReason: response.stopReason ?? "end_turn",
     message: msg,
@@ -260,4 +276,51 @@ export async function converseWithTools(opts: {
       ? { inputTokens: response.usage.inputTokens ?? 0, outputTokens: response.usage.outputTokens ?? 0 }
       : null,
   };
+}
+
+/**
+ * Claude Converse API — supports multi-turn tool use (agentic loops).
+ * Uses ConverseCommand which natively handles tool_use / tool_result turns.
+ * Falls back to the direct Anthropic API (translating the Converse tool
+ * shapes) when Bedrock itself fails and ANTHROPIC_API_KEY is configured —
+ * same reasoning as invokeClaude() above.
+ */
+export async function converseWithTools(opts: {
+  system: string;
+  messages: ConverseMessage[];
+  tools: ToolDefinition[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<ConverseResult> {
+  await assertUnderSpendCap();
+
+  let result: ConverseResult;
+  let provider: "aws_bedrock" | "anthropic_direct";
+  try {
+    result = await converseWithToolsViaBedrock(opts);
+    provider = "aws_bedrock";
+  } catch (bedrockErr) {
+    if (!serverEnv().ANTHROPIC_API_KEY) throw bedrockErr;
+    logger.warn("[bedrock] converseWithTools failed, falling back to direct Anthropic API", {
+      error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
+    });
+    const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
+    result = await converseWithToolsDirect(opts);
+    provider = "anthropic_direct";
+  }
+
+  if (result.usage) {
+    await recordSpend({
+      category: "bedrock_text",
+      provider,
+      amountUsd: bedrockCallCostUsd(result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      metadata: {
+        input_tokens: result.usage.inputTokens,
+        output_tokens: result.usage.outputTokens,
+        api: provider === "aws_bedrock" ? "converse" : "anthropic_direct_fallback",
+      },
+    });
+  }
+
+  return result;
 }

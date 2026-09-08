@@ -14,6 +14,12 @@ const serverSchema = z.object({
   AWS_REGION: z.string().min(1).default("us-east-1"),
   BEDROCK_MODEL_ID: z.string().min(1),
 
+  /** Direct Anthropic API — fallback when Bedrock is unreachable/misconfigured. Optional. */
+  ANTHROPIC_API_KEY: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(10).optional()
+  ),
+
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
