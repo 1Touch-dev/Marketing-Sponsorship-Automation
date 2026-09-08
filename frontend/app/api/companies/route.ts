@@ -4,6 +4,7 @@ import { companyCreateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_company");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({}));
   const parsed = companyCreateSchema.safeParse(body);
   if (!parsed.success) {

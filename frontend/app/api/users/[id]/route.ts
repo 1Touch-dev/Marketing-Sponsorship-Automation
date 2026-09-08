@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/auth/roles";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,12 @@ export async function PATCH(
   req: Request,
   ctx: { params: { id: string } }
 ) {
+  // Critical: this is the self-privilege-escalation vector (a caller could
+  // otherwise PATCH their own row to role: "admin") — confirmed unguarded
+  // in the Phase 5 audit, 2026-09-08.
+  const auth = await requirePermission("manage_users");
+  if ("error" in auth) return auth.error;
+
   const id = ctx.params.id;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
@@ -40,6 +47,9 @@ export async function DELETE(
   _req: Request,
   ctx: { params: { id: string } }
 ) {
+  const auth = await requirePermission("manage_users");
+  if ("error" in auth) return auth.error;
+
   const id = ctx.params.id;
   const sb = supabaseAdmin();
   const { error } = await sb

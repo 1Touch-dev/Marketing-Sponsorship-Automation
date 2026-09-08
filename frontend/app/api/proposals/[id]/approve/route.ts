@@ -7,6 +7,7 @@ import type { ProposalStatus } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
 import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import crypto from "crypto";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,15 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
   }
+
+  // Server-side enforcement (Phase 5 audit finding, 2026-09-08) — this
+  // endpoint approves/rejects/sends proposals to real prospects; it had no
+  // permission check at all before this. "submit_review" is a lower bar
+  // (any sales rep moving their own draft forward); every other decision
+  // is the actual approval-flow gate.
+  const requiredPermission = parsed.data.decision === "submit_review" ? "submit_proposal" : "approve_proposal";
+  const auth = await requirePermission(requiredPermission);
+  if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
 

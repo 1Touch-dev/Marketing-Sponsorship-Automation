@@ -35,6 +35,7 @@ const PERMISSIONS = {
   create_campaign:   ["admin", "sales_rep"] as UserRole[],
   create_proposal:   ["admin", "sales_rep"] as UserRole[],
   edit_proposal:     ["admin", "sales_rep"] as UserRole[],
+  delete_proposal:   ["admin"] as UserRole[],
   submit_proposal:   ["admin", "sales_rep"] as UserRole[],
 
   // Approval flow

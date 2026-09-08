@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { proposalUpdateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import type { ProposalContent } from "@/types/database";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,9 @@ function renderMarkdown(content: ProposalContent): string {
 }
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({}));
   const parsed = proposalUpdateSchema.safeParse(body);
   if (!parsed.success) {
@@ -81,6 +85,9 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 }
 
 export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("delete_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { error } = await sb.from("proposals").delete().eq("id", ctx.params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

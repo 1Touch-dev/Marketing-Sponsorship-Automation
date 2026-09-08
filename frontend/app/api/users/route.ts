@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/auth/roles";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,9 @@ export async function GET() {
 
 // POST /api/users — invite a new user
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_users");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => null);
   if (!body?.email || !body?.full_name || !body?.role) {
     return NextResponse.json({ error: "email, full_name and role are required" }, { status: 400 });
