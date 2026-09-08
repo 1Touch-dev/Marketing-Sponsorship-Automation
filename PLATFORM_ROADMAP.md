@@ -84,15 +84,15 @@ Not code. See Sections 6 and 7 below for full detail.
 - [ ] Twenty CRM alternatives proposed to James
 - [ ] Senior developer interviews underway; junior hires actively integrated into work
 
-### Phase 1 — Harden the existing Outreach Agent (CURRENT PRIORITY, per James) — `master_report.md` Section 8
-Confirmed as the starting point. Applies to the platform as it exists today, independent of the multi-tenant decision — this makes Coritiba's live pipeline safer regardless of what happens next. Full pattern list in Appendix A.1; the three James/report flag as highest-priority:
-- [ ] **Infrastructure-enforced approval gates** (not prompt-based) — the send/approve step must be a real state-machine transition the agent literally cannot skip, not an instruction the LLM is trusted to obey. (Pattern 4)
-- [ ] **Dedicated sending-domain deliverability architecture** — separate sending domain from the primary business domain, SPF/DKIM/DMARC configured, hard per-mailbox sending-rate ramp, bounce/spam-complaint circuit breaker at 0.1–0.3%. (Pattern 3)
-- [ ] **Claim-grounding in proposal generation** — every factual claim the AI makes about a prospect must trace to a cited, timestamped enrichment field; block unsupported claims before they reach a draft. (Pattern 1)
-- [ ] Provider-abstraction/failover layer across enrichment vendors (Hunter/Apollo) so one vendor outage doesn't stall the pipeline. (Pattern 2)
-- [ ] Hard per-run/per-day spend caps + execution timeouts + a kill switch independent of the agent's own logic; real-time spend visibility, not monthly-invoice discovery. (Pattern 5)
-- [ ] Short-lived, auto-rotating OAuth tokens; minimum-scope grants; one-click integration kill switch. (Pattern 6)
-- [ ] Immutable, access-isolated, offsite backups on credentials separate from production. (Pattern 7)
+### Phase 1 — Harden the existing Outreach Agent — `master_report.md` Section 8
+**Status: functionally closed as of 08 Sep 2026**, except Pattern 3 which is blocked (see below), not skipped. Full pattern list in Appendix A.1; the three James/report flag as highest-priority:
+- [x] **Infrastructure-enforced approval gates** (not prompt-based) — the send/approve step must be a real state-machine transition the agent literally cannot skip, not an instruction the LLM is trusted to obey. (Pattern 4) — **Done.** Atomic `UPDATE ... WHERE status = X` claims replace SELECT-then-write races across every send path. Proven with a real concurrent-request test: exactly 1 of 2 simultaneous sends succeeded.
+- [ ] **Dedicated sending-domain deliverability architecture** — separate sending domain from the primary business domain, SPF/DKIM/DMARC configured, hard per-mailbox sending-rate ramp, bounce/spam-complaint circuit breaker at 0.1–0.3%. (Pattern 3) — **Blocked, not started.** Real email sending (Gmail/SMTP) was never wired up — "send" today means logging a Pipedrive activity. There is no live sending pipeline to harden yet. Needs James to authorize real sending (Gmail OAuth already scaffolded, or a Resend/SendGrid decision) before this pattern is actionable.
+- [x] **Claim-grounding in proposal generation** — every factual claim the AI makes about a prospect must trace to a cited, timestamped enrichment field; block unsupported claims before they reach a draft. (Pattern 1) — **Done.** New Rule 10 in the proposal system prompt forbids inventing sponsor-specific facts when no real intelligence is available; verified against both a no-data and a real-data company.
+- [x] Provider-abstraction/failover layer across enrichment vendors (Hunter/Apollo) so one vendor outage doesn't stall the pipeline. (Pattern 2) — **Already true, verified, no new code needed.** Audited: Hunter/Apollo/LinkedIn/ad-signal scraping all already have real per-provider try/catch failover.
+- [x] Hard per-run/per-day spend caps + execution timeouts + a kill switch independent of the agent's own logic; real-time spend visibility, not monthly-invoice discovery. (Pattern 5) — **Done, fully verified live.** `spend_ledger` table + daily USD cap enforced in front of every Bedrock and image-generation call. Real enforcement test: a real `invokeClaude()` call was confirmed to throw and never reach Bedrock once the ledger was pushed over the cap.
+- [x] Short-lived, auto-rotating OAuth tokens; minimum-scope grants; one-click integration kill switch. (Pattern 6) — **Done.** Gmail tokens now encrypted at rest (AES-256-GCM), OAuth scopes trimmed from 4 to 2, and a real Disconnect (revoke) button added to Settings.
+- [x] Immutable, access-isolated, offsite backups on credentials separate from production. (Pattern 7) — **Done, fully verified live in production.** Daily export script uploads to a dedicated, Object-Locked (90-day, Compliance mode) S3 bucket under an IAM identity that only has `s3:PutObject`/`s3:PutObjectRetention` — no read/list/delete, so a compromised production credential can't touch existing backups. Still owed: wiring the script to an actual daily schedule (currently manual-trigger only).
 
 ### Phase 2 — Improve the text/email agents (per James's sequencing)
 - [ ] Concrete scope TBD with James/team — likely: better negotiation/barter drafting quality, reply classification, tone control per flow type. Not detailed in `master_report.md` beyond Section 7.2's "Negotiation Agent" role description — treat that as the target behavior to build toward without yet standing up the full multi-agent framework.
@@ -235,18 +235,18 @@ James asked specifically for: the open questions written up, a suggested draft a
 Every individual item from the source report, so nothing gets lost in the phase reorganization above. Section numbers match the original document.
 
 ### A.1 — Section 8, Failure-Pattern Mitigations (Phase 1)
-1. [ ] Hallucinated content — claim-grounding, block unsupported claims, stale-source fact-check before send
-2. [ ] Single data-vendor reliance — provider-abstraction/failover layer
-3. [ ] Deliverability collapse — sending-rate ramps, dedicated domain, bounce/spam circuit breaker
-4. [ ] Approval gates as prompts not infrastructure — state-machine-enforced, non-bypassable, audited
-5. [ ] Runaway automation cost — spend caps, timeouts, independent kill switch, real-time monitoring
-6. [ ] OAuth/integration compromise cascades — short-lived rotating tokens, minimum scope, kill switch
-7. [ ] Single point of failure in backups — immutable, access-isolated, offsite, separate credentials
-8. [ ] Trust-fund/liquidity mismanagement — segregate customer float from operating cash, independent audit
-9. [ ] Enterprise trust erosion from over-automation — visible "human takeover" mode, conservative marketing claims
+1. [x] Hallucinated content — claim-grounding, block unsupported claims, stale-source fact-check before send — **Done**
+2. [x] Single data-vendor reliance — provider-abstraction/failover layer — **Already true, verified**
+3. [ ] Deliverability collapse — sending-rate ramps, dedicated domain, bounce/spam circuit breaker — **Blocked: no live sending pipeline exists yet to harden**
+4. [x] Approval gates as prompts not infrastructure — state-machine-enforced, non-bypassable, audited — **Done**
+5. [x] Runaway automation cost — spend caps, timeouts, independent kill switch, real-time monitoring — **Done, live-verified**
+6. [x] OAuth/integration compromise cascades — short-lived rotating tokens, minimum scope, kill switch — **Done**
+7. [x] Single point of failure in backups — immutable, access-isolated, offsite, separate credentials — **Done, live-verified**
+8. [ ] Trust-fund/liquidity mismanagement — segregate customer float from operating cash, independent audit — organizational/N/A (no customer float exists on the platform today)
+9. [ ] Enterprise trust erosion from over-automation — visible "human takeover" mode, conservative marketing claims — not started
 10. [ ] Founder/team conflict — organizational, clear decision rights before scale pressure (not a build item)
-11. [ ] Poor unit economics — price to true per-lead cost from day one, track cost-to-serve continuously
-12. [ ] Weak product-market fit — validate with design partners before broad automation, build a defensible data moat
+11. [ ] Poor unit economics — price to true per-lead cost from day one, track cost-to-serve continuously — not started (cost-to-serve tracking overlaps with Phase 12)
+12. [ ] Weak product-market fit — validate with design partners before broad automation, build a defensible data moat — not started
 
 ### A.2 — Section 4, Full Feature Roadmap
 - P0 (1–5): see Phase 5 above
