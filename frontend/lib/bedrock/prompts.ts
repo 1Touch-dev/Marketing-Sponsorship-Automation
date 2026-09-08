@@ -244,6 +244,7 @@ export function proposalPrompt(args: {
       "7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to Coritiba's audience.",
       "8. Output MUST be valid JSON only. No markdown fences. No extra keys.",
       "9. The 'deliverables' array MUST contain EXACTLY 5 specific items. Never return an empty array. Each item = one concrete Coritiba FC asset with quantity.",
+      "10. CLAIM GROUNDING (non-negotiable — this is real sales collateral shown to a real company): every specific factual claim you make ABOUT THE SPONSOR (their stated goals, a named campaign, headcount, revenue, recent activity, competitors, decision-makers) must come from a 'COMPANY INTELLIGENCE' block if one is provided in the user message. If no such block is provided, or it doesn't cover a topic, do NOT invent a specific fact to fill the gap — write that part in general, industry-appropriate terms instead (e.g. 'brands in the [industry] sector typically pursue...' rather than inventing this specific company's goal). A qualified, general statement is correct; a confident, specific, unsourced one is a fabrication and is not acceptable even if it sounds plausible.",
       "",
       CORITIBA_CONTEXT,
       "",

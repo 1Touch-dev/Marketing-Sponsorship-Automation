@@ -144,10 +144,16 @@ export async function generatePersonalizedProposalForCompany(
     },
   });
 
-  const enhancedUser =
-    user +
-    intelBlock +
-    "\n\nIMPORTANT: This proposal must be uniquely written for this sponsor only — reference their industry, market, and intelligence above. Do not use generic boilerplate.";
+  // When real intelligence exists, push for specificity grounded in it. When
+  // it doesn't, this used to say the same thing regardless — which told the
+  // model to "reference the intelligence above" and avoid "generic
+  // boilerplate" even with nothing there to reference, pushing it toward
+  // inventing specifics exactly when it had no real data to draw from.
+  const closingInstruction = intelBlock
+    ? "\n\nIMPORTANT: This proposal must be uniquely written for this sponsor only — reference their industry, market, and the COMPANY INTELLIGENCE above. Do not use generic boilerplate. Per rule 10, only state sponsor-specific facts that appear in that intelligence block."
+    : "\n\nIMPORTANT: No verified company intelligence is available for this sponsor. Do NOT invent specific facts about their business, goals, campaigns, headcount, or activity — per rule 10, write this proposal in general, industry-appropriate terms for their sector instead, while still keeping it compelling and specific about what Coritiba FC offers.";
+
+  const enhancedUser = user + intelBlock + closingInstruction;
 
   logger.info("Agent generating personalized proposal", { company: company.company_name });
 
