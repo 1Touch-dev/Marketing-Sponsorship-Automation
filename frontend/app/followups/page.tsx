@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, truncate } from "@/lib/utils";
+import { DetectColdButton } from "./detect-cold-button";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,11 @@ export default async function FollowupsPage() {
 
   return (
     <>
-      <PageHeader title="Follow-ups" description="Suggested and scheduled follow-up emails." />
+      <PageHeader
+        title="Follow-ups"
+        description="Suggested and scheduled follow-up emails."
+        actions={<DetectColdButton />}
+      />
       {!data || data.length === 0 ? (
         <EmptyState title="No follow-ups yet" description="Once an email has been sent, follow-up drafts can be generated here." />
       ) : (

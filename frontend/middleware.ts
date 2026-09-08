@@ -24,13 +24,26 @@ const PUBLIC_PREFIXES = [
   "/api/system/",     // health checks — secured at route level if needed
 ];
 
+// API endpoints called directly from the public proposal share page
+// (app/(public)/proposals/view/[token]) by an unauthenticated sponsor —
+// these were never actually exempted here despite the page itself being
+// public, so every call from a real external visitor silently 401'd
+// (the client-side fetches all .catch(() => {}), so nothing ever
+// surfaced). Found while live-testing Phase 5 engagement tracking.
+const PUBLIC_API_PATTERNS: RegExp[] = [
+  /^\/api\/proposals\/[^/]+\/track-view$/, // view/engagement tracking
+  /^\/api\/proposals\/[^/]+\/interest$/,   // "I'm interested" lead-capture form
+  /^\/api\/exports$/,                      // export/print tracking (also used by the authenticated view)
+];
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Skip auth for static assets and public paths
   if (
     PUBLIC_ROUTES.has(pathname) ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
+    PUBLIC_API_PATTERNS.some((r) => r.test(pathname))
   ) {
     return NextResponse.next();
   }
