@@ -1,0 +1,58 @@
+/**
+ * Every application table that must be captured in a full logical backup
+ * (Pattern 7 hardening — master_report.md Section 8). Sourced from
+ * `create table` statements across supabase/migrations/*.sql; there is no
+ * live way to introspect information_schema from this box (no direct
+ * Postgres access — see project memory), so this list is maintained by
+ * hand and must be updated whenever a migration adds a new table.
+ */
+export const BACKUP_TABLES = [
+  "agent_batch_runs",
+  "agent_runs",
+  "apify_search_cache",
+  "approvals",
+  "audit_logs",
+  "barter_items",
+  "brand_asset_packs",
+  "brand_assets",
+  "campaign_inventory_items",
+  "campaigns",
+  "companies",
+  "company_logos",
+  "contacts",
+  "contracts",
+  "coritiba_metrics",
+  "crm_sync_queue",
+  "email_sequence_enrollments",
+  "email_sequences",
+  "email_templates",
+  "email_threads",
+  "emails",
+  "followups",
+  "image_generation_jobs",
+  "inventory_items",
+  "match_media_reach",
+  "matches",
+  "newsletter_segments",
+  "newsletters",
+  "pipeline_leads",
+  "platform_users",
+  "proposal_inventory_items",
+  "proposal_packages",
+  "proposal_sections",
+  "proposal_templates",
+  "proposal_variants",
+  "proposal_versions",
+  "proposal_wizard_drafts",
+  "proposals",
+  "sender_profiles",
+  "social_projects",
+  "spend_ledger",
+  "team_members",
+  "template_renders",
+  "users",
+  "visual_mockups",
+  "warmup_enrollments",
+  "warmup_sequences",
+  "workflow_events",
+] as const;

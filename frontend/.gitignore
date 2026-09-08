@@ -1,1 +1,5 @@
 .env.local
+
+# Local fallback output of scripts/run-backup.ts when BACKUP_S3_* creds
+# aren't configured — full DB export, must never be committed.
+.local-backups/

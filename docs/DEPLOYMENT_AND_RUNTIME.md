@@ -564,4 +564,56 @@ sudo systemctl restart nextjs
 
 ---
 
+## 14. Backups (Pattern 7 hardening)
+
+**Why this exists**: master_report.md Section 8, Pattern 7, cites Code Spaces —
+a company killed overnight because one compromised credential had access to
+both production infrastructure *and* its backups, so the attacker deleted
+both. As of this writing, this project has no database backup mechanism
+independent of the production Supabase service-role credential — the exact
+gap that pattern describes.
+
+**What's built** (`frontend/lib/backup/export-snapshot.ts`,
+`frontend/scripts/run-backup.ts`): a full logical export of every
+application table via the Supabase REST API, gzipped, and uploaded to S3
+under a **separate** AWS credential from the one used for Bedrock/production
+(`BACKUP_AWS_*` env vars, distinct from `AWS_ACCESS_KEY_ID`). Until those
+vars are set, the script writes the snapshot to `frontend/.local-backups/`
+instead (gitignored) and prints a loud warning — a same-box, same-credential
+copy is not an isolated backup and should not be relied on for real
+disaster recovery.
+
+**One-time setup required from a human with AWS console access** (this
+cannot be done from this dev box — no AWS CLI/console access here):
+
+1. Create a new S3 bucket in a separate AWS account if possible (or at
+   minimum a bucket the production IAM user has zero permissions on).
+   Enable **Versioning** and **Object Lock** at creation time (Object Lock
+   cannot be enabled after the fact).
+2. Create a new, dedicated IAM user (not the one behind `AWS_ACCESS_KEY_ID`)
+   with a policy that allows **only** `s3:PutObject` on that one bucket —
+   no `s3:DeleteObject`, no access to any other resource. This is what
+   makes it access-isolated: even a fully compromised production credential
+   cannot read, modify, or delete what's already backed up.
+3. Generate an access key for that user and set `BACKUP_AWS_ACCESS_KEY_ID`,
+   `BACKUP_AWS_SECRET_ACCESS_KEY`, `BACKUP_AWS_REGION`, `BACKUP_S3_BUCKET`
+   in `.env` / `.env.local`. Set `BACKUP_S3_OBJECT_LOCK_DAYS` (e.g. `90`)
+   to have each upload locked in COMPLIANCE mode for that many days — not
+   even the bucket owner can delete it early.
+4. Schedule `npx tsx scripts/run-backup.ts` to run daily — either a system
+   cron job on this box, or an n8n Schedule trigger that shells out to it
+   (n8n is already the orchestration layer for this project). It is
+   intentionally a standalone script, not a Next.js API route, since a
+   full export can run longer than a request/response cycle should.
+5. Quarterly: actually restore a snapshot into a scratch Supabase project
+   and verify the data is usable — an untested backup is not a backup.
+
+**Separately, unresolved**: Supabase's own automated/point-in-time-recovery
+backups are a dashboard- and billing-plan-gated setting, not something
+controllable from this codebase or this box. Whether PITR is currently
+enabled on the project, and at what retention, needs to be confirmed
+directly in the Supabase dashboard by whoever holds that account.
+
+---
+
 *End of document.*
