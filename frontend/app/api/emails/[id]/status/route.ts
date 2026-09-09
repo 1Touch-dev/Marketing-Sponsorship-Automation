@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("approve_proposal");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({}));
   const { status } = body as { status?: string };
 

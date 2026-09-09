@@ -5,6 +5,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 import { resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -20,6 +21,9 @@ export const maxDuration = 30;
  * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("send_proposal");
+  if ("error" in auth) return auth.error;
+
   const ip = getClientIp(req);
   const rl = checkRateLimit(`email-send:${ip}`, { max: 20, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });

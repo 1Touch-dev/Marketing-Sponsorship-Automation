@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { generateImage, getPrediction, estimateCost, JERSEY_TRIGGER_WORD } from "@/lib/replicate/client";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 120;
 
@@ -48,6 +49,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   // Rate limit: 10 generations per minute per IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rl = checkRateLimit({ key: `replicate-gen:${ip}`, limit: 10, windowSec: 60 });

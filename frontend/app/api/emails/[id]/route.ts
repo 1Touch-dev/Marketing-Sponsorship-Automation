@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 /**
  * PATCH /api/emails/:id
@@ -8,6 +9,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
  * Updates mutable fields on an email record (currently sender_profile_id).
  */
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
 

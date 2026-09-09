@@ -13,10 +13,14 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rl = checkRateLimit({ key: `stadium-mockup:${ip}`, limit: 20, windowSec: 60 });
   if (!rl.allowed) {

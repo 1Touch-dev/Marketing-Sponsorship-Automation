@@ -9,6 +9,7 @@ import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -47,6 +48,9 @@ type EmailRow = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const env = serverEnv();
   const ip = getClientIp(req);
   const rl = checkRateLimit(`followup-generate:${ip}`, { max: 15, windowMs: 60_000 });

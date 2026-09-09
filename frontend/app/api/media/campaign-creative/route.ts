@@ -6,6 +6,7 @@ import { compositeCampaignCreative } from "@/lib/media/campaign-composite";
 import type { CampaignSceneType } from "@/lib/media/image-prompts";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 300;
 export type SceneType = CampaignSceneType;
@@ -17,6 +18,9 @@ const SCENE_LABELS: Record<SceneType, { label: string; labelPt: string }> = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rl = checkRateLimit({ key: `campaign-creative:${ip}`, limit: 10, windowSec: 60 });
   if (!rl.allowed) {

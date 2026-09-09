@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,9 @@ export async function GET(req: Request) {
 
 // POST /api/proposals/wizard  — create or update draft
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const sb = supabaseAdmin();
 

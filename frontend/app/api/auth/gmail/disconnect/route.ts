@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { serverEnv } from "@/lib/env";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,9 @@ export const runtime = "nodejs";
  * unreachable, local tokens are still cleared so the app stops using them.
  */
 export async function POST() {
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
+
   const senderEmail = serverEnv().DEFAULT_FROM_EMAIL;
   if (!senderEmail) {
     return NextResponse.json({ error: "DEFAULT_FROM_EMAIL not configured" }, { status: 400 });

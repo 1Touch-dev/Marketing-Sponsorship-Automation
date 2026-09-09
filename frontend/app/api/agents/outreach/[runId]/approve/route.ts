@@ -5,8 +5,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { toolSendEmail } from "@/lib/agents/tools";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -15,8 +16,8 @@ export async function POST(
   _req: Request,
   ctx: { params: { runId: string } }
 ) {
-  const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requirePermission("send_proposal");
+  if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
 

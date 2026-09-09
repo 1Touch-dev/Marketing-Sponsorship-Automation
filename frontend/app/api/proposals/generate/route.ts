@@ -15,6 +15,7 @@ import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
+import { requirePermission } from "@/lib/auth/server-permission";
 import {
   proposalContentSchema,
   strategyVariantsResponseSchema,
@@ -93,6 +94,9 @@ async function runGeneration(system: string, user: string, maxTokens = 2000): Pr
  * Failures in secondary pipelines are non-fatal — columns become null.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const env = serverEnv();
   const ip = getClientIp(req);
   const rl = checkRateLimit(`proposal-gen:${ip}`, { max: 10, windowMs: 60_000 });

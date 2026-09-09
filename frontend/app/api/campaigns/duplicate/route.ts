@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,9 @@ const bodySchema = z.object({ campaign_id: z.string().uuid() });
  * Campaigns hold AI idea data, not user content, so duplication is lightweight.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_campaign");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({}));
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {

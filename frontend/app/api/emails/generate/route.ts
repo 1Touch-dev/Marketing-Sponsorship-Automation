@@ -17,6 +17,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,6 +25,9 @@ export const maxDuration = 60;
 const MAX_RETRIES = 2;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const env = serverEnv();
   const ip = getClientIp(req);
   const rl = checkRateLimit(`email-generate:${ip}`, { max: 15, windowMs: 60_000 });

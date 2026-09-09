@@ -5,6 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -31,8 +32,8 @@ export async function DELETE(
   _req: Request,
   ctx: { params: { runId: string } }
 ) {
-  const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
   await sb

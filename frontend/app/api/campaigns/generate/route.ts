@@ -14,6 +14,7 @@ import {
   type CampaignIdeaResponse,
 } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -21,6 +22,9 @@ export const maxDuration = 90;
 const MAX_RETRIES = 3;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_campaign");
+  if ("error" in auth) return auth.error;
+
   const env = serverEnv();
   const ip = getClientIp(req);
   const rl = checkRateLimit(`campaign-generate:${ip}`, { max: 10, windowMs: 60_000 });

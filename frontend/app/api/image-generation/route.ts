@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 
@@ -46,6 +47,9 @@ export async function GET(req: Request) {
  * POST /api/image-generation — Create a new job (pending_approval)
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   // Rate limit: 5 image generation requests per minute per IP
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   const rl = checkRateLimit({ key: `img-gen:${ip}`, limit: 5, windowSec: 60 });
@@ -163,6 +167,10 @@ export async function PATCH(req: Request) {
       display_label?: string | null;
       job_ids?: string[];
     };
+
+    const approvalActions = new Set(["approve", "reject", "bulk_approve"]);
+    const auth = await requirePermission(approvalActions.has(body.action) ? "approve_proposal" : "generate_images");
+    if ("error" in auth) return auth.error;
 
     const sb = supabaseAdmin();
 

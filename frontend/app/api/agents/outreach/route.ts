@@ -11,12 +11,17 @@ import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { runAgentOrchestrator } from "@/lib/agents/orchestrator";
 import type { AgentMode, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+  // agent_runs.created_by references auth.users(id), not platform_users.id
+  // (requirePermission()'s identity) — fetch it separately for that column.
+  const { data: { user } } = await supabaseServer().auth.getUser();
   if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
   const body = await req.json().catch(() => ({})) as { company_id?: string };

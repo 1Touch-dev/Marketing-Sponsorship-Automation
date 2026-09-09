@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { requirePermission } from "@/lib/auth/server-permission";
 import {
   strategyVariantsResponseSchema,
   pricingTiersResponseSchema,
@@ -135,6 +136,9 @@ async function batchMap<T, R>(items: T[], batchSize: number, fn: (item: T) => Pr
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_campaign");
+  if ("error" in auth) return auth.error;
+
   const ip = getClientIp(req);
   const rl = checkRateLimit(`bulk-campaigns:${ip}`, { max: 3, windowMs: 300_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,6 +12,9 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const ip = getClientIp(req);
   const rl = checkRateLimit(`proposal-gen-company:${ip}`, { max: 10, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });

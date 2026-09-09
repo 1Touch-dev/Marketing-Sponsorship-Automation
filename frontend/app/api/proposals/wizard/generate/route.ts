@@ -4,10 +4,14 @@ import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { proposalPrompt, barterTermsInstructionBlock, type BarterGroundingItem } from "@/lib/bedrock/prompts";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await req.json() as {
       session_key?: string;

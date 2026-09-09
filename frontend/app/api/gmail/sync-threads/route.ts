@@ -5,6 +5,7 @@ import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { classifyReply } from "@/lib/emails/reply-classifier";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,6 +20,9 @@ export const maxDuration = 60;
  * Intended for n8n Schedule triggers or manual operator runs.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
+
   const env = serverEnv();
   const body = (await req.json().catch(() => ({}))) as { gmail_thread_id?: string };
 
