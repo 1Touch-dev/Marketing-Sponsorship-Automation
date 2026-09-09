@@ -507,6 +507,58 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
 }
 
 // ---------------------------------------------------------------------------
+// White-space / opportunity-gap finder (Phase 6 — master_report.md Section 4
+// P1 item, uses the company-intelligence pipeline already built). Same
+// claim-grounding discipline as Rule 10 in proposalPrompt(): only states
+// this company's ACTUAL sponsorship activity if real sponsorship_history
+// text exists (from the real intelligence/scrape or discover pipelines);
+// otherwise says so explicitly rather than inventing a sponsorship history.
+// ---------------------------------------------------------------------------
+export function opportunityGapPrompt(args: {
+  company: CompanyContext;
+  sponsorshipHistory?: string | null;
+  competitors?: Array<{ name: string; sponsorshipHistory?: string | null }>;
+}) {
+  const hasOwnHistory = !!args.sponsorshipHistory?.trim();
+  const competitorsWithHistory = (args.competitors ?? []).filter((c) => c.sponsorshipHistory?.trim());
+
+  const historyBlock = hasOwnHistory
+    ? `${args.company.company_name}'s known current sponsorship activity (from real research): ${args.sponsorshipHistory}`
+    : `${args.company.company_name}'s current sponsorship activity is NOT known from any real source — do not invent one.`;
+
+  const competitorBlock = competitorsWithHistory.length
+    ? `Known real competitor sponsorship activity:\n${competitorsWithHistory.map((c) => `- ${c.name}: ${c.sponsorshipHistory}`).join("\n")}`
+    : "No real competitor sponsorship data is available — do not invent competitor sponsorships either.";
+
+  return {
+    system: [
+      "You are a sponsorship-strategy analyst identifying white-space opportunities for Coritiba FC.",
+      "Goal: given what is REALLY known about a prospect's current sponsorship activity (and, if available, their competitors'), identify a genuine gap — a category or channel where they have little/no sponsorship presence — that a Coritiba FC partnership could credibly fill.",
+      "CLAIM GROUNDING (non-negotiable, same as claim-grounding used elsewhere in this platform): only state that this company or a named competitor sponsors/doesn't sponsor something specific if that fact was given to you below. If no sponsorship history is known for this company, say so explicitly (e.g. 'no public sponsorship activity found') and frame the opportunity in general, industry-appropriate terms instead — do not fabricate a specific gap as if it were verified.",
+      "Never mention competitor football clubs (Athletico Paranaense, Corinthians, Flamengo, São Paulo FC, Palmeiras, Grêmio, Internacional) — the partnership target is always Coritiba FC.",
+      "Output MUST be valid JSON. No markdown fences.",
+    ].join("\n"),
+    user: [
+      `Company: ${args.company.company_name}`,
+      args.company.industry ? `Industry: ${args.company.industry}` : null,
+      "",
+      historyBlock,
+      competitorBlock,
+      "",
+      "Return JSON:",
+      `{
+  "grounded": ${hasOwnHistory || competitorsWithHistory.length ? "true" : "false"},
+  "current_sponsorship_summary": "1 sentence — what is really known about their current sponsorship posture, or 'No public sponsorship activity found' if nothing is known",
+  "gap_summary": "1-2 sentences — the specific white-space opportunity, grounded in the facts above if any exist, otherwise a general industry-pattern statement",
+  "opportunity_angle": "The specific pitch angle Coritiba FC's commercial team should use, referencing the gap"
+}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Outreach email
 // ---------------------------------------------------------------------------
 export function outreachEmailPrompt(args: {

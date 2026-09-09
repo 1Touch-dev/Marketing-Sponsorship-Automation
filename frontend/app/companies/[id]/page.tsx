@@ -16,6 +16,7 @@ import { CompanyAIAnalysis } from "./company-ai-analysis";
 import { InlineIndustryEdit } from "@/components/companies/inline-industry-edit";
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
+import { OpportunityGapPanel } from "@/components/companies/opportunity-gap-panel";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
@@ -244,6 +245,9 @@ export default async function CompanyDetailPage({
 
           {/* Differentiator Analysis */}
           <DifferentiatorPanel companyId={company.id} companyName={company.company_name} />
+
+          {/* White-space / Opportunity Gap */}
+          <OpportunityGapPanel companyId={company.id} companyName={company.company_name} />
 
           {/* Contact info */}
           <Card>
