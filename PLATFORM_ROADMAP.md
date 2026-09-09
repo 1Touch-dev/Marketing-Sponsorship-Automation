@@ -177,7 +177,7 @@ Wire official MCP servers where they exist instead of building custom integratio
 - [ ] Apollo.io
 - [ ] Apify (highest-value — exposes 7,000+ Actors dynamically)
 - [ ] Stripe (once billing exists)
-- [ ] Slack (internal notifications)
+- [x] Slack (internal notifications) — **done 2026-09-09.** Built as a single Incoming Webhook integration (`lib/slack/notify.ts`, `SLACK_WEBHOOK_URL`) rather than a full MCP/bot-API integration — this direction (app → Slack, "post a message") doesn't need one; a real MCP/bot setup would only be needed for the reverse direction (e.g. approving from inside Slack), not built. Wired into the three named trigger points: spend-cap hit (`lib/bedrock/client.ts`, debounced to 1/day), approval needed (`lib/agents/orchestrator.ts`'s `paused_for_proposal_approval`), gone-cold nudge (`app/api/proposals/detect-cold/route.ts`). Live-verified against a local fake-webhook server (correct payload/links for all three, debounce confirmed) and the no-webhook-configured no-op path (warns once, never throws). `SLACK_WEBHOOK_URL` still needs to be provisioned by James (create a Slack app + Incoming Webhook in the target workspace/channel) before any notification actually reaches Slack — until then this is silent by design, not broken.
 - [ ] GitHub (dev team's own tooling)
 - [ ] Supabase/Postgres (read-only, AI-assisted schema/reporting)
 - [ ] Custom-build required (no mature MCP exists): WhatsApp Business Cloud API, e-signature (DocuSeal/Documenso)
