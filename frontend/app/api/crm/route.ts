@@ -5,6 +5,7 @@ import {
   enqueueCrmSync,
   isPipedriveConfigured,
 } from "@/lib/pipedrive/sync";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await req.json() as {
       entity_type: string;
@@ -74,6 +78,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
+
   const { action } = await req.json() as { action: "retry_failed" | "flush_pending" | "clear_synced" };
   const sb = supabaseAdmin();
 

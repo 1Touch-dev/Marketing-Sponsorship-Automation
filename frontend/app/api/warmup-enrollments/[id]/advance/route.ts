@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,9 @@ function parseSteps(raw: unknown): WarmupStep[] {
  * manually, not auto-generated content like the email-sequence scheduler.
  */
 export async function POST(_req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_company");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 

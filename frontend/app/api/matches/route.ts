@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,9 @@ export async function GET(req: Request) {
  * Body: { match_date, opponent, competition?, home_away?, notes? }
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_matches");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = (await req.json().catch(() => ({}))) as {
     match_date?: string;

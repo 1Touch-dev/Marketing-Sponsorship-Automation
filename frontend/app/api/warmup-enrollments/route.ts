@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,6 +50,9 @@ export async function GET(req: Request) {
  * Enrolls a company in a warm-up sequence, with its first step due immediately.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_company");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = (await req.json().catch(() => ({}))) as {
     sequence_id?: string;

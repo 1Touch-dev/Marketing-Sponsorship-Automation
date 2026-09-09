@@ -7,6 +7,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -14,6 +15,9 @@ export const maxDuration = 30;
 const BUCKET = "proposal-assets";
 
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("manage_templates");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
 
   let formData: FormData;

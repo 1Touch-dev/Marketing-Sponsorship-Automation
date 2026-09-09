@@ -17,17 +17,24 @@ const bodySchema = z.object({
 /**
  * POST /api/workflows/audit
  * Lets n8n (or other orchestrators) append audit rows using the same path as the app.
- * When `MSA_INTERNAL_WEBHOOK_SECRET` is set in the environment, requests must include:
- *   header: x-msa-webhook-secret: <same value>
+ * Requests must include header: x-msa-webhook-secret: <MSA_INTERNAL_WEBHOOK_SECRET>.
+ *
+ * The check used to be conditional on the secret being configured at all —
+ * meaning any *logged-in* user (this route sits behind the normal session
+ * middleware, unlike /api/internal/*) could append arbitrary audit rows
+ * with no further check as long as MSA_INTERNAL_WEBHOOK_SECRET was unset,
+ * which it was. Now fails closed the same way requireInternalAuth() does.
+ * Found in the RBAC follow-up audit, 2026-09-09.
  */
 export async function POST(req: Request) {
   const env = serverEnv();
   const secret = env.MSA_INTERNAL_WEBHOOK_SECRET;
-  if (secret) {
-    const hdr = req.headers.get("x-msa-webhook-secret");
-    if (hdr !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  }
+  const hdr = req.headers.get("x-msa-webhook-secret");
+  if (hdr !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const json = await req.json().catch(() => null);

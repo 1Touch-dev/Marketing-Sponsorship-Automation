@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await req.json() as {
       job_type: string; prompt: string; negative_prompt?: string;
@@ -59,6 +63,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
+
   try {
     const { id, status, tags, folder, related_proposal_id, related_company_id, archived_reason } =
       await req.json() as Record<string, unknown>;

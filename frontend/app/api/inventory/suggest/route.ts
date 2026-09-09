@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 60;
 
@@ -9,6 +10,9 @@ export const maxDuration = 60;
  * Given a company profile, suggest the best inventory items and proposal type.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   try {
     const body = await req.json() as {
       company_id?: string;

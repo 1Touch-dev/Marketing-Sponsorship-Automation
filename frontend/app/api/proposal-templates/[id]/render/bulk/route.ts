@@ -12,6 +12,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { renderTemplateForCompany } from "@/lib/presentations/render-template";
 import { logger } from "@/lib/monitoring/logger";
 import { randomUUID } from "crypto";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,6 +29,8 @@ const CONCURRENCY = 3;
 const batchMeta = new Map<string, { templateId: string; total: number; createdAt: number }>();
 
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("generate_images");
+  if ("error" in auth) return auth.error;
   const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

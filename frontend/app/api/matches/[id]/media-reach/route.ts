@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,15 @@ export const dynamic = "force-dynamic";
  * Upserts the editable expected/actual views breakdown for one match:
  * official / unofficial-fan / rival-account / media-TV-radio views.
  * Body: { official_views?, unofficial_fan_views?, rival_account_views?, media_tv_radio_views?, source_notes? }
+ *
+ * These exact numbers feed the sponsor-facing real-time ROI dashboard
+ * (Phase 5, lib/proposals/roi.ts) — gated so an unprivileged account
+ * can't show a real sponsor fabricated exposure figures.
  */
 export async function PUT(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("manage_matches");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { id: matchId } = ctx.params;
   const body = (await req.json().catch(() => ({}))) as {

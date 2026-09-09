@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,9 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 }
 
 export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("manage_templates");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { error } = await sb
     .from("proposal_templates")

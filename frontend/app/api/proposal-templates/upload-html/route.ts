@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { buildPlaceholderConfig, type PlaceholderConfig } from "@/lib/presentations/placeholder-parser";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -17,6 +18,9 @@ export const maxDuration = 30;
 const BUCKET = "proposal-assets";
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_templates");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
 
   let formData: FormData;

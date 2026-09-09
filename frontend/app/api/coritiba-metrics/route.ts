@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,16 @@ export async function GET(req: Request) {
   return NextResponse.json({ data });
 }
 
+/**
+ * These records feed Rule 10 claim-grounding (lib/bedrock/prompts.ts,
+ * CORITIBA_CONTEXT) in every AI-generated proposal — an unprivileged edit
+ * here would corrupt facts the AI states as verified across the whole
+ * platform. Admin-only.
+ */
 export async function POST(req: Request) {
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({}));
 

@@ -38,6 +38,19 @@ const PERMISSIONS = {
   delete_proposal:   ["admin"] as UserRole[],
   submit_proposal:   ["admin", "sales_rep"] as UserRole[],
 
+  // Sponsorship inventory (Coritiba's own sellable assets — pricing,
+  // quantities, availability) — structural configuration, admin-only.
+  manage_inventory:  ["admin"] as UserRole[],
+  // Match schedule + per-match media-reach numbers — the exact figures
+  // shown on the sponsor-facing ROI dashboard (Phase 5). Routine data
+  // entry after each match, so sales_rep can do it too, but it directly
+  // affects what a real sponsor is shown as proof of value.
+  manage_matches:    ["admin", "sales_rep"] as UserRole[],
+  // Email/proposal templates, email sequences, and warm-up (CRM
+  // relationship-sequencing) config — reusable content/workflow setup,
+  // distinct from editing one specific proposal/email.
+  manage_templates:  ["admin", "sales_rep"] as UserRole[],
+
   // Approval flow
   approve_proposal:  ["admin", "approver"] as UserRole[],
   reject_proposal:   ["admin", "approver"] as UserRole[],

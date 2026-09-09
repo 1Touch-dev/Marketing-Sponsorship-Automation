@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -77,6 +78,9 @@ function parseCsv(text: string): CsvRow[] {
  * matches or creates the company automatically.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_company");
+  if ("error" in auth) return auth.error;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
