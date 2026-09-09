@@ -19,7 +19,7 @@ type Company = {
 };
 type Campaign = { id: string; title: string; summary: string | null; status: string };
 type MatchOption = { id: string; opponent: string; match_date: string };
-type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand";
+type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand" | "nil_creator";
 type Component = { id: string; name: string; category: string; type: string; icon: React.ElementType; price?: string };
 type Strategy = { key: string; label: string; description: string; icon: React.ElementType; color: string };
 
@@ -42,6 +42,7 @@ const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: st
   { type: "esg_community", label: "ESG / Community", description: "Social impact partnership — youth, environment, inclusion, CSR", icon: Heart, color: "emerald" },
   { type: "local_business", label: "Local Business", description: "Regional Curitiba/Paraná SME — high-visibility local activation", icon: MapPin, color: "orange" },
   { type: "national_brand", label: "National Brand", description: "Large national brand — broadcast, digital, full stadium integration", icon: TrendingUp, color: "indigo" },
+  { type: "nil_creator", label: "NIL / Creator Deal", description: "Individual athlete, creator or influencer — image rights, content collabs, appearances", icon: Users, color: "pink" },
 ];
 
 // ── Inventory components ───────────────────────────────────────────────────
@@ -66,6 +67,15 @@ const BARTER_COMPONENTS: Component[] = [
   { id: "tech_services", name: "Tech / IT Services", category: "tech", type: "barter", icon: Package, price: "Troca" },
   { id: "transport_logistics", name: "Transport / Logistics", category: "logistics", type: "barter", icon: Package, price: "Troca" },
   { id: "media_production", name: "Media Production Services", category: "media", type: "barter", icon: Package, price: "Troca" },
+];
+
+const NIL_COMPONENTS: Component[] = [
+  { id: "sponsored_posts", name: "Sponsored Social Posts", category: "content", type: "digital", icon: Globe, price: "R$1K–15K/post" },
+  { id: "content_collab", name: "Co-created Content Series", category: "content", type: "digital", icon: FileText, price: "Sob consulta" },
+  { id: "appearance_fee", name: "Matchday / Event Appearance", category: "appearance", type: "physical", icon: Users, price: "Sob consulta" },
+  { id: "image_usage_rights", name: "Image/Likeness Usage Rights", category: "rights", type: "legal", icon: Star, price: "Sob consulta" },
+  { id: "meet_and_greet", name: "Fan Meet & Greet", category: "activation", type: "physical", icon: Heart, price: "Sob consulta" },
+  { id: "social_takeover", name: "Channel Takeover", category: "content", type: "digital", icon: Zap, price: "R$3K–20K" },
 ];
 
 const SOCIAL_COMPONENTS: Component[] = [
@@ -335,6 +345,7 @@ export function ProposalWizard({
 
   const availableComponents = proposalType === "barter" ? BARTER_COMPONENTS :
     proposalType === "lei_de_incentivo" ? SOCIAL_COMPONENTS :
+    proposalType === "nil_creator" ? NIL_COMPONENTS :
     proposalType === "mixed" ? [...INVENTORY_COMPONENTS, ...BARTER_COMPONENTS.slice(0,3), ...SOCIAL_COMPONENTS.slice(0,2)] :
     INVENTORY_COMPONENTS;
 
@@ -343,6 +354,7 @@ export function ProposalWizard({
     const seg = selectedCompany.segment ?? "local";
     if (proposalType === "lei_de_incentivo") return ["esg", "community", "youth"].includes(s.key);
     if (proposalType === "barter") return ["barter_negotiation", "hybrid_activation", "community"].includes(s.key);
+    if (proposalType === "nil_creator") return ["digital_social", "fan_engagement", "hybrid_activation"].includes(s.key);
     if (bt === "B2B") return ["hospitality", "premium_branding", "awareness", "barter_negotiation", "hybrid_activation"].includes(s.key);
     if (seg === "local") return ["community", "fan_engagement", "awareness", "digital_social"].includes(s.key);
     if (seg === "national" || seg === "international") return ["awareness", "premium_branding", "digital_social", "esg"].includes(s.key);
@@ -594,7 +606,7 @@ export function ProposalWizard({
             )}
 
             {/* Fallback static list for barter/lei + when DB empty */}
-            {!inventoryLoading && (proposalType === "barter" || proposalType === "lei_de_incentivo" || dbInventory.length === 0) && (
+            {!inventoryLoading && (proposalType === "barter" || proposalType === "lei_de_incentivo" || proposalType === "nil_creator" || dbInventory.length === 0) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {availableComponents.map(comp => {
                   const selected = selectedComponents.includes(comp.id);

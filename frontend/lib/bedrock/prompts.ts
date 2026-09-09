@@ -349,6 +349,38 @@ export function barterTermsInstructionBlock(openItems: BarterGroundingItem[]): s
 }
 
 // ---------------------------------------------------------------------------
+// NIL / creator-deal structuring (Phase 7 — master_report.md Section 4 item
+// 13, 8th proposal type). Appended to proposalPrompt()'s user message when
+// proposal_type is "nil_creator" — the sponsee here is an individual athlete,
+// content creator or influencer rather than a company, so the base prompt's
+// "COMPANY INTELLIGENCE" framing doesn't apply. Same claim-grounding
+// discipline as barterTermsInstructionBlock(): the only real facts about the
+// creator are whatever is in their record's notes field — never invent
+// follower counts, engagement rates, past brand deals, or audience
+// demographics that weren't actually provided.
+// ---------------------------------------------------------------------------
+export function nilTermsInstructionBlock(creatorNotes?: string | null): string {
+  const hasNotes = !!creatorNotes?.trim();
+
+  return [
+    "",
+    "NIL / CREATOR-DEAL STRUCTURING (this proposal is for an individual athlete, creator, or influencer, not a company):",
+    hasNotes
+      ? `Known real facts about this individual (from their record notes) — only use these, do not add more: ${creatorNotes}`
+      : "No real facts (follower counts, engagement rates, past brand deals, audience demographics) are on file for this individual — do NOT invent any. Describe the proposed terms qualitatively without fabricated numbers or claimed history.",
+    "Coritiba FC is always the rights-holder/club side of this deal, engaging the individual for image rights, content collaboration, or appearances — frame it that way, not as the individual sponsoring the club.",
+    "In addition to the standard proposal JSON fields, include this extra key:",
+    `"nil_terms": {
+  "deal_type": "one of: image_rights | content_collaboration | appearance | ambassador | hybrid",
+  "deliverables": ["what the individual provides — only reference platforms/formats/facts confirmed above if any were given, otherwise keep general"],
+  "club_provides": ["what Coritiba FC provides in return — access, platform, compensation structure described qualitatively"],
+  "structure_notes": "2-3 sentences explaining the proposed deal rationale"
+}`,
+    "Per Rule 10, only state a specific fact about this individual (audience size, platform, prior deals) if it appears in the notes above — otherwise keep every deliverable and rationale general.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Pricing tiers
 // ---------------------------------------------------------------------------
 export function pricingTiersPrompt(args: {

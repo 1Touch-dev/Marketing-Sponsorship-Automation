@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
-import { proposalPrompt, barterTermsInstructionBlock, type BarterGroundingItem } from "@/lib/bedrock/prompts";
+import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, type BarterGroundingItem } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
@@ -109,6 +109,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // Phase 7 item 13 — NIL/creator-deal structuring, grounded in whatever
+    // real facts are on file for the individual (company.notes) rather than
+    // letting the model invent follower counts, engagement rates, or deal
+    // history (same claim-grounding discipline as the barter branch above).
+    let nilContext = "";
+    if (body.proposal_type === "nil_creator") {
+      nilContext = nilTermsInstructionBlock(company.notes as string | null);
+    }
+
     const strategyVariant = selectedStrategies[0]?.replace(/_/g, " ") ?? null;
 
     const { system, user } = proposalPrompt({
@@ -117,7 +126,7 @@ export async function POST(req: Request) {
       strategy_variant: strategyVariant,
     });
 
-    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext;
+    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext;
 
     const result = await invokeClaude({
       messages: [{ role: "user", content: enhancedUser }],
