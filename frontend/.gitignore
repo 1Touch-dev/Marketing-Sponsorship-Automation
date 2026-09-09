@@ -3,3 +3,7 @@
 # Local fallback output of scripts/run-backup.ts when BACKUP_S3_* creds
 # aren't configured — full DB export, must never be committed.
 .local-backups/
+
+# scripts/run-backup-cron.sh log output — may contain row-count/error
+# details from real backup runs, not meant for git.
+logs/
