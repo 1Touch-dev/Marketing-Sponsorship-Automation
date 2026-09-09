@@ -20,6 +20,7 @@ type Company = {
 type Campaign = { id: string; title: string; summary: string | null; status: string };
 type MatchOption = { id: string; opponent: string; match_date: string };
 type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand" | "nil_creator";
+type BarterSplitTemplateKey = "full_barter" | "25_75" | "50_50" | "75_25";
 type Component = { id: string; name: string; category: string; type: string; icon: React.ElementType; price?: string };
 type Strategy = { key: string; label: string; description: string; icon: React.ElementType; color: string };
 
@@ -194,6 +195,7 @@ export function ProposalWizard({
 
   // Wizard state
   const [proposalType, setProposalType] = useState<ProposalType>("sponsorship");
+  const [barterSplitTemplate, setBarterSplitTemplate] = useState<BarterSplitTemplateKey | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(() => {
     if (preselectedCompanyId) {
       return companies.find(c => c.id === preselectedCompanyId) ?? null;
@@ -324,6 +326,7 @@ export function ProposalWizard({
           selected_inventory_lines: selectedInventoryLines,
           selected_strategies: selectedStrategies,
           custom_brief: customBrief,
+          barter_split_template: proposalType === "barter" ? barterSplitTemplate : null,
         }),
       });
       const j = await res.json() as { proposal_id?: string; error?: string };
@@ -629,6 +632,34 @@ export function ProposalWizard({
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {proposalType === "barter" && (
+              <div className="pt-2 border-t">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Contract split template</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(
+                    [
+                      { key: null, label: "AI recomendado", description: "A IA propõe o melhor split para este patrocinador" },
+                      { key: "full_barter", label: "100% Permuta", description: "Sem componente em caixa" },
+                      { key: "25_75", label: "25% Caixa / 75% Permuta", description: "Predominantemente permuta" },
+                      { key: "50_50", label: "50% Caixa / 50% Permuta", description: "Split equilibrado" },
+                      { key: "75_25", label: "75% Caixa / 25% Permuta", description: "Predominantemente caixa" },
+                    ] as Array<{ key: BarterSplitTemplateKey | null; label: string; description: string }>
+                  ).map(opt => (
+                    <button
+                      key={opt.key ?? "ai"}
+                      onClick={() => setBarterSplitTemplate(opt.key)}
+                      className={`flex flex-col items-start gap-0.5 rounded-xl border-2 p-3 text-left transition-all ${
+                        barterSplitTemplate === opt.key ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"
+                      }`}
+                    >
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">{opt.description}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 

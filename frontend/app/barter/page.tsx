@@ -56,6 +56,35 @@ export default async function BarterPage() {
     .filter((i) => i.current_price && i.target_price)
     .reduce((sum, i) => sum + (Number(i.current_price) - Number(i.target_price)), 0);
 
+  // Budget-offset tagging (master_report.md Section 4 item 6) — real, already-
+  // generated barter/mixed proposals carry a content.barter_terms block with
+  // the actual cash/exchange split + exchange item values the AI proposed.
+  // Aggregating these gives a real, derivable "proposed offset" figure —
+  // explicitly labeled as proposed/pending, not confirmed delivered value.
+  let barterProposalCount = 0;
+  let totalExchangeValueBrl = 0;
+  let avgExchangePct: number | null = null;
+  try {
+    const { data: barterProposals } = await sb
+      .from("proposals")
+      .select("id, content, proposal_type, companies(company_name)")
+      .in("proposal_type", ["barter", "mixed"]);
+
+    const withTerms = ((barterProposals ?? []) as Array<{ content: unknown }>)
+      .map((p) => (p.content as { barter_terms?: { exchange_items?: Array<{ estimated_value_brl?: number | null }>; exchange_portion_pct?: number } })?.barter_terms)
+      .filter((t): t is NonNullable<typeof t> => !!t);
+
+    barterProposalCount = withTerms.length;
+    totalExchangeValueBrl = withTerms.reduce(
+      (sum, t) => sum + (t.exchange_items ?? []).reduce((s, it) => s + (it.estimated_value_brl ?? 0), 0),
+      0,
+    );
+    const pcts = withTerms.map((t) => t.exchange_portion_pct).filter((p): p is number => typeof p === "number");
+    avgExchangePct = pcts.length ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null;
+  } catch {
+    // proposals table always exists — this only fails if content shape is unexpected, safe to skip
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -116,6 +145,34 @@ export default async function BarterPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Budget-offset tagging — real generated barter/mixed proposals */}
+      {barterProposalCount > 0 && (
+        <Card className="border-purple-100 bg-purple-50/30">
+          <CardContent className="pt-4">
+            <p className="text-sm font-medium text-purple-800 mb-2">Budget Offset via Barter — Propostas Geradas</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Propostas com termos de permuta</p>
+                <p className="text-lg font-semibold text-purple-900">{barterProposalCount}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Valor de troca proposto (total)</p>
+                <p className="text-lg font-semibold text-purple-900">
+                  {totalExchangeValueBrl > 0 ? `R$ ${totalExchangeValueBrl.toLocaleString("pt-BR")}` : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">% médio em permuta</p>
+                <p className="text-lg font-semibold text-purple-900">{avgExchangePct !== null ? `${avgExchangePct.toFixed(0)}%` : "—"}</p>
+              </div>
+            </div>
+            <p className="text-xs text-purple-700/70 mt-2">
+              Valores propostos pela IA nas propostas geradas — refletem a estrutura sugerida, ainda pendente de negociação/confirmação, não valor efetivamente entregue.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Items list */}
       {items.length > 0 ? (

@@ -317,7 +317,22 @@ export interface BarterGroundingItem {
   currency: string | null;
 }
 
-export function barterTermsInstructionBlock(openItems: BarterGroundingItem[]): string {
+// Contract split templates (master_report.md Section 4 item 6) — preset
+// cash/exchange ratios the user can pick in the wizard instead of leaving
+// the split entirely up to the AI. "custom_ai" means no template was picked
+// and the AI proposes its own split as before.
+export const BARTER_SPLIT_TEMPLATES = {
+  full_barter: { cash_pct: 0, exchange_pct: 100, label: "100% Permuta" },
+  "25_75": { cash_pct: 25, exchange_pct: 75, label: "25% Caixa / 75% Permuta" },
+  "50_50": { cash_pct: 50, exchange_pct: 50, label: "50% Caixa / 50% Permuta" },
+  "75_25": { cash_pct: 75, exchange_pct: 25, label: "75% Caixa / 25% Permuta" },
+} as const;
+export type BarterSplitTemplateKey = keyof typeof BARTER_SPLIT_TEMPLATES;
+
+export function barterTermsInstructionBlock(
+  openItems: BarterGroundingItem[],
+  forcedSplit?: { cash_pct: number; exchange_pct: number; label: string },
+): string {
   const itemsBlock = openItems.length
     ? openItems
         .map(
@@ -335,6 +350,9 @@ export function barterTermsInstructionBlock(openItems: BarterGroundingItem[]): s
     itemsBlock
       ? `Coritiba FC currently has these OPEN barter needs — only propose exchanging items from this real list if the sponsor's industry plausibly supplies them:\n${itemsBlock}`
       : "Coritiba FC has no specific open barter needs on file right now — do NOT invent specific items to request. Propose a general cash + in-kind structure instead (e.g. a percentage of the sponsorship value offset by goods/services broadly typical of the sponsor's industry, described qualitatively, not as fabricated specific SKUs).",
+    forcedSplit
+      ? `The commercial team has already selected a contract split template: ${forcedSplit.label}. You MUST use cash_portion_pct: ${forcedSplit.cash_pct} and exchange_portion_pct: ${forcedSplit.exchange_pct} exactly — do not propose a different split.`
+      : "No contract split template was selected — propose whatever cash_portion_pct/exchange_portion_pct split best fits this sponsor.",
     "In addition to the standard proposal JSON fields, include this extra key:",
     `"barter_terms": {
   "exchange_items": [

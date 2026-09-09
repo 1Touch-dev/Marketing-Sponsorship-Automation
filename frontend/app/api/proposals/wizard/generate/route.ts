@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
-import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, type BarterGroundingItem } from "@/lib/bedrock/prompts";
+import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       selected_strategies?: string[];
       strategy?: string;
       custom_brief?: string;
+      barter_split_template?: BarterSplitTemplateKey;
     };
 
     const selectedComponents: string[] = body.selected_components ?? (body.strategy ? [body.strategy] : []);
@@ -104,8 +105,10 @@ export async function POST(req: Request) {
         .eq("status", "open")
         .order("priority", { ascending: false })
         .limit(8);
+      const splitTemplate = body.barter_split_template ? BARTER_SPLIT_TEMPLATES[body.barter_split_template] : undefined;
       barterContext = barterTermsInstructionBlock(
         ((openBarterItems as unknown as BarterGroundingItem[]) ?? []),
+        splitTemplate,
       );
     }
 
