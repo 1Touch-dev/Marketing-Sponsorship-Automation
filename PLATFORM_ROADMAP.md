@@ -136,7 +136,7 @@ Some of these are buildable against the current single-tenant platform without w
 - [ ] Event ticketing module — **legal blocker**: needs a Pretix commercial license quote before any code (see Section 6 below); recommended over Hi.Events for the seat-map/stadium use case
 - [ ] Grants/moves-management mode for the nonprofit vertical *(blocked on Phase 4)*
 - [ ] Chamber/association bundle mode (annual bundled packages) *(blocked on Phase 4)*
-- [ ] NIL/creator-deal mode as an 8th proposal type — this one is closer to standalone; could plausibly extend the existing 7-type wizard pre-multi-tenancy
+- [x] NIL/creator-deal mode as an 8th proposal type — **done 2026-09-09.** Added `"nil_creator"` to the wizard's `ProposalType` union (`app/proposals/new/proposal-wizard.tsx`) with dedicated components (content posts, appearance fees, image/likeness rights, meet & greets) — the sponsee is an individual athlete/creator/influencer, using an existing `companies` row (business-generic schema, no migration needed) to represent them. New `nilTermsInstructionBlock()` in `lib/bedrock/prompts.ts`, wired into `POST /api/proposals/wizard/generate`, mirrors the barter branch's claim-grounding: cites only real facts from the individual's `notes` field, otherwise stays qualitative rather than inventing follower counts/engagement/deal history. Live-verified with disposable grounded + ungrounded test records — correct behavior in both cases, no rival-club mentions.
 
 ### Phase 8 — Agentic team expansion — **gated behind Phases 1–3**, `master_report.md` Section 7
 Explicit instruction from James: do not start this until hardening is done and validated.
