@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const sb = supabaseAdmin();
 
   // Check column existence

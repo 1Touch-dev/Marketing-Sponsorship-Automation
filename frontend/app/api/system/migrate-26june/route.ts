@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 const MIGRATIONS = [
   `ALTER TABLE public.proposals ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
@@ -25,7 +26,10 @@ const MIGRATIONS = [
   `ALTER TABLE public.emails ADD COLUMN IF NOT EXISTS clicked_at TIMESTAMPTZ`,
 ];
 
-export async function POST() {
+export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const sb = supabaseAdmin();
   const results: { sql: string; ok: boolean; error?: string }[] = [];
 

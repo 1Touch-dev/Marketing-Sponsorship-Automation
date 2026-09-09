@@ -1,24 +1,25 @@
 import { NextResponse } from "next/server";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 
 /**
  * POST /api/internal/apply-migration
  * One-time endpoint to apply pending SQL migrations using the pg client.
- * Protected by MSA_INTERNAL_WEBHOOK_SECRET header.
+ * Protected by INTERNAL_API_SECRET (requireInternalAuth) — this route ran
+ * raw DDL against the live DB gated only by MSA_INTERNAL_WEBHOOK_SECRET,
+ * an env var that was never actually set, making the check a silent
+ * no-op. /api/internal/* also bypasses the session-auth middleware
+ * entirely, so this was reachable, unauthenticated, from the public
+ * internet. Found in the RBAC follow-up audit, 2026-09-09.
  *
  * Body: { dry_run?: boolean }
  */
 export async function POST(req: Request) {
-  const secret = process.env.MSA_INTERNAL_WEBHOOK_SECRET;
-  if (secret) {
-    const header = req.headers.get("x-msa-webhook-secret");
-    if (header !== secret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
 
   const body = await req.json().catch(() => ({}));
   const dryRun = body.dry_run === true;

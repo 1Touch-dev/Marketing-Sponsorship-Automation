@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createOrUpdateDeal, logActivity } from "@/lib/pipedrive/sync";
-
-const INTERNAL_SECRET = process.env.MSA_INTERNAL_WEBHOOK_SECRET ?? "";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (INTERNAL_SECRET && auth !== `Bearer ${INTERNAL_SECRET}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
 
   const sb = supabaseAdmin();
   const results: string[] = [];

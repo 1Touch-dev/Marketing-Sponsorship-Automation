@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // One-time migration runner for contracts table
-export async function POST() {
+export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const sb = supabaseAdmin();
   
   // Check if contracts table exists

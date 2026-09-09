@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,7 +17,10 @@ const COMPETITOR_PROPOSAL_TITLES_KEYWORDS = [
   "palmeiras", "grêmio", "gremio", "internacional", "são paulo",
 ];
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const sb = supabaseAdmin();
 
   // Count current issues
@@ -55,6 +59,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const sb = supabaseAdmin();
   const { action } = await req.json().catch(() => ({ action: null }));
 

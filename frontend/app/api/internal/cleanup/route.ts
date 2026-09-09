@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+/**
+ * POST /api/internal/cleanup
+ * Had ZERO auth of any kind — its "deduplicate_companies" action deletes
+ * ANY company sharing a name with another (not just test data), plus
+ * associated proposals/campaigns. Reachable unauthenticated from the
+ * public internet since /api/internal/* bypasses the session middleware.
+ * Found in the RBAC follow-up audit, 2026-09-09.
+ */
 export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const { action } = await req.json() as { action: string };
   const sb = supabaseAdmin();
   const results: Record<string, unknown> = {};

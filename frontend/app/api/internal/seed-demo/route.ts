@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireInternalAuth } from "@/lib/internal-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -98,6 +99,9 @@ const EXEC_COMPANIES = [
 ];
 
 export async function POST(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   try {
     const { action } = await req.json() as { action: string };
     const sb = supabaseAdmin();
