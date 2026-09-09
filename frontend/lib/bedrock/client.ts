@@ -6,6 +6,7 @@ import {
 import { serverEnv } from "@/lib/env";
 import { checkDailySpendCap, recordSpend, bedrockCallCostUsd } from "@/lib/monitoring/spend-guard";
 import { logger } from "@/lib/monitoring/logger";
+import { notifySpendCapHit } from "@/lib/slack/notify";
 
 /**
  * Hardening pass (master_report.md Section 8, Pattern 5). Centralized here —
@@ -18,6 +19,7 @@ import { logger } from "@/lib/monitoring/logger";
 async function assertUnderSpendCap(): Promise<void> {
   const capCheck = await checkDailySpendCap();
   if (!capCheck.ok) {
+    void notifySpendCapHit(capCheck.todaySpendUsd, capCheck.capUsd);
     throw new Error(
       `Daily AI spend cap reached ($${capCheck.todaySpendUsd.toFixed(2)} / $${capCheck.capUsd.toFixed(2)}) — Bedrock calls are paused until tomorrow (UTC) or the cap is raised.`
     );

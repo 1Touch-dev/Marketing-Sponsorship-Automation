@@ -48,6 +48,14 @@ const serverSchema = z.object({
     (v) => (v === "" || v === undefined ? undefined : v),
     z.string().min(10).optional()
   ),
+
+  /** Slack Incoming Webhook — internal team notifications (approvals, spend-cap hits,
+   * gone-cold nudges). Optional; notifications are silently skipped until it's set —
+   * see lib/slack/notify.ts. */
+  SLACK_WEBHOOK_URL: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().url().optional()
+  ),
 });
 
 const publicSchema = z.object({

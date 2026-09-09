@@ -19,6 +19,8 @@ import {
 import { resumeAgentAfterProposalApproval } from "@/lib/agents/resume";
 import type { AgentMode, AgentResult, AgentStep, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
+import { notifyApprovalNeeded } from "@/lib/slack/notify";
+import { serverEnv } from "@/lib/env";
 
 export type SSEEmitter = (event: SSEEvent) => void;
 
@@ -285,6 +287,12 @@ export async function runAgentOrchestrator(
           proposal_id: agentResult.proposal_id,
           proposal_title: agentResult.proposal_title ?? "Proposal",
           proposal_executive_summary: agentResult.proposal_executive_summary ?? "",
+        });
+
+        void notifyApprovalNeeded({
+          proposalId: agentResult.proposal_id,
+          proposalTitle: agentResult.proposal_title ?? "Proposal",
+          appUrl: serverEnv().APP_URL,
         });
 
         return agentResult;

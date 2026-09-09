@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { getProposalEngagementStats } from "@/lib/proposals/engagement";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { notifyGoneColdNudge } from "@/lib/slack/notify";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -113,6 +114,12 @@ export async function POST(req: Request) {
         entity_id: proposal.id,
         action: "proposal.gone_cold_detected",
         metadata: { days_since_last_view: engagement.days_since_last_view, followup_id: generated.data?.followup?.id },
+      });
+      void notifyGoneColdNudge({
+        proposalId: proposal.id,
+        proposalTitle: proposal.title,
+        daysSinceLastView: engagement.days_since_last_view,
+        appUrl,
       });
       results.push({
         proposal_id: proposal.id,
