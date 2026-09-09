@@ -10,6 +10,8 @@ import Image from "next/image";
 import { LeadInterestForm } from "./lead-interest-form";
 import { ProposalRoiSection } from "./roi-section";
 import { getProposalRoiData } from "@/lib/proposals/roi";
+import { FulfillmentSection } from "./fulfillment-section";
+import { getProposalFulfillmentData } from "@/lib/proposals/fulfillment";
 import { PdfDownloadButton } from "./pdf-download-button";
 import { ViewTracker } from "./view-tracker";
 
@@ -45,6 +47,12 @@ export default async function PublicProposalViewPage({
 
   const approvedImages = await fetchProposalImagesForLanding(proposal.id);
   const roi = await getProposalRoiData(sb, {
+    id: proposal.id,
+    match_id: (proposal as unknown as { match_id?: string | null }).match_id,
+    approved_at: proposal.approved_at,
+    created_at: proposal.created_at,
+  });
+  const fulfillment = await getProposalFulfillmentData(sb, {
     id: proposal.id,
     match_id: (proposal as unknown as { match_id?: string | null }).match_id,
     approved_at: proposal.approved_at,
@@ -151,6 +159,7 @@ export default async function PublicProposalViewPage({
 
       {/* ─── Real-time ROI dashboard — only renders when real reach data exists ─── */}
       <ProposalRoiSection roi={roi} />
+      <FulfillmentSection fulfillment={fulfillment} />
 
       {/* ─── Lead Capture Form — before sticky CTA ─── */}
       <LeadInterestForm proposalId={p.id} companyName={company?.company_name ?? ""} />
