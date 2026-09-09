@@ -304,7 +304,7 @@ See Phase 9 above.
 - [ ] Ticketing module licensing — see Section 6 of this document
 - [ ] VIK/barter cross-jurisdiction tax treatment — see Section 6 of this document
 - [ ] Youth-league segment pricing may need a genuinely free/near-free self-serve tier — worth a dedicated pricing experiment before committing engineering resources (Phase 9, Wave 4)
-- [ ] AI-agent cost-monitoring tooling — evaluate existing LLM-ops platforms (Helicone, LangSmith) rather than building in-house (relevant to Phase 1's spend-cap item)
+- [x] AI-agent cost-monitoring tooling — **done 2026-09-09.** Evaluated Helicone/LangSmith/Langfuse; picked Langfuse (MIT licensed core, no AGPL/legal-review concern unlike Twenty CRM/Pretix, free cloud tier or free self-hosting). Built `lib/observability/langfuse.ts`, wrapping the two centralized AI entry points (`invokeClaude`/`converseWithTools`) with full prompt/response/model/token-usage tracing — complements, doesn't replace, the existing `spend_ledger` cost-cap enforcement from Phase 1. Optional (`LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY`), silently no-ops until James creates a free account and provides both keys. Live-verified: no-op path, wire-format correctness against a local fake ingestion endpoint, and a full end-to-end real AI call with tracing active alongside it.
 
 ---
 
