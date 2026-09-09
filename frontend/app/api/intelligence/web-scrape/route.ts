@@ -10,11 +10,15 @@ import { scrapeWebsiteWithFallback } from "@/lib/intelligence/website-crawler";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const startTime = Date.now();
   try {
     const { company_id, url, force_refresh } = await req.json() as {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 30;
 
@@ -10,6 +11,9 @@ export const maxDuration = 30;
  * every entry point (create, bulk, product-discovery, this button) is consistent.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   try {
     const { company_id, domain, force_refresh } = (await req.json()) as {
       company_id: string;

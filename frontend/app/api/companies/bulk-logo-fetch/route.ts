@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -29,6 +30,9 @@ interface BulkLogoResult {
  * Runs with a small concurrency pool so we don't hammer logo.dev/Clearbit.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const {
     company_ids,

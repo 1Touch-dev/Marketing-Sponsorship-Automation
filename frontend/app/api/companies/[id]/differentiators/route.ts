@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 
@@ -10,6 +11,9 @@ export const maxDuration = 90;
  * and generate personalised campaign angles.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const companyId = ctx.params.id;
 
   try {

@@ -9,11 +9,15 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { searchGoogle, batchSearchGoogle } from "@/lib/intelligence/google-search";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   try {
     const { company_id, company_name, industry, website } = await req.json() as {
       company_id: string;

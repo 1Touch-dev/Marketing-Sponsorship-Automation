@@ -21,10 +21,14 @@ import { enrichCompanySocial } from "@/lib/intelligence/social-scraper";
 import { resolveCompanyDomain } from "@/lib/intelligence/domain-resolution";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const startTime = Date.now();
 
   try {

@@ -9,6 +9,7 @@ import { batchSearchGoogle } from "@/lib/intelligence/google-search";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -34,6 +35,9 @@ type GoodsSearchResult = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const startTime = Date.now();
   try {
     const { query, location = "Brasil", limit = 15 } = await req.json() as {

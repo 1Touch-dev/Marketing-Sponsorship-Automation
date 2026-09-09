@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 /**
  * POST /api/companies/enrich
@@ -8,6 +9,9 @@ import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
  * fallback) instead of the old logo.dev-only 128px check.
  */
 export async function POST(req: NextRequest) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const { companyId, website, companyName } = (await req.json()) as {
     companyId?: string;
     website?: string;

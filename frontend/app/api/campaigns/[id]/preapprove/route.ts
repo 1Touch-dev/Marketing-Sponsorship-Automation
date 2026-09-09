@@ -8,10 +8,19 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
+/**
+ * This flag lets the batch agent runner skip per-proposal human approval
+ * entirely (see app/api/agents/outreach/batch/route.ts) — real safety-gate
+ * bypass, so it needs the same permission tier as approving anything else,
+ * not just "logged in". Found in the RBAC follow-up audit, 2026-09-09.
+ */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("approve_proposal");
+  if ("error" in auth) return auth.error;
   const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

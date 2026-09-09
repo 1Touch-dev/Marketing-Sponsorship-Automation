@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -60,6 +61,9 @@ export async function POST(
   req: Request,
   ctx: { params: { id: string } }
 ) {
+  const auth = await requirePermission("create_campaign");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const id = ctx.params.id;
   const body = await req.json().catch(() => ({})) as { lines?: Array<{ name: string; category: string; inventory_type: string; quantity: number }> };
@@ -158,6 +162,9 @@ export async function PATCH(
   req: Request,
   ctx: { params: { id: string } }
 ) {
+  const auth = await requirePermission("create_campaign");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({})) as { brief: Record<string, unknown> };
 

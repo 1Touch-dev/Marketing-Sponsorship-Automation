@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -84,6 +85,9 @@ function isValidUrl(url: string): boolean {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_company");
+  if ("error" in auth) return auth.error;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

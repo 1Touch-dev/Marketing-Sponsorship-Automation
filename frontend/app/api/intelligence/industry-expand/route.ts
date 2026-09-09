@@ -10,6 +10,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -30,6 +31,9 @@ type DiscoveredBrand = {
 };
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const startTime = Date.now();
   try {
     const { industry, company_id, scope = "national", limit = 20 } = await req.json() as {
