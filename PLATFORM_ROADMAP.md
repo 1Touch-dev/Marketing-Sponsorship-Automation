@@ -81,7 +81,7 @@ Phases are sequential where marked **gated**; phases without that marker can run
 ### Phase 0 — Blockers to clear before certain later phases (parallel track, start now)
 Not code. See Sections 6 and 7 below for full detail.
 - [x] Legal questions written up and sent to James / counsel (Twenty CRM AGPL, ticketing engine AGPL, cross-tenant barter tax treatment) — **done 2026-09-09**, see Section 6 below for the completed packet
-- [ ] Twenty CRM alternatives proposed to James
+- [x] Twenty CRM alternatives proposed to James — **done 2026-09-09**, included as Question 3 (4 concrete options A–D) in the same legal packet as the item above
 - [ ] Senior developer interviews underway; junior hires actively integrated into work
 
 ### Phase 1 — Harden the existing Outreach Agent — `master_report.md` Section 8
