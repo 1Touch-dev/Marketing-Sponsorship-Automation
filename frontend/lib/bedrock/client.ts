@@ -7,6 +7,7 @@ import { serverEnv } from "@/lib/env";
 import { checkDailySpendCap, recordSpend, bedrockCallCostUsd } from "@/lib/monitoring/spend-guard";
 import { logger } from "@/lib/monitoring/logger";
 import { notifySpendCapHit } from "@/lib/slack/notify";
+import { traceGeneration } from "@/lib/observability/langfuse";
 
 /**
  * Hardening pass (master_report.md Section 8, Pattern 5). Centralized here —
@@ -193,6 +194,17 @@ export async function invokeClaude<T = unknown>(
     });
   }
 
+  traceGeneration({
+    name: "invokeClaude",
+    model: serverEnv().BEDROCK_MODEL_ID,
+    input: { system: opts.system, messages: opts.messages },
+    output: result.text,
+    usage: result.usage
+      ? { promptTokens: result.usage.input_tokens, completionTokens: result.usage.output_tokens }
+      : null,
+    metadata: { provider },
+  });
+
   return result;
 }
 
@@ -323,6 +335,17 @@ export async function converseWithTools(opts: {
       },
     });
   }
+
+  traceGeneration({
+    name: "converseWithTools",
+    model: serverEnv().BEDROCK_MODEL_ID,
+    input: { system: opts.system, messages: opts.messages, tools: opts.tools.map((t) => t.toolSpec.name) },
+    output: result.text || JSON.stringify(result.toolCalls),
+    usage: result.usage
+      ? { promptTokens: result.usage.inputTokens, completionTokens: result.usage.outputTokens }
+      : null,
+    metadata: { provider, stopReason: result.stopReason, toolCalls: result.toolCalls.map((t) => t.name) },
+  });
 
   return result;
 }

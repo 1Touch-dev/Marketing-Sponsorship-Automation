@@ -56,6 +56,23 @@ const serverSchema = z.object({
     (v) => (v === "" || v === undefined ? undefined : v),
     z.string().url().optional()
   ),
+
+  /** Langfuse — LLM observability (prompt/response audit trail, cost/latency
+   * per call). Optional; tracing is silently skipped until both keys are set —
+   * see lib/observability/langfuse.ts. Free to self-host or a free cloud tier
+   * at https://cloud.langfuse.com. */
+  LANGFUSE_PUBLIC_KEY: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
+  LANGFUSE_SECRET_KEY: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
+  LANGFUSE_BASE_URL: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().url().optional()
+  ),
 });
 
 const publicSchema = z.object({
