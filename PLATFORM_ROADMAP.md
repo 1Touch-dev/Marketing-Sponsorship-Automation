@@ -130,7 +130,7 @@ Some of these are buildable against the current single-tenant platform without w
 - [ ] Verified deal-value benchmark database (aggregate anonymized deal data across tenants) *(blocked on Phase 4 — needs multiple tenants to aggregate across)*
 - [ ] White-space/opportunity-gap finder (cross-reference prospect's existing sponsorships against category gaps, using the AI company-intelligence already built)
 - [ ] Embedded payments in the public proposal share link (QwilrPay-style deposit collection)
-- [ ] Proof-of-delivery/fulfillment tracking portal shared with the sponsor
+- [x] Proof-of-delivery/fulfillment tracking portal shared with the sponsor — **done 2026-09-09.** New "Comprovação de Entrega" section on the public share-link page, directly below the ROI dashboard — a chronological, dated feed combining approved mockups (with the real approved image as proof) and delivered matches (only counted once real nonzero reach exists, not just scheduled). Deliberately skips a "X of Y contracted" percentage since that can't be honestly derived from the stored inventory data (units-per-game, not total contract length). Live-verified against real (empty) and disposable (populated) data. No migration needed.
 
 ### Phase 7 — P2 category expansion (`master_report.md` Section 4, items 11–14)
 - [ ] Event ticketing module — **legal blocker**: needs a Pretix commercial license quote before any code (see Section 6 below); recommended over Hi.Events for the seat-map/stadium use case
