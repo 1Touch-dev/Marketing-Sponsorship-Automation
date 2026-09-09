@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 import type { ProposalContent } from "@/types/database";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,9 @@ const bodySchema = z.object({ proposal_id: z.string().uuid() });
  * The copy starts at version 1 with status=draft.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({}));
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {

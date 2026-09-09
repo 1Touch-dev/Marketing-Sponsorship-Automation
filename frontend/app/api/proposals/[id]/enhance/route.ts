@@ -21,6 +21,7 @@ import {
 } from "@/lib/ai/schemas";
 import { recordAudit } from "@/lib/audit/log";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,9 @@ export const maxDuration = 180;
  * Defaults to generating all 4 layers.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({}));
   const layers: string[] = body.layers ?? ["variants", "pricing", "visuals", "intelligence"];

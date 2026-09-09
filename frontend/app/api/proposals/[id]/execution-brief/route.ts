@@ -4,6 +4,7 @@ import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { executionBriefSchema, normalizeExecutionBrief, validateAiOutput } from "@/lib/ai/schemas";
 import type { StrategyVariant } from "@/lib/ai/schemas";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 60;
 
@@ -11,6 +12,9 @@ export async function POST(
   _req: Request,
   ctx: { params: { id: string } }
 ) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 

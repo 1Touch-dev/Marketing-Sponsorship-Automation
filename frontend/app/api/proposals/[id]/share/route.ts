@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { resolveAppUrl } from "@/lib/url";
 import { randomBytes } from "crypto";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,9 @@ export const dynamic = "force-dynamic";
  * Revoke the share link.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { data: proposal } = await sb
     .from("proposals")
@@ -58,6 +62,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 }
 
 export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { data: proposal } = await sb
     .from("proposals")

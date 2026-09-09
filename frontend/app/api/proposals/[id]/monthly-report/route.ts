@@ -3,11 +3,15 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalContent } from "@/types/database";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const auth = await requirePermission("create_proposal");
+  if ("error" in auth) return auth.error;
+
   const ip = getClientIp(req);
   const rl = checkRateLimit(`monthly-report:${ip}`, { max: 10, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });

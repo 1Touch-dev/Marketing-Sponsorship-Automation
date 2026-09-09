@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,9 @@ export async function PATCH(
   req: Request,
   ctx: { params: { id: string; packageId: string } }
 ) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({}));
 
@@ -38,6 +42,9 @@ export async function DELETE(
   _req: Request,
   ctx: { params: { id: string; packageId: string } }
 ) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { error } = await sb
     .from("proposal_packages")

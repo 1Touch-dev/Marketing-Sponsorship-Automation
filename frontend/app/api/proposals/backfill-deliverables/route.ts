@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { CORITIBA_CONTEXT } from "@/lib/bedrock/prompts";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,6 +18,9 @@ export const maxDuration = 120;
  *   dry_run - if "true" just counts affected proposals without fixing
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dry_run") === "true";
   const limit = Math.min(50, Number(url.searchParams.get("limit") ?? "10"));

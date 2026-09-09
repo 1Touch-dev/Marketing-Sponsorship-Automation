@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -12,6 +13,9 @@ export const maxDuration = 30;
  * Returns { url, path, name }
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 
@@ -102,6 +106,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
  * remaining asset (or cleared if none remain).
  */
 export async function DELETE(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 

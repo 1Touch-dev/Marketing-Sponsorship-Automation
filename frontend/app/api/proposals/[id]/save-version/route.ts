@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json().catch(() => ({}));
   const reason = body.reason ?? "Manual save";

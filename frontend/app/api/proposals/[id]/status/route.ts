@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createOrUpdateDeal } from "@/lib/pipedrive/sync";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 
+/**
+ * This is a direct status-set endpoint, separate from the proper approval
+ * flow in app/api/proposals/[id]/approve (which also records an `approvals`
+ * row). It can set status to "approved"/"sent"/"rejected" directly, so it
+ * needs the same permission tier as that flow, not just edit_proposal.
+ */
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("approve_proposal");
+  if ("error" in auth) return auth.error;
+
   const body = await req.json().catch(() => ({})) as { status?: string };
   const validStatuses = ["draft", "under_review", "approved", "rejected", "sent", "revision_requested"];
 

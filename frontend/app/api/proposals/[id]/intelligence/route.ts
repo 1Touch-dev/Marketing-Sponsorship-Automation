@@ -4,6 +4,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { companyIntelligencePrompt } from "@/lib/bedrock/prompts";
 import { companyIntelligenceResponseSchema, normalizeCompanyIntelligence, validateAiOutput } from "@/lib/ai/schemas";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,9 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 }
 
 export async function POST(_req: Request, ctx: { params: { id: string } }) {
+  const auth = await requirePermission("run_intelligence");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const { data: proposal } = await sb
     .from("proposals")

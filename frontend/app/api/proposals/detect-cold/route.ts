@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
 import { getProposalEngagementStats } from "@/lib/proposals/engagement";
 import { recordAudit } from "@/lib/audit/log";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -25,6 +26,9 @@ const DEFAULT_THRESHOLD_DAYS = 10;
  * pattern as /api/email-sequences/advance and /api/gmail/sync-threads.
  */
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const env = serverEnv();
   const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";

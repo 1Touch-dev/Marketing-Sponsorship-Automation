@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
@@ -11,6 +12,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const body = await req.json();
   const { data, error } = await sb

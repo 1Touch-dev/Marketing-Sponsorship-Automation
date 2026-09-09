@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   const { action, ...data } = await req.json() as { action: string } & Record<string, unknown>;
 
   if (action === "save_library_block") {

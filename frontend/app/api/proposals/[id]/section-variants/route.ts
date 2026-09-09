@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
+import { requirePermission } from "@/lib/auth/server-permission";
 
 export const maxDuration = 60;
 
@@ -41,6 +42,9 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requirePermission("edit_proposal");
+  if ("error" in auth) return auth.error;
+
   try {
     const { section, company_name, industry, campaign_title, current_text } = await req.json() as {
       section: string;
