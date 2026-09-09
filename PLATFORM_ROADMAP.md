@@ -80,7 +80,7 @@ Phases are sequential where marked **gated**; phases without that marker can run
 
 ### Phase 0 — Blockers to clear before certain later phases (parallel track, start now)
 Not code. See Sections 6 and 7 below for full detail.
-- [ ] Legal questions written up and sent to James / counsel (Twenty CRM AGPL, ticketing engine AGPL, cross-tenant barter tax treatment)
+- [x] Legal questions written up and sent to James / counsel (Twenty CRM AGPL, ticketing engine AGPL, cross-tenant barter tax treatment) — **done 2026-09-09**, see Section 6 below for the completed packet
 - [ ] Twenty CRM alternatives proposed to James
 - [ ] Senior developer interviews underway; junior hires actively integrated into work
 
@@ -217,7 +217,7 @@ James asked specifically for: the open questions written up, a suggested draft a
 - **Option C:** A different open-source CRM with a permissive (non-copyleft) license — needs its own research pass; not covered in `master_report.md` since it only evaluated Twenty. Worth a short comparison pass before ruling this out.
 - **Option D:** Keep Pipedrive as the CRM system of record (it already works, is already integrated, and this sidesteps the entire licensing question) — the report doesn't seriously consider this because Pipedrive doesn't fit a multi-tenant white-label resale model, but for the *current* Coritiba instance and Phase 1–3 work, there's no urgency to replace it.
 
-**Action:** package questions 1–5 above plus the four CRM options into a short document for James to forward to counsel/GPT — separate deliverable, not yet written.
+**Action — done 2026-09-09:** packaged questions 1–5 above plus the four CRM options into a standalone Google Doc for James to forward to counsel/GPT: "Market Sponsorship Automation — Open Legal & Licensing Questions" (in James's Google Drive, owner amkb222@gmail.com). Includes the "current interim state" section below so counsel/James can see what's actually live in production while these stay open.
 
 **Engineering decision made 2026-09-08 (pending James's override):** rather than block on legal replies, defaulted to the lowest-risk option per question — Q1–3: **do not adopt Twenty CRM**, keep the native CRM + Pipedrive sync already live (Option A/D combined) — zero new legal exposure, zero new cost. Q4 (Pretix quote) and Q5 (barter tax) are external facts that can't be decided by engineering judgment — left genuinely parked until a real quote/legal review exists, not worked around.
 
