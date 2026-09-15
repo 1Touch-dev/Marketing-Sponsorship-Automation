@@ -33,6 +33,15 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/proposals\/[^/]+\/track-view$/, // view/engagement tracking
   /^\/api\/proposals\/[^/]+\/interest$/,   // "I'm interested" lead-capture form
   /^\/api\/exports$/,                      // export/print tracking (also used by the authenticated view)
+  // Scheduler-pattern endpoints meant to run unattended via cron/n8n as well
+  // as from a human clicking a UI button — previously only reachable via a
+  // browser session, so no unattended trigger could ever actually reach
+  // them (found live-testing Phase 5, 2026-09-15). Secured at the route
+  // level instead via requirePermissionOrInternal() (session OR
+  // INTERNAL_API_SECRET), same split as /api/internal/*.
+  /^\/api\/proposals\/detect-cold$/,
+  /^\/api\/email-sequences\/advance$/,
+  /^\/api\/gmail\/sync-threads$/,
 ];
 
 export async function middleware(req: NextRequest) {

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env";
 import { getProposalEngagementStats } from "@/lib/proposals/engagement";
 import { recordAudit } from "@/lib/audit/log";
-import { requirePermission } from "@/lib/auth/server-permission";
+import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { notifyGoneColdNudge } from "@/lib/slack/notify";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ const DEFAULT_THRESHOLD_DAYS = 10;
  * pattern as /api/email-sequences/advance and /api/gmail/sync-threads.
  */
 export async function POST(req: Request) {
-  const auth = await requirePermission("edit_proposal");
+  const auth = await requirePermissionOrInternal(req, "edit_proposal");
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();

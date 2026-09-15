@@ -56,3 +56,32 @@ export async function requirePermission(
   }
   return { user };
 }
+
+function hasValidInternalSecret(req: Request): boolean {
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) return false;
+  const provided =
+    req.headers.get("x-internal-secret") ||
+    req.headers.get("authorization")?.replace("Bearer ", "");
+  return provided === secret;
+}
+
+/**
+ * Same gate as requirePermission(), but also accepts an unattended caller
+ * (cron/n8n) presenting the same INTERNAL_API_SECRET used by
+ * requireInternalAuth() for /api/internal and /api/system routes. For
+ * scheduler-pattern endpoints (detect-cold, email-sequences/advance,
+ * gmail/sync-threads) that need to work BOTH from a human clicking a UI
+ * button (session cookie) AND from an unattended trigger with no session
+ * at all — these previously 401'd for any caller without a browser
+ * session, so no cron job could ever actually reach them.
+ */
+export async function requirePermissionOrInternal(
+  req: Request,
+  permission: Permission,
+): Promise<{ user: PlatformUser | null } | { error: NextResponse }> {
+  if (hasValidInternalSecret(req)) {
+    return { user: null };
+  }
+  return requirePermission(permission);
+}

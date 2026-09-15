@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
-import { requirePermission } from "@/lib/auth/server-permission";
+import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -42,7 +42,7 @@ function parseSteps(raw: unknown): SequenceStep[] {
  * This can be invoked by a cron/n8n webhook, or manually from the UI.
  */
 export async function POST(req: Request) {
-  const auth = await requirePermission("edit_company");
+  const auth = await requirePermissionOrInternal(req, "edit_company");
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
