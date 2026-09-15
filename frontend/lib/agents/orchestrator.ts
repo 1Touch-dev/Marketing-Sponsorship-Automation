@@ -103,6 +103,8 @@ export async function runAgentOrchestrator(
         tools: PHASE1_AGENT_TOOLS,
         maxTokens: 4096,
         temperature: 0.3,
+        entityType: "company",
+        entityId: input.company_id,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -87,6 +87,8 @@ Rules:
       maxTokens: 4096,
       temperature: 0.4,
       json: true,
+      entityType: "company",
+      entityId: companyId,
     });
 
     let parsed: Record<string, unknown> | null = null;

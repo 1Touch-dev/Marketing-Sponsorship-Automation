@@ -73,6 +73,8 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
       messages: [{ role: "user", content: pt.user }],
       json: true,
       maxTokens: 800,
+      entityType: "company",
+      entityId: company.id,
     });
 
     if (!result.json) throw new Error("AI returned invalid response");

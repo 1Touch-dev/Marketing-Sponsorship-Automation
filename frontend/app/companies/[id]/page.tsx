@@ -17,6 +17,8 @@ import { InlineIndustryEdit } from "@/components/companies/inline-industry-edit"
 import { InventorySuggestionPanel } from "@/components/companies/inventory-suggestion-panel";
 import { DifferentiatorPanel } from "@/components/companies/differentiator-panel";
 import { OpportunityGapPanel } from "@/components/companies/opportunity-gap-panel";
+import { CostToServeCard } from "@/components/companies/cost-to-serve-card";
+import { getCompanyCostToServe } from "@/lib/companies/cost-to-serve";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
@@ -37,6 +39,8 @@ export default async function CompanyDetailPage({
     .single();
 
   if (error || !company) return notFound();
+
+  const costToServe = await getCompanyCostToServe(company.id);
 
   // Fetch related proposals
   const { data: proposals } = await sb
@@ -248,6 +252,9 @@ export default async function CompanyDetailPage({
 
           {/* White-space / Opportunity Gap */}
           <OpportunityGapPanel companyId={company.id} companyName={company.company_name} />
+
+          {/* AI cost-to-serve (Pattern 11 — unit economics) */}
+          <CostToServeCard data={costToServe} />
 
           {/* Contact info */}
           <Card>

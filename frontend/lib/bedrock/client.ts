@@ -44,6 +44,13 @@ export interface InvokeClaudeOptions {
   /** When true, the system prompt asks Claude to return strict JSON
    *  and the response is parsed before returning. */
   json?: boolean;
+  /** Pattern 11 (cost-to-serve, master_report.md Section 8) — optionally
+   *  attribute this call's spend_ledger row to the company/proposal/lead
+   *  it was generated for, so real per-lead AI cost is queryable instead
+   *  of only ever a company-wide total. Omit for calls not tied to a
+   *  single entity (e.g. generic intelligence lookups). */
+  entityType?: string;
+  entityId?: string | null;
 }
 
 export interface ClaudeResult<T = string> {
@@ -186,6 +193,8 @@ export async function invokeClaude<T = unknown>(
       category: "bedrock_text",
       provider,
       amountUsd: bedrockCallCostUsd(result.usage.input_tokens ?? 0, result.usage.output_tokens ?? 0),
+      entityType: opts.entityType,
+      entityId: opts.entityId,
       metadata: {
         input_tokens: result.usage.input_tokens,
         output_tokens: result.usage.output_tokens,
@@ -305,6 +314,9 @@ export async function converseWithTools(opts: {
   tools: ToolDefinition[];
   maxTokens?: number;
   temperature?: number;
+  /** Pattern 11 (cost-to-serve) — see InvokeClaudeOptions.entityType/entityId. */
+  entityType?: string;
+  entityId?: string | null;
 }): Promise<ConverseResult> {
   await assertUnderSpendCap();
 
@@ -328,6 +340,8 @@ export async function converseWithTools(opts: {
       category: "bedrock_text",
       provider,
       amountUsd: bedrockCallCostUsd(result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      entityType: opts.entityType,
+      entityId: opts.entityId,
       metadata: {
         input_tokens: result.usage.inputTokens,
         output_tokens: result.usage.outputTokens,

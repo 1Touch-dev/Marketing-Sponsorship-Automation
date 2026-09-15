@@ -136,6 +136,8 @@ export async function POST(req: Request) {
       system,
       maxTokens: 4000,
       temperature: 0.6,
+      entityType: "company",
+      entityId: company.id,
     });
 
     const parsed = extractJson(result.text) as Record<string, unknown> | null;
