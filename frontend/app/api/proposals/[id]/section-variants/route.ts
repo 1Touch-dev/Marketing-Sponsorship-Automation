@@ -65,6 +65,7 @@ export async function POST(
       .from("proposals")
       .select("id, title")
       .eq("id", params.id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

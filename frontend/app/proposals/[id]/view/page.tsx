@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { ProposalCMSEditor } from "@/components/proposals/proposal-cms-editor";
 import { PrintButton } from "./print-button";
@@ -13,11 +14,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalViewPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const { data: proposal } = await sb
     .from("proposals")
     .select("*, companies(id, company_name, industry, website, country, logo_url), campaigns(title, summary)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!proposal) notFound();

@@ -20,6 +20,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("emails")
     .update({ status })
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("id, status")
     .single();
 

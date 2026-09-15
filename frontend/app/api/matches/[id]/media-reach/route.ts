@@ -37,6 +37,7 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
     .upsert(
       {
         match_id: matchId,
+        tenant_id: auth.user.tenant_id,
         official_views: nonNegative(body.official_views),
         unofficial_fan_views: nonNegative(body.unofficial_fan_views),
         rival_account_views: nonNegative(body.rival_account_views),

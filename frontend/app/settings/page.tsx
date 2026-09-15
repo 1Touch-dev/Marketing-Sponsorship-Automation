@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export default async function SettingsPage({
   searchParams: { gmail?: string; reason?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // ── Gmail token check ─────────────────────────────────────────────────────
   // We check via two strategies:
@@ -107,7 +109,7 @@ export default async function SettingsPage({
 
   // Fetch rows that could hold the tokens
   const senderQuery = configuredSender
-    ? sb.from("users").select("id, email, metadata").eq("email", configuredSender).maybeSingle()
+    ? sb.from("users").select("id, email, metadata").eq("email", configuredSender).eq("tenant_id", tenantId).maybeSingle()
     : Promise.resolve({ data: null });
 
   const { data: senderUser } = await senderQuery;
@@ -144,10 +146,10 @@ export default async function SettingsPage({
   // Prompt version stats — count proposals/campaigns using current vs old prompts
   const [{ count: totalProposals }, { count: v3Proposals }, { count: totalCampaigns }, { count: v3Campaigns }] =
     await Promise.all([
-      sb.from("proposals").select("*", { count: "exact", head: true }),
-      sb.from("proposals").select("*", { count: "exact", head: true }).eq("prompt_version", PROMPT_VERSION),
-      sb.from("campaigns").select("*", { count: "exact", head: true }),
-      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("prompt_version", PROMPT_VERSION),
+      sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
+      sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
+      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
+      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
     ]);
 
   return (

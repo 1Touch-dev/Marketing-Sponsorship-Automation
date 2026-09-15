@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -25,9 +26,11 @@ export async function GET(req: Request) {
   }
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   let query = sb
     .from("workflow_events")
     .select("*", { count: "exact" })
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .range(params.data.offset, params.data.offset + params.data.limit - 1);
 

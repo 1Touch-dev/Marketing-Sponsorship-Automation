@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -46,11 +47,13 @@ export default async function CampaignsPage({
   searchParams: { company?: string; q?: string; status?: string; industry?: string; sort?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const [{ data: companies }, { data: allCampaigns }] = await Promise.all([
-    sb.from("companies").select("id, company_name, industry").order("company_name"),
+    sb.from("companies").select("id, company_name, industry").eq("tenant_id", tenantId).order("company_name"),
     sb
       .from("campaigns")
       .select("id, title, summary, status, created_at, company_id, companies(id, company_name, industry)")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(200),
   ]);

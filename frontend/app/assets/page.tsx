@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -9,14 +10,16 @@ export const dynamic = "force-dynamic";
 
 export default async function AssetsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const [{ data: jobs }, { data: proposals }, { data: companies }] = await Promise.all([
     sb.from("image_generation_jobs" as "companies")
       .select("id, job_type, status, prompt, image_url, proposal_id, company_id, created_at, metadata")
+      .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false })
       .limit(200),
-    sb.from("proposals").select("id, title").limit(100),
-    sb.from("companies").select("id, company_name").neq("status", "closed").limit(100),
+    sb.from("proposals").select("id, title").eq("tenant_id", tenantId).limit(100),
+    sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").limit(100),
   ]);
 
   const statusCounts: Record<string, number> = {};

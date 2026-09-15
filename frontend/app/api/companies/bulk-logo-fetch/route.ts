@@ -52,12 +52,14 @@ export async function POST(req: Request) {
     const { data } = await sb
       .from("companies")
       .select("id, company_name, website")
+      .eq("tenant_id", auth.user.tenant_id)
       .in("id", company_ids.slice(0, MAX_BATCH));
     targets = data ?? [];
   } else {
     let query = sb
       .from("companies")
       .select("id, company_name, website")
+      .eq("tenant_id", auth.user.tenant_id)
       .neq("status", "closed")
       .limit(Math.min(limit, MAX_BATCH));
     if (only_missing && !force_refresh) {

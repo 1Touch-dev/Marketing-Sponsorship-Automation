@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: React.ReactNode; co
 
 export default async function CoritibIntelligencePage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let metrics: Record<string, unknown>[] = [];
   let migrationNeeded = false;
@@ -29,6 +31,7 @@ export default async function CoritibIntelligencePage() {
     const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("coritiba_metrics" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", tenantId)
       .order("category")
       .order("sort_order");
 

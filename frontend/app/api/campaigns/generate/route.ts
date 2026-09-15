@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     .from("companies")
     .select("id, company_name, industry, website, country, notes")
     .eq("id", parsed.data.company_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (companyErr || !company) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
   }
 
   const rows = validated.ideas.map((i) => ({
+    tenant_id: auth.user.tenant_id,
     company_id: company.id,
     title: i.title.slice(0, 200),
     summary: i.summary ?? null,

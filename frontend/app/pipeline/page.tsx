@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +25,13 @@ const STAGES = [
 
 export default async function PipelinePage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // Use companies table with pipeline_stage — no separate table needed
   const { data: companiesRaw } = await sb
     .from("companies")
     .select("id, company_name, industry, status, pipeline_stage, estimated_value, updated_at")
+    .eq("tenant_id", tenantId)
     .not("pipeline_stage", "is", null)
     .order("updated_at", { ascending: false });
 

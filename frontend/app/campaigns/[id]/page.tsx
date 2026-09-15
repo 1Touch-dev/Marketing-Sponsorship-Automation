@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -36,10 +37,12 @@ function detectTags(title: string, summary: string | null): string[] {
 
 export default async function CampaignDetailPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: campaign } = await sb
     .from("campaigns")
     .select("*, companies(company_name, industry, country)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
   if (!campaign) notFound();
 
@@ -47,6 +50,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     .from("proposals")
     .select("id, title, status, version, updated_at")
     .eq("campaign_id", campaign.id)
+    .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false });
 
   const company = (campaign as {

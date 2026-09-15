@@ -88,13 +88,20 @@ export async function generatePersonalizedProposalForCompany(
 
   const { data: company, error: coErr } = await sb
     .from("companies")
-    .select("id, company_name, industry, website, country, notes, full_intelligence")
+    .select("id, company_name, industry, website, country, notes, full_intelligence, tenant_id")
     .eq("id", companyId)
     .single();
 
   if (coErr || !company) {
     throw new Error("Company not found");
   }
+  // Phase 4 — this function is called both from a direct API route (which
+  // has the caller's own tenant via auth.user) and from the agent
+  // orchestrator (which doesn't thread a tenant through explicitly). Using
+  // the target company's own tenant_id is correct in both cases: a
+  // generated proposal always belongs to whichever tenant owns the company
+  // it's for.
+  const tenantId = (company as unknown as { tenant_id: string }).tenant_id;
 
   const intel = (company.full_intelligence as Record<string, unknown>) ?? {};
   const intelBlock = buildIntelligenceContext(intel);
@@ -105,6 +112,7 @@ export async function generatePersonalizedProposalForCompany(
     .from("campaigns")
     .select("id, title, summary")
     .eq("company_id", companyId)
+    .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -115,6 +123,7 @@ export async function generatePersonalizedProposalForCompany(
     const { data: newCampaign, error: campErr } = await sb
       .from("campaigns")
       .insert({
+        tenant_id: tenantId,
         title: `${company.company_name} × Coritiba FC — Sponsorship`,
         summary: `Agent-generated outreach campaign for ${company.company_name}`,
         company_id: companyId,
@@ -200,6 +209,7 @@ export async function generatePersonalizedProposalForCompany(
   const { data: proposal, error: insErr } = await sb
     .from("proposals")
     .insert({
+      tenant_id: tenantId,
       company_id: companyId,
       campaign_id: campaignId,
       title: proposalContent.title,

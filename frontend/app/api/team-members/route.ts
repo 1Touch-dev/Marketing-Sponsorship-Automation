@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("team_members")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("default_sender", { ascending: false })
     .order("full_name");
 
@@ -40,12 +43,13 @@ export async function POST(req: Request) {
 
   // Enforce single default sender
   if (body.default_sender) {
-    await sb.from("team_members").update({ default_sender: false } as never).eq("default_sender", true as never);
+    await sb.from("team_members").update({ default_sender: false } as never).eq("default_sender", true as never).eq("tenant_id", auth.user.tenant_id);
   }
 
   const { data, error } = await sb
     .from("team_members")
     .insert({
+      tenant_id: auth.user.tenant_id,
       full_name: body.full_name,
       title: body.title ?? null,
       email: body.email,

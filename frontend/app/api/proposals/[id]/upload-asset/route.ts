@@ -23,6 +23,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("id, company_id")
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
@@ -125,6 +126,7 @@ export async function DELETE(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("id, company_id, content")
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 

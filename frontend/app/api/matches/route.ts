@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +24,11 @@ export async function GET(req: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 200);
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("matches")
     .select("*, match_media_reach(*)")
+    .eq("tenant_id", tenantId)
     .order("match_date", { ascending: false })
     .limit(limit);
 
@@ -58,6 +61,7 @@ export async function POST(req: Request) {
   const { data, error } = await sb
     .from("matches")
     .insert({
+      tenant_id: auth.user.tenant_id,
       match_date: body.match_date,
       opponent: body.opponent.trim(),
       competition: body.competition?.trim() || null,

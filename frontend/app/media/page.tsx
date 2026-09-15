@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ const PROVIDER_LABELS: Record<string, { label: string; status: string; color: st
 
 export default async function MediaPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let mockups: Record<string, unknown>[] = [];
   let migrationNeeded = false;
@@ -34,6 +36,7 @@ export default async function MediaPage() {
     const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("visual_mockups" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false })
       .limit(20);
 

@@ -119,6 +119,7 @@ export async function POST(req: Request) {
     const { data: existing } = await sb
       .from("companies")
       .select("company_name")
+      .eq("tenant_id", auth.user.tenant_id)
       .limit(5000);
 
     const existingNames = new Set(
@@ -177,6 +178,7 @@ export async function POST(req: Request) {
       const { data: inserted, error } = await sb
         .from("companies")
         .insert({
+          tenant_id: auth.user.tenant_id,
           company_name: row.company_name,
           industry: row.industry ?? null,
           website,

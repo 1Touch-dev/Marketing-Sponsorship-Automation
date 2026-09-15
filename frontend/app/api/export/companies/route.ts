@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 function toCSV(rows: Record<string, unknown>[]): string {
   if (!rows.length) return "";
@@ -15,10 +16,12 @@ function toCSV(rows: Record<string, unknown>[]): string {
 }
 
 export async function GET() {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("companies")
     .select("company_name, industry, status, pipeline_stage, country, company_size, business_type, website, created_at")
+    .eq("tenant_id", tenantId)
     .order("company_name");
 
   const csv = toCSV((data ?? []) as Record<string, unknown>[]);

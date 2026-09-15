@@ -17,6 +17,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("inventory_items" as "companies")
     .update(body as never)
     .eq("id", id)
+    .eq("tenant_id" as "id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -43,7 +44,8 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const { error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("inventory_items" as "companies")
     .update({ status: "deleted" } as never)
-    .eq("id", id);
+    .eq("id", id)
+    .eq("tenant_id" as "id", auth.user.tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

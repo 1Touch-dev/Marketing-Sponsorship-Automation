@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Shield, Shirt, Layout, Image, MapPin, Package,
@@ -75,10 +76,12 @@ type BrandAssetPack = {
 
 export default async function BrandAssetsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const { data: packs, error } = await sb
     .from("brand_asset_packs")
     .select("*, brand_assets(*)")
+    .eq("tenant_id", tenantId)
     .eq("status", "active")
     .eq("club", "Coritiba FC")
     .order("created_at", { ascending: true })

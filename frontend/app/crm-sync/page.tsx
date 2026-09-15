@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CrmSyncManager } from "./crm-sync-manager";
@@ -8,10 +9,12 @@ export const dynamic = "force-dynamic";
 
 export default async function CrmSyncPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const { data: queue } = await sb
     .from("crm_sync_queue" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .order("created_at", { ascending: false })
     .limit(200);
 

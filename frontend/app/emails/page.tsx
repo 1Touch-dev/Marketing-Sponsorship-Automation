@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,9 +16,11 @@ export default async function EmailsPage({
   searchParams: { q?: string; status?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   let query = sb
     .from("emails")
     .select("id, subject, status, recipient, updated_at, opened_at")
+    .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false })
     .limit(200);
 

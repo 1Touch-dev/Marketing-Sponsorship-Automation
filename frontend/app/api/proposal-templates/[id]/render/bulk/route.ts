@@ -44,7 +44,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const { company_ids } = parsed.data;
   batchMeta.set(batchId, { templateId: ctx.params.id, total: company_ids.length, createdAt: Date.now() });
 
-  void processBulkRender(batchId, ctx.params.id, company_ids, user.id).catch((err) => {
+  void processBulkRender(batchId, ctx.params.id, company_ids, user.id, auth.user.tenant_id).catch((err) => {
     logger.apiError("/api/proposal-templates/render/bulk", err instanceof Error ? err : new Error(String(err)));
   });
 
@@ -56,13 +56,14 @@ async function processBulkRender(
   templateId: string,
   companyIds: string[],
   userId: string,
+  tenantId: string,
 ) {
   let idx = 0;
   const next = async (): Promise<void> => {
     if (idx >= companyIds.length) return;
     const companyId = companyIds[idx++];
     try {
-      await renderTemplateForCompany({ templateId, companyId, batchId, createdBy: userId });
+      await renderTemplateForCompany({ templateId, companyId, tenantId, batchId, createdBy: userId });
     } catch (err) {
       logger.apiError("bulk_render_one", err instanceof Error ? err : new Error(String(err)));
     }

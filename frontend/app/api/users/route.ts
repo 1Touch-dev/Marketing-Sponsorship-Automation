@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/auth/roles";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
-// GET /api/users — list all platform users
+// GET /api/users — list all platform users (scoped to the caller's own tenant)
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("platform_users" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .order("created_at" as "id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,10 +37,14 @@ export async function POST(req: Request) {
 
   const sb = supabaseAdmin();
 
+  // Scoped to this tenant — the same email could legitimately belong to a
+  // different tenant's platform_users row (two unrelated clubs, same
+  // person's email), so uniqueness is checked per-tenant, not globally.
   const { data: existing } = await sb
     .from("platform_users" as "companies")
     .select("id")
     .eq("email" as "id", body.email)
+    .eq("tenant_id" as "id", auth.user.tenant_id)
     .maybeSingle();
 
   if (existing) {
@@ -47,6 +54,7 @@ export async function POST(req: Request) {
   const { data, error } = await sb
     .from("platform_users" as "companies")
     .insert({
+      tenant_id: auth.user.tenant_id,
       email: body.email.trim().toLowerCase(),
       full_name: body.full_name.trim(),
       role: body.role,

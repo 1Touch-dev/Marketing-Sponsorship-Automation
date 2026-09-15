@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,12 @@ export const dynamic = "force-dynamic";
 
 export default async function TemplateDetailPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: template } = await sb
     .from("proposal_templates")
     .select("*")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!template) notFound();

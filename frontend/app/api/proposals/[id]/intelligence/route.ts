@@ -5,6 +5,7 @@ import { companyIntelligencePrompt } from "@/lib/bedrock/prompts";
 import { companyIntelligenceResponseSchema, normalizeCompanyIntelligence, validateAiOutput } from "@/lib/ai/schemas";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,10 +20,12 @@ export const maxDuration = 60;
  */
 export async function GET(_req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: proposal } = await sb
     .from("proposals")
     .select("id, intelligence, companies(company_name, industry, website, country, notes, intelligence)")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
@@ -49,6 +52,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("id, companies(id, company_name, industry, website, country, notes)")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

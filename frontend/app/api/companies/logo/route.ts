@@ -51,7 +51,9 @@ export async function GET(req: Request) {
   if (!company_id) return NextResponse.json({ error: "company_id required" }, { status: 400 });
 
   const { supabaseAdmin } = await import("@/lib/supabase/server");
+  const { resolveTenantId } = await import("@/lib/tenants/current");
   const sb = supabaseAdmin();
-  const { data } = await sb.from("companies").select("id, company_name, logo_url, logo_source, logo_fetched_at").eq("id", company_id).maybeSingle();
+  const tenantId = await resolveTenantId();
+  const { data } = await sb.from("companies").select("id, company_name, logo_url, logo_source, logo_fetched_at").eq("id", company_id).eq("tenant_id", tenantId).maybeSingle();
   return NextResponse.json({ company: data });
 }

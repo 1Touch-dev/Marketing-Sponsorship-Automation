@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     .from("proposals")
     .select("*")
     .eq("id", parsed.data.proposal_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (srcErr || !source) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     .from("proposals")
     .insert(
       guardColumns("proposals", {
+        tenant_id: auth.user.tenant_id,
         company_id: source.company_id,
         campaign_id: source.campaign_id,
         title: `${source.title} (copy)`,
@@ -56,6 +58,7 @@ export async function POST(req: Request) {
 
   // Snapshot version 1 for the copy
   await sb.from("proposal_versions").insert({
+    tenant_id: auth.user.tenant_id,
     proposal_id: copy.id,
     version: 1,
     content: copy.content as ProposalContent,

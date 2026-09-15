@@ -105,7 +105,11 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
 
     // Fetch all companies for name-matching
-    const { data: companies } = await sb.from("companies").select("id, company_name").limit(5000);
+    const { data: companies } = await sb
+      .from("companies")
+      .select("id, company_name")
+      .eq("tenant_id", auth.user.tenant_id)
+      .limit(5000);
     const companyMap = new Map((companies ?? []).map((c) => [c.company_name.toLowerCase().trim(), c.id]));
 
     let imported = 0;
@@ -130,7 +134,7 @@ export async function POST(req: Request) {
           // Auto-create company
           const { data: newCo } = await sb
             .from("companies")
-            .insert({ company_name: row.company_name, status: "prospect", country: "BR" })
+            .insert({ tenant_id: auth.user.tenant_id, company_name: row.company_name, status: "prospect", country: "BR" })
             .select("id")
             .single();
           if (newCo) {
@@ -151,6 +155,7 @@ export async function POST(req: Request) {
         : null;
 
       const { error: insErr } = await sb.from("contacts").insert({
+        tenant_id: auth.user.tenant_id,
         company_id,
         email: row.email,
         full_name: row.full_name ?? null,

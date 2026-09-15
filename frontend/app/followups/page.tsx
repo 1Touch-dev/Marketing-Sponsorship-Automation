@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,9 +11,11 @@ export const dynamic = "force-dynamic";
 
 export default async function FollowupsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data } = await sb
     .from("followups")
     .select("id, status, reason, suggested_body, scheduled_for, created_at, draft_email_id, proposal_id")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   return (

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,12 @@ export const dynamic = "force-dynamic";
 
 export default async function CampaignBatchPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: campaign } = await sb
     .from("campaigns")
     .select("id, title, is_preapproved, companies(company_name, industry)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!campaign) notFound();

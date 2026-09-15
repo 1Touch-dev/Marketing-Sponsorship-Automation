@@ -4,6 +4,7 @@ import { proposalUpdateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import type { ProposalContent } from "@/types/database";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -35,6 +36,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("*")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (getErr || !existing) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
 
@@ -67,6 +69,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   if (updErr || !saved) return NextResponse.json({ error: updErr?.message ?? "Update failed" }, { status: 500 });
 
   await sb.from("proposal_versions").insert({
+    tenant_id: auth.user.tenant_id,
     proposal_id: saved.id,
     version: nextVersion,
     content: mergedContent,
@@ -89,7 +92,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
-  const { error } = await sb.from("proposals").delete().eq("id", ctx.params.id);
+  const { error } = await sb.from("proposals").delete().eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await recordAudit({ entity_type: "proposal", entity_id: ctx.params.id, action: "proposal.deleted" });
   return NextResponse.json({ ok: true });

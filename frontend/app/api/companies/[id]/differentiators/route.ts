@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const maxDuration = 90;
 
@@ -23,6 +24,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("companies")
       .select("*")
       .eq("id", companyId)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -116,7 +118,8 @@ Rules:
 
     await sb.from("companies")
       .update({ full_intelligence: updatedIntelligence } as unknown as Record<string, unknown>)
-      .eq("id", companyId);
+      .eq("id", companyId)
+      .eq("tenant_id", auth.user.tenant_id);
 
     return NextResponse.json({ success: true, differentiators: parsed });
   } catch (err) {
@@ -130,10 +133,12 @@ Rules:
  */
 export async function GET(_req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: company } = await sb
     .from("companies")
     .select("full_intelligence")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   const intel = (company as Record<string, unknown> | null)?.full_intelligence as Record<string, unknown> | null;

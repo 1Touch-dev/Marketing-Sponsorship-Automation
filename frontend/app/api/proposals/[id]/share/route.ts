@@ -24,6 +24,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("id, title, share_token, status")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
@@ -70,6 +71,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .select("id, title")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

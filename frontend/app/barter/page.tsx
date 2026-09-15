@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
 
 export default async function BarterPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let items: Record<string, unknown>[] = [];
   let migrationNeeded = false;
@@ -37,6 +39,7 @@ export default async function BarterPage() {
     const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("barter_items" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", tenantId)
       .order("priority", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -68,6 +71,7 @@ export default async function BarterPage() {
     const { data: barterProposals } = await sb
       .from("proposals")
       .select("id, content, proposal_type, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .in("proposal_type", ["barter", "mixed"]);
 
     const withTerms = ((barterProposals ?? []) as Array<{ content: unknown }>)

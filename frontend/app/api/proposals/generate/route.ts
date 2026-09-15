@@ -113,6 +113,7 @@ export async function POST(req: Request) {
     .from("campaigns")
     .select("*, companies(*)")
     .eq("id", parsed.data.campaign_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (campErr || !campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
@@ -240,6 +241,7 @@ export async function POST(req: Request) {
   const contentMd = renderMarkdown(proposalContent as unknown as ProposalContent);
 
   const baseRow = {
+    tenant_id: auth.user.tenant_id,
     company_id: (campaign as { company_id: string }).company_id,
     campaign_id: campaign.id,
     title: proposalContent.title,

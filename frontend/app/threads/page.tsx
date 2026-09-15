@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate } from "@/lib/utils";
@@ -8,9 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function ThreadsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data } = await sb
     .from("email_threads")
     .select("id, subject, status, participants, last_message_at, gmail_thread_id")
+    .eq("tenant_id", tenantId)
     .order("last_message_at", { ascending: false });
 
   return (

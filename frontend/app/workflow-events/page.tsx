@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -33,9 +34,11 @@ export default async function WorkflowEventsPage({
   searchParams: { status?: string; workflow?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   let query = sb
     .from("workflow_events")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(100);
 

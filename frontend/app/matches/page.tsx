@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { MatchesManager } from "./matches-manager";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MatchesPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let matches: Record<string, unknown>[] = [];
   let migrationPending = false;
@@ -14,6 +16,7 @@ export default async function MatchesPage() {
     const { data, error } = await sb
       .from("matches")
       .select("*, match_media_reach(*)")
+      .eq("tenant_id", tenantId)
       .order("match_date", { ascending: false })
       .limit(100);
     if (error) migrationPending = true;

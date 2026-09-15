@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,12 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: "session required" }, { status: 400 });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data } = await sb
     .from("proposal_wizard_drafts" as "companies")
     .select("*")
     .eq("session_key", session)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   return NextResponse.json({ draft: data ?? null });
@@ -36,6 +39,7 @@ export async function POST(req: Request) {
     .from("proposal_wizard_drafts" as "companies")
     .upsert(
       {
+        tenant_id: auth.user.tenant_id,
         session_key: sessionKey,
         current_step: body.current_step ?? 1,
         proposal_type: body.proposal_type ?? "sponsorship",

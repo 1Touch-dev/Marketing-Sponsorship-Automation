@@ -118,6 +118,7 @@ Required JSON structure:
     const { data: company } = await sb.from("companies")
       .select("full_intelligence, intelligence")
       .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     const existing = (company?.full_intelligence ?? company?.intelligence ?? {}) as Record<string, unknown>;
@@ -136,7 +137,7 @@ Required JSON structure:
     await sb.from("companies").update({
       full_intelligence: updated,
       intelligence: updated,
-    }).eq("id", company_id);
+    }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
 
     logger.info("SERP intelligence completed", {
       company_id,

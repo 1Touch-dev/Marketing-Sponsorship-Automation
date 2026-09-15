@@ -25,6 +25,7 @@ import { logger } from "@/lib/monitoring/logger";
 export type RenderTemplateInput = {
   templateId: string;
   companyId: string;
+  tenantId: string;
   batchId?: string | null;
   createdBy?: string | null;
 };
@@ -44,12 +45,13 @@ type CompanyRow = {
   logo_url: string | null;
 };
 
-async function resolveTextValues(companyId: string): Promise<Record<string, string>> {
+async function resolveTextValues(companyId: string, tenantId: string): Promise<Record<string, string>> {
   const sb = supabaseAdmin();
   const { data: company } = await sb
     .from("companies")
     .select("id, company_name, industry, website, country")
     .eq("id", companyId)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   // Try to select match_id too — tolerate migration 0042 not being applied yet
@@ -60,6 +62,7 @@ async function resolveTextValues(companyId: string): Promise<Record<string, stri
       .from("proposals")
       .select("title, content, match_id")
       .eq("company_id", companyId)
+      .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -69,6 +72,7 @@ async function resolveTextValues(companyId: string): Promise<Record<string, stri
         .from("proposals")
         .select("title, content")
         .eq("company_id", companyId)
+        .eq("tenant_id", tenantId)
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -97,6 +101,7 @@ async function resolveTextValues(companyId: string): Promise<Record<string, stri
       .from("matches")
       .select("opponent, match_date, match_media_reach(*)")
       .eq("id", matchId)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
     if (match) {
       const reachRaw = (match as Record<string, unknown>).match_media_reach;
@@ -191,6 +196,7 @@ export async function renderTemplateForCompany(
     .from("proposal_templates")
     .select("id, html_url, html_storage_path, placeholder_config, source_type")
     .eq("id", input.templateId)
+    .eq("tenant_id", input.tenantId)
     .maybeSingle();
 
   if (templateErr || !template) {
@@ -204,6 +210,7 @@ export async function renderTemplateForCompany(
     .from("companies")
     .select("id, company_name, industry, logo_url")
     .eq("id", input.companyId)
+    .eq("tenant_id", input.tenantId)
     .maybeSingle();
   if (!company) throw new Error("Company not found");
 
@@ -212,6 +219,7 @@ export async function renderTemplateForCompany(
     .insert({
       template_id: input.templateId,
       company_id: input.companyId,
+      tenant_id: input.tenantId,
       batch_id: input.batchId ?? null,
       created_by: input.createdBy ?? null,
       status: "running",
@@ -233,7 +241,7 @@ export async function renderTemplateForCompany(
     const textPlaceholders = placeholders.filter((p) => p.kind === "text");
     const imagePlaceholders = placeholders.filter((p) => p.kind === "image");
 
-    const resolvedText = await resolveTextValues(input.companyId);
+    const resolvedText = await resolveTextValues(input.companyId, input.tenantId);
     const textValues: Record<string, string> = {};
     for (const p of textPlaceholders) {
       textValues[p.token] = resolvedText[p.token] ?? "";

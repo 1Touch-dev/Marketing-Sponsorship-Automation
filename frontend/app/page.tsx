@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ function friendlyAction(action: string): string {
 
 async function loadDashboard() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const [
     companies,
     campaigns,
@@ -78,39 +80,44 @@ async function loadDashboard() {
     contractProposals,
     proposalPackages,
   ] = await Promise.all([
-    sb.from("companies").select("id", { count: "exact", head: true }).neq("status", "closed"),
-    sb.from("campaigns").select("id", { count: "exact", head: true }),
-    sb.from("proposals").select("id", { count: "exact", head: true }).in("status", ["approved", "under_review", "draft"]),
+    sb.from("companies").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).neq("status", "closed"),
+    sb.from("campaigns").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).in("status", ["approved", "under_review", "draft"]),
     sb.from("proposals")
       .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
       .in("status", ["under_review", "revision_requested"]),
     sb.from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .neq("status", "rejected")
       .order("updated_at", { ascending: false })
       .limit(6),
     sb.from("emails")
       .select("id, subject, status, recipient, updated_at")
+      .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false })
       .limit(5),
-    sb.from("followups").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    sb.from("followups").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "pending"),
     sb.from("audit_logs")
       .select("id, action, entity_type, created_at, actor_email")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(30),
     // KPI: approved proposals (pipeline)
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "approved"),
   // KPI: emails sent total
-    sb.from("emails").select("id", { count: "exact", head: true }).eq("status", "sent"),
+    sb.from("emails").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "sent"),
     // KPI: active contracts
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "active_contract"),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "active_contract"),
     // KPI: pipeline value (sum of package prices for active proposals)
-    sb.from("proposal_packages").select("price_brl, proposal_id"),
+    sb.from("proposal_packages").select("price_brl, proposal_id").eq("tenant_id", tenantId),
   ]);
 
   const failedWorkflows = await sb
     .from("workflow_events")
     .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .eq("status", "failed")
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
 
@@ -118,6 +125,7 @@ async function loadDashboard() {
   const { data: contractsData } = await sb
     .from("contracts")
     .select("total_value")
+    .eq("tenant_id", tenantId)
     .eq("status", "active");
   const totalRevenueBrl = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value) || 0), 0);
   const signedContractCount = contractsData?.length ?? 0;
@@ -126,6 +134,7 @@ async function loadDashboard() {
   const { count: openedEmailsCount } = await sb
     .from("emails")
     .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .not("opened_at", "is", null);
   const sentEmailsCount = sentEmails.count ?? 0;
   const openRate = sentEmailsCount > 0 ? Math.round(((openedEmailsCount ?? 0) / sentEmailsCount) * 100) : 0;
@@ -133,12 +142,14 @@ async function loadDashboard() {
   const { count: clickedEmails } = await sb
     .from("emails")
     .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .not("clicked_at", "is", null);
 
   // Gmail OAuth status check
   const gmailStatus = await sb
     .from("users")
     .select("metadata")
+    .eq("tenant_id", tenantId)
     .limit(1)
     .maybeSingle()
     .then(r => {
@@ -156,11 +167,12 @@ async function loadDashboard() {
   const proposalsSentThisMonth = await sb
     .from("emails")
     .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
     .eq("status", "sent")
     .gte("created_at", thisMonthStart.toISOString());
 
   // Image generation job stats
-  const imageJobStats = await sb.from("image_generation_jobs").select("status").then(r => {
+  const imageJobStats = await sb.from("image_generation_jobs").select("status").eq("tenant_id", tenantId).then(r => {
     const jobs = r.data ?? [];
     const completed = jobs.filter(j => j.status === "completed").length;
     const total = jobs.length;

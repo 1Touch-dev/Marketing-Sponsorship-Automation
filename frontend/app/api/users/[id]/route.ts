@@ -35,6 +35,7 @@ export async function PATCH(
     .from("platform_users" as "companies")
     .update(update as unknown as Record<string, unknown>)
     .eq("id" as "id", id)
+    .eq("tenant_id" as "id", auth.user.tenant_id)
     .select()
     .single();
 
@@ -55,7 +56,8 @@ export async function DELETE(
   const { error } = await sb
     .from("platform_users" as "companies")
     .update({ is_active: false, updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
-    .eq("id" as "id", id);
+    .eq("id" as "id", id)
+    .eq("tenant_id" as "id", auth.user.tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });

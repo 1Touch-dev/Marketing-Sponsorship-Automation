@@ -2,16 +2,19 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
 /** GET /api/proposal-templates/[id] — full template (content included). */
 export async function GET(_req: Request, ctx: { params: { id: string } }) {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("proposal_templates")
     .select("*")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -19,7 +22,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
   // Increment use_count (best-effort; column may be pre-migration).
   const current = (data as { use_count?: number }).use_count ?? 0;
   try {
-    await sb.from("proposal_templates").update({ use_count: current + 1 } as never).eq("id", ctx.params.id);
+    await sb.from("proposal_templates").update({ use_count: current + 1 } as never).eq("id", ctx.params.id).eq("tenant_id", tenantId);
   } catch {
     /* pre-migration */
   }
@@ -42,7 +45,8 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const { error } = await sb
     .from("proposal_templates")
     .update({ active: false } as never)
-    .eq("id", ctx.params.id);
+    .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await recordAudit({

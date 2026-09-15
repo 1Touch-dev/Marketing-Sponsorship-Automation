@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
@@ -65,10 +66,12 @@ const CLUB_STATS = [
 
 export default async function ProposalDeckPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: proposal } = await sb
     .from("proposals")
     .select("*, companies(company_name, logo_url, industry, website)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .single();
 
   if (!proposal) notFound();
@@ -76,7 +79,8 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
   const { data: packages } = await sb
     .from("proposal_packages")
     .select("name, description, price_brl, category")
-    .eq("proposal_id", params.id);
+    .eq("proposal_id", params.id)
+    .eq("tenant_id", tenantId);
 
   const primaryCategory = (packages ?? []).length > 0 ? (packages![0].category ?? "default") : "default";
   const fallback = ASSET_FALLBACK[primaryCategory] ?? ASSET_FALLBACK.default;
@@ -99,6 +103,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
       .from("matches")
       .select("opponent, match_date, match_media_reach(*)")
       .eq("id", matchId)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
     if (matchRow) {
       match = { opponent: matchRow.opponent as string, match_date: matchRow.match_date as string };

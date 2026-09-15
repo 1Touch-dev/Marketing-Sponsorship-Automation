@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { classifyReply } from "@/lib/emails/reply-classifier";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +23,10 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await requirePermissionOrInternal(req, "manage_integrations");
   if ("error" in auth) return auth.error;
+  // Dual-auth route: a human session gives us auth.user (and its tenant),
+  // but the unattended internal-secret path (cron/n8n) has no user at all —
+  // fall back to resolveTenantId(), same as email-sequences/advance.
+  const tenantId = auth.user?.tenant_id ?? (await resolveTenantId());
 
   const env = serverEnv();
   const body = (await req.json().catch(() => ({}))) as { gmail_thread_id?: string };
@@ -32,7 +37,12 @@ export async function POST(req: Request) {
   }
 
   const sb = supabaseAdmin();
-  const { data: user } = await sb.from("users").select("*").eq("email", senderEmail).maybeSingle();
+  const { data: user } = await sb
+    .from("users")
+    .select("*")
+    .eq("email", senderEmail)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
   const tokens = (user?.metadata as Record<string, unknown> | undefined)?.gmail_tokens as
     | { access_token?: string; refresh_token?: string; expiry_date?: number }
     | undefined;
@@ -56,6 +66,7 @@ export async function POST(req: Request) {
     .from("emails")
     .select("id, gmail_thread_id, recipient, sent_at, status, created_at, proposal_id")
     .eq("direction", "outbound")
+    .eq("tenant_id", tenantId)
     .not("gmail_thread_id", "is", null)
     .in("status", ["sent", "opened", "replied"]);
 
@@ -94,11 +105,16 @@ export async function POST(req: Request) {
           status: hasInboundAfter ? "replied" : "open",
         })
         .eq("gmail_thread_id", tid)
+        .eq("tenant_id", tenantId)
         .select("id")
         .maybeSingle();
 
       if (hasInboundAfter && row.status !== "replied") {
-        await sb.from("emails").update({ status: "replied", replied_at: new Date().toISOString() }).eq("id", row.id);
+        await sb
+          .from("emails")
+          .update({ status: "replied", replied_at: new Date().toISOString() })
+          .eq("id", row.id)
+          .eq("tenant_id", tenantId);
         await recordAudit({
           entity_type: "email",
           entity_id: row.id,
@@ -124,6 +140,7 @@ export async function POST(req: Request) {
           .from("emails")
           .upsert(
             {
+              tenant_id: tenantId,
               gmail_message_id: m.id,
               gmail_thread_id: tid,
               thread_id: threadRow?.id ?? null,
@@ -152,7 +169,8 @@ export async function POST(req: Request) {
               reply_summary: result.summary,
               reply_classified_at: new Date().toISOString(),
             })
-            .eq("id", inserted.id);
+            .eq("id", inserted.id)
+            .eq("tenant_id", tenantId);
           classified.push({ email_id: inserted.id, classification: result.classification });
         }
       }

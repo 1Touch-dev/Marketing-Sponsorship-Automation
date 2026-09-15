@@ -57,6 +57,7 @@ export async function POST(req: Request) {
       .from("proposal_templates")
       .select("placeholder_config")
       .eq("id", templateId)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
     existingConfig = ((existing as { placeholder_config?: PlaceholderConfig[] } | null)?.placeholder_config) ?? [];
   }
@@ -103,6 +104,7 @@ export async function POST(req: Request) {
       .from("proposal_templates")
       .update(upsertPayload as never)
       .eq("id", templateId)
+      .eq("tenant_id", auth.user.tenant_id)
       .select("*")
       .single());
   } else {
@@ -112,6 +114,7 @@ export async function POST(req: Request) {
         ...upsertPayload,
         content: JSON.stringify({ sections: [], default_content: {}, image_placeholders: [] }),
         variables: JSON.stringify([]),
+        tenant_id: auth.user.tenant_id,
       } as never)
       .select("*")
       .single());

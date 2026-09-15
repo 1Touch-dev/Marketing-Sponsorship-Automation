@@ -26,6 +26,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     const result = await renderTemplateForCompany({
       templateId: ctx.params.id,
       companyId,
+      tenantId: auth.user.tenant_id,
       createdBy: user.id,
     });
     return NextResponse.json(result, { status: result.status === "completed" ? 200 : 500 });

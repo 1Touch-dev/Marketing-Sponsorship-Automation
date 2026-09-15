@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -10,10 +11,12 @@ export async function GET(
   ctx: { params: { id: string } }
 ) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("proposal_packages")
     .select("*")
     .eq("proposal_id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("sort_order")
     .order("created_at");
@@ -53,6 +56,7 @@ export async function POST(
   const { data, error } = await sb
     .from("proposal_packages")
     .insert({
+      tenant_id: auth.user.tenant_id,
       proposal_id: proposalId,
       name: body.name,
       description: body.description ?? null,
@@ -106,10 +110,12 @@ export async function PUT(
   await sb
     .from("proposal_packages")
     .update({ active: false } as never)
-    .eq("proposal_id", proposalId);
+    .eq("proposal_id", proposalId)
+    .eq("tenant_id", auth.user.tenant_id);
 
   if (body.packages.length > 0) {
     const rows = body.packages.map((p, idx) => ({
+      tenant_id: auth.user.tenant_id,
       proposal_id: proposalId,
       name: p.name,
       description: p.description ?? null,
@@ -128,6 +134,7 @@ export async function PUT(
     .from("proposal_packages")
     .select("*")
     .eq("proposal_id", proposalId)
+    .eq("tenant_id", auth.user.tenant_id)
     .eq("active", true)
     .order("sort_order");
 

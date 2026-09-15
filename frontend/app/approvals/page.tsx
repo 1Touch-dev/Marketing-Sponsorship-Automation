@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -47,23 +48,27 @@ export default async function ApprovalsPage({
   searchParams: { type?: string; status?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const [{ data: proposals }, { data: campaigns }, { data: emails }] = await Promise.all([
     sb
       .from("proposals")
       .select("id, title, status, version, updated_at, company_id, content_md, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .in("status", ["under_review", "revision_requested", "draft", "approved"])
       .order("updated_at", { ascending: false })
       .limit(100),
     sb
       .from("campaigns")
       .select("id, title, status, created_at, company_id, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .in("status", ["draft", "selected"])
       .order("created_at", { ascending: false })
       .limit(50),
     sb
       .from("emails")
       .select("id, subject, status, created_at, proposal_id, body_html, proposals(id, title, companies(company_name))")
+      .eq("tenant_id", tenantId)
       .in("status", ["draft", "pending_approval", "approved"])
       .order("created_at", { ascending: false })
       .limit(50),

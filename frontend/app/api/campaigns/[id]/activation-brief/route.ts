@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -46,10 +47,12 @@ export async function GET(
   ctx: { params: { id: string } }
 ) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("campaigns")
     .select("id, title, activation_brief")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (error || !data) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
@@ -73,6 +76,7 @@ export async function POST(
     .from("campaigns")
     .select("id, title, activation, companies(company_name)")
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
 
@@ -146,7 +150,7 @@ Be specific and actionable. Format as clean text with headers.`
   };
 
   // Save to campaign
-  await sb.from("campaigns").update({ activation_brief: brief } as never).eq("id", id);
+  await sb.from("campaigns").update({ activation_brief: brief } as never).eq("id", id).eq("tenant_id", auth.user.tenant_id);
 
   await recordAudit({
     entity_type: "campaign",
@@ -170,7 +174,7 @@ export async function PATCH(
 
   if (!body.brief) return NextResponse.json({ error: "brief required" }, { status: 400 });
 
-  await sb.from("campaigns").update({ activation_brief: body.brief } as never).eq("id", ctx.params.id);
+  await sb.from("campaigns").update({ activation_brief: body.brief } as never).eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id);
 
   return NextResponse.json({ ok: true });
 }

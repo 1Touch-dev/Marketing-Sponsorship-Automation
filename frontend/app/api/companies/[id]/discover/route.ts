@@ -23,6 +23,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("companies")
       .select("*")
       .eq("id", companyId)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -98,6 +99,7 @@ Rules:
       const { data: existing } = await sb
         .from("companies")
         .select("id, company_name")
+        .eq("tenant_id", auth.user.tenant_id)
         .ilike("company_name", `%${String(comp.name).slice(0, 30)}%`)
         .maybeSingle();
 
@@ -105,6 +107,7 @@ Rules:
         const { data: newComp } = await (sb as any)
           .from("companies")
           .insert({
+            tenant_id: auth.user.tenant_id,
             company_name: comp.name,
             website: comp.website ?? null,
             industry: comp.industry ?? co.industry,
@@ -150,7 +153,8 @@ Rules:
         last_discovery_at: new Date().toISOString(),
         discovery_method: "ai_auto",
       } as unknown as Record<string, unknown>)
-      .eq("id", companyId);
+      .eq("id", companyId)
+      .eq("tenant_id", auth.user.tenant_id);
 
     return NextResponse.json({
       success: true,

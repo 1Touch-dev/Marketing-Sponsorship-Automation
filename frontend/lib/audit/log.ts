@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -14,6 +15,11 @@ export interface AuditEntry {
   performed_by?: string | null;
   actor_email?: string | null;
   metadata?: Record<string, unknown>;
+  /** Phase 4 — usually omitted; resolved from the current session via
+   *  resolveTenantId() when not passed explicitly. Pass it only when
+   *  recording on behalf of a different tenant than the current request
+   *  (rare — e.g. a background job iterating multiple tenants). */
+  tenant_id?: string | null;
 }
 
 /**
@@ -23,7 +29,9 @@ export interface AuditEntry {
 export async function recordAudit(entry: AuditEntry): Promise<void> {
   try {
     const sb = supabaseAdmin();
+    const tenantId = await resolveTenantId(entry.tenant_id);
     const { error } = await sb.from("audit_logs").insert({
+      tenant_id: tenantId,
       entity_type: entry.entity_type,
       entity_id: toUuidOrNull(entry.entity_id),
       action: entry.action,

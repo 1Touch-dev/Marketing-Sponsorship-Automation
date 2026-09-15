@@ -32,6 +32,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("matches")
     .update(patch as never)
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -54,7 +55,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 
-  const { error } = await sb.from("matches").delete().eq("id", id);
+  const { error } = await sb.from("matches").delete().eq("id", id).eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await recordAudit({ entity_type: "match", entity_id: id, action: "match.deleted", metadata: {} });

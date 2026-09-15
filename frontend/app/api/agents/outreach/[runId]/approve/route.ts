@@ -33,6 +33,7 @@ export async function POST(
     .from("agent_runs" as "companies")
     .update({ status: "sending", updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
     .eq("id", ctx.params.runId)
+    .eq("tenant_id", auth.user.tenant_id)
     .eq("status", "paused_for_approval")
     .select("*")
     .maybeSingle() as unknown as { data: Record<string, unknown> | null };
@@ -42,6 +43,7 @@ export async function POST(
       .from("agent_runs" as "companies")
       .select("status")
       .eq("id", ctx.params.runId)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle() as unknown as { data: Record<string, unknown> | null };
     if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
     return NextResponse.json({
@@ -55,7 +57,7 @@ export async function POST(
 
   if (!emailId) {
     // Release the claim — nothing to send, don't leave the run stuck as "sending".
-    await sb.from("agent_runs" as "companies").update({ status: "paused_for_approval" } as unknown as Record<string, unknown>).eq("id", ctx.params.runId);
+    await sb.from("agent_runs" as "companies").update({ status: "paused_for_approval" } as unknown as Record<string, unknown>).eq("id", ctx.params.runId).eq("tenant_id", auth.user.tenant_id);
     return NextResponse.json({ error: "No email found on this run to approve" }, { status: 400 });
   }
 
@@ -91,7 +93,8 @@ export async function POST(
       steps: [...existingSteps, sendStep],
       updated_at: new Date().toISOString(),
     } as unknown as Record<string, unknown>)
-    .eq("id", ctx.params.runId);
+    .eq("id", ctx.params.runId)
+    .eq("tenant_id", auth.user.tenant_id);
 
   return NextResponse.json({
     success: sendResult.success,

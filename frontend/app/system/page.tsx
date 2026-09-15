@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import {
   CheckCircle2, AlertTriangle, Shield, Wrench, Database,
   Activity, RefreshCw, Archive, Trash2, XCircle,
@@ -23,18 +24,19 @@ const TEST_KEYWORDS = ["test", "sample", "demo", "diagnostic", "example", "url c
 
 export default async function SystemMaintenancePage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const startOfDayUtc = new Date();
   startOfDayUtc.setUTCHours(0, 0, 0, 0);
 
   const [failedWorkflows, stuckWorkflows, allProposals, allCompanies, validationFailures, auditLogs, todaySpend] = await Promise.all([
-    sb.from("workflow_events").select("id, workflow_name, error_message, created_at").eq("status", "failed").order("created_at", { ascending: false }).limit(20),
-    sb.from("workflow_events").select("id", { count: "exact", head: true }).in("status", ["started", "processing"]).lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
-    sb.from("proposals").select("id, title, status, status_reason").order("created_at", { ascending: false }).limit(100),
-    sb.from("companies").select("id, company_name, status").order("created_at", { ascending: false }).limit(200),
-    sb.from("audit_logs").select("id", { count: "exact", head: true }).like("action", "ai.validation_failed%"),
-    sb.from("audit_logs").select("action, created_at, metadata").like("action", "system.maintenance%").order("created_at", { ascending: false }).limit(10),
-    sb.from("spend_ledger" as "companies").select("amount_usd, category" as "id").gte("created_at" as "id", startOfDayUtc.toISOString()),
+    sb.from("workflow_events").select("id, workflow_name, error_message, created_at").eq("tenant_id", tenantId).eq("status", "failed").order("created_at", { ascending: false }).limit(20),
+    sb.from("workflow_events").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).in("status", ["started", "processing"]).lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
+    sb.from("proposals").select("id, title, status, status_reason").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(100),
+    sb.from("companies").select("id, company_name, status").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(200),
+    sb.from("audit_logs").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).like("action", "ai.validation_failed%"),
+    sb.from("audit_logs").select("action, created_at, metadata").eq("tenant_id", tenantId).like("action", "system.maintenance%").order("created_at", { ascending: false }).limit(10),
+    sb.from("spend_ledger" as "companies").select("amount_usd, category" as "id").eq("tenant_id" as "id", tenantId).gte("created_at" as "id", startOfDayUtc.toISOString()),
   ]);
 
   // Pattern 5 (spend guard) UI surface — the enforcement itself has existed

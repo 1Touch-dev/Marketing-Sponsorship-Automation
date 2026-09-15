@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +24,13 @@ export async function GET() {
   const expectedSender = process.env.DEFAULT_FROM_EMAIL ?? "";
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: user } = expectedSender
     ? await sb
         .from("users")
         .select("email, metadata")
         .eq("email", expectedSender)
+        .eq("tenant_id", tenantId)
         .maybeSingle()
     : { data: null };
 

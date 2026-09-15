@@ -31,6 +31,7 @@ export async function POST(req: Request) {
   const { data: proposals, error } = await sb
     .from("proposals")
     .select("id, title, content, campaigns(title), companies(company_name, industry)")
+    .eq("tenant_id", auth.user.tenant_id)
     .order("created_at", { ascending: false })
     .limit(200); // fetch more than limit so we can filter
 

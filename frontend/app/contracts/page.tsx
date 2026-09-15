@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatDate } from "@/lib/utils";
 import { FileCheck, DollarSign, AlertTriangle } from "lucide-react";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ContractsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let contracts: Array<{
     id: string;
@@ -26,6 +28,7 @@ export default async function ContractsPage() {
     const { data } = await sb
       .from("contracts")
       .select("id, contract_number, title, total_value_brl, deal_type, start_date, end_date, status, companies(company_name), proposals(id, title)")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     contracts = (data ?? []) as unknown as typeof contracts;
   } catch {

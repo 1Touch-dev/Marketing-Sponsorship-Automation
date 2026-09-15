@@ -4,6 +4,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -16,11 +17,13 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const { data: batch } = await sb
     .from("agent_batch_runs" as "companies")
     .select("*")
     .eq("id", ctx.params.batchId)
+    .eq("tenant_id", tenantId)
     .maybeSingle() as unknown as { data: Record<string, unknown> | null };
 
   if (!batch) return NextResponse.json({ error: "Batch not found" }, { status: 404 });
@@ -29,6 +32,7 @@ export async function GET(
     .from("agent_runs" as "companies")
     .select("id, company_id, status, result, error, created_at, updated_at, companies(company_name)")
     .eq("batch_id", ctx.params.batchId)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: true }) as unknown as {
       data: Array<{
         id: string;

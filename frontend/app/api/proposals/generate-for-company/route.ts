@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -23,6 +24,21 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "company_id required" }, { status: 400 });
+  }
+
+  // The library function derives the tenant from the target company's own
+  // row (correct for the agent-orchestrator call path too), but that alone
+  // would let a caller from a DIFFERENT tenant trigger generation against
+  // another tenant's company — no data leaks (still tagged correctly), but
+  // an unauthorized cross-tenant action. Verify ownership here first.
+  const { data: targetCompany } = await supabaseAdmin()
+    .from("companies")
+    .select("id")
+    .eq("id", parsed.data.company_id)
+    .eq("tenant_id", auth.user.tenant_id)
+    .maybeSingle();
+  if (!targetCompany) {
+    return NextResponse.json({ error: "Company not found" }, { status: 404 });
   }
 
   try {

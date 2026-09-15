@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     .from("email_sequences")
     .select("*")
     .eq("id", body.sequence_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
   if (seqErr) return NextResponse.json({ error: seqErr.message }, { status: 500 });
   if (!seq) return NextResponse.json({ error: "Sequence not found" }, { status: 404 });
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
   const { data: enrollment, error: enrErr } = await sb
     .from("email_sequence_enrollments")
     .insert({
+      tenant_id: auth.user.tenant_id,
       sequence_id: body.sequence_id,
       company_id: body.company_id ?? null,
       proposal_id: body.proposal_id ?? null,
@@ -84,7 +86,8 @@ export async function POST(req: Request) {
     await sb
       .from("companies")
       .update({ default_email_flow: (seq as { name: string }).name } as never)
-      .eq("id", body.company_id);
+      .eq("id", body.company_id)
+      .eq("tenant_id", auth.user.tenant_id);
   }
 
   await recordAudit({

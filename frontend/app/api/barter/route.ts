@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
@@ -13,6 +15,7 @@ export async function GET(req: Request) {
   let query = (sb as ReturnType<typeof supabaseAdmin>)
     .from("barter_items" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .order("priority", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
 
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("barter_items" as "companies")
-    .insert(body as never)
+    .insert({ ...body, tenant_id: auth.user.tenant_id } as never)
     .select("*")
     .single();
 

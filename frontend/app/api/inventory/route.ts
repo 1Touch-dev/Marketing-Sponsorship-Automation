@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   const type = url.searchParams.get("type");
@@ -15,6 +17,7 @@ export async function GET(req: Request) {
   let query = (sb as ReturnType<typeof supabaseAdmin>)
     .from("inventory_items" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .eq("status", "active")
     .order("sort_order");
 
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
 
   // Strip any new operational fields if the DB hasn't been migrated yet
   // They'll be silently dropped; the migration adds them properly
-  const safeBody = { ...body };
+  const safeBody = { ...body, tenant_id: auth.user.tenant_id };
   const newCols = ["avg_views", "content_hours", "team_required", "production_cost", "setup_hours", "line_items", "period", "quantity", "responsible"];
 
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)

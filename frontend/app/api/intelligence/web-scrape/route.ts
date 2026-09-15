@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     };
 
     const sb = supabaseAdmin();
-    const { data: company } = await sb.from("companies").select("*").eq("id", company_id).maybeSingle();
+    const { data: company } = await sb.from("companies").select("*").eq("id", company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     const targetUrl = url ?? (company as Record<string,string>).website ?? "";
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const autoLabels = autoLabel(scraped, enriched);
 
     // Persist
-    const { data: existingCo } = await sb.from("companies").select("full_intelligence").eq("id", company_id).maybeSingle();
+    const { data: existingCo } = await sb.from("companies").select("full_intelligence").eq("id", company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     const existingIntel = (existingCo?.full_intelligence ?? {}) as Record<string, unknown>;
     const scrapeHistory = [
       ...((existingIntel.scrape_history as Array<Record<string, unknown>> ?? []).slice(0, 4)),
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       ...(autoLabels.segment ? { segment: autoLabels.segment } : {}),
       ...(autoLabels.size ? { company_size: autoLabels.size } : {}),
       ...(autoLabels.business_type ? { business_type: autoLabels.business_type } : {}),
-    } as unknown as Record<string, string>).eq("id", company_id);
+    } as unknown as Record<string, string>).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
 
     await recordAudit({
       action: "company.web_scraped",

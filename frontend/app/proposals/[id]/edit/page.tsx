@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -16,17 +17,20 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalEditPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const [{ data: proposal }, { data: versions }] = await Promise.all([
     sb
       .from("proposals")
       .select("*, companies(id, company_name, industry, logo_url), campaigns(title), strategy_variants, expires_at")
       .eq("id", params.id)
+      .eq("tenant_id", tenantId)
       .maybeSingle(),
     sb
       .from("proposal_versions")
       .select("version, edit_reason, created_at")
       .eq("proposal_id", params.id)
+      .eq("tenant_id", tenantId)
       .order("version", { ascending: false })
       .limit(10),
   ]);

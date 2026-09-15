@@ -32,12 +32,12 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const { id } = ctx.params;
 
-  const { data: enr, error: enrErr } = await sb.from("warmup_enrollments").select("*").eq("id", id).maybeSingle();
+  const { data: enr, error: enrErr } = await sb.from("warmup_enrollments").select("*").eq("id", id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
   if (enrErr) return NextResponse.json({ error: enrErr.message }, { status: 500 });
   if (!enr) return NextResponse.json({ error: "Enrollment not found" }, { status: 404 });
 
   const e = enr as Record<string, unknown>;
-  const { data: seq } = await sb.from("warmup_sequences").select("steps").eq("id", e.sequence_id as string).maybeSingle();
+  const { data: seq } = await sb.from("warmup_sequences").select("steps").eq("id", e.sequence_id as string).eq("tenant_id", auth.user.tenant_id).maybeSingle();
   const steps = parseSteps((seq as Record<string, unknown> | null)?.steps);
 
   const nextIdx = ((e.current_step as number) ?? 0) + 1;
@@ -53,6 +53,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
       next_action_at: nextActionAt,
     } as never)
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 

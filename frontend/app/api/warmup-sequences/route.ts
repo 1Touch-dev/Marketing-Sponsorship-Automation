@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 
@@ -24,9 +25,11 @@ function migrationPending(error: { code?: string; message?: string } | null): bo
 
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("warmup_sequences")
     .select("*")
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("is_default", { ascending: false })
     .order("name");
@@ -60,7 +63,7 @@ export async function POST(req: Request) {
   }));
 
   if (body.is_default) {
-    await sb.from("warmup_sequences").update({ is_default: false } as never).eq("is_default", true as never);
+    await sb.from("warmup_sequences").update({ is_default: false } as never).eq("is_default", true as never).eq("tenant_id", auth.user.tenant_id);
   }
 
   const { data, error } = await sb
@@ -70,6 +73,7 @@ export async function POST(req: Request) {
       description: body.description ?? null,
       steps: JSON.stringify(steps),
       is_default: body.is_default ?? false,
+      tenant_id: auth.user.tenant_id,
     } as never)
     .select("*")
     .single();

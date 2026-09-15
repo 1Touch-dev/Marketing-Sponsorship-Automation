@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     // Persist to Supabase as discovered leads if company_id provided
     if (company_id && brands.length > 0) {
       const sb = supabaseAdmin();
-      const { data: existing } = await sb.from("companies").select("full_intelligence").eq("id", company_id).maybeSingle();
+      const { data: existing } = await sb.from("companies").select("full_intelligence").eq("id", company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
       const intel = (existing?.full_intelligence ?? {}) as Record<string, unknown>;
       await sb.from("companies").update({
         full_intelligence: {
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
             apify_used: apifyUsed,
           },
         },
-      }).eq("id", company_id);
+      }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
     }
 
     await recordAudit({

@@ -131,6 +131,7 @@ export async function POST(req: Request) {
         competitors: competitors.map((c) => (typeof c === "string" ? c : (c as Record<string,string>).name)),
       })
       .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .select("*")
       .single();
 

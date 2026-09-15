@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -15,9 +16,11 @@ export async function GET(req: Request) {
   const companyId = searchParams.get("company_id");
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   let query = sb
     .from("proposals")
     .select("id, title, status, version, company_id, campaign_id, created_at, updated_at, companies(company_name, industry)")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

@@ -39,6 +39,7 @@ export async function POST(req: Request) {
     .from("companies")
     .select("id, company_name, website")
     .eq("id", company_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!company) {
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     .from("agent_runs" as "companies")
     .select("id, status")
     .eq("company_id", company_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .in("status", ["running", "paused_for_approval", "paused_for_proposal_approval"])
     .limit(1)
     .maybeSingle() as unknown as { data: { id: string; status: string } | null };
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
   const { data: run } = await sb
     .from("agent_runs" as "companies")
     .insert({
+      tenant_id: auth.user.tenant_id,
       company_id,
       created_by: user.id,
       status: "running",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
@@ -11,15 +12,17 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type"); // preset | library | both
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // Return built-in presets + saved library blocks
   const presets = getBuiltInPresets();
-  
+
   let libraryBlocks: LibraryBlock[] = [];
   try {
     const { data } = await sb.from("proposal_sections" as "companies")
       .select("id, title, content, section_type, tags, metadata, created_at")
       .eq("is_library_item", true as unknown as string)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(50);
     libraryBlocks = (data ?? []) as unknown as LibraryBlock[];
@@ -40,6 +43,7 @@ export async function POST(req: Request) {
     };
     const sb = supabaseAdmin();
     const { data: saved, error } = await sb.from("proposal_sections" as "companies").insert({
+      tenant_id: auth.user.tenant_id,
       proposal_id: proposal_id ?? null,
       section_type: section_type ?? "custom",
       title,

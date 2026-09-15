@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,10 +26,12 @@ function migrationPending(error: { code?: string; message?: string } | null): bo
 
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("email_sequences")
     .select("*")
     .eq("active", true)
+    .eq("tenant_id", tenantId)
     .order("is_default", { ascending: false })
     .order("name");
 
@@ -61,12 +64,17 @@ export async function POST(req: Request) {
   }));
 
   if (body.is_default) {
-    await sb.from("email_sequences").update({ is_default: false } as never).eq("is_default", true as never);
+    await sb
+      .from("email_sequences")
+      .update({ is_default: false } as never)
+      .eq("is_default", true as never)
+      .eq("tenant_id", auth.user.tenant_id);
   }
 
   const { data, error } = await sb
     .from("email_sequences")
     .insert({
+      tenant_id: auth.user.tenant_id,
       name: body.name,
       description: body.description ?? null,
       steps: JSON.stringify(steps),

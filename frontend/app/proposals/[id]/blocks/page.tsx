@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -10,9 +11,11 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalBlocksPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: proposal } = await sb.from("proposals")
     .select("*, companies(company_name, industry, logo_url), campaigns(title)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!proposal) return notFound();

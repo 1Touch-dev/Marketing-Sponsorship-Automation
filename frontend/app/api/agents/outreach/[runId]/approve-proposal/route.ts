@@ -23,6 +23,7 @@ export async function POST(
     .from("agent_runs" as "companies")
     .select("*")
     .eq("id", ctx.params.runId)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle() as unknown as { data: Record<string, unknown> | null };
 
   if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });

@@ -36,6 +36,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       preapproved_at: preapproved ? new Date().toISOString() : null,
     })
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("id, is_preapproved, preapproved_at")
     .single();
 

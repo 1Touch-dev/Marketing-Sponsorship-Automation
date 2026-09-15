@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -10,10 +11,12 @@ export async function GET(
   ctx: { params: { id: string } }
 ) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("email_templates")
     .select("*")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .single();
 
   if (error || !data) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -32,7 +35,12 @@ export async function PATCH(
   const body = await req.json().catch(() => ({}));
 
   if (body.is_default) {
-    await sb.from("email_templates").update({ is_default: false } as never).neq("id", id).eq("is_default", true as never);
+    await sb
+      .from("email_templates")
+      .update({ is_default: false } as never)
+      .neq("id", id)
+      .eq("is_default", true as never)
+      .eq("tenant_id", auth.user.tenant_id);
   }
 
   if (body.variables && Array.isArray(body.variables)) {
@@ -43,6 +51,7 @@ export async function PATCH(
     .from("email_templates")
     .update(body as never)
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -70,7 +79,8 @@ export async function DELETE(
   const { error } = await sb
     .from("email_templates")
     .update({ active: false } as never)
-    .eq("id", ctx.params.id);
+    .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

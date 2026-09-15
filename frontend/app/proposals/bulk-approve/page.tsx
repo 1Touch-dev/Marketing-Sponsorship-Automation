@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { BulkApproveClient } from "./bulk-approve-client";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BulkApprovePage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const jobSelect =
     "id, job_type, prompt, status, proposal_id, company_id, output_urls, selected_url, strategy_label, display_label, approved_at, approved_by, created_at";
@@ -14,12 +16,14 @@ export default async function BulkApprovePage() {
     (sb as ReturnType<typeof supabaseAdmin>)
       .from("image_generation_jobs")
       .select(jobSelect)
+      .eq("tenant_id", tenantId)
       .in("status", ["pending_approval", "approved", "generating"])
       .order("created_at", { ascending: false })
       .limit(100),
     (sb as ReturnType<typeof supabaseAdmin>)
       .from("image_generation_jobs")
       .select(jobSelect)
+      .eq("tenant_id", tenantId)
       .eq("status", "completed")
       .is("approved_at", null)
       .order("created_at", { ascending: false })
@@ -39,6 +43,7 @@ export default async function BulkApprovePage() {
   const { data: draftProposals } = await sb
     .from("proposals")
     .select("id, title, status, company_id, companies(company_name)")
+    .eq("tenant_id", tenantId)
     .in("status", ["draft", "under_review"])
     .order("updated_at", { ascending: false })
     .limit(50);

@@ -23,6 +23,7 @@ export async function PATCH(
     .update(body as never)
     .eq("id", ctx.params.packageId)
     .eq("proposal_id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -50,7 +51,8 @@ export async function DELETE(
     .from("proposal_packages")
     .update({ active: false } as never)
     .eq("id", ctx.params.packageId)
-    .eq("proposal_id", ctx.params.id);
+    .eq("proposal_id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -7,10 +8,12 @@ export async function GET(req: Request) {
   if (!proposalId) return NextResponse.json({ jobs: [] });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await (sb as any)
     .from("image_generation_jobs")
     .select("placement_zone, selected_url, display_label, generation_ms")
     .eq("proposal_id", proposalId)
+    .eq("tenant_id", tenantId)
     .eq("job_type", "stadium_mockup_official")
     .not("selected_url", "is", null)
     .order("created_at", { ascending: false });

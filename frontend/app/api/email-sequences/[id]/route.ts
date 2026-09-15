@@ -35,7 +35,11 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   }
 
   if (body.is_default) {
-    await sb.from("email_sequences").update({ is_default: false } as never).eq("is_default", true as never);
+    await sb
+      .from("email_sequences")
+      .update({ is_default: false } as never)
+      .eq("is_default", true as never)
+      .eq("tenant_id", auth.user.tenant_id);
     patch.is_default = true;
   } else if (body.is_default === false) {
     patch.is_default = false;
@@ -45,6 +49,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("email_sequences")
     .update(patch as never)
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -68,7 +73,11 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const { id } = ctx.params;
 
   // Soft-delete: deactivate so history/enrollments remain intact.
-  const { error } = await sb.from("email_sequences").update({ active: false } as never).eq("id", id);
+  const { error } = await sb
+    .from("email_sequences")
+    .update({ active: false } as never)
+    .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await recordAudit({

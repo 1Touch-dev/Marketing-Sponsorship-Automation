@@ -32,7 +32,12 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const mode = body.mode === "send" ? "send" : "draft";
 
   const sb = supabaseAdmin();
-  const { data: email, error: getErr } = await sb.from("emails").select("*").eq("id", ctx.params.id).single();
+  const { data: email, error: getErr } = await sb
+    .from("emails")
+    .select("*")
+    .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
+    .single();
   if (getErr || !email) return NextResponse.json({ error: "Email not found" }, { status: 404 });
 
   if (email.status === "sent") {
@@ -66,6 +71,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("emails")
       .update({ status: "sending" })
       .eq("id", email.id)
+      .eq("tenant_id", auth.user.tenant_id)
       .neq("status", "sent")
       .neq("status", "sending")
       .select("id")
@@ -103,6 +109,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
         .from("proposals")
         .select("companies(full_intelligence)")
         .eq("id", email.proposal_id)
+        .eq("tenant_id", auth.user.tenant_id)
         .maybeSingle();
       const companyData = (proposal as Record<string, unknown> | null)?.companies as Record<string, unknown> | null;
       const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
@@ -139,6 +146,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("emails")
       .update(updates)
       .eq("id", email.id)
+      .eq("tenant_id", auth.user.tenant_id)
       .select("*")
       .single();
 
@@ -146,7 +154,12 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     updated = updatedRow;
   } catch (err) {
     if (mode === "send") {
-      await sb.from("emails").update({ status: "pending_approval" }).eq("id", email.id).eq("status", "sending");
+      await sb
+        .from("emails")
+        .update({ status: "pending_approval" })
+        .eq("id", email.id)
+        .eq("tenant_id", auth.user.tenant_id)
+        .eq("status", "sending");
     }
     const message = err instanceof Error ? err.message : String(err);
     if (eventId) await failWorkflow(eventId, message);

@@ -22,6 +22,7 @@ export async function POST(
     .from("proposals")
     .select("*, companies(company_name, industry, website), campaigns(title, summary)")
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     };
 
     const sb = supabaseAdmin();
-    const { data: company } = await sb.from("companies").select("*").eq("id", company_id).maybeSingle();
+    const { data: company } = await sb.from("companies").select("*").eq("id", company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     // Cache check
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       const jobId = await enqueueJob("intelligence_scrape", { company_id, action: "competitor_discovery" });
 
       // Fire async (no await)
-      void runDiscoveryAndPersist(company as CompanyRow, null);
+      void runDiscoveryAndPersist(company as CompanyRow, null, auth.user.tenant_id);
 
       return NextResponse.json({
         success: true,
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     }
 
     // Foreground mode — run now
-    const result = await runDiscoveryAndPersist(company as CompanyRow, null);
+    const result = await runDiscoveryAndPersist(company as CompanyRow, null, auth.user.tenant_id);
 
     logger.info("Competitor discovery API completed", {
       company_id,
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null): Promise<CompetitorDiscoveryResult> {
+async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null, tenantId: string): Promise<CompetitorDiscoveryResult> {
   try {
     const result = await discoverCompetitors({
       id: company.id,
@@ -93,7 +93,7 @@ async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null)
 
     // Update top-level fields for easy access
     const sb = supabaseAdmin();
-    const { data: existing } = await sb.from("companies").select("full_intelligence").eq("id", company.id).maybeSingle();
+    const { data: existing } = await sb.from("companies").select("full_intelligence").eq("id", company.id).eq("tenant_id", tenantId).maybeSingle();
     const currentIntel = (existing?.full_intelligence ?? {}) as Record<string, unknown>;
 
     await sb.from("companies").update({
@@ -109,7 +109,7 @@ async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null)
         last_discovery_at: new Date().toISOString(),
         discovery_method: result.apify_used ? "apify+claude" : "claude_only",
       },
-    }).eq("id", company.id);
+    }).eq("id", company.id).eq("tenant_id", tenantId);
 
     await recordAudit({
       action: "company.competitor_discovery_completed",

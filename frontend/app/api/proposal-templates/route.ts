@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,12 +26,14 @@ function migrationPending(error: { code?: string; message?: string } | null): bo
 
 /** GET /api/proposal-templates?industry=Bebidas */
 export async function GET(req: Request) {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const industry = new URL(req.url).searchParams.get("industry");
 
   let query = sb
     .from("proposal_templates")
     .select("*")
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .order("is_default", { ascending: false })
     .order("use_count", { ascending: false })
@@ -81,6 +84,7 @@ export async function POST(req: Request) {
       .from("proposals")
       .select("content, companies(industry)")
       .eq("id", body.from_proposal_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
     if (!proposal) return NextResponse.json({ error: "Source proposal not found" }, { status: 404 });
 
@@ -100,10 +104,15 @@ export async function POST(req: Request) {
   }
 
   if (body.is_default) {
-    await sb.from("proposal_templates").update({ is_default: false } as never).eq("is_default", true as never);
+    await sb
+      .from("proposal_templates")
+      .update({ is_default: false } as never)
+      .eq("is_default", true as never)
+      .eq("tenant_id", auth.user.tenant_id);
   }
 
   const insert: Record<string, unknown> = {
+    tenant_id: auth.user.tenant_id,
     name: body.name,
     description: body.description ?? null,
     content: JSON.stringify(content),

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 function toCSV(rows: Record<string, unknown>[]): string {
   if (!rows.length) return "No data";
@@ -11,6 +12,7 @@ function toCSV(rows: Record<string, unknown>[]): string {
 }
 
 export async function GET() {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
 
   let contracts: Record<string, unknown>[] = [];
@@ -18,6 +20,7 @@ export async function GET() {
     const { data } = await sb
       .from("contracts")
       .select("contract_number, title, status, deal_type, total_value_brl, start_date, end_date, created_at, companies(company_name, industry)")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
     contracts = (data ?? []).map((c) => {
       const co = c as {

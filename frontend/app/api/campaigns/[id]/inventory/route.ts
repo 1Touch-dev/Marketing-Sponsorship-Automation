@@ -48,6 +48,7 @@ export async function PATCH(
     .from("campaigns")
     .select("id, title")
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
@@ -77,6 +78,7 @@ export async function PATCH(
 
   if (lines.length > 0) {
     const rows = lines.map((l, idx) => ({
+      tenant_id: auth.user.tenant_id,
       campaign_id: id,
       inventory_id: l.inventory_id ?? null,
       name: l.name ?? l.catalog_id ?? "Item",

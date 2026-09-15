@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -17,10 +18,12 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: run } = await sb
     .from("agent_runs" as "companies")
     .select("*")
     .eq("id", ctx.params.runId)
+    .eq("tenant_id", tenantId)
     .maybeSingle() as unknown as { data: Record<string, unknown> | null };
 
   if (!run) return NextResponse.json({ error: "Run not found" }, { status: 404 });
@@ -39,7 +42,8 @@ export async function DELETE(
   await sb
     .from("agent_runs" as "companies")
     .update({ status: "cancelled", updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
-    .eq("id", ctx.params.runId);
+    .eq("id", ctx.params.runId)
+    .eq("tenant_id", auth.user.tenant_id);
 
   return NextResponse.json({ success: true });
 }

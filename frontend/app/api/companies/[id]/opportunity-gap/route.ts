@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { opportunityGapPrompt } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +16,12 @@ export const maxDuration = 60;
  */
 export async function GET(_req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: company } = await sb
     .from("companies")
     .select("id, company_name, full_intelligence")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
 
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -39,6 +42,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
     .from("companies")
     .select("id, company_name, industry, website, country, notes, full_intelligence")
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -88,7 +92,8 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
     await sb
       .from("companies")
       .update({ full_intelligence: updatedIntelligence } as unknown as Record<string, unknown>)
-      .eq("id", company.id);
+      .eq("id", company.id)
+      .eq("tenant_id", auth.user.tenant_id);
 
     return NextResponse.json({ company_id: company.id, opportunity_gap: opportunityGap });
   } catch (err) {

@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     .from("proposals")
     .select("id, title, status, content, company_id, share_token, companies(id, company_name, industry, website, country)")
     .eq("id", parsed.data.proposal_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (pErr || !proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
   if (proposal.status !== "approved") {
@@ -173,6 +174,7 @@ export async function POST(req: Request) {
     .from("image_generation_jobs")
     .select("selected_url, output_urls, status, display_label")
     .eq("proposal_id", proposal.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .in("status", ["completed", "approved"])
     .limit(3);
 
@@ -190,6 +192,7 @@ export async function POST(req: Request) {
   }
 
   const emailInsert: Record<string, unknown> = {
+    tenant_id: auth.user.tenant_id,
     proposal_id: proposal.id,
     recipient: parsed.data.recipient,
     subject: validated.subject,
@@ -237,7 +240,11 @@ export async function POST(req: Request) {
     bodyWithTracking = wrapLinksForTracking(bodyWithTracking, row.id, appUrl);
     if (bodyWithTracking !== bodyHtml) {
       try {
-        await sb.from("emails").update({ body_html: bodyWithTracking }).eq("id", row.id);
+        await sb
+          .from("emails")
+          .update({ body_html: bodyWithTracking })
+          .eq("id", row.id)
+          .eq("tenant_id", auth.user.tenant_id);
       } catch { /* non-fatal */ }
     }
   }

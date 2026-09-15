@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import UsersManager from "./users-manager";
 
@@ -6,9 +7,11 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: users } = await sb
     .from("platform_users" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .order("created_at" as "id", { ascending: true });
 
   return (

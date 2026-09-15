@@ -28,6 +28,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("proposal_templates")
     .update({ placeholder_config: config } as never)
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("id, placeholder_config")
     .single();
 

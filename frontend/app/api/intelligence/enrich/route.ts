@@ -22,6 +22,7 @@ import { resolveCompanyDomain } from "@/lib/intelligence/domain-resolution";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const maxDuration = 90;
 
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
       .from("companies")
       .select("id, company_name, website, industry, country, full_intelligence")
       .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     if (!company) {
@@ -79,7 +81,7 @@ export async function POST(req: Request) {
         steps: domainResolution.steps,
         elapsed_ms: domainResolution.elapsed_ms,
       };
-      await sb.from("companies").update({ website: `https://${manual}` }).eq("id", company.id);
+      await sb.from("companies").update({ website: `https://${manual}` }).eq("id", company.id).eq("tenant_id", auth.user.tenant_id);
       const { error: manualDomainErr } = await sb
         .from("companies")
         .update({
@@ -87,7 +89,8 @@ export async function POST(req: Request) {
           domain_source: "manual",
           domain_updated_at: new Date().toISOString(),
         } as never)
-        .eq("id", company.id);
+        .eq("id", company.id)
+        .eq("tenant_id", auth.user.tenant_id);
       if (manualDomainErr?.code === "42703") {
         /* domain columns optional */
       }
@@ -111,6 +114,7 @@ export async function POST(req: Request) {
       .from("companies")
       .select("domain, domain_source")
       .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
     const needsWebsiteBackfill = domain && !company.website;
     const needsDomainColumns =
@@ -123,7 +127,8 @@ export async function POST(req: Request) {
         await sb
           .from("companies")
           .update({ website: `https://${domain}` })
-          .eq("id", company_id);
+          .eq("id", company_id)
+          .eq("tenant_id", auth.user.tenant_id);
       }
     }
     if (needsDomainColumns) {
@@ -134,7 +139,8 @@ export async function POST(req: Request) {
           domain_source: domainResolution.source,
           domain_updated_at: new Date().toISOString(),
         })
-        .eq("id", company_id);
+        .eq("id", company_id)
+        .eq("tenant_id", auth.user.tenant_id);
       if (domainColError?.message?.includes("does not exist") || domainColError?.code === "42703") {
         logger.warn("Domain tracking columns not applied yet — run migration 0022", {
           company_id,
@@ -221,7 +227,8 @@ export async function POST(req: Request) {
     await sb
       .from("companies")
       .update({ full_intelligence: updatedIntelligence })
-      .eq("id", company_id);
+      .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id);
 
     await recordAudit({
       action: "company.enrichment_run",
@@ -290,10 +297,12 @@ export async function GET(req: Request) {
   if (company_id) {
     // Return existing enrichment for company
     const sb = supabaseAdmin();
+    const tenantId = await resolveTenantId();
     const { data: company } = await sb
       .from("companies")
       .select("full_intelligence")
       .eq("id", company_id)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
 
     const enrichment = (company?.full_intelligence as Record<string, unknown>)?.enrichment ?? null;

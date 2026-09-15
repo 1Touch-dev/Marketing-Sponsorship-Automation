@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProposalTemplatesManager } from "./proposal-templates-manager";
 import { UploadHtmlTemplateButton } from "./upload-html-template-button";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalTemplatesPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let templates: Record<string, unknown>[] = [];
   let migrationPending = false;
@@ -15,6 +17,7 @@ export default async function ProposalTemplatesPage() {
     const { data, error } = await sb
       .from("proposal_templates")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("is_default", { ascending: false })
       .order("name");

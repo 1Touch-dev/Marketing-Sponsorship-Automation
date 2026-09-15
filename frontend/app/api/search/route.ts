@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +17,14 @@ export async function GET(req: Request) {
   if (q.length < 2) return NextResponse.json({ results: [], query: q });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const results: Array<{ type: string; id: string; title: string; subtitle: string; url: string; badge?: string }> = [];
 
   await Promise.all([
     // Companies
     types.includes("companies") && sb.from("companies")
       .select("id, company_name, industry, segment, status")
+      .eq("tenant_id", tenantId)
       .or(`company_name.ilike.%${q}%,industry.ilike.%${q}%,notes.ilike.%${q}%`)
       .neq("status", "closed")
       .limit(limit)
@@ -41,6 +44,7 @@ export async function GET(req: Request) {
     // Proposals
     types.includes("proposals") && sb.from("proposals")
       .select("id, title, status, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .or(`title.ilike.%${q}%`)
       .not("status", "eq", "archived")
       .limit(limit)
@@ -61,6 +65,7 @@ export async function GET(req: Request) {
     // Campaigns
     types.includes("campaigns") && sb.from("campaigns")
       .select("id, title, status, companies(company_name)")
+      .eq("tenant_id", tenantId)
       .or(`title.ilike.%${q}%,summary.ilike.%${q}%`)
       .limit(limit)
       .then(({ data }) => {
@@ -80,6 +85,7 @@ export async function GET(req: Request) {
     // Inventory
     types.includes("inventory") && sb.from("inventory_items" as "companies")
       .select("id, name, category, price_per_game, price_per_month")
+      .eq("tenant_id" as "id", tenantId)
       .or(`name.ilike.%${q}%,category.ilike.%${q}%,description.ilike.%${q}%`)
       .limit(limit)
       .then(({ data }) => {

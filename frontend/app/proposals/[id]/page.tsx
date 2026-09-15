@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,10 +32,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalDetailPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: proposal } = await sb
     .from("proposals")
     .select("*, companies(*), campaigns(title, summary)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
   if (!proposal) notFound();
 
@@ -42,12 +45,14 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     .from("proposal_versions")
     .select("id, version, title, edit_reason, edited_by, created_at, content, content_md")
     .eq("proposal_id", proposal.id)
+    .eq("tenant_id", tenantId)
     .order("version", { ascending: false });
 
   const { data: approvals } = await sb
     .from("approvals")
     .select("decision, comments, created_at")
     .eq("proposal_id", proposal.id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   const inlineImages = await fetchProposalImagesForLanding(proposal.id);

@@ -192,18 +192,28 @@ export function campaignIdeasPrompt(args: {
   company: CompanyContext;
   objective?: string;
   maxIdeas?: number;
+  /** Phase 4 — defaults to Coritiba for existing call sites; pass the
+   *  requesting user's real tenant to de-hardcode. */
+  tenant?: ClubContextInput;
 }) {
   const max = args.maxIdeas ?? 3;
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const nickname = tenant.club_facts.nickname ?? tenant.club_facts.short_name ?? club;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
+  const region = tenant.club_facts.city ?? "its home market";
   return {
     system: [
-      "You are a senior sponsorship strategist for Coritiba Foot Ball Club.",
-      "You generate creative, commercial sponsorship campaign ideas EXCLUSIVELY for Coritiba FC partnerships.",
-      "ALL ideas MUST be centered on Coritiba FC, Couto Pereira stadium, and the Curitiba/Paraná market.",
-      "NEVER suggest Athletico Paranaense, Corinthians, or any other club as a target — only Coritiba.",
+      `You are a senior sponsorship strategist for ${club}.`,
+      `You generate creative, commercial sponsorship campaign ideas EXCLUSIVELY for ${club} partnerships.`,
+      `ALL ideas MUST be centered on ${club}, ${stadium}, and the ${region} market.`,
+      tenant.club_facts.rival_clubs?.length
+        ? `NEVER suggest ${tenant.club_facts.rival_clubs[0].split(" —")[0]} or any other club as a target — only ${club}.`
+        : `NEVER suggest a rival club as a target — only ${club}.`,
       "CRITICAL: Your ENTIRE response must be ONLY a valid JSON object — no markdown, no ```json fences, no explanation text before or after.",
       "Start your response with { and end with }. Nothing else.",
       "",
-      CORITIBA_CONTEXT,
+      buildClubContext(tenant),
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
@@ -215,18 +225,18 @@ export function campaignIdeasPrompt(args: {
       args.company.notes ? `Context: ${args.company.notes}` : null,
       args.objective ? `Objective: ${args.objective}` : null,
       "",
-      `Generate ${max} DISTINCT Coritiba FC sponsorship campaign ideas for this company.`,
-      "Each idea MUST use a DIFFERENT strategy archetype AND be specific to Coritiba's ecosystem.",
-      "Reference Couto Pereira, Coritiba fans (Coxa-Branca), Verde Coxa (#005742) and Branco (#FFFFFF) official colors, Curitiba audience.",
-      "Do NOT mention Athletico Paranaense or any competitor club anywhere.",
+      `Generate ${max} DISTINCT ${club} sponsorship campaign ideas for this company.`,
+      `Each idea MUST use a DIFFERENT strategy archetype AND be specific to ${club}'s ecosystem.`,
+      `Reference ${stadium}, ${club} fans (${nickname}), and the club's official brand colors, ${region} audience.`,
+      "Do NOT mention any competitor club anywhere.",
       "Return JSON:",
       `{
   "ideas": [
     {
-      "title": "string (creative campaign name referencing Coritiba/Couto Pereira/Coxa)",
-      "summary": "1-2 sentence concept tied to Coritiba FC",
-      "activation": "concrete activation plan at Couto Pereira with specific Coritiba touchpoints",
-      "partnership_angle": "why this sponsor + Coritiba FC makes strategic sense",
+      "title": "string (creative campaign name referencing the club/stadium/nickname)",
+      "summary": "1-2 sentence concept tied to the club",
+      "activation": "concrete activation plan at the stadium with specific club touchpoints",
+      "partnership_angle": "why this sponsor + the club makes strategic sense",
       "cta": "call to action for outreach"
     }
   ]
@@ -243,16 +253,21 @@ export function campaignIdeasPrompt(args: {
 export function strategyVariantsPrompt(args: {
   company: CompanyContext;
   campaign: { title: string; summary?: string | null };
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
   return {
     system: [
-      "You are a chief marketing strategist for Coritiba Foot Ball Club sponsorship sales.",
-      "Generate multiple distinct strategic approaches for a Coritiba FC sponsorship proposal.",
-      "Each variant MUST reference Coritiba FC, Couto Pereira, or the Coritiba fan ecosystem.",
-      "NEVER mention Athletico Paranaense or any other club.",
+      `You are a chief marketing strategist for ${club} sponsorship sales.`,
+      `Generate multiple distinct strategic approaches for a ${club} sponsorship proposal.`,
+      `Each variant MUST reference ${club}, ${stadium}, or the ${club} fan ecosystem.`,
+      "NEVER mention any rival club.",
       "Output MUST be valid JSON. No markdown fences.",
       "",
-      CORITIBA_CONTEXT,
+      buildClubContext(tenant),
     ].join("\n"),
     user: [
       `Company: ${args.company.company_name}`,
@@ -260,21 +275,21 @@ export function strategyVariantsPrompt(args: {
       `Campaign: ${args.campaign.title}`,
       args.campaign.summary ? `Summary: ${args.campaign.summary}` : null,
       "",
-      "Generate 3 distinct Coritiba FC sponsorship strategy variants.",
+      `Generate 3 distinct ${club} sponsorship strategy variants.`,
       "Use different archetypes (e.g. stadium/awareness vs. fan engagement vs. community).",
-      "All variants must name Coritiba FC, Couto Pereira, or Verde Coxa (#005742)/Branco (#FFFFFF) official colors explicitly.",
+      `All variants must name ${club}, ${stadium}, or the club's official brand colors explicitly.`,
       "Return JSON:",
       `{
   "variants": [
     {
       "id": "awareness|fan_engagement|community|premium|digital|product_led|loyalty|stadium",
-      "label": "Strategy name (2-4 words, Coritiba-themed)",
-      "tagline": "One powerful line referencing Coritiba/Coxa",
-      "description": "3-4 sentences describing this Coritiba FC strategic direction",
-      "key_activations": ["Couto Pereira activation 1", "Coritiba fan activation 2", "activation 3"],
-      "audience_fit": "Which Coritiba fan/audience segment this resonates with most",
-      "estimated_reach": "Approximate Coritiba/Curitiba reach/exposure estimate",
-      "differentiator": "What makes this strategy unique for this sponsor at Coritiba"
+      "label": "Strategy name (2-4 words, club-themed)",
+      "tagline": "One powerful line referencing the club/nickname",
+      "description": "3-4 sentences describing this strategic direction for the club",
+      "key_activations": ["stadium activation 1", "fan activation 2", "activation 3"],
+      "audience_fit": "Which fan/audience segment this resonates with most",
+      "estimated_reach": "Approximate reach/exposure estimate",
+      "differentiator": "What makes this strategy unique for this sponsor at the club"
     }
   ]
 }`,
@@ -296,27 +311,37 @@ export function proposalPrompt(args: {
     cta?: string | null;
   };
   strategy_variant?: string | null;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
   const strategyNote = args.strategy_variant
     ? `\nFocus this proposal on the "${args.strategy_variant}" strategic direction.`
     : "";
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const nickname = tenant.club_facts.nickname ?? tenant.club_facts.short_name ?? club;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
+  const region = tenant.club_facts.city ?? "its home market";
+  const followers = tenant.club_facts.follower_count ?? "its social following";
+  const attendance = tenant.club_facts.typical_attendance ?? "its typical matchday attendance";
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "rival clubs";
   return {
     system: [
-      "You are a senior B2B sponsorship proposal writer at Coritiba Foot Ball Club, Curitiba's iconic green-and-white club.",
-      "Your proposals are used in real sales meetings with Brazilian brands. They must read as premium, data-grounded, and compelling.",
+      `You are a senior B2B sponsorship proposal writer at ${club}, ${region}'s club.`,
+      "Your proposals are used in real sales meetings with real brands. They must read as premium, data-grounded, and compelling.",
       "RULES (non-negotiable):",
-      "1. ALL sections MUST reference Coritiba FC, Couto Pereira stadium, or the Verde e Branco fan ecosystem.",
-      "2. NEVER mention competitor clubs (Athletico Paranaense, Corinthians, São Paulo FC, Flamengo, Palmeiras).",
+      `1. ALL sections MUST reference ${club}, ${stadium}, or the club's fan ecosystem.`,
+      `2. NEVER mention competitor clubs (${rivalsList}).`,
       "3. Write like a seasoned partnership director — specific, benefit-led, no filler phrases ('synergy', 'leverage', 'stakeholders').",
-      "4. Ground every claim: reference Couto Pereira's capacity (~30k fans), Coritiba's digital reach (~1.5M social followers), Curitiba market (3.7M metro population, Paraná's capital).",
-      "5. Each deliverable must be a concrete, measurable Coritiba FC asset (e.g. 'Jersey chest badge — 25 home & away matches', 'Couto Pereira LED perimeter — 3 minutes/match').",
-      "6. The activation_plan must have clear PHASES (Month 1-2 launch, Month 3-6 ramp, Month 7-12 peak activation) with specific Coritiba milestones.",
-      "7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to Coritiba's audience.",
+      `4. Ground every claim: reference ${stadium}'s capacity (${attendance}), ${club}'s digital reach (${followers}), the ${region} market.`,
+      `5. Each deliverable must be a concrete, measurable ${club} asset (e.g. 'Jersey chest badge — 25 home & away matches', '${stadium} LED perimeter — 3 minutes/match').`,
+      `6. The activation_plan must have clear PHASES (Month 1-2 launch, Month 3-6 ramp, Month 7-12 peak activation) with specific ${club} milestones.`,
+      `7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to ${club}'s audience.`,
       "8. Output MUST be valid JSON only. No markdown fences. No extra keys.",
-      "9. The 'deliverables' array MUST contain EXACTLY 5 specific items. Never return an empty array. Each item = one concrete Coritiba FC asset with quantity.",
+      `9. The 'deliverables' array MUST contain EXACTLY 5 specific items. Never return an empty array. Each item = one concrete ${club} asset with quantity.`,
       "10. CLAIM GROUNDING (non-negotiable — this is real sales collateral shown to a real company): every specific factual claim you make ABOUT THE SPONSOR (their stated goals, a named campaign, headcount, revenue, recent activity, competitors, decision-makers) must come from a 'COMPANY INTELLIGENCE' block if one is provided in the user message. If no such block is provided, or it doesn't cover a topic, do NOT invent a specific fact to fill the gap — write that part in general, industry-appropriate terms instead (e.g. 'brands in the [industry] sector typically pursue...' rather than inventing this specific company's goal). A qualified, general statement is correct; a confident, specific, unsourced one is a fabrication and is not acceptable even if it sounds plausible.",
       "",
-      CORITIBA_CONTEXT,
+      buildClubContext(tenant),
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
@@ -331,16 +356,16 @@ export function proposalPrompt(args: {
       args.campaign.activation ? `Activation approach: ${args.campaign.activation}` : null,
       strategyNote,
       "",
-      "Write a FULL, high-quality Coritiba FC sponsorship proposal for this company.",
-      "Be SPECIFIC to this company's industry and Brazilian market context.",
-      "Mention Couto Pereira, Verde e Branco, Curitiba fans — make it feel tailored, not generic.",
+      `Write a FULL, high-quality ${club} sponsorship proposal for this company.`,
+      "Be SPECIFIC to this company's industry and market context.",
+      `Mention ${stadium}, ${club}'s brand identity, ${nickname} fans — make it feel tailored, not generic.`,
       "Return JSON ONLY (no markdown):",
       `{
-  "title": "Proposal title — must name the company AND reference Coritiba FC (e.g. '[Company] × Coritiba FC — [Theme]')",
-  "executive_summary": "120–150 words. Start with [Company]'s business goal in Brazil. Show how Coritiba FC's 1.5M+ followers and 30k matchday fans directly address that goal. End with a bold partnership vision.",
-  "campaign_rationale": "150–180 words. Data-grounded case: Curitiba metro (3.7M people), Coritiba's fan demographics, the sponsor's target customer overlap. Reference 2–3 specific Coritiba FC inventory items that match the sponsor's marketing objectives.",
-  "sponsorship_value": "120–150 words. Concrete ROI framing: brand impressions at Couto Pereira per season, digital reach numbers, co-branded content opportunities, community activation value. Be specific — mention real Coritiba FC assets.",
-  "activation_plan": "200–250 words. THREE clear phases:\\nPhase 1 (M1–M2): Launch activation — jersey reveal, social announcement, matchday intro event at Couto Pereira.\\nPhase 2 (M3–M6): Ramp — LED perimeter, PA announcements, co-branded digital content, fan activation zone.\\nPhase 3 (M7–M12): Peak — title sponsorship moment, stadium naming activation, cross-promotion with Coritiba milestones (e.g. Brasileirão round, Campeonato Paranaense title run).",
+  "title": "Proposal title — must name the company AND reference the club (e.g. '[Company] × ${club} — [Theme]')",
+  "executive_summary": "120–150 words. Start with [Company]'s business goal. Show how the club's reach and matchday fans directly address that goal. End with a bold partnership vision.",
+  "campaign_rationale": "150–180 words. Data-grounded case: the club's market, fan demographics, the sponsor's target customer overlap. Reference 2–3 specific club inventory items that match the sponsor's marketing objectives.",
+  "sponsorship_value": "120–150 words. Concrete ROI framing: brand impressions at the stadium per season, digital reach numbers, co-branded content opportunities, community activation value. Be specific — mention real club assets.",
+  "activation_plan": "200–250 words. THREE clear phases:\\nPhase 1 (M1–M2): Launch activation — jersey reveal, social announcement, matchday intro event at the stadium.\\nPhase 2 (M3–M6): Ramp — LED perimeter, PA announcements, co-branded digital content, fan activation zone.\\nPhase 3 (M7–M12): Peak — title sponsorship moment, stadium naming activation, cross-promotion with club milestones.",
   "deliverables": [
     "Deliverable 1 — specific asset + quantity (e.g. 'Jersey chest badge — 25 home + away matches per season')",
     "Deliverable 2 — specific stadium asset",
@@ -348,8 +373,8 @@ export function proposalPrompt(args: {
     "Deliverable 4 — matchday activation asset",
     "Deliverable 5 — community/co-brand asset"
   ],
-  "investment_note": "2–3 sentences. Frame the investment relative to reach: cost-per-impression at Couto Pereira vs. traditional media. Aspirational — no specific currency amount. Position as a strategic partnership, not a transaction.",
-  "cta": "One powerful, specific call to action — name the next step (e.g. 'Let\\'s schedule a 30-minute Coritiba FC partnership briefing this week.')"
+  "investment_note": "2–3 sentences. Frame the investment relative to reach: cost-per-impression at the stadium vs. traditional media. Aspirational — no specific currency amount. Position as a strategic partnership, not a transaction.",
+  "cta": "One powerful, specific call to action — name the next step (e.g. 'Let\\'s schedule a 30-minute partnership briefing this week.')"
 }`,
     ]
       .filter(Boolean)
@@ -388,6 +413,8 @@ export type BarterSplitTemplateKey = keyof typeof BARTER_SPLIT_TEMPLATES;
 export function barterTermsInstructionBlock(
   openItems: BarterGroundingItem[],
   forcedSplit?: { cash_pct: number; exchange_pct: number; label: string },
+  /** Phase 4 — defaults to "Coritiba FC" for existing call sites. */
+  clubName = "Coritiba FC",
 ): string {
   const itemsBlock = openItems.length
     ? openItems
@@ -404,8 +431,8 @@ export function barterTermsInstructionBlock(
     "",
     "BARTER DEAL-TERM STRUCTURING (this is a barter/permuta proposal):",
     itemsBlock
-      ? `Coritiba FC currently has these OPEN barter needs — only propose exchanging items from this real list if the sponsor's industry plausibly supplies them:\n${itemsBlock}`
-      : "Coritiba FC has no specific open barter needs on file right now — do NOT invent specific items to request. Propose a general cash + in-kind structure instead (e.g. a percentage of the sponsorship value offset by goods/services broadly typical of the sponsor's industry, described qualitatively, not as fabricated specific SKUs).",
+      ? `${clubName} currently has these OPEN barter needs — only propose exchanging items from this real list if the sponsor's industry plausibly supplies them:\n${itemsBlock}`
+      : `${clubName} has no specific open barter needs on file right now — do NOT invent specific items to request. Propose a general cash + in-kind structure instead (e.g. a percentage of the sponsorship value offset by goods/services broadly typical of the sponsor's industry, described qualitatively, not as fabricated specific SKUs).`,
     forcedSplit
       ? `The commercial team has already selected a contract split template: ${forcedSplit.label}. You MUST use cash_portion_pct: ${forcedSplit.cash_pct} and exchange_portion_pct: ${forcedSplit.exchange_pct} exactly — do not propose a different split.`
       : "No contract split template was selected — propose whatever cash_portion_pct/exchange_portion_pct split best fits this sponsor.",
@@ -418,7 +445,7 @@ export function barterTermsInstructionBlock(
   "exchange_portion_pct": <0-100, must sum to 100 with cash_portion_pct>,
   "structure_notes": "2-3 sentences explaining the proposed split rationale"
 }`,
-    "Per Rule 10, only claim a specific item is something Coritiba needs if it appears in the OPEN barter needs list above — otherwise keep exchange_items general.",
+    `Per Rule 10, only claim a specific item is something ${clubName} needs if it appears in the OPEN barter needs list above — otherwise keep exchange_items general.`,
   ].join("\n");
 }
 
@@ -433,7 +460,11 @@ export function barterTermsInstructionBlock(
 // follower counts, engagement rates, past brand deals, or audience
 // demographics that weren't actually provided.
 // ---------------------------------------------------------------------------
-export function nilTermsInstructionBlock(creatorNotes?: string | null): string {
+export function nilTermsInstructionBlock(
+  creatorNotes?: string | null,
+  /** Phase 4 — defaults to "Coritiba FC" for existing call sites. */
+  clubName = "Coritiba FC",
+): string {
   const hasNotes = !!creatorNotes?.trim();
 
   return [
@@ -442,12 +473,12 @@ export function nilTermsInstructionBlock(creatorNotes?: string | null): string {
     hasNotes
       ? `Known real facts about this individual (from their record notes) — only use these, do not add more: ${creatorNotes}`
       : "No real facts (follower counts, engagement rates, past brand deals, audience demographics) are on file for this individual — do NOT invent any. Describe the proposed terms qualitatively without fabricated numbers or claimed history.",
-    "Coritiba FC is always the rights-holder/club side of this deal, engaging the individual for image rights, content collaboration, or appearances — frame it that way, not as the individual sponsoring the club.",
+    `${clubName} is always the rights-holder/club side of this deal, engaging the individual for image rights, content collaboration, or appearances — frame it that way, not as the individual sponsoring the club.`,
     "In addition to the standard proposal JSON fields, include this extra key:",
     `"nil_terms": {
   "deal_type": "one of: image_rights | content_collaboration | appearance | ambassador | hybrid",
   "deliverables": ["what the individual provides — only reference platforms/formats/facts confirmed above if any were given, otherwise keep general"],
-  "club_provides": ["what Coritiba FC provides in return — access, platform, compensation structure described qualitatively"],
+  "club_provides": ["what ${clubName} provides in return — access, platform, compensation structure described qualitatively"],
   "structure_notes": "2-3 sentences explaining the proposed deal rationale"
 }`,
     "Per Rule 10, only state a specific fact about this individual (audience size, platform, prior deals) if it appears in the notes above — otherwise keep every deliverable and rationale general.",
@@ -461,14 +492,20 @@ export function pricingTiersPrompt(args: {
   company: CompanyContext;
   campaign: { title: string; summary?: string | null };
   currency?: string;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
   const currency = args.currency ?? "BRL";
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const nickname = tenant.club_facts.nickname ?? tenant.club_facts.short_name ?? club;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
   return {
     system: [
-      "You are a sponsorship sales director at Coritiba Foot Ball Club.",
-      "Create realistic pricing packages for a Coritiba FC / Couto Pereira sponsorship.",
-      "Prices should reflect the Brazilian market — specifically Coritiba FC's Série A/B positioning.",
-      "Reference Couto Pereira stadium inventory, Coritiba digital assets, and Verde e Branco branding.",
+      `You are a sponsorship sales director at ${club}.`,
+      `Create realistic pricing packages for a ${club} / ${stadium} sponsorship.`,
+      `Prices should reflect ${tenant.club_facts.market_context ?? "the club's competitive positioning in its market"}.`,
+      `Reference ${stadium} inventory, ${club} digital assets, and the club's official branding.`,
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
@@ -478,25 +515,25 @@ export function pricingTiersPrompt(args: {
       args.campaign.summary ? `Summary: ${args.campaign.summary}` : null,
       `Currency: ${currency}`,
       "",
-      "Generate 3 Coritiba FC sponsorship pricing tiers (low/mid/high). Mid tier = highlighted/recommended.",
-      "Each tier references specific Couto Pereira inventory (LED boards, jersey, PA, digital, etc.).",
+      `Generate 3 ${club} sponsorship pricing tiers (low/mid/high). Mid tier = highlighted/recommended.`,
+      `Each tier references specific ${stadium} inventory (LED boards, jersey, PA, digital, etc.).`,
       "Return JSON:",
       `{
   "tiers": [
     {
       "tier": "low",
-      "label": "Parceiro Coritiba",
+      "label": "Parceiro ${nickname}",
       "price_range": "R$ X.000 – R$ Y.000/mês",
-      "activations": ["Couto Pereira activation 1", "Coritiba digital activation 2"],
-      "deliverables": ["Coritiba deliverable 1", "deliverable 2"],
-      "visibility": "Where/how brand appears in Coritiba FC ecosystem",
-      "digital_exposure": "Coritiba social/digital media exposure",
-      "stadium_exposure": "Couto Pereira stadium exposure details",
+      "activations": ["stadium activation 1", "digital activation 2"],
+      "deliverables": ["deliverable 1", "deliverable 2"],
+      "visibility": "Where/how brand appears in the club's ecosystem",
+      "digital_exposure": "Club social/digital media exposure",
+      "stadium_exposure": "Stadium exposure details",
       "highlight": false
     },
     {
       "tier": "mid",
-      "label": "Patrocinador Master Coritiba",
+      "label": "Patrocinador Master ${nickname}",
       "price_range": "R$ X.000 – R$ Y.000/mês",
       "activations": ["activation 1", "activation 2", "activation 3"],
       "deliverables": ["deliverable 1", "deliverable 2", "deliverable 3"],
@@ -507,7 +544,7 @@ export function pricingTiersPrompt(args: {
     },
     {
       "tier": "high",
-      "label": "Patrocinador Diamante Coritiba",
+      "label": "Patrocinador Diamante ${nickname}",
       "price_range": "R$ X.000 – R$ Y.000/mês",
       "activations": ["activation 1", "activation 2", "activation 3", "activation 4"],
       "deliverables": ["deliverable 1", "deliverable 2", "deliverable 3", "deliverable 4"],
@@ -530,12 +567,18 @@ export function pricingTiersPrompt(args: {
 export function visualPromptsPrompt(args: {
   company: CompanyContext;
   campaign: { title: string; summary?: string | null };
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
+  const colors = [tenant.branding.primary_color, tenant.branding.secondary_color].filter(Boolean).join(" and ") || "the club's brand colors";
   return {
     system: [
-      "You generate detailed image-generation prompts for Coritiba FC sponsorship mockups.",
-      "All visuals MUST reference Coritiba FC colors (green and white), Couto Pereira stadium, or Coritiba branding.",
-      "NEVER reference Athletico Paranaense colors (red/black) or any competitor club.",
+      `You generate detailed image-generation prompts for ${club} sponsorship mockups.`,
+      `All visuals MUST reference ${club}'s colors (${colors}), ${stadium}, or ${club} branding.`,
+      "NEVER reference a rival club's colors or branding.",
       "Prompts should be suitable for AI image generators (DALL-E, Midjourney, Stable Diffusion).",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
@@ -545,20 +588,20 @@ export function visualPromptsPrompt(args: {
       `Campaign: ${args.campaign.title}`,
       args.campaign.summary ? `Concept: ${args.campaign.summary}` : null,
       "",
-      "Generate 5 Coritiba FC visual mockup prompts.",
-      "Include: Coritiba jersey/kit with sponsor logo, Couto Pereira LED board, Coritiba social media visual, stadium banner, fan zone activation.",
-      "All prompts must specify Coritiba green and white colors and Couto Pereira or Coritiba fan context.",
+      `Generate 5 ${club} visual mockup prompts.`,
+      `Include: ${club} jersey/kit with sponsor logo, ${stadium} LED board, ${club} social media visual, stadium banner, fan zone activation.`,
+      `All prompts must specify the club's official colors (${colors}) and ${stadium} or fan context.`,
       "Return JSON:",
       `{
   "visuals": [
     {
       "id": "jersey_front",
-      "label": "Coritiba Jersey Brand Placement",
+      "label": "${club} Jersey Brand Placement",
       "type": "jersey",
-      "prompt": "Detailed prompt: Coritiba FC green and white jersey, authentic club crest unchanged on wearer's left chest, sponsor logo only on wearer's right chest opposite crest, photorealistic, professional sports photography, Curitiba stadium background...",
-      "style_notes": "Photorealistic, Coritiba Verde e Branco theme",
+      "prompt": "Detailed prompt: ${club} jersey in its official colors, authentic club crest unchanged on wearer's left chest, sponsor logo only on wearer's right chest opposite crest, photorealistic, professional sports photography, stadium background...",
+      "style_notes": "Photorealistic, official club color theme",
       "aspect_ratio": "1:1",
-      "placeholder_description": "Sponsor logo on Coritiba FC jersey front"
+      "placeholder_description": "Sponsor logo on club jersey front"
     }
   ]
 }`,
@@ -571,15 +614,27 @@ export function visualPromptsPrompt(args: {
 // ---------------------------------------------------------------------------
 // Company intelligence
 // ---------------------------------------------------------------------------
-export function companyIntelligencePrompt(args: { company: CompanyContext; objective?: string }) {
+export function companyIntelligencePrompt(args: {
+  company: CompanyContext;
+  objective?: string;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
+}) {
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
+  const region = tenant.club_facts.city ?? "its home market";
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "";
   return {
     system: [
-      "You are a business intelligence analyst specialising in Coritiba FC sponsorship fit analysis.",
-      "Analyse the company's fit as a Coritiba FC sponsor in the Curitiba/Paraná market.",
-      "All analysis, recommendations, and context must be framed around Coritiba FC partnership.",
-      "NEVER suggest competitor clubs. The partnership target is always Coritiba FC.",
-      "CRITICAL: Do NOT mention Athletico Paranaense, Corinthians, Flamengo, São Paulo FC, Palmeiras, Grêmio, Internacional, or any other Brazilian or global football club by name anywhere in your response. Only Coritiba FC.",
-      "When giving global inspiration examples, reference non-football or international sponsorships only (e.g., NBA, NFL, F1, tennis, technology companies, retail brands) — never other Brazilian clubs.",
+      `You are a business intelligence analyst specialising in ${club} sponsorship fit analysis.`,
+      `Analyse the company's fit as a ${club} sponsor in the ${region} market.`,
+      `All analysis, recommendations, and context must be framed around ${club} partnership.`,
+      `NEVER suggest competitor clubs. The partnership target is always ${club}.`,
+      rivalsList
+        ? `CRITICAL: Do NOT mention ${rivalsList}, or any other football club by name anywhere in your response. Only ${club}.`
+        : `CRITICAL: Do NOT mention any other football club by name anywhere in your response. Only ${club}.`,
+      "When giving global inspiration examples, reference non-football or international sponsorships only (e.g., NBA, NFL, F1, tennis, technology companies, retail brands) — never other local clubs.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
@@ -590,20 +645,20 @@ export function companyIntelligencePrompt(args: { company: CompanyContext; objec
       args.company.notes ? `Additional context: ${args.company.notes}` : null,
       args.objective ? `Sponsorship objective: ${args.objective}` : null,
       "",
-      "Analyse this company's fit as a Coritiba FC / Couto Pereira sponsor. Return JSON:",
+      `Analyse this company's fit as a ${club} / ${stadium} sponsor. Return JSON:`,
       `{
   "intelligence": {
     "products_services": "Brief description of main products/services",
     "target_audience": "Primary customer segments and demographics",
-    "marketing_goals": ["goal 1 aligned with Coritiba audience", "goal 2", "goal 3"],
-    "brand_positioning": "How this brand aligns with Coritiba FC's Verde e Branco identity",
-    "audience_alignment": "How the company's customers match Coritiba's Curitiba/Paraná fan base",
-    "loyalty_strategy": "How a Coritiba partnership strengthens customer loyalty",
+    "marketing_goals": ["goal 1 aligned with the club's audience", "goal 2", "goal 3"],
+    "brand_positioning": "How this brand aligns with the club's identity",
+    "audience_alignment": "How the company's customers match the club's fan base",
+    "loyalty_strategy": "How this partnership strengthens customer loyalty",
     "sponsorship_fit_score": 7.5,
-    "sponsorship_fit_rationale": "Why this company is a strong/weak Coritiba FC sponsor",
-    "recommended_direction": "Recommended Coritiba FC sponsorship strategy for this company",
-    "local_context": "Specific Curitiba/Paraná regional context for this company + Coritiba",
-    "global_inspiration": "Non-football brand sponsorship examples (international only, no Brazilian clubs) that inspire this Coritiba partnership"
+    "sponsorship_fit_rationale": "Why this company is a strong/weak sponsor for the club",
+    "recommended_direction": "Recommended sponsorship strategy for this company",
+    "local_context": "Specific regional context for this company + the club",
+    "global_inspiration": "Non-football brand sponsorship examples (international only, no local clubs) that inspire this partnership"
   }
 }`,
     ]
@@ -624,9 +679,14 @@ export function opportunityGapPrompt(args: {
   company: CompanyContext;
   sponsorshipHistory?: string | null;
   competitors?: Array<{ name: string; sponsorshipHistory?: string | null }>;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
   const hasOwnHistory = !!args.sponsorshipHistory?.trim();
   const competitorsWithHistory = (args.competitors ?? []).filter((c) => c.sponsorshipHistory?.trim());
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "";
 
   const historyBlock = hasOwnHistory
     ? `${args.company.company_name}'s known current sponsorship activity (from real research): ${args.sponsorshipHistory}`
@@ -638,10 +698,12 @@ export function opportunityGapPrompt(args: {
 
   return {
     system: [
-      "You are a sponsorship-strategy analyst identifying white-space opportunities for Coritiba FC.",
-      "Goal: given what is REALLY known about a prospect's current sponsorship activity (and, if available, their competitors'), identify a genuine gap — a category or channel where they have little/no sponsorship presence — that a Coritiba FC partnership could credibly fill.",
+      `You are a sponsorship-strategy analyst identifying white-space opportunities for ${club}.`,
+      `Goal: given what is REALLY known about a prospect's current sponsorship activity (and, if available, their competitors'), identify a genuine gap — a category or channel where they have little/no sponsorship presence — that a ${club} partnership could credibly fill.`,
       "CLAIM GROUNDING (non-negotiable, same as claim-grounding used elsewhere in this platform): only state that this company or a named competitor sponsors/doesn't sponsor something specific if that fact was given to you below. If no sponsorship history is known for this company, say so explicitly (e.g. 'no public sponsorship activity found') and frame the opportunity in general, industry-appropriate terms instead — do not fabricate a specific gap as if it were verified.",
-      "Never mention competitor football clubs (Athletico Paranaense, Corinthians, Flamengo, São Paulo FC, Palmeiras, Grêmio, Internacional) — the partnership target is always Coritiba FC.",
+      rivalsList
+        ? `Never mention competitor football clubs (${rivalsList}) — the partnership target is always ${club}.`
+        : `Never mention competitor football clubs — the partnership target is always ${club}.`,
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
     user: [
@@ -656,7 +718,7 @@ export function opportunityGapPrompt(args: {
   "grounded": ${hasOwnHistory || competitorsWithHistory.length ? "true" : "false"},
   "current_sponsorship_summary": "1 sentence — what is really known about their current sponsorship posture, or 'No public sponsorship activity found' if nothing is known",
   "gap_summary": "1-2 sentences — the specific white-space opportunity, grounded in the facts above if any exist, otherwise a general industry-pattern statement",
-  "opportunity_angle": "The specific pitch angle Coritiba FC's commercial team should use, referencing the gap"
+  "opportunity_angle": "The specific pitch angle ${club}'s commercial team should use, referencing the gap"
 }`,
     ]
       .filter(Boolean)
@@ -677,15 +739,19 @@ export function outreachEmailPrompt(args: {
   senderName?: string | null;
   senderTitle?: string | null;
   tone?: EmailTone;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const tenant = args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT;
+  const club = tenant.club_facts.club_name;
   const senderBlock = args.senderName
-    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
-    : "Sender: Departamento Comercial, Coritiba FC";
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, ${club}`
+    : `Sender: Departamento Comercial, ${club}`;
 
   return {
     system: [
-      "You write concise, compelling B2B sponsorship pitch emails in Brazilian Portuguese for Coritiba FC.",
-      "Emails represent Coritiba FC's commercial department.",
+      `You write concise, compelling B2B sponsorship pitch emails in Brazilian Portuguese for ${club}.`,
+      `Emails represent ${club}'s commercial department.`,
       args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: warm, confident, direct, exciting — make the sponsor feel the opportunity is unique.",
       "Keep under 200 words. No fluff. Include a clear CTA.",
       "ALWAYS include the proposal link in the email body as a prominent CTA button/line.",
@@ -701,9 +767,9 @@ export function outreachEmailPrompt(args: {
       args.proposalLink ? `Proposal link (MUST appear in body): ${args.proposalLink}` : null,
       senderBlock,
       "",
-      "Write a compelling Coritiba FC sponsorship pitch email in Portuguese (Brazilian). Return JSON:",
+      `Write a compelling ${club} sponsorship pitch email in Portuguese (Brazilian). Return JSON:`,
       `{
-  "subject": "subject line — mention Coritiba FC and the opportunity",
+  "subject": "subject line — mention the club and the opportunity",
   "body_text": "plain text body — include CTA with proposal link",
   "body_html": "HTML version with <p> tags, include a prominent 'Ver Proposta →' link"
 }`,
@@ -721,11 +787,14 @@ export function followupEmailPrompt(args: {
   previousSubject: string;
   previousBody: string;
   daysSinceSent: number;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const club = (args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT).club_facts.club_name;
   return {
     system: [
-      "You draft polite, low-pressure follow-up emails for Coritiba FC sponsorship outreach.",
-      "Emails represent Coritiba FC's commercial department.",
+      `You draft polite, low-pressure follow-up emails for ${club} sponsorship outreach.`,
+      `Emails represent ${club}'s commercial department.`,
       "Keep under 120 words. Reference the prior message lightly.",
       "Output MUST be valid JSON. No markdown fences.",
     ].join("\n"),
@@ -759,13 +828,16 @@ export function negotiationEmailPrompt(args: {
   senderName?: string | null;
   senderTitle?: string | null;
   tone?: EmailTone;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const club = (args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT).club_facts.club_name;
   const senderBlock = args.senderName
-    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
-    : "Sender: Departamento Comercial, Coritiba FC";
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, ${club}`
+    : `Sender: Departamento Comercial, ${club}`;
   return {
     system: [
-      "You write persuasive B2B negotiation emails in Brazilian Portuguese for Coritiba FC's commercial department.",
+      `You write persuasive B2B negotiation emails in Brazilian Portuguese for ${club}'s commercial department.`,
       "Goal: move a warm prospect toward closing by offering flexibility on scope, price, term length or added counterparts.",
       args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: collaborative, confident, solution-oriented — never desperate, never discount for its own sake.",
       "Propose concrete next steps (e.g. a 15-minute call) and reference the proposal link.",
@@ -803,14 +875,17 @@ export function barterEmailPrompt(args: {
   senderName?: string | null;
   senderTitle?: string | null;
   tone?: EmailTone;
+  /** Phase 4 — defaults to Coritiba for existing call sites. */
+  tenant?: ClubContextInput;
 }) {
+  const club = (args.tenant ?? CORITIBA_CLUB_CONTEXT_INPUT).club_facts.club_name;
   const senderBlock = args.senderName
-    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, Coritiba FC`
-    : "Sender: Departamento Comercial, Coritiba FC";
+    ? `Sender: ${args.senderName}${args.senderTitle ? `, ${args.senderTitle}` : ""} — Departamento Comercial, ${club}`
+    : `Sender: Departamento Comercial, ${club}`;
   return {
     system: [
-      "You write B2B barter (permuta) proposal emails in Brazilian Portuguese for Coritiba FC's commercial department.",
-      "Goal: propose a permuta where part of the sponsorship investment is paid with the prospect's own products/services, reducing their cash outlay while still delivering brand exposure via Coritiba FC's sponsorship inventory.",
+      `You write B2B barter (permuta) proposal emails in Brazilian Portuguese for ${club}'s commercial department.`,
+      `Goal: propose a permuta where part of the sponsorship investment is paid with the prospect's own products/services, reducing their cash outlay while still delivering brand exposure via ${club}'s sponsorship inventory.`,
       args.tone ? TONE_INSTRUCTIONS[args.tone] : "Tone: creative, win-win, practical. Make the exchange feel low-risk and high-value.",
       "Reference the proposal link and suggest a quick call to define the exchange mix.",
       "Keep under 180 words. Output MUST be valid JSON. No markdown fences.",

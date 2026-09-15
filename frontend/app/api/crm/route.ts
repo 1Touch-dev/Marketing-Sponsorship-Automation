@@ -6,17 +6,20 @@ import {
   isPipedriveConfigured,
 } from "@/lib/pipedrive/sync";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? "pending";
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
 
   const { data: queue } = await sb
     .from("crm_sync_queue" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -24,6 +27,7 @@ export async function GET(req: Request) {
   const { data: all } = await sb
     .from("crm_sync_queue" as "companies")
     .select("status")
+    .eq("tenant_id" as "id", tenantId)
     .limit(1000);
 
   const stats = (all ?? []).reduce((acc: Record<string, number>, row: unknown) => {
@@ -89,6 +93,7 @@ export async function PATCH(req: Request) {
     const { data: jobs } = await sb
       .from("crm_sync_queue" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", auth.user.tenant_id)
       .eq("status", targetStatus)
       .limit(50);
 
@@ -138,7 +143,8 @@ export async function PATCH(req: Request) {
   if (action === "clear_synced") {
     await sb.from("crm_sync_queue" as "companies")
       .update({ status: "archived" } as unknown as Record<string, unknown>)
-      .eq("status", "synced");
+      .eq("status", "synced")
+      .eq("tenant_id" as "id", auth.user.tenant_id);
     return NextResponse.json({ success: true, message: "Synced jobs archived" });
   }
 

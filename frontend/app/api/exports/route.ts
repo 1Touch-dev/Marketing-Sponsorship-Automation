@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
       metadata?: Record<string, unknown>;
     };
 
+    const tenantId = await resolveTenantId();
     const sb = supabaseAdmin();
 
     // Log the export event
@@ -30,6 +32,7 @@ export async function POST(req: Request) {
     const { data: proposal } = await sb.from("proposals")
       .select("metadata")
       .eq("id", proposal_id)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
 
     const existingMeta = (proposal?.metadata ?? {}) as Record<string, number>;
@@ -41,7 +44,7 @@ export async function POST(req: Request) {
         total_exports: (existingMeta.total_exports ?? 0) + 1,
         last_exported_at: new Date().toISOString(),
       },
-    } as unknown as Record<string, unknown>).eq("id", proposal_id);
+    } as unknown as Record<string, unknown>).eq("id", proposal_id).eq("tenant_id", tenantId);
 
     logger.info("Proposal exported", { proposal_id, export_type });
     return NextResponse.json({ success: true, tracked: true });
@@ -55,10 +58,12 @@ export async function GET(req: Request) {
   const proposal_id = searchParams.get("proposal_id");
   if (!proposal_id) return NextResponse.json({ error: "proposal_id required" }, { status: 400 });
 
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const { data: auditLogs } = await sb.from("audit_logs")
     .select("action, created_at, metadata")
     .eq("entity_id", proposal_id)
+    .eq("tenant_id", tenantId)
     .like("action", "proposal.export_%")
     .order("created_at", { ascending: false })
     .limit(50);

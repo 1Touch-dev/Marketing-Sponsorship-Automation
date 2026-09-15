@@ -160,6 +160,7 @@ export async function POST(req: Request) {
   let query = sb
     .from("companies")
     .select("id, company_name, industry, website, country, notes")
+    .eq("tenant_id", auth.user.tenant_id)
     .neq("status", "closed");
 
   if (company_ids && company_ids.length > 0) {
@@ -204,6 +205,7 @@ export async function POST(req: Request) {
       const { data: campaign, error: campErr } = await sb
         .from("campaigns")
         .insert({
+          tenant_id: auth.user.tenant_id,
           company_id: company.id,
           title: gen.campaign.title,
           summary: gen.campaign.summary,

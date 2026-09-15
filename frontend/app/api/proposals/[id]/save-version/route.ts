@@ -15,12 +15,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("proposals")
     .select("*")
     .eq("id", params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
 
   if (!proposal) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Save snapshot to proposal_versions
   const { error } = await sb.from("proposal_versions").insert({
+    tenant_id: auth.user.tenant_id,
     proposal_id: params.id,
     version: proposal.version,
     content_md: proposal.content_md,
@@ -35,10 +37,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await sb
     .from("proposals")
     .update({ version: proposal.version + 1, updated_at: new Date().toISOString() })
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("tenant_id", auth.user.tenant_id);
 
   // Log to audit
   await sb.from("audit_logs").insert({
+    tenant_id: auth.user.tenant_id,
     action: "proposal.version_saved",
     entity_type: "proposal",
     entity_id: params.id,

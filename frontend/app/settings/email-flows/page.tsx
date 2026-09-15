@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmailFlowsManager } from "./email-flows-manager";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EmailFlowsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let sequences: Record<string, unknown>[] = [];
   let templates: Record<string, unknown>[] = [];
@@ -15,6 +17,7 @@ export default async function EmailFlowsPage() {
     const { data, error } = await sb
       .from("email_sequences")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("is_default", { ascending: false })
       .order("name");
@@ -28,6 +31,7 @@ export default async function EmailFlowsPage() {
     const { data } = await sb
       .from("email_templates")
       .select("id, name, flow_type")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("name");
     templates = (data as Record<string, unknown>[]) ?? [];

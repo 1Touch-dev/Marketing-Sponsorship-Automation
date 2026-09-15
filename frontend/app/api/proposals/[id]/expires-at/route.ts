@@ -12,7 +12,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await sb
     .from("proposals")
     .update({ expires_at: body.expires_at ?? null } as Record<string, unknown>)
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("tenant_id", auth.user.tenant_id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { ContactsClient } from "./contacts-client";
 
@@ -6,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ContactsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // Fetch all contacts with company info
   let contacts: Array<{
@@ -29,6 +31,7 @@ export default async function ContactsPage() {
     const { data } = await sb
       .from("contacts")
       .select("*, companies(company_name, industry)")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(500);
     contacts = (data ?? []) as typeof contacts;
@@ -41,6 +44,7 @@ export default async function ContactsPage() {
   const { data: companies } = await sb
     .from("companies")
     .select("id, company_name")
+    .eq("tenant_id", tenantId)
     .order("company_name");
 
   return (

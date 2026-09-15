@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,10 +19,12 @@ type EmailWithRelations = EmailRow & {
 
 export default async function EmailDetailPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: email } = await sb
     .from("emails")
     .select("*, proposals(id, title), email_threads(id, gmail_thread_id)")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .maybeSingle();
   if (!email) notFound();
 

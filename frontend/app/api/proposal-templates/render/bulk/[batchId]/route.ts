@@ -5,6 +5,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -13,10 +14,12 @@ export async function GET(_req: Request, ctx: { params: { batchId: string } }) {
   const { data: { user } } = await supabaseServer().auth.getUser().catch(() => ({ data: { user: null } }));
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const { data: renders, error } = await sb
     .from("template_renders" as "companies")
     .select("id, company_id, status, rendered_url, image_results, error, created_at, updated_at, companies(company_name)")
+    .eq("tenant_id" as "id", tenantId)
     .eq("batch_id", ctx.params.batchId)
     .order("created_at", { ascending: true }) as unknown as {
       data: Array<{

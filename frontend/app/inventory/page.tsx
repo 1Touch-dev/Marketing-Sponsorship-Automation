@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { AlertCircle } from "lucide-react";
 import { InventoryManager } from "./inventory-manager";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let items: Record<string, unknown>[] = [];
   let migrationNeeded = false;
@@ -15,6 +17,7 @@ export default async function InventoryPage() {
     const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("inventory_items" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", tenantId)
       .eq("status", "active")
       .order("sort_order");
 

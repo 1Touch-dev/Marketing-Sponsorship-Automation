@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -26,6 +27,7 @@ type ActiveSponsor = {
 
 export default async function ReportsPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // Parallel data fetching for KPIs + sponsor tracking
   const [
@@ -36,12 +38,12 @@ export default async function ReportsPage() {
     { data: contractsData },
     { data: proposalsByMonth },
   ] = await Promise.all([
-    sb.from("proposals").select("id, title, status, version, created_at, updated_at, share_token, companies(id, company_name, industry, contact_name, contact_email), campaigns(title)").eq("status", "active_contract").order("updated_at", { ascending: false }),
-    sb.from("proposals").select("id, title, status, updated_at, companies(company_name, industry)").in("status", ["approved", "under_review"]).order("updated_at", { ascending: false }).limit(10),
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "active_contract"),
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("status", "rejected"),
-    sb.from("contracts").select("total_value_brl, deal_type, created_at").order("created_at", { ascending: false }).limit(50),
-    sb.from("proposals").select("created_at").gte("created_at", new Date(Date.now() - 180 * 86400000).toISOString()).order("created_at", { ascending: true }),
+    sb.from("proposals").select("id, title, status, version, created_at, updated_at, share_token, companies(id, company_name, industry, contact_name, contact_email), campaigns(title)").eq("tenant_id", tenantId).eq("status", "active_contract").order("updated_at", { ascending: false }),
+    sb.from("proposals").select("id, title, status, updated_at, companies(company_name, industry)").eq("tenant_id", tenantId).in("status", ["approved", "under_review"]).order("updated_at", { ascending: false }).limit(10),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "active_contract"),
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "rejected"),
+    sb.from("contracts").select("total_value_brl, deal_type, created_at").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(50),
+    sb.from("proposals").select("created_at").eq("tenant_id", tenantId).gte("created_at", new Date(Date.now() - 180 * 86400000).toISOString()).order("created_at", { ascending: true }),
   ]);
 
   const sponsors = (activeSponsors ?? []) as unknown as ActiveSponsor[];

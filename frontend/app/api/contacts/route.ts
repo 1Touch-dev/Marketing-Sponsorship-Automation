@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { z } from "zod";
 import { extractDomainFromEmail } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -26,12 +27,14 @@ const bulkSchema = z.object({
 
 export async function GET(req: Request) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { searchParams } = new URL(req.url);
   const companyId = searchParams.get("company_id");
 
   let query = sb
     .from("contacts")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   if (companyId) query = query.eq("company_id", companyId);
@@ -64,9 +67,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const contactsToInsert = isBulk
-    ? (parsed.data as z.infer<typeof bulkSchema>).contacts
-    : [parsed.data as z.infer<typeof contactSchema>];
+  const contactsToInsert = (
+    isBulk
+      ? (parsed.data as z.infer<typeof bulkSchema>).contacts
+      : [parsed.data as z.infer<typeof contactSchema>]
+  ).map((c) => ({ ...c, tenant_id: auth.user.tenant_id }));
 
   const { data, error } = await sb
     .from("contacts")
@@ -86,7 +91,7 @@ export async function POST(req: Request) {
   // ── CRM-contact-driven enrichment ────────────────────────────────────────
   // For each unique company whose contacts we just saved, if the company has no
   // website, extract a domain from the saved emails and trigger enrichment.
-  void triggerContactDrivenEnrichment(contactsToInsert).catch(() => {});
+  void triggerContactDrivenEnrichment(contactsToInsert, auth.user.tenant_id).catch(() => {});
 
   return NextResponse.json({
     saved: data?.length ?? 0,
@@ -96,7 +101,8 @@ export async function POST(req: Request) {
 }
 
 async function triggerContactDrivenEnrichment(
-  contacts: Array<{ company_id: string; email: string }>
+  contacts: Array<{ company_id: string; email: string }>,
+  tenantId: string,
 ): Promise<void> {
   const sb = supabaseAdmin();
 
@@ -108,6 +114,7 @@ async function triggerContactDrivenEnrichment(
   const { data: companies } = await sb
     .from("companies")
     .select("id, website")
+    .eq("tenant_id", tenantId)
     .in("id", companyIds);
 
   for (const company of companies ?? []) {

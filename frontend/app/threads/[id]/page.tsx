@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +12,15 @@ export const dynamic = "force-dynamic";
 
 export default async function ThreadDetailPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
-  const { data: thread } = await sb.from("email_threads").select("*").eq("id", params.id).maybeSingle();
+  const tenantId = await resolveTenantId();
+  const { data: thread } = await sb.from("email_threads").select("*").eq("id", params.id).eq("tenant_id", tenantId).maybeSingle();
   if (!thread) notFound();
 
   const { data: messages } = await sb
     .from("emails")
     .select("id, subject, status, direction, sender, recipient, created_at, reply_classification, reply_summary")
     .eq("thread_id", thread.id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: true });
 
   return (

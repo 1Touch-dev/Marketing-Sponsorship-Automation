@@ -62,6 +62,7 @@ export async function POST(req: Request) {
     .from("campaigns")
     .select("id, title, is_preapproved")
     .eq("id", campaign_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
 
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
   const { data: companies } = await sb
     .from("companies")
     .select("id, company_name, website")
+    .eq("tenant_id", auth.user.tenant_id)
     .in("id", company_ids);
 
   const validCompanies = (companies ?? []).filter((c) => extractDomain(c.website ?? ""));
@@ -87,6 +89,7 @@ export async function POST(req: Request) {
   const { data: batch, error: batchErr } = await sb
     .from("agent_batch_runs" as "companies")
     .insert({
+      tenant_id: auth.user.tenant_id,
       campaign_id,
       created_by: user.id,
       mode: batchMode,
@@ -106,7 +109,7 @@ export async function POST(req: Request) {
 
   // Fire-and-forget: process the queue with bounded concurrency. The client
   // polls GET /api/agents/outreach/batch/[batchId] for progress.
-  void processBatch(batchId, campaign_id, validCompanies, batchMode, user.id).catch((err) => {
+  void processBatch(batchId, campaign_id, validCompanies, batchMode, user.id, auth.user.tenant_id).catch((err) => {
     logger.apiError("/api/agents/outreach/batch", err instanceof Error ? err : new Error(String(err)));
   });
 
@@ -124,7 +127,8 @@ async function processBatch(
   campaignId: string,
   companies: Array<{ id: string; company_name: string; website: string | null }>,
   mode: AgentMode,
-  userId: string
+  userId: string,
+  tenantId: string
 ) {
   const sb = supabaseAdmin();
   let running = 0;
@@ -151,6 +155,7 @@ async function processBatch(
       .from("agent_runs" as "companies")
       .select("id, status")
       .eq("company_id", company.id)
+      .eq("tenant_id", tenantId)
       .in("status", ["running", "paused_for_approval", "paused_for_proposal_approval"])
       .limit(1)
       .maybeSingle() as unknown as { data: { id: string; status: string } | null };
@@ -160,6 +165,7 @@ async function processBatch(
       // dropping the company — otherwise it just vanishes from the UI with
       // no explanation of why it never ran.
       await sb.from("agent_runs" as "companies").insert({
+        tenant_id: tenantId,
         company_id: company.id,
         created_by: userId,
         status: "failed",
@@ -177,6 +183,7 @@ async function processBatch(
     const { data: run } = await sb
       .from("agent_runs" as "companies")
       .insert({
+        tenant_id: tenantId,
         company_id: company.id,
         created_by: userId,
         status: "running",

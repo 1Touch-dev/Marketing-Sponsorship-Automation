@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
@@ -27,10 +28,12 @@ export async function GET(req: Request) {
   const status = searchParams.get("status");
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   // query builder
   let query: any = sb
     .from("image_generation_jobs" as "companies")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -98,6 +101,7 @@ export async function POST(req: Request) {
     const { data: job, error } = await (sb as any)
       .from("image_generation_jobs")
       .insert({
+        tenant_id: auth.user.tenant_id,
         proposal_id: body.proposal_id?.trim() || null,
         company_id: body.company_id?.trim() || null,
         mockup_id: body.mockup_id?.trim() || null,

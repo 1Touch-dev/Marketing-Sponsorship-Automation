@@ -45,6 +45,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const SKIP_APPROVAL_INSERT = new Set(["submit_review", "active_contract"]);
   if (!SKIP_APPROVAL_INSERT.has(parsed.data.decision)) {
     const { error: insErr } = await sb.from("approvals").insert({
+      tenant_id: auth.user.tenant_id,
       proposal_id: parsed.data.proposal_id,
       decision: parsed.data.decision,
       comments: parsed.data.comments ?? null,
@@ -68,6 +69,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("proposals")
       .select("share_token")
       .eq("id", parsed.data.proposal_id)
+      .eq("tenant_id", auth.user.tenant_id)
       .maybeSingle();
 
     const existing = (current as Record<string, unknown> | null)?.share_token;
@@ -82,6 +84,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .update(update)
     .eq("id", parsed.data.proposal_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color:
 
 export default async function LeiDeIncentivoPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   let projects: Record<string, unknown>[] = [];
   let migrationNeeded = false;
@@ -27,6 +29,7 @@ export default async function LeiDeIncentivoPage() {
     const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("social_projects" as "companies")
       .select("*")
+      .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error?.message?.includes("not find") || error?.message?.includes("does not exist")) {

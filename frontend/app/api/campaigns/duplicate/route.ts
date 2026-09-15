@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     .from("campaigns")
     .select("*")
     .eq("id", parsed.data.campaign_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
   if (srcErr || !source) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
     .from("campaigns")
     .insert(
       guardColumns("campaigns", {
+        tenant_id: auth.user.tenant_id,
         company_id: source.company_id,
         title: `${source.title} (copy)`,
         summary: source.summary,

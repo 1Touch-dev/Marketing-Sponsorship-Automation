@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/pipedrive/sync";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 
 /**
  * POST /api/proposals/[id]/track-view
@@ -42,7 +43,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const token = searchParams.get("token") ?? "";
   const variant = searchParams.get("variant") ?? "A";
 
+  // Public, unauthenticated route (a sponsor viewing the share link) — no
+  // session to resolve a tenant from, so look it up from the proposal itself.
+  const { data: proposalTenant } = await sb
+    .from("proposals")
+    .select("tenant_id")
+    .eq("id", params.id)
+    .maybeSingle();
+  const tenantId = proposalTenant?.tenant_id ?? CORITIBA_TENANT_ID;
+
   await sb.from("audit_logs").insert({
+    tenant_id: tenantId,
     action: "proposal.view",
     entity_type: "proposal",
     entity_id: params.id,
@@ -51,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const { data: viewRow } = await sb
     .from("proposal_views" as "companies")
-    .insert({ proposal_id: params.id, variant, user_agent: req.headers.get("user-agent") } as never)
+    .insert({ tenant_id: tenantId, proposal_id: params.id, variant, user_agent: req.headers.get("user-agent") } as never)
     .select("id")
     .maybeSingle();
 

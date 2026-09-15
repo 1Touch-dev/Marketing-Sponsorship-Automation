@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 
@@ -7,6 +8,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const url = new URL(req.url);
   const proposalId = url.searchParams.get("proposal_id");
   const companyId = url.searchParams.get("company_id");
@@ -14,6 +16,7 @@ export async function GET(req: Request) {
   let query = (sb as ReturnType<typeof supabaseAdmin>)
     .from("visual_mockups" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .order("created_at", { ascending: false });
 
   if (proposalId) query = query.eq("proposal_id", proposalId) as typeof query;
@@ -40,7 +43,7 @@ export async function POST(req: Request) {
 
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("visual_mockups" as "companies")
-    .insert({ ...body, status: "pending" } as never)
+    .insert({ ...body, status: "pending", tenant_id: auth.user.tenant_id } as never)
     .select("*")
     .single();
 

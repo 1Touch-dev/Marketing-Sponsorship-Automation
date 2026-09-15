@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -44,6 +45,10 @@ function parseSteps(raw: unknown): SequenceStep[] {
 export async function POST(req: Request) {
   const auth = await requirePermissionOrInternal(req, "edit_company");
   if ("error" in auth) return auth.error;
+  // Dual-auth route: a human session gives us auth.user (and its tenant),
+  // but the unattended internal-secret path (cron/n8n) has no user at all —
+  // fall back to resolveTenantId(), same as other public/unattended routes.
+  const tenantId = auth.user?.tenant_id ?? (await resolveTenantId());
 
   const sb = supabaseAdmin();
   const env = serverEnv();
@@ -55,7 +60,11 @@ export async function POST(req: Request) {
     limit?: number;
   };
 
-  let query = sb.from("email_sequence_enrollments").select("*").eq("status", "active");
+  let query = sb
+    .from("email_sequence_enrollments")
+    .select("*")
+    .eq("status", "active")
+    .eq("tenant_id", tenantId);
   if (body.enrollment_id) {
     query = query.eq("id", body.enrollment_id);
   } else if (body.run_due) {
@@ -76,6 +85,7 @@ export async function POST(req: Request) {
       .from("email_sequences")
       .select("steps")
       .eq("id", e.sequence_id as string)
+      .eq("tenant_id", tenantId)
       .maybeSingle();
     const steps = parseSteps((seq as Record<string, unknown> | null)?.steps);
 
@@ -86,7 +96,8 @@ export async function POST(req: Request) {
       await sb
         .from("email_sequence_enrollments")
         .update({ status: "completed", next_run_at: null } as never)
-        .eq("id", e.id as string);
+        .eq("id", e.id as string)
+        .eq("tenant_id", tenantId);
       results.push({ enrollment_id: e.id, action: "completed" });
       continue;
     }
@@ -138,7 +149,8 @@ export async function POST(req: Request) {
         status: isDone ? "completed" : "active",
         next_run_at: nextRunAt,
       } as never)
-      .eq("id", e.id as string);
+      .eq("id", e.id as string)
+      .eq("tenant_id", tenantId);
 
     results.push({
       enrollment_id: e.id,

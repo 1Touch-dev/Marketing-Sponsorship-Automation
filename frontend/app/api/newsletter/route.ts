@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -16,9 +17,11 @@ const sendSchema = z.object({
 /** GET /api/newsletter — list past newsletters */
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("newsletters")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -48,7 +51,7 @@ export async function POST(req: Request) {
   let resolvedEmails: string[] = recipient_emails ?? [];
 
   if (send_to_all_contacts || (recipient_company_ids && recipient_company_ids.length > 0)) {
-    let query = sb.from("contacts").select("email");
+    let query = sb.from("contacts").select("email").eq("tenant_id", auth.user.tenant_id);
     if (!send_to_all_contacts && recipient_company_ids?.length) {
       query = query.in("company_id", recipient_company_ids);
     }
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
   const { data: newsletter, error: saveErr } = await sb
     .from("newsletters")
     .insert({
+      tenant_id: auth.user.tenant_id,
       subject,
       body_html,
       recipient_count: resolvedEmails.length,

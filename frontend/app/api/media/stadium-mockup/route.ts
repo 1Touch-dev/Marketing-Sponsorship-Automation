@@ -94,6 +94,7 @@ export async function POST(req: Request) {
       const { data: job, error: jobErr } = await (sb as ReturnType<typeof supabaseAdmin>)
         .from("image_generation_jobs" as "campaigns")
         .insert({
+          tenant_id: auth.user.tenant_id,
           proposal_id: body.proposal_id.trim(),
           company_id: body.company_id?.trim() || null,
           job_type: "stadium_mockup_official",

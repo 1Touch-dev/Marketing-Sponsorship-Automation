@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     // Optional: persist discovered sellers as prospect companies (deduped).
     let savedCount = 0;
     if (auto_save && allSellers.length > 0) {
-      savedCount = await saveSellersAsCompanies(product, allSellers);
+      savedCount = await saveSellersAsCompanies(product, allSellers, auth.user.tenant_id);
     }
 
     await recordAudit({
@@ -215,13 +215,14 @@ Return JSON ONLY:
   return [];
 }
 
-async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller[]): Promise<number> {
+async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller[], tenantId: string): Promise<number> {
   const sb = supabaseAdmin();
   let saved = 0;
   for (const s of sellers.slice(0, 30)) {
     const { data: existing } = await sb
       .from("companies")
       .select("id")
+      .eq("tenant_id", tenantId)
       .ilike("company_name", `%${s.name.slice(0, 30)}%`)
       .maybeSingle();
     if (existing) continue;
@@ -229,6 +230,7 @@ async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller
     const { data: created } = await (sb as ReturnType<typeof supabaseAdmin>)
       .from("companies")
       .insert({
+        tenant_id: tenantId,
         company_name: s.name,
         website: s.domain ?? null,
         industry: product,

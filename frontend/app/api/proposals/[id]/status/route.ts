@@ -27,6 +27,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .from("proposals")
     .update({ status: body.status, updated_at: new Date().toISOString() })
     .eq("id", ctx.params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("id, status, title, share_token, company_id")
     .single();
 

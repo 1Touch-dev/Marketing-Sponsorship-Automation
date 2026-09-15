@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 
@@ -29,10 +30,12 @@ export async function GET(req: Request) {
   if (!companyId) return NextResponse.json({ error: "company_id is required" }, { status: 400 });
 
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data, error } = await sb
     .from("warmup_enrollments")
     .select("*, warmup_sequences(name, steps), matches(opponent, match_date)")
     .eq("company_id", companyId)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -69,6 +72,7 @@ export async function POST(req: Request) {
     .from("warmup_sequences")
     .select("*")
     .eq("id", body.sequence_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
   if (seqErr) return NextResponse.json({ error: seqErr.message }, { status: 500 });
   if (!seq) return NextResponse.json({ error: "Sequence not found" }, { status: 404 });
@@ -87,6 +91,7 @@ export async function POST(req: Request) {
       current_step: 0,
       status: "active",
       next_action_at: nextActionAt,
+      tenant_id: auth.user.tenant_id,
     } as never)
     .select("*")
     .single();

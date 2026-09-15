@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProposalWizard } from "./proposal-wizard";
 
@@ -10,10 +11,11 @@ export default async function NewProposalPage({
   searchParams: { company_id?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const [{ data: companies }, { data: campaigns }] = await Promise.all([
-    sb.from("companies").select("id, company_name, industry, segment, business_type, company_size, website, logo_url, notes").neq("status", "closed").order("company_name"),
-    sb.from("campaigns").select("id, title, summary, status").in("status", ["active", "draft"]).order("created_at", { ascending: false }).limit(50),
+    sb.from("companies").select("id, company_name, industry, segment, business_type, company_size, website, logo_url, notes").eq("tenant_id", tenantId).neq("status", "closed").order("company_name"),
+    sb.from("campaigns").select("id, title, summary, status").eq("tenant_id", tenantId).in("status", ["active", "draft"]).order("created_at", { ascending: false }).limit(50),
   ]);
 
   return (

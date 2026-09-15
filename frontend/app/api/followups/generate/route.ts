@@ -65,6 +65,7 @@ export async function POST(req: Request) {
     .from("emails")
     .select("id, sent_at, created_at, subject, body_text, recipient, sender, proposal_id, thread_id, gmail_thread_id, proposals(id, companies(id, company_name, industry, website, country))")
     .eq("id", parsed.data.email_id)
+    .eq("tenant_id", auth.user.tenant_id)
     .single();
 
   if (peErr || !parentEmail) return NextResponse.json({ error: "Email not found" }, { status: 404 });
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
     .from("emails")
     .insert(
       guardColumns("emails", {
+        tenant_id: auth.user.tenant_id,
         proposal_id: typedEmail.proposal_id,
         thread_id: typedEmail.thread_id,
         gmail_thread_id: typedEmail.gmail_thread_id,
@@ -164,6 +166,7 @@ export async function POST(req: Request) {
   const { data: followup, error: fErr } = await sb
     .from("followups")
     .insert({
+      tenant_id: auth.user.tenant_id,
       proposal_id: typedEmail.proposal_id,
       thread_id: typedEmail.thread_id,
       parent_email_id: typedEmail.id,

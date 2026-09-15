@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   const url = new URL(req.url);
   const category = url.searchParams.get("category");
@@ -14,6 +16,7 @@ export async function GET(req: Request) {
   let query = (sb as ReturnType<typeof supabaseAdmin>)
     .from("coritiba_metrics" as "companies")
     .select("*")
+    .eq("tenant_id" as "id", tenantId)
     .eq("status", "active")
     .order("category")
     .order("sort_order");
@@ -49,6 +52,7 @@ export async function POST(req: Request) {
   const { data, error } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("coritiba_metrics" as "companies")
     .insert({
+      tenant_id: auth.user.tenant_id,
       category: body.category,
       metric_name: body.metric_name,
       metric_value: body.metric_value,

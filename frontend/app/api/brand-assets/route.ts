@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const runtime = "nodejs";
 
@@ -8,11 +9,13 @@ export async function GET(req: Request) {
   const assetType = searchParams.get("type");
   const category = searchParams.get("category");
 
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
 
   let packsQuery = sb
     .from("brand_asset_packs")
     .select("*, brand_assets(*)")
+    .eq("tenant_id", tenantId)
     .eq("status", "active")
     .eq("club", "Coritiba FC")
     .order("created_at", { ascending: true });

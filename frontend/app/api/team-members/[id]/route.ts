@@ -18,13 +18,14 @@ export async function PATCH(
 
   // Enforce single default sender
   if (body.default_sender) {
-    await sb.from("team_members").update({ default_sender: false } as never).neq("id", id).eq("default_sender", true as never);
+    await sb.from("team_members").update({ default_sender: false } as never).neq("id", id).eq("default_sender", true as never).eq("tenant_id", auth.user.tenant_id);
   }
 
   const { data, error } = await sb
     .from("team_members")
     .update(body as never)
     .eq("id", id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("*")
     .single();
 
@@ -48,7 +49,7 @@ export async function DELETE(
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
-  const { error } = await sb.from("team_members").delete().eq("id", ctx.params.id);
+  const { error } = await sb.from("team_members").delete().eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await recordAudit({

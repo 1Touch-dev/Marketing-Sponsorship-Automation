@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,11 +32,13 @@ export default async function CompanyDetailPage({
   params: { id: string };
 }) {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   const { data: company, error } = await sb
     .from("companies")
     .select("*")
     .eq("id", params.id)
+    .eq("tenant_id", tenantId)
     .single();
 
   if (error || !company) return notFound();
@@ -47,6 +50,7 @@ export default async function CompanyDetailPage({
     .from("proposals")
     .select("id, title, status, created_at, content")
     .eq("company_id", company.id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -55,6 +59,7 @@ export default async function CompanyDetailPage({
     .from("campaigns")
     .select("id, title, status, created_at")
     .eq("company_id", company.id)
+    .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
     .limit(5);
 
@@ -63,6 +68,7 @@ export default async function CompanyDetailPage({
     .from("pipeline_leads" as "companies")
     .select("*")
     .eq("company_id", company.id)
+    .eq("tenant_id" as "id", tenantId)
     .limit(5);
 
   const hasIntelligence = !!(company as Record<string, unknown>).full_intelligence || !!(company as Record<string, unknown>).intelligence;

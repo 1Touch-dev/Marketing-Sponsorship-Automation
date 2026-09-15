@@ -43,6 +43,7 @@ export async function POST(req: Request) {
     const { data: inventoryItems } = await sb
       .from("inventory_items" as "companies")
       .select("id, name, inventory_type, category, price_min, price_max, description, placement_zone, exposure_reach")
+      .eq("tenant_id" as "id", auth.user.tenant_id)
       .eq("status", "active")
       .limit(50) as { data: Array<Record<string, unknown>> | null };
 

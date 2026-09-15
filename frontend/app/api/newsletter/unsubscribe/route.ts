@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -11,9 +12,13 @@ export async function GET(req: NextRequest) {
   }
 
   const sb = supabaseAdmin();
+  // No session on this public route (an email recipient clicking an
+  // unsubscribe link) — resolves to the seeded Coritiba tenant for now.
+  const tenantId = await resolveTenantId();
 
   // Log unsubscribe
   await sb.from("audit_logs").insert({
+    tenant_id: tenantId,
     action: "newsletter.unsubscribed",
     entity_type: "contact",
     entity_id: email,

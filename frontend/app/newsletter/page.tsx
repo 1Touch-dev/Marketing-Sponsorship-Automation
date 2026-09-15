@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { NewsletterClient } from "./newsletter-client";
 
@@ -6,11 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function NewsletterPage() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
 
   // Fetch companies for recipient picker
   const { data: companies } = await sb
     .from("companies")
     .select("id, company_name, industry")
+    .eq("tenant_id", tenantId)
     .order("company_name");
 
   // Fetch contact count per company
@@ -18,7 +21,8 @@ export default async function NewsletterPage() {
   try {
     const { data: contacts } = await sb
       .from("contacts")
-      .select("company_id");
+      .select("company_id")
+      .eq("tenant_id", tenantId);
     for (const c of contacts ?? []) {
       contactCountMap[c.company_id] = (contactCountMap[c.company_id] ?? 0) + 1;
     }
@@ -39,6 +43,7 @@ export default async function NewsletterPage() {
     const { data } = await sb
       .from("newsletters")
       .select("id, subject, recipient_count, status, sent_at, created_at")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(20);
     newsletters = (data ?? []) as typeof newsletters;
@@ -52,6 +57,7 @@ export default async function NewsletterPage() {
     const { data } = await sb
       .from("email_templates")
       .select("id, name, subject, body_html")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("is_default", { ascending: false })
       .order("name");
@@ -66,6 +72,7 @@ export default async function NewsletterPage() {
     const { count } = await sb
       .from("audit_logs")
       .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
       .eq("action", "newsletter.unsubscribed");
     unsubscribeCount = count ?? 0;
   } catch {

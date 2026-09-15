@@ -27,6 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           .from("sender_profiles" as "companies")
           .select("full_name, title")
           .eq("id", String(body.sender_profile_id))
+          .eq("tenant_id", auth.user.tenant_id)
           .maybeSingle();
         if (profile) {
           const p = profile as Record<string, unknown>;
@@ -41,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .from("emails")
     .update(patch)
     .eq("id", params.id)
+    .eq("tenant_id", auth.user.tenant_id)
     .select("id, sender_profile_id, sender_name, sender_title, updated_at")
     .single();
 

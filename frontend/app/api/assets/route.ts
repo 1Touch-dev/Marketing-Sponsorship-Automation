@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,11 @@ export async function GET(req: Request) {
   const page = parseInt(searchParams.get("page") ?? "1");
   const offset = (page - 1) * limit;
 
+  const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   let query = sb.from("image_generation_jobs" as "companies")
     .select("id, job_type, status, prompt, image_url, proposal_id, company_id, created_at, updated_at, metadata")
+    .eq("tenant_id" as "id", tenantId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -49,6 +52,7 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
     const { data, error } = await sb.from("image_generation_jobs" as "companies").insert({
       ...body,
+      tenant_id: auth.user.tenant_id,
       status: "pending_approval",
       metadata: { folder: body.folder, tags: body.tags },
     }).select("id").single();
@@ -78,7 +82,7 @@ export async function PATCH(req: Request) {
     if (related_proposal_id) updatePayload.proposal_id = related_proposal_id;
     if (related_company_id) updatePayload.company_id = related_company_id;
 
-    await sb.from("image_generation_jobs" as "companies").update(updatePayload as unknown as Record<string,unknown>).eq("id", id as string);
+    await sb.from("image_generation_jobs" as "companies").update(updatePayload as unknown as Record<string,unknown>).eq("id", id as string).eq("tenant_id" as "id", auth.user.tenant_id);
     await recordAudit({ action: `asset.${status ?? "updated"}`, entity_type: "image_job", entity_id: id as string, metadata: { status: status as string } });
 
     return NextResponse.json({ success: true });
