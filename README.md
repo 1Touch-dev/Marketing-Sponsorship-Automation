@@ -240,7 +240,8 @@ SERPAPI_KEY=
 LOGO_DEV_TOKEN=                    # Company logo scraping (get a free key at https://logo.dev/signup) — falls back to Apollo + Google favicon if unset/expired
 PIPEDRIVE_API_KEY=
 NEXTAUTH_SECRET=
-INTERNAL_API_SECRET=               # Secures /api/system/* endpoints
+INTERNAL_API_SECRET=               # Secures /api/system/* + /api/internal/* endpoints, and (as of 15 Sep 2026) unattended cron/n8n calls to /api/proposals/detect-cold, /api/email-sequences/advance, /api/gmail/sync-threads via requirePermissionOrInternal() — pass as x-internal-secret header
+HUNTER_API_KEY=                    # Contact/email enrichment (REST) + official Hunter MCP server (mcp.hunter.io, X-API-Key header)
 NEXT_PUBLIC_APP_URL=               # Canonical URL for share links
 ANNUAL_REVENUE_TARGET=2000000      # Optional — defaults to R$2M
 ```
@@ -275,7 +276,7 @@ pm2 save
 ## Known Pending Items
 
 1. **Bug A — logout on button press** — reported by a team member; needs exact page/button + frequency from James to reproduce and fix. Not started.
-2. **Item B — real email sending** — flows still use the draft + Pipedrive-logging model (no live SMTP send). Newsletter marks itself "sent" in the DB only. Needs James to authorize Gmail (one-time OAuth) or provide a Resend/SendGrid API key. Scheduler (`/api/email-sequences/advance`) runs on demand / via webhook; no cron wired yet.
+2. **Item B — real email sending** — flows still use the draft + Pipedrive-logging model (no live SMTP send, confirmed by direct code inspection 15 Sep 2026: no send path calls the real Gmail-send function). Newsletter marks itself "sent" in the DB only. Needs James to authorize Gmail (one-time OAuth, already partially scaffolded) or provide a Resend/SendGrid API key. Scheduler endpoints (`/api/email-sequences/advance`, `/api/gmail/sync-threads`, `/api/proposals/detect-cold`) now accept an unattended `x-internal-secret: $INTERNAL_API_SECRET` header as of 15 Sep 2026 — cron/n8n CAN trigger them without a session now; actually wiring a cron job is still a separate step (not done).
 3. **Fresh `logo.dev` token** — the previously hardcoded token now returns 401 (expired/revoked); resolver runs on Apollo + Google favicon in the meantime. Get a free key at https://logo.dev/signup and set `LOGO_DEV_TOKEN` to restore the highest-res logo tier.
 4. **Presentations phase 2** — PowerPoint/Google Slides upload (HTML-first phase is done); export of a rendered template to a PDF/public share link (currently produces a stored HTML file + URL — reusing the existing proposal view/PDF path is the natural next step). Needs James to send a real sample HTML template to validate placeholder naming against actual usage.
 5. **Outreach batch runner — needs real data** — built and E2E-tested by us; James still needs to pre-approve a real campaign and run a batch himself to confirm end-to-end on his own data. Live auto-send after the batch still waits on item B.
@@ -283,6 +284,10 @@ pm2 save
 7. **Training-kit rear photos** — jersey back/shorts/socks for Training + GK rear remain disabled until real photos are supplied (custom-base upload works in the meantime).
 8. **LoRA retraining** — 2026 kit training data organized; awaiting go-ahead (superseded for now by the gpt-image-2 pipeline).
 9. **Pipeline drag-drop** — stage change via company edit form; drag-drop not implemented.
+10. **`PIPEDRIVE_API_KEY` is expired** (flagged 15 Sep 2026, see comment in `.env.local`) — needs a fresh Personal API Token from James before Pipedrive sync/MCP work can proceed.
+11. **Apify account over its monthly cap** — confirmed 15 Sep 2026 the account is at $600.57 of a $600/month limit (cycle resets 8 Oct 2026), blocking both the existing REST integration and the new Apify MCP integration (`lib/mcp/apify-client.ts`) from completing a real run. James needs to raise the cap or wait for reset.
+
+*This README was last substantially reviewed 17 July 2026 — the Feature Set, Database Schema, and Migrations Applied sections above are stale (the platform has since shipped ~2 months of further work: RBAC hardening, spend caps, backups, opportunity-gap finder, NIL/barter proposal types, Slack notifications, Hunter/Apify MCP integrations, and more — see `PLATFORM_ROADMAP.md`, which is the actively-maintained source of truth for current status). Items above dated 15 Sep 2026 were corrected as part of that day's work without a full README rewrite; treat any undated claim below "Known Pending Items" #1-9 as unverified.*
 
 ---
 
