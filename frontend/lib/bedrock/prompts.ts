@@ -37,73 +37,129 @@ export interface CompanyContext {
 }
 
 // ---------------------------------------------------------------------------
-// Coritiba FC Core Context — injected into every prompt
+// Phase 4 (multi-tenancy) — Club Context, tenant-parameterized
 // ---------------------------------------------------------------------------
-export const CORITIBA_CONTEXT = `
-CLUB CONTEXT — CORITIBA FOOT BALL CLUB (NON-NEGOTIABLE):
-ALL proposals, campaigns, activations, and stadium references MUST center on:
-- Club: Coritiba Foot Ball Club (also known as "Coxa" / "Coxa-Branca")
-- Founded: 1909 — one of the oldest football clubs in Brazil
-- Home stadium: Couto Pereira (official: Estádio Major Antônio Couto Pereira), Curitiba, Paraná
-- Location: Curitiba, Paraná, Brazil — capital of Paraná state
-- Colors (OFFICIAL — Brand Guide 2026):
-    Verde Coxa: #005742 (primary green — use this exact code, never approximate)
-    Branco:     #FFFFFF
-    Preto:      #000000
-- Typography (OFFICIAL — Brand Guide 2026): Switzer (primary display), Inter (body/UI fallback)
-- Crest rule: 1985 star MUST appear above the crest; red is FORBIDDEN in crest usage
-- Fan identity: "Coxa-Branca" supporters — loyal, family-oriented, multi-generational fan base in Curitiba
-- Typical attendance: 15,000–30,000 per match at Couto Pereira
-- Digital reach: ~1.5M+ social followers across platforms
-- Broadcast: matches shown nationally via Globo/SporTV/Paramount+, regional Paraná TV
-- Key competitions: Brasileirão Série A/B, Copa do Brasil, Campeonato Paranaense
-- Social/community programs: Coritiba youth academy, community outreach, women's football
-- Inventory available to sponsors (from official manual):
-  JERSEY (official max widths per Manual de Aplicação Patrocinadores 2026):
-  * Front chest sponsor: max 25 cm wide
-  * Front chest secondary (above manufacturer): max 8 cm wide
-  * Left/right sleeve: max 8 cm wide each
-  * Back sponsor: max 25 cm wide
-  * Shorts: max 8 cm wide
-  * Socks: max 6 cm wide
-  STADIUM — Couto Pereira:
-  * LED perimeter boards (full pitch circumference)
-  * Gigantron scoreboard (main and secondary screens)
-  * Stadium naming and section naming rights
-  * VIP lounge and hospitality boxes
-  * Concourse branding panels and gate signage
-  * Couto Pereira tunnel and player exit branding
-  * Press conference backdrop
-  DIGITAL & MEDIA:
-  * Club website banner and homepage takeover
-  * Official app push notifications and banners
-  * Instagram, YouTube, TikTok, X — sponsored posts and stories
-  * Match-day WhatsApp broadcast lists
-  * Pre/post-match broadcast segments (co-branded)
-  * Podcast and YouTube long-form content integration
-  COMMUNITY & SOCIAL:
-  * Youth academy co-branding (social impact)
-  * Women's team (growing national visibility)
-  * Community events and fan festivals in Curitiba
-  * Club magazine, programs, fan club materials
-  * Training kit and warmup gear co-branding
+/** Mirrors lib/tenants/types.ts's Tenant shape, duplicated narrowly here to
+ *  avoid a circular import (lib/tenants/current.ts doesn't need to know
+ *  about prompts.ts). Keep in sync if TenantClubFacts/TenantBranding change. */
+export interface ClubContextInput {
+  club_facts: {
+    club_name: string;
+    short_name?: string;
+    nickname?: string;
+    stadium_name?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    founded_year?: number;
+    follower_count?: string;
+    market_context?: string;
+    rival_clubs?: string[];
+    typical_attendance?: string;
+    inventory_highlights?: string[];
+    /** Tenant-specific hard rules an AI-generated visual/copy must never
+     *  violate (e.g. crest usage rules, forbidden colors). Free-form since
+     *  every club's brand guide constraints differ. */
+    brand_rules?: string[];
+  };
+  branding: {
+    primary_color?: string;
+    secondary_color?: string;
+    typography?: string;
+  };
+}
 
+/**
+ * Was a static CORITIBA_CONTEXT constant hardcoding every fact about
+ * Coritiba FC directly into the string. Migration 0047 (Phase 4) moves
+ * these facts onto the `tenants` table; this function rebuilds the same
+ * instruction block from whichever tenant's facts are passed in, with
+ * graceful generic fallbacks for fields a new tenant hasn't configured
+ * yet (jersey cm specs, exact inventory line items) rather than assuming
+ * every club has Coritiba's exact stadium/manual details.
+ */
+export function buildClubContext(tenant: ClubContextInput): string {
+  const f = tenant.club_facts;
+  const clubName = f.club_name;
+  const nickname = f.nickname ?? f.short_name ?? clubName;
+  const stadium = f.stadium_name ?? `${clubName}'s home stadium`;
+  const location = [f.city, f.state, f.country].filter(Boolean).join(", ") || "its home market";
+  const primaryColor = tenant.branding.primary_color ?? "the club's primary brand color";
+  const secondaryColor = tenant.branding.secondary_color ?? "the club's secondary brand color";
+  const rivals = f.rival_clubs ?? [];
+  const inventory = f.inventory_highlights?.length
+    ? f.inventory_highlights.map((i) => `  * ${i}`).join("\n")
+    : "  * Jersey/kit branding, stadium LED/signage, digital & social media, community programs (confirm exact inventory with the club before finalizing specific placements)";
+
+  return `
+CLUB CONTEXT — ${clubName.toUpperCase()} (NON-NEGOTIABLE):
+ALL proposals, campaigns, activations, and stadium references MUST center on:
+- Club: ${clubName}${f.nickname ? ` (also known as "${f.nickname}")` : ""}
+${f.founded_year ? `- Founded: ${f.founded_year}\n` : ""}- Home stadium: ${stadium}${location !== "its home market" ? `, ${location}` : ""}
+- Location: ${location}
+- Colors: ${primaryColor}${tenant.branding.secondary_color ? `, ${secondaryColor}` : ""} — use exact configured brand colors, never approximate
+${tenant.branding.typography ? `- Typography: ${tenant.branding.typography}\n` : ""}${f.follower_count ? `- Digital reach: ${f.follower_count}\n` : ""}${f.typical_attendance ? `- Typical attendance: ${f.typical_attendance}\n` : ""}${f.market_context ? `- Market context: ${f.market_context}\n` : ""}- Inventory available to sponsors:
+${inventory}
+${f.brand_rules?.length ? `\nBRAND RULES (NON-NEGOTIABLE):\n${f.brand_rules.map((r) => `- ${r}`).join("\n")}\n` : ""}${rivals.length > 0 ? `
 COMPETITOR EXCLUSION — ABSOLUTE RULE:
 NEVER mention, recommend, or reference these clubs as sponsorship targets:
-- Athletico Paranaense (CAP / Furacão) — DIRECT Curitiba rival
-- Corinthians — São Paulo club
-- São Paulo FC — São Paulo club  
-- Flamengo — Rio club
-- Palmeiras — São Paulo club
-- Grêmio — Porto Alegre club
-- Internacional — Porto Alegre club
+${rivals.map((r) => `- ${r}`).join("\n")}
 Any such reference would be commercially damaging and is strictly forbidden.
-
+` : ""}
 Global/international campaign examples (Red Bull, Nike, Heineken, etc.) may ONLY be used as:
 - Strategic inspiration and methodology examples
 - Internal benchmarking
 NEVER as alternative club recommendations.
 `;
+}
+
+/** Coritiba's exact facts, matching migration 0047's seed row — used as the
+ *  default wherever a caller hasn't been updated yet to pass a real tenant
+ *  through (transitional; every call site should eventually pass the
+ *  requesting user's actual tenant instead of this constant). */
+export const CORITIBA_CLUB_CONTEXT_INPUT: ClubContextInput = {
+  club_facts: {
+    club_name: "Coritiba Foot Ball Club",
+    short_name: "Coritiba FC",
+    nickname: "Coxa",
+    stadium_name: "Estádio Major Antônio Couto Pereira (Couto Pereira)",
+    city: "Curitiba",
+    state: "Paraná",
+    country: "Brasil",
+    founded_year: 1909,
+    follower_count: "~1.5M+ social followers across platforms",
+    typical_attendance: "15,000–30,000 per match at Couto Pereira",
+    market_context: "Broadcast nationally via Globo/SporTV/Paramount+, regional Paraná TV. Key competitions: Brasileirão Série A/B, Copa do Brasil, Campeonato Paranaense. Fan identity: \"Coxa-Branca\" supporters — loyal, family-oriented, multi-generational fan base.",
+    rival_clubs: [
+      "Athletico Paranaense (CAP / Furacão) — DIRECT Curitiba rival",
+      "Corinthians — São Paulo club",
+      "São Paulo FC — São Paulo club",
+      "Flamengo — Rio club",
+      "Palmeiras — São Paulo club",
+      "Grêmio — Porto Alegre club",
+      "Internacional — Porto Alegre club",
+    ],
+    brand_rules: [
+      "Crest rule: 1985 star MUST appear above the crest; red is FORBIDDEN in crest usage",
+    ],
+    inventory_highlights: [
+      "JERSEY (Manual de Aplicação Patrocinadores 2026): front chest sponsor max 25cm wide, front chest secondary max 8cm, sleeves max 8cm each, back sponsor max 25cm, shorts max 8cm, socks max 6cm",
+      "STADIUM: LED perimeter boards, gigantron scoreboard, naming/section rights, VIP hospitality, concourse branding, tunnel/exit branding, press backdrop",
+      "DIGITAL & MEDIA: website banner, app push/banners, Instagram/YouTube/TikTok/X sponsored content, matchday WhatsApp broadcast, co-branded broadcast segments, podcast integration",
+      "COMMUNITY: youth academy co-branding, women's team, Curitiba fan festivals, club magazine/programs, training kit co-branding",
+    ],
+  },
+  branding: {
+    primary_color: "Verde Coxa #005742 (official Brand Guide 2026 — exact HEX, never approximate)",
+    secondary_color: "Branco #FFFFFF",
+    typography: "Switzer (primary display), Inter (body/UI fallback) — official Brand Guide 2026",
+  },
+};
+
+/** @deprecated Transitional shim — prefer buildClubContext(tenant) with the
+ *  requesting user's real tenant. Kept so existing call sites that haven't
+ *  been migrated yet keep producing identical output to before migration 0047. */
+export const CORITIBA_CONTEXT = buildClubContext(CORITIBA_CLUB_CONTEXT_INPUT);
 
 // ---------------------------------------------------------------------------
 // Strategy inspiration — used as secondary conditioning (internal reference only)
