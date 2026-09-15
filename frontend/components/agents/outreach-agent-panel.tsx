@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronUp, ExternalLink, StopCircle,
 } from "lucide-react";
 import type { SSEEvent, AgentResult } from "@/lib/agents/types";
+import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 
 type StepDisplay = {
   step: number;
@@ -298,6 +299,9 @@ export function OutreachAgentPanel({
             <div>
               <CardTitle className="text-sm font-semibold">Outreach Agent</CardTitle>
               <p className="text-xs text-muted-foreground">Personalized proposal + dual approval</p>
+              <div className="mt-1">
+                <HumanInTheLoopBadge compact />
+              </div>
             </div>
           </div>
 

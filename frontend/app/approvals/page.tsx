@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, truncate } from "@/lib/utils";
 import { FileText, Zap, Mail, Filter } from "lucide-react";
 import { ApprovalsViewToggle } from "./approvals-view-toggle";
+import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 import type { ApprovalItem } from "./approvals-card-view";
 
 export const dynamic = "force-dynamic";
@@ -239,6 +240,10 @@ export default async function ApprovalsPage({
         title="Approval queue"
         description="Proposals, campaigns, and emails awaiting review."
       />
+
+      <div className="mb-4">
+        <HumanInTheLoopBadge />
+      </div>
 
       {/* Filter bar */}
       <form method="GET" className="bg-card border rounded-lg p-3 mb-4 flex flex-wrap gap-2 items-center">
