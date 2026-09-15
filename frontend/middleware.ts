@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Routes publicly accessible without auth
 const PUBLIC_ROUTES = new Set([
-  "/",
   "/login",
   "/api/auth/login",
   "/api/auth/session",
