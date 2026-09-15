@@ -76,4 +76,5 @@ test_all_image_gen.sh
 image.png
 "Comercial Deck - Coritiba Master_Betting.pdf"
 "Market Sponsorship Automation.pdf"
+.playwright-mcp/
 

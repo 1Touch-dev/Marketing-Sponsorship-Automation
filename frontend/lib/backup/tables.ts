@@ -6,15 +6,12 @@
  * Postgres access — see project memory), so this list is maintained by
  * hand and must be updated whenever a migration adds a new table.
  *
- * NOTE (2026-09-09): removed `proposal_variants` — migration
- * 0035_proposal_ab_variants.sql defines it but a live export confirmed it
- * was never actually applied to the Supabase DB ("Could not find the
- * table 'public.proposal_variants' in the schema cache"), which was also
- * silently breaking app/api/proposals/[id]/variant/route.ts (unused by
- * any UI, so low priority, but flagged for James — apply that migration's
- * SQL in the Supabase SQL Editor if the A/B-variant-tracking feature is
- * still wanted). Added `proposal_views` (migration 0046, confirmed live)
- * which existed in the DB but had been missing from this list.
+ * NOTE (2026-09-15): re-added `proposal_variants` — migration
+ * 0035_proposal_ab_variants.sql was written in July but never pasted into
+ * the Supabase SQL Editor (human error, confirmed by neighboring same-day
+ * migrations 0034/0036 both being live while 0035 sat unapplied for two
+ * months), silently breaking app/api/proposals/[id]/variant/route.ts.
+ * Applied 2026-09-15 and confirmed live.
  */
 export const BACKUP_TABLES = [
   "agent_batch_runs",
@@ -51,6 +48,7 @@ export const BACKUP_TABLES = [
   "proposal_packages",
   "proposal_sections",
   "proposal_templates",
+  "proposal_variants",
   "proposal_versions",
   "proposal_views",
   "proposal_wizard_drafts",
