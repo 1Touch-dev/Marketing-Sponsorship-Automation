@@ -16,6 +16,10 @@ export interface PlatformUser {
   full_name: string;
   role: UserRole;
   is_active: boolean;
+  /** Phase 4 — multi-tenancy foundation (migration 0047). Every user
+   *  belongs to exactly one tenant today; cross-tenant admin support
+   *  accounts are a later Phase 4 concern, not built yet. */
+  tenant_id: string;
   invited_by?: string | null;
   last_seen_at?: string | null;
   created_at: string;

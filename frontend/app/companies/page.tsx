@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -30,9 +31,11 @@ export default async function CompaniesPage({
   searchParams: { q?: string; industry?: string; status?: string; sort?: string; size?: string; stage?: string; country?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenant = await getCurrentTenant();
   const { data: rawCompanies } = await sb
     .from("companies")
     .select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type, logo_url, logo_source")
+    .eq("tenant_id", tenant?.id ?? "00000000-0000-0000-0000-000000000001")
     .neq("status", "closed")
     .order("created_at", { ascending: false })
     .limit(600);

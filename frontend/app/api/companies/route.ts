@@ -5,11 +5,14 @@ import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { getCurrentTenant } from "@/lib/tenants/current";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const sb = supabaseAdmin();
+  const tenant = await getCurrentTenant();
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() ?? "";
   const industry = searchParams.get("industry")?.trim() ?? "";
@@ -18,6 +21,7 @@ export async function GET(req: Request) {
   let query = sb
     .from("companies")
     .select("id, company_name, industry, website, country, status, contact_email, contact_name, logo_url, created_at")
+    .eq("tenant_id", tenant?.id ?? CORITIBA_TENANT_ID)
     .order("company_name", { ascending: true })
     .limit(limit);
 
@@ -47,6 +51,7 @@ export async function POST(req: Request) {
   const { data, error } = await sb
     .from("companies")
     .insert({
+      tenant_id: auth.user.tenant_id,
       company_name: parsed.data.company_name,
       industry: parsed.data.industry ?? null,
       website: parsed.data.website || null,

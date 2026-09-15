@@ -147,6 +147,7 @@ export async function POST(req: Request) {
     let campaignId = body.campaign_id;
     if (!campaignId) {
       const { data: newCampaign } = await (sb as ReturnType<typeof import("@/lib/supabase/server")["supabaseAdmin"]>).from("campaigns").insert({
+        tenant_id: auth.user.tenant_id,
         title: `${company.company_name} × Coritiba FC — ${(body.proposal_type).replace(/_/g, " ")}`,
         summary: `Wizard-generated campaign for ${company.company_name}`,
         company_id: company.id,
@@ -160,6 +161,7 @@ export async function POST(req: Request) {
     // match_id is only sent when set — omitting it keeps proposal creation working
     // even before migration 0042 (which adds the column) has been applied.
     const proposalRow: Record<string, unknown> = {
+      tenant_id: auth.user.tenant_id,
       title: (parsed.title as string) ?? `${company.company_name} × Coritiba FC — Proposal`,
       company_id: company.id,
       campaign_id: campaignId,

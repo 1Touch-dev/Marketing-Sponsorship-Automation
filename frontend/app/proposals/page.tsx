@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/tenants/current";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -30,15 +32,18 @@ export default async function ProposalsPage({
   searchParams: { q?: string; status?: string; company?: string; industry?: string; sort?: string; date_from?: string; date_to?: string; has_logo?: string };
 }) {
   const sb = supabaseAdmin();
+  const tenant = await getCurrentTenant();
+  const tenantId = tenant?.id ?? CORITIBA_TENANT_ID;
 
   const [proposalsResult, companiesResult] = await Promise.all([
     sb
       .from("proposals")
       .select("id, title, status, version, updated_at, created_at, content, companies(id, company_name, industry, logo_url)")
+      .eq("tenant_id", tenantId)
       .neq("status", "rejected")
       .order("updated_at", { ascending: false })
       .limit(300),
-    sb.from("companies").select("id, company_name").neq("status", "closed").order("company_name"),
+    sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").order("company_name"),
   ]);
 
   let proposals = (proposalsResult.data ?? []) as unknown as ProposalRow[];
