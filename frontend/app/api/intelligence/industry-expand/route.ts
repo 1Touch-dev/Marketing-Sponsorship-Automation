@@ -11,6 +11,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -45,8 +47,10 @@ export async function POST(req: Request) {
 
     if (!industry) return NextResponse.json({ error: "industry is required" }, { status: 400 });
 
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+
     // Build search queries for this industry + scope
-    const queries = buildIndustryQueries(industry, scope);
+    const queries = buildIndustryQueries(industry, scope, tenant);
     logger.info("Industry expansion starting", { industry, scope, queries_count: queries.length });
 
     // Run Apify searches
@@ -74,7 +78,7 @@ export async function POST(req: Request) {
     const keywords = [...new Set(searchResults.flatMap((r) => r.keywords))].slice(0, 20);
 
     // AI enrichment
-    const brands = await aiDiscoverBrands(industry, scope, uniqueDomains, keywords, limit);
+    const brands = await aiDiscoverBrands(industry, scope, uniqueDomains, keywords, limit, tenant);
 
     // Persist to Supabase as discovered leads if company_id provided
     if (company_id && brands.length > 0) {
@@ -125,12 +129,17 @@ async function aiDiscoverBrands(
   scope: Scope,
   domains: Array<{ domain: string; title: string; description: string }>,
   keywords: string[],
-  limit: number
+  limit: number,
+  tenant: ClubContextInput
 ): Promise<DiscoveredBrand[]> {
-  const geoLabel = { local: "Curitiba/Paraná", state: "Estado do Paraná", national: "Brasil", international: "Global/Internacional" }[scope];
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const localGeo = [tenant.club_facts.city, tenant.club_facts.state].filter(Boolean).join("/") || "its home region";
+  const stateGeo = tenant.club_facts.state ? `Estado do ${tenant.club_facts.state}` : "its home state";
+  const geoLabel = { local: localGeo, state: stateGeo, national: "Brasil", international: "Global/Internacional" }[scope];
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "any football club";
 
-  const prompt = `You are Coritiba FC's commercial intelligence analyst.
-CRITICAL: NEVER mention Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, Grêmio, Internacional, Vasco, Cruzeiro or any football club.
+  const prompt = `You are ${clubName}'s commercial intelligence analyst.
+CRITICAL: NEVER mention ${rivalsList}.
 
 Industry: ${industry}
 Geographic scope: ${geoLabel}
@@ -140,7 +149,7 @@ ${domains.slice(0, 20).map((d) => `- ${d.domain}: "${d.title}" — ${d.descripti
 
 Keywords: ${keywords.slice(0, 15).join(", ")}
 
-Discover up to ${Math.min(limit, 25)} companies in this industry that are relevant sponsorship prospects for Coritiba FC.
+Discover up to ${Math.min(limit, 25)} companies in this industry that are relevant sponsorship prospects for ${clubName}.
 Include both well-known brands AND promising local/regional companies.
 Mark companies that are actively sponsoring sports/events.
 
@@ -173,10 +182,12 @@ Return JSON ONLY:
 }
 
 // ── Query builders ────────────────────────────────────────────────────────────
-function buildIndustryQueries(industry: string, scope: Scope): string[] {
+function buildIndustryQueries(industry: string, scope: Scope, tenant: ClubContextInput): string[] {
+  const city = tenant.club_facts.city ?? "Brasil";
+  const state = tenant.club_facts.state ?? "Brasil";
   const geoMap: Record<Scope, string[]> = {
-    local: ["Curitiba", "Paraná"],
-    state: ["Paraná Brasil"],
+    local: [city, state],
+    state: [`${state} Brasil`],
     national: ["Brasil", "Brazil"],
     international: ["Brasil global", "multinacional"],
   };

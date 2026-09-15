@@ -29,7 +29,10 @@ type LandingMinimalProps = {
   campaign?: { title: string; summary?: string | null } | null;
   approvedImages?: ProposalImageAsset[];
   adminMode?: boolean;
+  tenant?: { isCoritiba: boolean; clubName: string; stadiumName?: string };
 };
+
+const DEFAULT_TEMPLATE_TENANT = { isCoritiba: true, clubName: "Coritiba FC", stadiumName: "Couto Pereira" };
 
 type ContentMap = {
   title?: string;
@@ -43,7 +46,7 @@ type ContentMap = {
 };
 
 /** Template B — Minimal / Executive: clean white, document-style */
-export function LandingTemplateMinimal({ proposal, company, campaign }: LandingMinimalProps) {
+export function LandingTemplateMinimal({ proposal, company, campaign, tenant = DEFAULT_TEMPLATE_TENANT }: LandingMinimalProps) {
   const c = (proposal.content as unknown as ContentMap);
   const deliverables = c.deliverables ?? [];
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
@@ -67,7 +70,7 @@ export function LandingTemplateMinimal({ proposal, company, campaign }: LandingM
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs font-semibold text-green-700 uppercase tracking-widest">Coritiba FC</p>
+          <p className="text-xs font-semibold text-green-700 uppercase tracking-widest">{tenant.clubName}</p>
           <p className="text-xs text-slate-400">Proposta de Patrocínio</p>
         </div>
       </header>
@@ -179,7 +182,7 @@ export function LandingTemplateMinimal({ proposal, company, campaign }: LandingM
 }
 
 /** Template C — Packages Focus: big tier cards front and center */
-export function LandingTemplatePackages({ proposal, company, campaign }: LandingMinimalProps) {
+export function LandingTemplatePackages({ proposal, company, campaign, tenant = DEFAULT_TEMPLATE_TENANT }: LandingMinimalProps) {
   const c = (proposal.content as unknown as ContentMap);
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
 
@@ -194,7 +197,7 @@ export function LandingTemplatePackages({ proposal, company, campaign }: Landing
       {/* Hero */}
       <header className="bg-green-800 text-white px-8 py-16 text-center">
         <p className="text-green-300 text-xs font-semibold uppercase tracking-widest mb-3">
-          Coritiba FC × {company.company_name}
+          {tenant.clubName} × {company.company_name}
         </p>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 leading-tight">
           {c.title ?? proposal.title}
@@ -211,7 +214,7 @@ export function LandingTemplatePackages({ proposal, company, campaign }: Landing
       <section className="max-w-5xl mx-auto px-6 py-12">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-slate-800">Escolha o Pacote Ideal</h2>
-          <p className="text-slate-500 mt-1">Três níveis de parceria com benefícios exclusivos no Couto Pereira</p>
+          <p className="text-slate-500 mt-1">Três níveis de parceria com benefícios exclusivos no {tenant.stadiumName ?? "estádio"}</p>
         </div>
 
         {pricingTiers.length > 0 ? (
@@ -298,7 +301,7 @@ export function LandingTemplatePackages({ proposal, company, campaign }: Landing
 }
 
 /** Template D — One Offer: single focused offer, ideal for a specific named opportunity */
-export function LandingTemplateOneOffer({ proposal, company, campaign }: LandingMinimalProps) {
+export function LandingTemplateOneOffer({ proposal, company, campaign, tenant = DEFAULT_TEMPLATE_TENANT }: LandingMinimalProps) {
   const c = (proposal.content as unknown as ContentMap);
   const deliverables = c.deliverables ?? [];
 
@@ -330,15 +333,17 @@ export function LandingTemplateOneOffer({ proposal, company, campaign }: Landing
             )}
           </div>
           <div className="shrink-0 w-full sm:w-64 bg-white rounded-2xl shadow-2xl p-6 text-center">
-            <p className="text-xs font-semibold text-green-700 uppercase tracking-widest mb-2">Coritiba FC</p>
+            <p className="text-xs font-semibold text-green-700 uppercase tracking-widest mb-2">{tenant.clubName}</p>
             <p className="text-xl font-extrabold text-slate-800 mb-1">{campaign?.title ?? "Patrocínio"}</p>
             {company.industry && <p className="text-xs text-slate-500 mb-4">{company.industry}</p>}
-            <a
-              href="mailto:patrocinios@coritiba.com.br"
-              className="block w-full rounded-xl bg-green-700 text-white py-3 text-sm font-bold hover:bg-green-800 transition-colors"
-            >
-              Quero essa oferta
-            </a>
+            {tenant.isCoritiba && (
+              <a
+                href="mailto:patrocinios@coritiba.com.br"
+                className="block w-full rounded-xl bg-green-700 text-white py-3 text-sm font-bold hover:bg-green-800 transition-colors"
+              >
+                Quero essa oferta
+              </a>
+            )}
           </div>
         </div>
       </header>
@@ -413,14 +418,14 @@ export function LandingTemplateOneOffer({ proposal, company, campaign }: Landing
 }
 
 /** Template E — Inventory Menu: full menu of assets sponsor can choose from */
-export function LandingTemplateInventoryMenu({ proposal, company, campaign }: LandingMinimalProps) {
+export function LandingTemplateInventoryMenu({ proposal, company, campaign, tenant = DEFAULT_TEMPLATE_TENANT }: LandingMinimalProps) {
   const c = (proposal.content as unknown as ContentMap);
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
   const deliverables = c.deliverables ?? [];
 
   const MENU_CATEGORIES = [
     { key: "jersey", label: "Jersey & Kit", icon: "👕", items: deliverables.filter(d => /jersey|manga|camisa|sleeve|peito|chest/i.test(d)) },
-    { key: "stadium", label: "Estádio Couto Pereira", icon: "🏟", items: deliverables.filter(d => /LED|placar|couto|estádio|stadium|board|naming|vip|hospitality/i.test(d)) },
+    { key: "stadium", label: `Estádio ${tenant.stadiumName ?? ""}`.trim(), icon: "🏟", items: deliverables.filter(d => /LED|placar|couto|estádio|stadium|board|naming|vip|hospitality/i.test(d)) },
     { key: "digital", label: "Digital & Social", icon: "📱", items: deliverables.filter(d => /digital|instagram|youtube|social|app|tiktok|web/i.test(d)) },
     { key: "community", label: "Comunidade & ESG", icon: "🤝", items: deliverables.filter(d => /youth|academy|ESG|community|social|impact|escola/i.test(d)) },
     { key: "other", label: "Outros Benefícios", icon: "⭐", items: deliverables.filter(d => !/jersey|manga|camisa|sleeve|peito|chest|LED|placar|couto|estádio|stadium|board|naming|vip|hospitality|digital|instagram|youtube|social|app|tiktok|web|youth|academy|ESG|community|social|impact|escola/i.test(d)) },
@@ -436,7 +441,7 @@ export function LandingTemplateInventoryMenu({ proposal, company, campaign }: La
             <img src={company.logo_url} alt={company.company_name} className="h-10 object-contain" />
           )}
           <span className="text-white/40 text-2xl">×</span>
-          <span className="text-sm font-bold text-white/90 uppercase tracking-widest">Coritiba FC</span>
+          <span className="text-sm font-bold text-white/90 uppercase tracking-widest">{tenant.clubName}</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold mb-3 leading-tight">{c.title ?? proposal.title}</h1>
         {campaign?.title && <p className="text-green-200 text-sm mb-3">{campaign.title}</p>}

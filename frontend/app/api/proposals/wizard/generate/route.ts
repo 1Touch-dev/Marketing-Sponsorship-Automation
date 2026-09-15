@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
 
@@ -39,9 +40,11 @@ export async function POST(req: Request) {
     const inventoryLines = body.selected_inventory_lines ?? [];
 
     const sb = supabaseAdmin();
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
     // Load company
-    const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).maybeSingle();
+    const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     // Load company intelligence + differentiators
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
 
     // Load campaign if provided
     const { data: campaign } = body.campaign_id
-      ? await sb.from("campaigns").select("id, title, summary").eq("id", body.campaign_id).maybeSingle()
+      ? await sb.from("campaigns").select("id, title, summary").eq("id", body.campaign_id).eq("tenant_id", auth.user.tenant_id).maybeSingle()
       : { data: null };
 
     // Build inventory package summary for the AI
@@ -102,6 +105,7 @@ export async function POST(req: Request) {
       const { data: openBarterItems } = await sb
         .from("barter_items" as "companies")
         .select("item_name, category, quantity, target_price, currency")
+        .eq("tenant_id" as "id", auth.user.tenant_id)
         .eq("status", "open")
         .order("priority", { ascending: false })
         .limit(8);
@@ -109,6 +113,7 @@ export async function POST(req: Request) {
       barterContext = barterTermsInstructionBlock(
         ((openBarterItems as unknown as BarterGroundingItem[]) ?? []),
         splitTemplate,
+        clubName,
       );
     }
 
@@ -118,15 +123,16 @@ export async function POST(req: Request) {
     // history (same claim-grounding discipline as the barter branch above).
     let nilContext = "";
     if (body.proposal_type === "nil_creator") {
-      nilContext = nilTermsInstructionBlock(company.notes as string | null);
+      nilContext = nilTermsInstructionBlock(company.notes as string | null, clubName);
     }
 
     const strategyVariant = selectedStrategies[0]?.replace(/_/g, " ") ?? null;
 
     const { system, user } = proposalPrompt({
       company: { company_name: company.company_name, industry: company.industry, country: company.country, notes: company.notes },
-      campaign: campaign ? { title: campaign.title, summary: campaign.summary } : { title: `${company.company_name} × Coritiba FC Partnership` },
+      campaign: campaign ? { title: campaign.title, summary: campaign.summary } : { title: `${company.company_name} × ${clubName} Partnership` },
       strategy_variant: strategyVariant,
+      tenant,
     });
 
     const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext;
@@ -148,7 +154,7 @@ export async function POST(req: Request) {
     if (!campaignId) {
       const { data: newCampaign } = await (sb as ReturnType<typeof import("@/lib/supabase/server")["supabaseAdmin"]>).from("campaigns").insert({
         tenant_id: auth.user.tenant_id,
-        title: `${company.company_name} × Coritiba FC — ${(body.proposal_type).replace(/_/g, " ")}`,
+        title: `${company.company_name} × ${clubName} — ${(body.proposal_type).replace(/_/g, " ")}`,
         summary: `Wizard-generated campaign for ${company.company_name}`,
         company_id: company.id,
         status: "draft" as never,
@@ -162,7 +168,7 @@ export async function POST(req: Request) {
     // even before migration 0042 (which adds the column) has been applied.
     const proposalRow: Record<string, unknown> = {
       tenant_id: auth.user.tenant_id,
-      title: (parsed.title as string) ?? `${company.company_name} × Coritiba FC — Proposal`,
+      title: (parsed.title as string) ?? `${company.company_name} × ${clubName} — Proposal`,
       company_id: company.id,
       campaign_id: campaignId,
       status: "draft",
@@ -182,6 +188,7 @@ export async function POST(req: Request) {
     if (inventoryLines.length > 0 && proposal?.id) {
       await (sb as any).from("proposal_inventory_items").insert(
         inventoryLines.map(l => ({
+          tenant_id: auth.user.tenant_id,
           proposal_id: proposal.id,
           inventory_id: l.inventory_id,
           quantity: l.quantity,
@@ -195,10 +202,11 @@ export async function POST(req: Request) {
 
     // Update wizard draft
     await sb.from("proposal_wizard_drafts" as "companies").upsert({
+      tenant_id: auth.user.tenant_id,
       session_key: body.session_key,
       generated_proposal_id: proposal.id,
       status: "completed",
-    }, { onConflict: "session_key" });
+    } as never, { onConflict: "session_key" });
 
     await recordAudit({
       action: "proposal.wizard_generated",

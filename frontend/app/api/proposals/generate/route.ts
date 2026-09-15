@@ -35,6 +35,7 @@ import {
 } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -157,6 +158,8 @@ export async function POST(req: Request) {
     metadata: { campaign_title: campaignCtx.title, version: "v2" },
   });
 
+  const tenant = await resolveClubContext(auth.user.tenant_id);
+
   // ── 1. Main proposal content (with retry) ────────────────────────────────
   let proposalContent: ProposalContentAI | null = null;
   let lastError = "";
@@ -165,7 +168,7 @@ export async function POST(req: Request) {
   for (attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     if (attempt > 1 && eventId) await retryWorkflow(eventId, attempt);
     try {
-      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx });
+      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
       const raw = await runGeneration(pt.system, pt.user, 3000);
       const vr = validateAiOutput(proposalContentSchema, raw, {
         workflow_name: "proposal.generate",
@@ -198,7 +201,7 @@ export async function POST(req: Request) {
   const [strategyVariants, pricingTiers, visualPrompts, intelligence] = await Promise.all([
     withTimeout(
       (async (): Promise<StrategyVariant[] | null> => {
-        const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const raw = await runGeneration(pt.system, pt.user, 2500);
         const vr = validateAiOutput(strategyVariantsResponseSchema, normalizeStrategyVariants(raw), { workflow_name: "proposal.strategy_variants", silent: true });
         return vr.ok && vr.data ? vr.data.variants : null;
@@ -208,7 +211,7 @@ export async function POST(req: Request) {
 
     withTimeout(
       (async (): Promise<PricingTier[] | null> => {
-        const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const raw = await runGeneration(pt.system, pt.user, 2000);
         const vr = validateAiOutput(pricingTiersResponseSchema, normalizePricingTiers(raw), { workflow_name: "proposal.pricing_tiers", silent: true });
         return vr.ok && vr.data ? (vr.data.tiers as unknown as PricingTier[]) : null;
@@ -218,7 +221,7 @@ export async function POST(req: Request) {
 
     withTimeout(
       (async (): Promise<VisualPrompt[] | null> => {
-        const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const raw = await runGeneration(pt.system, pt.user, 2000);
         const vr = validateAiOutput(visualPromptsResponseSchema, normalizeVisualPrompts(raw), { workflow_name: "proposal.visual_prompts", silent: true });
         return vr.ok && vr.data ? (vr.data.visuals as unknown as VisualPrompt[]) : null;
@@ -228,7 +231,7 @@ export async function POST(req: Request) {
 
     withTimeout(
       (async (): Promise<CompanyIntelligence | null> => {
-        const pt = companyIntelligencePrompt({ company: companyCtx });
+        const pt = companyIntelligencePrompt({ company: companyCtx, tenant });
         const raw = await runGeneration(pt.system, pt.user, 1500);
         const vr = validateAiOutput(companyIntelligenceResponseSchema, normalizeCompanyIntelligence(raw), { workflow_name: "proposal.intelligence", silent: true });
         return vr.ok && vr.data ? (vr.data.intelligence as unknown as CompanyIntelligence) : null;

@@ -4,6 +4,8 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 90;
 
@@ -47,8 +49,10 @@ export async function POST(req: Request) {
       scrapeMethod = "fetch_fallback";
     }
 
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+
     // ── AI Competitor Discovery ────────────────────────────────────────
-    const competitorPrompt = buildCompetitorPrompt(company, targetDomain, scraped);
+    const competitorPrompt = buildCompetitorPrompt(company, targetDomain, scraped, tenant);
     const competitorResult = await invokeClaude({
       messages: [{ role: "user", content: competitorPrompt }],
       maxTokens: 2000,
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
     } catch { /* */ }
 
     // ── Full AI Enrichment ────────────────────────────────────────────
-    const enrichmentPrompt = buildEnrichmentPrompt(company, targetDomain, scraped);
+    const enrichmentPrompt = buildEnrichmentPrompt(company, targetDomain, scraped, tenant);
     const enrichmentResult = await invokeClaude({
       messages: [{ role: "user", content: enrichmentPrompt }],
       maxTokens: 3000,
@@ -437,8 +441,9 @@ function autoLabel(company: Record<string, string>, scraped: ScrapedData, intell
   return { segment, size, business_type };
 }
 
-function buildCompetitorPrompt(company: Record<string, unknown>, domain: string, scraped: ScrapedData): string {
-  return `You are a business intelligence analyst for Coritiba FC.
+function buildCompetitorPrompt(company: Record<string, unknown>, domain: string, scraped: ScrapedData, tenant: ClubContextInput): string {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  return `You are a business intelligence analyst for ${clubName}.
 Company: ${String(company.company_name ?? "")}
 Industry: ${String(company.industry ?? "Unknown")}
 Website: ${domain}
@@ -455,8 +460,10 @@ Identify 5-8 DIRECT COMPETITOR companies (NOT football clubs). Return JSON only:
 }`;
 }
 
-function buildEnrichmentPrompt(company: Record<string, unknown>, domain: string, scraped: ScrapedData): string {
-  return `You are Coritiba FC's commercial intelligence analyst. CRITICAL: NEVER mention Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, Grêmio, Internacional or any competitor club.
+function buildEnrichmentPrompt(company: Record<string, unknown>, domain: string, scraped: ScrapedData, tenant: ClubContextInput): string {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "any competitor club";
+  return `You are ${clubName}'s commercial intelligence analyst. CRITICAL: NEVER mention ${rivalsList}.
 
 Company: ${String(company.company_name ?? "")}
 Domain: ${domain}

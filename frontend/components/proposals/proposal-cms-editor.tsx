@@ -46,6 +46,15 @@ interface ProposalCMSEditorProps {
   campaign?: { title: string; summary?: string | null } | null;
   approvedImages?: ProposalImageAsset[];
   companyId?: string;
+  tenant?: {
+    isCoritiba: boolean;
+    clubName: string;
+    clubFullName: string;
+    crestUrl: string | null;
+    stadiumName?: string;
+    city?: string;
+    state?: string;
+  };
 }
 
 type ContentFields = {
@@ -74,7 +83,7 @@ const CMS_FIELDS: Array<{
 ];
 
 export function ProposalCMSEditor({
-  proposal, company, campaign, approvedImages = [], companyId,
+  proposal, company, campaign, approvedImages = [], companyId, tenant,
 }: ProposalCMSEditorProps) {
   const [editMode, setEditMode] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<LandingTemplateId>("premium");
@@ -223,6 +232,7 @@ export function ProposalCMSEditor({
           campaign={campaign}
           approvedImages={approvedImages}
           adminMode={true}
+          tenant={tenant}
         />
       )}
       {activeTemplate === "minimal" && (
@@ -232,6 +242,7 @@ export function ProposalCMSEditor({
           campaign={campaign}
           approvedImages={approvedImages}
           adminMode={true}
+          tenant={tenant}
         />
       )}
       {activeTemplate === "packages" && (
@@ -241,6 +252,7 @@ export function ProposalCMSEditor({
           campaign={campaign}
           approvedImages={approvedImages}
           adminMode={true}
+          tenant={tenant}
         />
       )}
       {activeTemplate === "one_offer" && (
@@ -250,6 +262,7 @@ export function ProposalCMSEditor({
           campaign={campaign}
           approvedImages={approvedImages}
           adminMode={true}
+          tenant={tenant}
         />
       )}
       {activeTemplate === "inventory_menu" && (
@@ -259,6 +272,7 @@ export function ProposalCMSEditor({
           campaign={campaign}
           approvedImages={approvedImages}
           adminMode={true}
+          tenant={tenant}
         />
       )}
     </div>

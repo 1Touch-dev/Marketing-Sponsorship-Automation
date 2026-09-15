@@ -4,6 +4,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { opportunityGapPrompt } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +53,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   const competitors = (Array.isArray(intel.competitors) ? intel.competitors : []) as Array<Record<string, unknown>>;
 
   try {
+    const tenant = await resolveClubContext(auth.user.tenant_id);
     const pt = opportunityGapPrompt({
       company: {
         company_name: company.company_name,
@@ -65,6 +67,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
         name: String(c.name ?? ""),
         sponsorshipHistory: typeof c.sponsorship_history === "string" ? c.sponsorship_history : null,
       })),
+      tenant,
     });
 
     const result = await invokeClaude<{

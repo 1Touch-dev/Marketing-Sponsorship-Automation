@@ -4,11 +4,29 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const INTELLIGENCE_PROMPT = (name: string, industry: string | null, website: string | null, notes: string | null) => `You are a senior commercial sponsorship strategist for Coritiba FC, a top Brazilian football club based in Curitiba, Paraná, that plays at the Couto Pereira stadium.
+// Field names below (coritiba_fit_score, coritiba_fit_rationale) are kept as
+// literal JSON keys for backward-compatibility with already-stored company
+// intelligence rows and lib/proposals/generate-for-company.ts, which both
+// read these exact keys — only the human-readable prompt text is tenant-ized.
+const INTELLIGENCE_PROMPT = (
+  name: string,
+  industry: string | null,
+  website: string | null,
+  notes: string | null,
+  tenant: ClubContextInput,
+) => {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const region = [tenant.club_facts.city, tenant.club_facts.state].filter(Boolean).join(", ") || "its home region";
+  const stadium = tenant.club_facts.stadium_name ? `, that plays at the ${tenant.club_facts.stadium_name}` : "";
+  const audience = tenant.club_facts.follower_count ? `${clubName} ${tenant.club_facts.follower_count}` : `${clubName}'s fanbase`;
+
+  return `You are a senior commercial sponsorship strategist for ${clubName}, a top Brazilian football club based in ${region}${stadium}.
 
 Analyze the company "${name}" and generate deep commercial intelligence to guide sponsorship approach.
 
@@ -24,16 +42,16 @@ Return raw JSON only (no markdown, no code fences, no prose). Include all fields
   "marketing_goals": "Likely marketing goals and priorities",
   "brand_positioning": "How they position their brand in the market",
   "target_audience": "Their primary target audience/customer demographic",
-  "audience_alignment": "How their audience aligns with Coritiba FC 1.5M+ social following and Curitiba 1.95M fanbase",
+  "audience_alignment": "How their audience aligns with ${audience}",
   "coritiba_fit_score": 8,
-  "coritiba_fit_rationale": "Why this company fits Coritiba FC sponsorship",
-  "recommended_direction": "Specific recommended sponsorship partnership direction for Coritiba FC",
+  "coritiba_fit_rationale": "Why this company fits ${clubName} sponsorship",
+  "recommended_direction": "Specific recommended sponsorship partnership direction for ${clubName}",
   "competitors": [
     {"name": "Real Company Name", "reason": "Why they are a direct competitor", "estimated_spend": "R$X/year", "sponsorship_active": true, "website": "domain.com.br"}
   ],
-  "local_context": "Specific Curitiba/Paraná regional market context",
+  "local_context": "Specific ${region} regional market context",
   "global_inspiration": "Global campaign strategies from similar companies",
-  "sponsorship_activation_ideas": "3-5 specific activation ideas leveraging Coritiba FC assets",
+  "sponsorship_activation_ideas": "3-5 specific activation ideas leveraging ${clubName} assets",
   "key_messages": "Key messages to use when pitching to this company",
   "best_contact_timing": "Best time to approach for sponsorship"
 }
@@ -42,8 +60,9 @@ Rules:
 - coritiba_fit_score must be a number 1-10
 - competitors must be 4-6 real companies (no football clubs)
 - All text fields must contain real intelligence, not placeholders
-- Focus on Brazilian market, Curitiba region
-- DO NOT mention competitor football clubs (Athletico Paranaense, etc.)`;
+- Focus on Brazilian market, ${region}
+- DO NOT mention competitor football clubs${tenant.club_facts.rival_clubs?.length ? ` (${tenant.club_facts.rival_clubs.map((r) => r.split(" —")[0]).join(", ")}, etc.)` : ""}`;
+};
 
 export async function POST(req: Request) {
   const auth = await requirePermission("run_intelligence");
@@ -68,9 +87,10 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
 
   try {
+    const tenant = await resolveClubContext(auth.user.tenant_id);
     const response = await invokeClaude({
       system: "You are a commercial intelligence analyst for Brazilian football club sponsorships. Always respond with valid JSON only. Never use markdown code blocks or code fences.",
-      messages: [{ role: "user", content: INTELLIGENCE_PROMPT(company_name, industry, website, notes) }],
+      messages: [{ role: "user", content: INTELLIGENCE_PROMPT(company_name, industry, website, notes, tenant) }],
       maxTokens: 4096,
       json: true,
     });

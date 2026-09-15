@@ -83,7 +83,6 @@ export default async function BrandAssetsPage() {
     .select("*, brand_assets(*)")
     .eq("tenant_id", tenantId)
     .eq("status", "active")
-    .eq("club", "Coritiba FC")
     .order("created_at", { ascending: true })
     .limit(20);
 

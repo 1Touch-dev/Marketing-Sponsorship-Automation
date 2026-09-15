@@ -17,7 +17,6 @@ export async function GET(req: Request) {
     .select("*, brand_assets(*)")
     .eq("tenant_id", tenantId)
     .eq("status", "active")
-    .eq("club", "Coritiba FC")
     .order("created_at", { ascending: true });
 
   if (assetType) {

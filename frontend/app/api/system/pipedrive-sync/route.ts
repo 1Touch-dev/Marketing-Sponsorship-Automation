@@ -2,26 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createOrUpdateDeal, logActivity } from "@/lib/pipedrive/sync";
 import { requireInternalAuth } from "@/lib/internal-auth";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
+// Pipedrive is a single, Coritiba-specific CRM integration today (see
+// PLATFORM_ROADMAP.md Section 6 — it doesn't fit the multi-tenant model),
+// so this background job is deliberately scoped to only the Coritiba
+// tenant's data — never syncing another tenant's proposals/contracts into
+// Coritiba's shared Pipedrive account.
 export async function POST(req: NextRequest) {
   const authErr = requireInternalAuth(req);
   if (authErr) return authErr;
 
   const sb = supabaseAdmin();
   const results: string[] = [];
+  const tenant = await resolveClubContext(CORITIBA_TENANT_ID);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
   // 1. Find proposals sent in last 24h that haven't been synced to Pipedrive
   const yesterday = new Date(Date.now() - 86400 * 1000).toISOString();
   const { data: sentProposals } = await sb
     .from("proposals")
     .select("id, title, companies(company_name)")
+    .eq("tenant_id", CORITIBA_TENANT_ID)
     .eq("status", "sent")
     .gte("updated_at", yesterday);
 
   for (const p of (sentProposals ?? [])) {
     const companyName = (p.companies as { company_name?: string } | null)?.company_name ?? "Unknown";
     const result = await createOrUpdateDeal({
-      title: `${companyName} x Coritiba FC — ${p.title}`,
+      title: `${companyName} x ${clubName} — ${p.title}`,
       orgName: companyName,
       status: "open",
       proposalId: p.id,
@@ -34,12 +44,13 @@ export async function POST(req: NextRequest) {
   const { data: coldProposals } = await sb
     .from("proposals")
     .select("id, title, companies(company_name)")
+    .eq("tenant_id", CORITIBA_TENANT_ID)
     .in("status", ["sent", "viewed"])
     .lte("updated_at", sevenDaysAgo);
 
   for (const p of (coldProposals ?? [])) {
     const companyName = (p.companies as { company_name?: string } | null)?.company_name ?? "Unknown";
-    const dealTitle = `${companyName} x Coritiba FC — ${p.title}`;
+    const dealTitle = `${companyName} x ${clubName} — ${p.title}`;
     await logActivity({
       dealTitle,
       activityType: "Follow-up needed",
@@ -55,6 +66,7 @@ export async function POST(req: NextRequest) {
     const { data } = await sb
       .from("contracts")
       .select("title, end_date, companies(company_name)")
+      .eq("tenant_id", CORITIBA_TENANT_ID)
       .lte("end_date", sixtyDaysFromNow)
       .eq("status", "active");
     expiringContracts = (data ?? []) as typeof expiringContracts;
@@ -66,7 +78,7 @@ export async function POST(req: NextRequest) {
       ? ((rawCompanies as Array<{ company_name?: string }>)[0]?.company_name ?? "Unknown")
       : ((rawCompanies as { company_name?: string } | null)?.company_name ?? "Unknown");
     await logActivity({
-      dealTitle: `${companyName} x Coritiba FC`,
+      dealTitle: `${companyName} x ${clubName}`,
       activityType: "Contract renewal alert",
       note: `Contract "${c.title}" expires on ${c.end_date}. Start renewal proposal.`,
     }).catch(() => {});

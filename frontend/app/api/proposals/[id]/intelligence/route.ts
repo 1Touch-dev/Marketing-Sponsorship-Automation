@@ -6,6 +6,7 @@ import { companyIntelligenceResponseSchema, normalizeCompanyIntelligence, valida
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
 
   let intelligence: Record<string, unknown> | null = null;
   try {
+    const tenant = await resolveClubContext(auth.user.tenant_id);
     const pt = companyIntelligencePrompt({
       company: {
         company_name: company.company_name,
@@ -74,6 +76,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
         country: company.country ?? "BR",
         notes: company.notes,
       },
+      tenant,
     });
     const result = await invokeClaude<unknown>({
       system: pt.system,
@@ -97,8 +100,8 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   }
 
   // Save on proposal row (0007 column — graceful if not applied yet)
-  await sb.from("proposals").update({ intelligence } as Record<string, unknown>).eq("id", proposal.id);
-  await sb.from("companies").update({ intelligence } as Record<string, unknown>).eq("id", company.id);
+  await sb.from("proposals").update({ intelligence } as Record<string, unknown>).eq("id", proposal.id).eq("tenant_id", auth.user.tenant_id);
+  await sb.from("companies").update({ intelligence } as Record<string, unknown>).eq("id", company.id).eq("tenant_id", auth.user.tenant_id);
 
   await recordAudit({
     entity_type: "proposal",

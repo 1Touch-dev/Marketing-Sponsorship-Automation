@@ -52,32 +52,27 @@ interface ProposalLandingPageProps {
   expiresAt?: string | null;
   onPrint?: () => void;
   onShare?: () => void;
+  /** Phase 4 — defaults to Coritiba so existing callers keep producing
+   *  identical output until they're updated to pass the requesting tenant. */
+  tenant?: {
+    isCoritiba: boolean;
+    clubName: string;
+    clubFullName: string;
+    crestUrl: string | null;
+    stadiumName?: string;
+    city?: string;
+    state?: string;
+  };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Real Coritiba FC facts (verified from Wikipedia, Transfermarkt, Rocketfan 2026)
-// ─────────────────────────────────────────────────────────────────────────────
-const CORITIBA_FACTS = {
-  founded: "1909",
-  stadium: "Estádio Couto Pereira",
-  capacity: "40.502",
-  members: "38.000+",
-  // 2026 avg attendance per Globo Esporte (Coritiba x Santos: 36k+, avg >25k in Série A)
-  avgAttendance: "25.000–36.000",
-  // Social: Instagram ~700k, Facebook ~800k, combined 1.5M+
-  socialFollowers: "1,5M+",
-  // Revenue per Rocketfan 2024 data
-  revenue2024: "R$ 92M",
-  // Transfermarkt squad value
-  squadValue: "€ 14,1M",
-  state: "Paraná",
+const DEFAULT_TENANT_DISPLAY = {
+  isCoritiba: true,
+  clubName: "Coritiba FC",
+  clubFullName: "Coritiba Foot Ball Club",
+  crestUrl: "/brand/coritiba-crest.png",
+  stadiumName: "Estádio Couto Pereira",
   city: "Curitiba",
-  // Curitiba is highest HDI capital in South Brazil
-  curitibaHDI: "0,823",
-  // Brazil's 8th largest metropolitan area
-  curitibaMetro: "3,7M hab.",
-  competitions: "Série A + Copa do Brasil + Campeonato Paranaense",
-  broadcasts: "Globo, SporTV, Paramount+",
+  state: "Paraná",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -257,6 +252,7 @@ export function ProposalLandingPage({
   expiresAt,
   onPrint,
   onShare,
+  tenant = DEFAULT_TENANT_DISPLAY,
 }: ProposalLandingPageProps) {
   const content = proposal.content as unknown as {
     title: string;
@@ -275,7 +271,11 @@ export function ProposalLandingPage({
   const hasIntelligence = intelligence != null;
   const strategyVariants = (proposal.strategy_variants ?? []) as SV[];
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
-  const kpi = resolveKpiTemplate(kpiTemplateId ?? content?.kpi_template_id);
+  const kpi = resolveKpiTemplate(kpiTemplateId ?? content?.kpi_template_id, {
+    isCoritiba: tenant.isCoritiba,
+    clubName: tenant.clubName,
+    stadium_name: tenant.stadiumName,
+  });
 
   const statusColor =
     proposal.status === "approved" ? "bg-emerald-500 text-white" :
@@ -312,10 +312,12 @@ export function ProposalLandingPage({
                 {company.industry}
               </span>
             )}
-            {/* Coritiba FC chip */}
+            {/* Club chip */}
             <span className="inline-flex items-center gap-2 rounded-full bg-white/15 border border-white/25 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
-              <Image src="/brand/coritiba-crest.png" alt="Coritiba FC" width={16} height={17} className="object-contain" />
-              Coritiba FC
+              {tenant.crestUrl && (
+                <Image src={tenant.crestUrl} alt={tenant.clubName} width={16} height={17} className="object-contain" />
+              )}
+              {tenant.clubName}
             </span>
             <span className={cn("ml-auto rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider backdrop-blur-sm", statusColor)}>
               {proposal.status}
@@ -325,13 +327,15 @@ export function ProposalLandingPage({
           {/* Club + Sponsor lockup */}
           <div className="flex flex-wrap items-center gap-4 mb-5">
             <div className="flex items-center gap-3">
-              <Image
-                src="/brand/coritiba-crest.png"
-                alt="Coritiba FC"
-                width={58}
-                height={62}
-                className="object-contain"
-              />
+              {tenant.crestUrl && (
+                <Image
+                  src={tenant.crestUrl}
+                  alt={tenant.clubName}
+                  width={58}
+                  height={62}
+                  className="object-contain"
+                />
+              )}
               <span className="text-white/50 text-2xl font-light">×</span>
               {company.logo_url ? (
                 <div className="w-14 h-14 rounded-xl bg-white p-1.5 flex items-center justify-center">
@@ -382,8 +386,12 @@ export function ProposalLandingPage({
           <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-1 text-white/40 text-xs">
             <span className="flex items-center gap-1"><Star className="h-3 w-3" /> Proposta v{proposal.version}</span>
             <span>·</span>
-            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Curitiba, Paraná, Brasil</span>
-            <span>·</span>
+            {(tenant.city || tenant.state) && (
+              <>
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {[tenant.city, tenant.state].filter(Boolean).join(", ")}, Brasil</span>
+                <span>·</span>
+              </>
+            )}
             <span suppressHydrationWarning>Gerada em {formatDate(proposal.created_at)}</span>
           </div>
 
@@ -416,11 +424,13 @@ export function ProposalLandingPage({
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Parceria Estratégica</div>
                 <h2 className="text-xl font-bold text-slate-900">
-                  {company.company_name} × Coritiba FC
+                  {company.company_name} × {tenant.clubName}
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {CORITIBA_FACTS.stadium} · Curitiba, {CORITIBA_FACTS.state} · Fundado {CORITIBA_FACTS.founded}
-                </p>
+                {(tenant.stadiumName || tenant.city) && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {[tenant.stadiumName, tenant.city && tenant.state ? `${tenant.city}, ${tenant.state}` : tenant.city].filter(Boolean).join(" · ")}
+                  </p>
+                )}
               </div>
               {intelligence && (
                 <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-100 px-4 py-2.5">
@@ -454,28 +464,33 @@ export function ProposalLandingPage({
                 );
               })}
             </div>
-            {/* Curitiba positioning */}
-            <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs font-semibold text-slate-500 mb-1">Curitiba — IDH</div>
-                <div className="text-sm font-bold text-slate-900">{CORITIBA_FACTS.curitibaHDI}</div>
-                <div className="text-xs text-slate-400">Maior IDH do Sul do Brasil</div>
+            {/* Regional/broadcast positioning — Coritiba's own verified facts
+                (Curitiba's HDI, its specific 2026 competitions and broadcast
+                partners) aren't in the tenant schema, so only shown for the
+                real Coritiba tenant rather than fabricated for any other. */}
+            {tenant.isCoritiba && (
+              <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500 mb-1">Curitiba — IDH</div>
+                  <div className="text-sm font-bold text-slate-900">0,823</div>
+                  <div className="text-xs text-slate-400">Maior IDH do Sul do Brasil</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500 mb-1">Competições 2026</div>
+                  <div className="text-xs font-semibold text-slate-800">Série A + Copa do Brasil + Campeonato Paranaense</div>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-500 mb-1">Transmissão</div>
+                  <div className="text-xs font-semibold text-slate-800">Globo, SporTV, Paramount+</div>
+                </div>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs font-semibold text-slate-500 mb-1">Competições 2026</div>
-                <div className="text-xs font-semibold text-slate-800">{CORITIBA_FACTS.competitions}</div>
-              </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <div className="text-xs font-semibold text-slate-500 mb-1">Transmissão</div>
-                <div className="text-xs font-semibold text-slate-800">{CORITIBA_FACTS.broadcasts}</div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Past Partners Bar */}
           <div className="mt-5 pt-4 border-t border-slate-100">
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
-              Marcas que confiam no Coritiba FC
+              Marcas que confiam no {tenant.clubName}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-slate-500 font-medium mr-1">Alguns de nossos parceiros:</span>
@@ -503,7 +518,7 @@ export function ProposalLandingPage({
 
         {hasIntelligence ? (
           <Section id="intelligence" title="Por que esta parceria" badge="Fit comercial"
-            subtitle="Contexto de mercado e alinhamento entre sua marca e o Coritiba FC">
+            subtitle={`Contexto de mercado e alinhamento entre sua marca e o ${tenant.clubName}`}>
             <IntelligencePanel intelligence={intelligence!} />
           </Section>
         ) : null}
@@ -678,9 +693,14 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* Upcoming Matches at Couto Pereira — sponsor activation context */}
+        {/* Upcoming Matches — the specific opponents/attendance below are
+            Coritiba's own illustrative examples, not real fixtures pulled
+            from any data source, so only shown for the real Coritiba tenant
+            rather than presented as real fixtures for a club they don't
+            apply to. */}
+        {tenant.isCoritiba && (
         <Section id="upcoming-matches" title="Próximas Partidas" badge="Ativação no Estádio"
-          subtitle="Oportunidades de ativação ao vivo no Estádio Couto Pereira — seu logo diante de milhares de torcedores">
+          subtitle={`Oportunidades de ativação ao vivo no ${tenant.stadiumName ?? "estádio"} — seu logo diante de milhares de torcedores`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[
               {
@@ -717,7 +737,7 @@ export function ProposalLandingPage({
                   <span className="text-[10px] text-slate-400">{match.date}</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <div className="text-xs text-slate-500">Coritiba FC</div>
+                  <div className="text-xs text-slate-500">{tenant.clubName}</div>
                   <div className="text-xs font-bold text-slate-700 px-2">vs</div>
                   <div className="text-xs font-semibold text-slate-900">{match.opponent}</div>
                 </div>
@@ -746,6 +766,7 @@ export function ProposalLandingPage({
             Calendário atualizado a cada rodada. Ativações de patrocínio confirmadas com 2 semanas de antecedência.
           </p>
         </Section>
+        )}
 
         {/* CTA */}
         {content?.cta && (
@@ -755,10 +776,12 @@ export function ProposalLandingPage({
               <div className="absolute inset-0 opacity-[0.05]"
                 style={{ backgroundImage: "repeating-linear-gradient(90deg, white 0px, white 20px, transparent 20px, transparent 60px)" }} />
               <div className="relative">
-                <div className="flex justify-center mb-5">
-                  <Image src="/brand/coritiba-crest.png" alt="Coritiba FC" width={58} height={62}
-                    className="object-contain" />
-                </div>
+                {tenant.crestUrl && (
+                  <div className="flex justify-center mb-5">
+                    <Image src={tenant.crestUrl} alt={tenant.clubName} width={58} height={62}
+                      className="object-contain" />
+                  </div>
+                )}
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 px-4 py-1.5 text-xs font-semibold text-white/70 mb-5 uppercase tracking-wider">
                   <Zap className="h-3 w-3" />
                   Próximo Passo
@@ -786,9 +809,9 @@ export function ProposalLandingPage({
 
         {/* Print footer */}
         <div className="hidden print:block py-8 text-center text-xs text-slate-400 border-t border-slate-200 mt-8">
-          <p className="font-semibold text-slate-600">{company.company_name} × Coritiba FC</p>
+          <p className="font-semibold text-slate-600">{company.company_name} × {tenant.clubName}</p>
           <p className="mt-1">Proposta de Patrocínio · v{proposal.version} · {formatDate(proposal.created_at)}</p>
-          <p className="mt-1">Plataforma de Patrocínio Coritiba FC · Confidencial</p>
+          <p className="mt-1">Plataforma de Patrocínio {tenant.clubName} · Confidencial</p>
         </div>
       </main>
     </article>

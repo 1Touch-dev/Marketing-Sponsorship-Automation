@@ -1,5 +1,13 @@
 /**
- * Configurable Coritiba KPI sets for proposal landing pages (James: standardize per proposal type).
+ * Configurable KPI sets for proposal landing pages (James: standardize per proposal type).
+ *
+ * Phase 4 — these specific figures (stadium capacity, metro population, IDH,
+ * broadcast partners) are Coritiba's own verified facts, not present in the
+ * tenant schema (`tenants.club_facts` only has founded_year, stadium_name,
+ * follower_count, typical_attendance). `resolveKpiTemplate` therefore only
+ * returns these exact templates for the real Coritiba tenant; any other
+ * tenant gets a minimal template built only from whatever facts are actually
+ * configured, per the platform's claim-grounding rule.
  */
 
 export type KpiMetric = {
@@ -14,6 +22,15 @@ export type KpiTemplate = {
   description: string;
   heroStats: Array<{ label: string; value: string; sub: string }>;
   metrics: KpiMetric[];
+};
+
+export type KpiTenantFacts = {
+  isCoritiba: boolean;
+  clubName: string;
+  founded_year?: number;
+  stadium_name?: string;
+  follower_count?: string;
+  typical_attendance?: string;
 };
 
 const BASE_HERO = {
@@ -77,7 +94,36 @@ export const KPI_TEMPLATES: Record<string, KpiTemplate> = {
   },
 };
 
-export function resolveKpiTemplate(templateId?: string | null): KpiTemplate {
+/** Minimal, honest KPI template for a tenant that isn't Coritiba — only
+ *  surfaces stats that are actually configured on that tenant's club_facts,
+ *  never Coritiba's specific real-world numbers. */
+function buildGenericTemplate(tenant: KpiTenantFacts): KpiTemplate {
+  const heroStats: Array<{ label: string; value: string; sub: string }> = [];
+  if (tenant.founded_year) {
+    heroStats.push({ label: "Fundado em", value: String(tenant.founded_year), sub: tenant.stadium_name ?? tenant.clubName });
+  }
+  if (tenant.follower_count) {
+    heroStats.push({ label: "Seguidores", value: tenant.follower_count, sub: "Alcance digital" });
+  }
+  if (tenant.typical_attendance) {
+    heroStats.push({ label: tenant.stadium_name ?? "Estádio", value: tenant.typical_attendance, sub: "público médio por partida" });
+  }
+
+  const metrics: KpiMetric[] = [];
+  if (tenant.typical_attendance) metrics.push({ icon: "users", value: tenant.typical_attendance, label: "Público médio/jogo" });
+  if (tenant.follower_count) metrics.push({ icon: "globe", value: tenant.follower_count, label: "Seguidores digitais" });
+
+  return {
+    id: "generic",
+    label: "Padrão",
+    description: "Built from this club's configured facts",
+    heroStats,
+    metrics,
+  };
+}
+
+export function resolveKpiTemplate(templateId?: string | null, tenant?: KpiTenantFacts): KpiTemplate {
+  if (tenant && !tenant.isCoritiba) return buildGenericTemplate(tenant);
   if (templateId && KPI_TEMPLATES[templateId]) return KPI_TEMPLATES[templateId];
   return KPI_TEMPLATES.sponsorship_standard;
 }

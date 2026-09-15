@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveTenantId, getTenantById } from "@/lib/tenants/current";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { ProposalCMSEditor } from "@/components/proposals/proposal-cms-editor";
 import { PrintButton } from "./print-button";
@@ -15,6 +16,20 @@ export const dynamic = "force-dynamic";
 export default async function ProposalViewPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
+  const tenantRow = await getTenantById(tenantId);
+  const isCoritiba = tenantId === CORITIBA_TENANT_ID;
+  const tenantDisplay = {
+    isCoritiba,
+    clubName: tenantRow?.club_facts.short_name ?? tenantRow?.club_facts.club_name ?? "o clube",
+    clubFullName: tenantRow?.club_facts.club_name ?? "o clube",
+    // Coritiba's known-good asset path — not trusting the DB's crest_url for
+    // this tenant since migration 0047 seeded a mismatched extension (.svg,
+    // no such file); other tenants use whatever they've actually configured.
+    crestUrl: isCoritiba ? "/brand/coritiba-crest.png" : (tenantRow?.branding.crest_url ?? null),
+    stadiumName: tenantRow?.club_facts.stadium_name,
+    city: tenantRow?.club_facts.city,
+    state: tenantRow?.club_facts.state,
+  };
 
   const { data: proposal } = await sb
     .from("proposals")
@@ -99,6 +114,7 @@ export default async function ProposalViewPage({ params }: { params: { id: strin
           campaign={p.campaigns}
           approvedImages={approvedImages}
           companyId={company?.id as string | undefined}
+          tenant={tenantDisplay}
         />
       </div>
 

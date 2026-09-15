@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveTenantId, getTenantById } from "@/lib/tenants/current";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
@@ -31,42 +32,52 @@ function dedupeImagesByLabel(
 
 // Fallback opportunity copy per primary asset category — used only when the
 // AI-generated executive_summary/campaign_rationale aren't available yet.
-const ASSET_FALLBACK: Record<string, { title: string; text: string }> = {
-  jersey: {
-    title: "Visibilidade no Uniforme Oficial",
-    text: "A camisa do Coritiba é um veículo de mídia em movimento — vista em campo, nas redes sociais, na TV e nas arquibancadas por milhares de torcedores a cada partida.",
-  },
-  led_board: {
-    title: "LED Perimetral — Visibilidade Máxima em Campo",
-    text: "Os painéis LED do Couto Pereira garantem exposição direta durante transmissões, com presença garantida nos cortes de câmera e replays.",
-  },
-  vip_area: {
-    title: "Experiência VIP — B2B e Hospitalidade Premium",
-    text: "O camarote do Coritiba é o ambiente ideal para relacionamento com clientes, parceiros e executivos em dias de jogo.",
-  },
-  social_post: {
-    title: "Presença Digital — Redes Sociais do Coritiba",
-    text: "Com mais de 500 mil seguidores nas redes, o Coritiba FC conecta sua marca diretamente ao torcedor engajado.",
-  },
-  default: {
-    title: "Por que patrocinar o Coritiba FC?",
-    text: "Uma parceria com o Coritiba FC oferece visibilidade em partidas para mais de 40.000 torcedores, presença nos uniformes durante toda a temporada, e ativações criativas que conectam sua marca ao coração verde e branco do Paraná.",
-  },
-};
-
-// Club constants — same figures used across the platform (README, HTML deck
-// template). Not sponsor-specific, so safe to hardcode rather than fabricate.
-const CLUB_STATS = [
-  { v: "23 mil", l: "NO COUTO · público médio, top 10 do Brasil" },
-  { v: "36 mil", l: "SÓCIOS COXA · meta de 40 mil no ano" },
-  { v: "204 mil", l: "NO COXA iD · torcedores identificados" },
-  { v: "231 mi", l: "NAS REDES OFICIAIS · alcance acumulado" },
-  { v: "320 mi", l: "NO MATCHDAY · views acumulados" },
-];
+// Templated on the requesting tenant's own club/stadium name rather than
+// hardcoded (Phase 4) — falls back to generic phrasing when a fact isn't
+// configured for a given tenant, per the platform's claim-grounding rule
+// (never state a specific fact — follower counts, stadium name — that
+// isn't actually known for the club in question).
+function buildAssetFallback(clubName: string, stadiumName: string, followerCount?: string): Record<string, { title: string; text: string }> {
+  return {
+    jersey: {
+      title: "Visibilidade no Uniforme Oficial",
+      text: `A camisa do ${clubName} é um veículo de mídia em movimento — vista em campo, nas redes sociais, na TV e nas arquibancadas por milhares de torcedores a cada partida.`,
+    },
+    led_board: {
+      title: "LED Perimetral — Visibilidade Máxima em Campo",
+      text: `Os painéis LED do ${stadiumName} garantem exposição direta durante transmissões, com presença garantida nos cortes de câmera e replays.`,
+    },
+    vip_area: {
+      title: "Experiência VIP — B2B e Hospitalidade Premium",
+      text: `O camarote do ${clubName} é o ambiente ideal para relacionamento com clientes, parceiros e executivos em dias de jogo.`,
+    },
+    social_post: {
+      title: `Presença Digital — Redes Sociais do ${clubName}`,
+      text: followerCount
+        ? `Com ${followerCount}, o ${clubName} conecta sua marca diretamente ao torcedor engajado.`
+        : `O ${clubName} conecta sua marca diretamente ao torcedor engajado através das suas redes sociais oficiais.`,
+    },
+    default: {
+      title: `Por que patrocinar o ${clubName}?`,
+      text: `Uma parceria com o ${clubName} oferece visibilidade em partidas, presença nos uniformes durante toda a temporada, e ativações criativas que conectam sua marca à torcida.`,
+    },
+  };
+}
 
 export default async function ProposalDeckPage({ params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
+  const tenant = await getTenantById(tenantId);
+  const isCoritiba = tenantId === CORITIBA_TENANT_ID;
+  const clubFacts = tenant?.club_facts;
+  const clubName = clubFacts?.short_name ?? clubFacts?.club_name ?? "o clube";
+  const clubFullName = clubFacts?.club_name ?? clubName;
+  const stadiumName = clubFacts?.stadium_name ?? `estádio do ${clubName}`;
+  // Coritiba's known-good asset path — not trusting the DB's crest_url for
+  // this tenant since migration 0047 seeded a mismatched extension (.svg,
+  // no such file); other tenants use whatever they've actually configured.
+  const crestUrl = isCoritiba ? "/brand/coritiba-crest.png" : (tenant?.branding.crest_url ?? null);
+
   const { data: proposal } = await sb
     .from("proposals")
     .select("*, companies(company_name, logo_url, industry, website)")
@@ -82,8 +93,9 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
     .eq("proposal_id", params.id)
     .eq("tenant_id", tenantId);
 
+  const assetFallback = buildAssetFallback(clubName, stadiumName, clubFacts?.follower_count);
   const primaryCategory = (packages ?? []).length > 0 ? (packages![0].category ?? "default") : "default";
-  const fallback = ASSET_FALLBACK[primaryCategory] ?? ASSET_FALLBACK.default;
+  const fallback = assetFallback[primaryCategory] ?? assetFallback.default;
 
   const content = (proposal.content ?? {}) as Record<string, unknown>;
   const company = proposal.companies as { company_name: string; logo_url?: string | null; industry?: string | null } | null;
@@ -145,7 +157,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
       <div className="deck-wrap">
         {/* Toolbar */}
         <div className="deck-toolbar">
-          <div style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Coritiba FC · Aliança Estratégica</div>
+          <div style={{ color: "white", fontWeight: 700, fontSize: 14 }}>{clubName} · Aliança Estratégica</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <a
               href={`/proposals/${proposal.id}`}
@@ -161,9 +173,11 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
         <div className="deck-page" style={{ background: "linear-gradient(135deg,#0e3327 0%,#0b241b 60%,#031008 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 48 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/coritiba-crest.png" alt="Coritiba FC" style={{ height: 52, width: 48, objectFit: "contain" }} />
-              <div style={{ color: "white", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>Coritiba Foot Ball Club</div>
+              {crestUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={crestUrl} alt={clubName} style={{ height: 52, width: 48, objectFit: "contain" }} />
+              )}
+              <div style={{ color: "white", fontSize: 20, fontWeight: 700, letterSpacing: 1 }}>{clubFullName}</div>
             </div>
             {company?.logo_url && (
               <div style={{ background: "white", borderRadius: 12, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -175,12 +189,12 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           <div style={{ textAlign: "center", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
             <div style={{ color: "#7be89a", fontSize: 12, textTransform: "uppercase", letterSpacing: 4, marginBottom: 20, fontWeight: 700 }}>Aliança Estratégica · {currentYear}</div>
             <h1 style={{ color: "white", fontSize: 34, fontWeight: 800, lineHeight: 1.25, textAlign: "center", maxWidth: "82%", marginBottom: 28 }}>
-              O Coritiba transforma a paixão da sua torcida em preferência de compra para {company?.company_name ?? "sua marca"}
+              O {clubName} transforma a paixão da sua torcida em preferência de compra para {company?.company_name ?? "sua marca"}
             </h1>
             <div style={{ width: 60, height: 3, background: "#7be89a", borderRadius: 2, marginBottom: 28 }}></div>
             <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 17, fontWeight: 500 }}>{proposal.title}</div>
           </div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, textAlign: "center", marginTop: 48 }}>Documento confidencial · {formatDate(new Date().toISOString())} · Coritiba FC Comercial</div>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, textAlign: "center", marginTop: 48 }}>Documento confidencial · {formatDate(new Date().toISOString())} · {clubName} Comercial</div>
         </div>
 
         {/* PAGE 2 — OPPORTUNITY */}
@@ -193,21 +207,48 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           {campaignRationale && <p style={{ color: "#374151", lineHeight: 1.7, fontSize: 14 }}>{campaignRationale}</p>}
         </div>
 
-        {/* PAGE 3 — MÍDIA DE ALTO IMPACTO */}
+        {/* PAGE 3 — MÍDIA DE ALTO IMPACTO. The specific granular stats below
+            (público médio, sócios, Coxa iD, alcance acumulado) are Coritiba's
+            own verified numbers, not present anywhere in the tenant schema —
+            shown only for the real Coritiba tenant. Any other tenant gets a
+            smaller, honest block built only from what's actually configured
+            in club_facts, per the platform's claim-grounding rule. */}
         <div className="deck-page" style={{ padding: "48px", background: "#0e3327", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ borderLeft: "4px solid #7be89a", paddingLeft: 16, marginBottom: 32 }}>
             <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#7be89a", marginBottom: 4 }}>Mídia de Alto Impacto</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, color: "white" }}>Um canal exclusivo, com audiência garantida toda semana</h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {CLUB_STATS.map((s) => (
-              <div key={s.l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 18 }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#7be89a" }}>{s.v}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{s.l}</div>
+          {isCoritiba ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {[
+                  { v: "23 mil", l: "NO COUTO · público médio, top 10 do Brasil" },
+                  { v: "36 mil", l: "SÓCIOS COXA · meta de 40 mil no ano" },
+                  { v: "204 mil", l: "NO COXA iD · torcedores identificados" },
+                  { v: "231 mi", l: "NAS REDES OFICIAIS · alcance acumulado" },
+                  { v: "320 mi", l: "NO MATCHDAY · views acumulados" },
+                ].map((s) => (
+                  <div key={s.l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 18 }}>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: "#7be89a" }}>{s.v}</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{s.l}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 20 }}>Fonte: Bentview · Horizm · Coxa iD · Fan Base</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 20 }}>Fonte: Bentview · Horizm · Coxa iD · Fan Base</div>
+            </>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {[
+                clubFacts?.typical_attendance ? { v: clubFacts.typical_attendance, l: "PÚBLICO MÉDIO POR PARTIDA" } : null,
+                clubFacts?.follower_count ? { v: clubFacts.follower_count, l: "NAS REDES OFICIAIS" } : null,
+              ].filter((s): s is { v: string; l: string } => !!s).map((s) => (
+                <div key={s.l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 18 }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#7be89a" }}>{s.v}</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* PAGE 4 — MATCH-SPECIFIC MEDIA REACH (only when proposal is scoped to a match) */}
@@ -216,7 +257,7 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             <div style={{ borderLeft: "4px solid #0e3327", paddingLeft: 16, marginBottom: 32 }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#0e3327", marginBottom: 4 }}>Alcance por Partida</div>
               <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a" }}>
-                Coritiba × {match.opponent} · {new Date(match.match_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                {clubName} × {match.opponent} · {new Date(match.match_date + "T00:00:00").toLocaleDateString("pt-BR")}
               </h2>
             </div>
             <div style={{ background: "#f0fdf4", borderRadius: 12, padding: 24, marginBottom: 20 }}>
@@ -250,20 +291,32 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           </div>
         )}
 
-        {/* PAGE 6 — COUTO PEREIRA */}
+        {/* PAGE 6 — HOME STADIUM. The specific capacity/box/PDV figures are
+            Couto Pereira's own verified facts, not in the tenant schema —
+            shown only for the real Coritiba tenant. Any other tenant gets a
+            lighter version naming their actual configured stadium, with no
+            fabricated structural numbers. */}
         <div className="deck-page" style={{ padding: "48px", background: "#f9fafb", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ borderLeft: "4px solid #0e3327", paddingLeft: 16, marginBottom: 32 }}>
             <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#0e3327", marginBottom: 4 }}>O Nosso Maior Ativo Físico</div>
-            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a" }}>Couto Pereira: onde a magia e o consumo acontecem</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a" }}>{stadiumName}: onde a magia e o consumo acontecem</h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-            {[["40.000", "lugares, com 23 mil de público médio"], ["58", "camarotes com TVs e catering premium"], ["89 PDVs", "pontos de venda ativados a cada jogo"]].map(([v, l]) => (
-              <div key={l} style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 20 }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "#0e3327" }}>{v}</div>
-                <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{l}</div>
-              </div>
-            ))}
-          </div>
+          {isCoritiba ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              {[["40.000", "lugares, com 23 mil de público médio"], ["58", "camarotes com TVs e catering premium"], ["89 PDVs", "pontos de venda ativados a cada jogo"]].map(([v, l]) => (
+                <div key={l} style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 20 }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#0e3327" }}>{v}</div>
+                  <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ color: "#374151", lineHeight: 1.7, fontSize: 14 }}>
+              {clubFacts?.typical_attendance
+                ? `${stadiumName} recebe uma média de ${clubFacts.typical_attendance} torcedores a cada partida, com ativações de patrocínio em toda a área do estádio.`
+                : `${stadiumName} é o palco das partidas do ${clubName}, com ativações de patrocínio disponíveis em toda a área do estádio.`}
+            </p>
+          )}
         </div>
 
         {/* PAGE 7 — DELIVERABLES / ACTIVATIONS */}
@@ -352,10 +405,10 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           )}
         </div>
 
-        {/* PAGE 10 — WHY CORITIBA */}
+        {/* PAGE 10 — WHY THIS CLUB */}
         <div className="deck-page" style={{ padding: "48px", background: "#0e3327", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ borderLeft: "4px solid #7be89a", paddingLeft: 16, marginBottom: 36 }}>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#7be89a", marginBottom: 4 }}>Por Que o Coritiba</div>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#7be89a", marginBottom: 4 }}>Por Que o {clubName}</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, color: "white" }}>Escutamos, planejamos, executamos e medimos junto com você</h2>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
@@ -399,8 +452,14 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           </div>
           <div style={{ marginTop: 40, borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: 24 }}>
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, textAlign: "center" }}>
-              Coritiba FC · Departamento Comercial · comercial@coritiba.com.br<br />
-              Rua Campo Comprido, 669 · Curitiba · PR · CNPJ 75.094.050/0001-72
+              {isCoritiba ? (
+                <>
+                  Coritiba FC · Departamento Comercial · comercial@coritiba.com.br<br />
+                  Rua Campo Comprido, 669 · Curitiba · PR · CNPJ 75.094.050/0001-72
+                </>
+              ) : (
+                <>{clubName} · Departamento Comercial</>
+              )}
             </div>
           </div>
         </div>

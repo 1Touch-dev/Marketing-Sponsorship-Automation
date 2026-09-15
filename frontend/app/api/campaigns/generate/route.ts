@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { campaignGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { campaignIdeasPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -54,10 +55,12 @@ export async function POST(req: Request) {
     metadata: { company_id: company.id, objective: parsed.data.objective },
   });
 
+  const tenant = await resolveClubContext(auth.user.tenant_id);
   const { system, user } = campaignIdeasPrompt({
     company,
     objective: parsed.data.objective,
     maxIdeas: parsed.data.max_ideas ?? env.MAX_CAMPAIGN_IDEAS,
+    tenant,
   });
 
   let validated: CampaignIdeaResponse | null = null;

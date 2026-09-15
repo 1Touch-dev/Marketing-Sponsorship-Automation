@@ -13,6 +13,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import type { CompetitorDiscoveryResult } from "@/lib/intelligence/competitor-engine";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
 
 async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null, tenantId: string): Promise<CompetitorDiscoveryResult> {
   try {
+    const tenant = await resolveClubContext(tenantId);
     const result = await discoverCompetitors({
       id: company.id,
       name: company.company_name,
@@ -86,7 +88,7 @@ async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null,
       company_size: company.company_size,
       business_type: company.business_type,
       full_intelligence: company.full_intelligence as Record<string, unknown> | null,
-    });
+    }, tenant);
 
     // Persist results
     await writeIntelCache(company.id, "competitor_discovery", result);

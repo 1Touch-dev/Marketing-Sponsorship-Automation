@@ -7,6 +7,7 @@
 import { batchSearchGoogle } from "@/lib/intelligence/google-search";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { logger } from "@/lib/monitoring/logger";
+import { CORITIBA_CLUB_CONTEXT_INPUT, type ClubContextInput } from "@/lib/bedrock/prompts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type CompanyProfile = {
@@ -59,13 +60,14 @@ export type CompetitorDiscoveryResult = {
 
 // ── Main discovery function ───────────────────────────────────────────────────
 export async function discoverCompetitors(
-  company: CompanyProfile
+  company: CompanyProfile,
+  tenant: ClubContextInput = CORITIBA_CLUB_CONTEXT_INPUT
 ): Promise<CompetitorDiscoveryResult> {
   const startTime = Date.now();
   logger.info("Competitor discovery starting", { company_id: company.id, company_name: company.name });
 
   // STEP 1: Generate search expansion terms
-  const queries = buildSearchQueries(company);
+  const queries = buildSearchQueries(company, tenant);
 
   // STEP 2: Run Apify Google Search (batch)
   let searchResults: Awaited<ReturnType<typeof batchSearchGoogle>> = [];
@@ -90,7 +92,7 @@ export async function discoverCompetitors(
   const searchSignals = aggregateSearchSignals(searchResults);
 
   // STEP 4: AI Classification & Enrichment
-  const enriched = await aiClassifyCompetitors(company, searchSignals, queries);
+  const enriched = await aiClassifyCompetitors(company, searchSignals, queries, tenant);
 
   const durationMs = Date.now() - startTime;
   logger.info("Competitor discovery completed", {
@@ -110,11 +112,13 @@ export async function discoverCompetitors(
 }
 
 // ── STEP 1: Generate targeted search queries ──────────────────────────────────
-function buildSearchQueries(company: CompanyProfile): string[] {
+function buildSearchQueries(company: CompanyProfile, tenant: ClubContextInput): string[] {
   const name = company.name;
   const industry = company.industry ?? "";
   const size = company.company_size ?? "medium";
-  const geo = company.segment === "local" ? "Curitiba Paraná" : company.segment === "regional" ? "Paraná Brasil" : "Brasil";
+  const city = tenant.club_facts.city ?? "Brasil";
+  const state = tenant.club_facts.state ?? "Brasil";
+  const geo = company.segment === "local" ? `${city} ${state}` : company.segment === "regional" ? `${state} Brasil` : "Brasil";
 
   const queries = [
     // Direct competitor discovery
@@ -184,14 +188,17 @@ function aggregateSearchSignals(
 async function aiClassifyCompetitors(
   company: CompanyProfile,
   signals: SearchSignals,
-  queries: string[]
+  queries: string[],
+  tenant: ClubContextInput
 ): Promise<Omit<CompetitorDiscoveryResult, "search_queries_run" | "discovered_at" | "apify_used" | "queries_executed">> {
-  const prompt = `You are Coritiba FC's commercial intelligence analyst.
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "any Brazilian football club";
+  const prompt = `You are ${clubName}'s commercial intelligence analyst.
 
 CRITICAL RULES (NEVER VIOLATE):
-- NEVER list Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, Grêmio, Internacional, Vasco, Cruzeiro, or any Brazilian football club as a competitor or prospect
+- NEVER list ${rivalsList} as a competitor or prospect
 - ALWAYS stay focused on commercial/corporate companies
-- Keep all recommendations grounded in Coritiba FC partnership value
+- Keep all recommendations grounded in ${clubName} partnership value
 
 Company to analyze: ${company.name}
 Industry: ${company.industry ?? "Unknown"}

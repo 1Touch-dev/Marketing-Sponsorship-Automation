@@ -10,6 +10,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -80,7 +81,9 @@ export async function POST(req: Request) {
     const keywords = [...new Set(searchResults.flatMap((r) => r.keywords))].slice(0, 20);
 
     // AI enrichment
-    const prompt = `You are Coritiba FC's commercial intelligence analyst.
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+    const prompt = `You are ${clubName}'s commercial intelligence analyst.
 CRITICAL: NEVER mention any Brazilian football club as a prospect or competitor.
 
 Search query: "${query}"
@@ -93,7 +96,7 @@ Keywords: ${keywords.slice(0, 12).join(", ")}
 
 Find up to ${limit} companies that:
 1. Sell "${query}" products/services
-2. Would benefit from Coritiba FC sponsorship
+2. Would benefit from ${clubName} sponsorship
 3. Have barter potential (can exchange goods/services for visibility)
 
 Consider: uniform suppliers, food/beverage companies, tech companies, equipment providers, etc.

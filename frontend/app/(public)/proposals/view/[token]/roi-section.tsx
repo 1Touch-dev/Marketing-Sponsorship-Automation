@@ -21,7 +21,7 @@ const STAT_CARDS: Array<{ key: keyof ProposalRoiData; label: string; accent: str
  * exist for at least one match (roi.has_data), so a brand-new sponsorship
  * never shows a hollow, all-zero "dashboard."
  */
-export function ProposalRoiSection({ roi }: { roi: ProposalRoiData }) {
+export function ProposalRoiSection({ roi, clubName = "o clube" }: { roi: ProposalRoiData; clubName?: string }) {
   if (!roi.has_data) return null;
 
   return (
@@ -77,7 +77,7 @@ export function ProposalRoiSection({ roi }: { roi: ProposalRoiData }) {
               return (
                 <tr key={m.id} className="border-b border-slate-100 last:border-0">
                   <td className="py-2.5 text-slate-700">
-                    Coritiba × {m.opponent}
+                    {clubName} × {m.opponent}
                     {m.competition ? <span className="text-slate-400"> · {m.competition}</span> : null}
                   </td>
                   <td className="py-2.5 text-slate-500">{m.result ?? "—"}</td>

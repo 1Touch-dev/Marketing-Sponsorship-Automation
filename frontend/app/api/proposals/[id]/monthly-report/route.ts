@@ -4,6 +4,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalContent } from "@/types/database";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -40,7 +41,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const today = new Date();
   const monthYear = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
-  const system = `You are a Coritiba FC sponsorship account manager writing a professional monthly activation report.
+  const tenant = await resolveClubContext(auth.user.tenant_id);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const stadiumName = tenant.club_facts.stadium_name ?? "the stadium";
+
+  const system = `You are a ${clubName} sponsorship account manager writing a professional monthly activation report.
 Write clearly, confidently, and specifically — this goes directly to the sponsor.`;
 
   const userPrompt = `Write a monthly sponsorship activation report for ${monthYear}.
@@ -63,13 +68,13 @@ ${executionItems.length > 0
 }
 
 Write a professional monthly report with these sections:
-1. **Month in Review** — what activations happened at Couto Pereira and digitally
+1. **Month in Review** — what activations happened at ${stadiumName} and digitally
 2. **Key Highlights** — 3–5 bullet points of notable moments or results
 3. **Metrics & Reach** — estimated/projected reach numbers for the month
 4. **Next Month Preview** — what activations are planned
-5. **Action Items** — 2–3 items for the Coritiba FC team and sponsor team
+5. **Action Items** — 2–3 items for the ${clubName} team and sponsor team
 
-Keep the tone professional but warm. Use the specific sponsor name and Coritiba FC context throughout.
+Keep the tone professional but warm. Use the specific sponsor name and ${clubName} context throughout.
 Length: ~350–450 words.`;
 
   try {

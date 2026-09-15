@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 60;
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     // Load company from DB if only ID given
     let company = body;
     if (body.company_id && !body.company_name) {
-      const { data } = await sb.from("companies").select("*").eq("id", body.company_id).maybeSingle();
+      const { data } = await sb.from("companies").select("*").eq("id", body.company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
       if (!data) return NextResponse.json({ error: "Company not found" }, { status: 404 });
       company = data as typeof body;
     }
@@ -64,7 +65,12 @@ Notes: ${company.notes ?? "None"}
 Existing intelligence: ${company.full_intelligence ? JSON.stringify(company.full_intelligence).slice(0, 500) : "None"}
 `.trim();
 
-    const prompt = `You are a commercial sponsorship advisor for Coritiba FC (Brazilian football club, Curitiba/Paraná).
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+    const region = [tenant.club_facts.city, tenant.club_facts.state].filter(Boolean).join("/") || "its home market";
+    const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "rival clubs";
+
+    const prompt = `You are a commercial sponsorship advisor for ${clubName} (Brazilian football club, ${region}).
 
 Your task: Given a company profile, recommend the BEST sponsorship inventory items and proposal approach.
 
@@ -103,8 +109,8 @@ Rules:
 - If B2C consumer brand, focus on jersey, digital, fan engagement
 - If small/local company, suggest affordable packages (under R$50k)
 - If enterprise/large, suggest premium packages
-- NEVER suggest anything involving rival football clubs (Athletico, Cruzeiro, Flamengo, Palmeiras, Santos, Corinthians, São Paulo, Grêmio, Internacional)
-- Always ground in Coritiba FC's identity: Verde e Branco, Couto Pereira, Curitiba, Paraná
+- NEVER suggest anything involving rival football clubs (${rivalsList})
+- Always ground in ${clubName}'s identity and ${region} market context
 `;
 
     const result = await invokeClaude({

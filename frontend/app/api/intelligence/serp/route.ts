@@ -10,6 +10,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { searchGoogle, batchSearchGoogle } from "@/lib/intelligence/google-search";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
@@ -59,7 +60,9 @@ export async function POST(req: Request) {
       : "\n(No live web search — use your knowledge of the Brazilian market)";
 
     // ── AI Enrichment ─────────────────────────────────────────────────
-    const prompt = `You are a Brazilian commercial intelligence analyst for Coritiba FC sponsorship.
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+    const prompt = `You are a Brazilian commercial intelligence analyst for ${clubName} sponsorship.
 Analyze the company and return ONLY a valid JSON object. No prose, no markdown fences, no explanation.
 
 Company: ${company_name}
@@ -71,7 +74,7 @@ RULES:
 - Return ONLY raw JSON, no markdown, no code blocks
 - List 4-6 real direct competitor companies (same industry, same market position)
 - Do NOT include football clubs as competitors
-- Focus on companies that might sponsor Coritiba FC as alternatives
+- Focus on companies that might sponsor ${clubName} as alternatives
 
 Required JSON structure:
 {"competitors":[{"name":"string","reason":"string","estimated_spend":"string","sponsorship_active":true,"website":"string"}],"market_context":{"industry_summary":"string","average_sponsorship_budget":"string","market_growth":"string","seasonality":"string"},"sponsorship_discovery":[{"brand":"string","sport_type":"string","region":"string","notes":"string"}],"keyword_clusters":{"primary_keywords":["string"],"sponsorship_language":["string"]},"coritiba_positioning":{"unique_angle":"string","differentiation":"string","risk_mitigation":"string"}}`;

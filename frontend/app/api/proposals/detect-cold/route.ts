@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { getProposalEngagementStats } from "@/lib/proposals/engagement";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
 import { notifyGoneColdNudge } from "@/lib/slack/notify";
 
 export const runtime = "nodejs";
@@ -33,6 +34,7 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
   const env = serverEnv();
   const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const tenantId = auth.user?.tenant_id ?? (await resolveTenantId());
 
   const body = (await req.json().catch(() => ({}))) as { threshold_days?: number; limit?: number };
   const thresholdDays = body.threshold_days ?? DEFAULT_THRESHOLD_DAYS;
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
   const { data: candidates, error } = await sb
     .from("proposals")
     .select("id, title, status")
+    .eq("tenant_id", tenantId)
     .in("status", ["sent", "approved"])
     .limit(limit);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -61,6 +64,7 @@ export async function POST(req: Request) {
       .from("followups")
       .select("id")
       .eq("proposal_id", proposal.id)
+      .eq("tenant_id", tenantId)
       .in("status", ["suggested", "scheduled", "pending"])
       .limit(1)
       .maybeSingle();
@@ -74,6 +78,7 @@ export async function POST(req: Request) {
       .from("emails")
       .select("id")
       .eq("proposal_id", proposal.id)
+      .eq("tenant_id", tenantId)
       .eq("direction", "inbound")
       .gte("created_at", engagement.last_viewed_at as string)
       .limit(1)
@@ -88,6 +93,7 @@ export async function POST(req: Request) {
       .from("emails")
       .select("id")
       .eq("proposal_id", proposal.id)
+      .eq("tenant_id", tenantId)
       .eq("direction", "outbound")
       .eq("status", "sent")
       .order("sent_at", { ascending: false })

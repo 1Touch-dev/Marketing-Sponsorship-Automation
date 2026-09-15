@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,6 +16,8 @@ export async function GET(req: NextRequest) {
   // No session on this public route (an email recipient clicking an
   // unsubscribe link) — resolves to the seeded Coritiba tenant for now.
   const tenantId = await resolveTenantId();
+  const tenant = await resolveClubContext(tenantId);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
   // Log unsubscribe
   await sb.from("audit_logs").insert({
@@ -31,7 +34,7 @@ export async function GET(req: NextRequest) {
     <body><div>
       <div style="font-size:48px;margin-bottom:16px">✅</div>
       <h2 style="color:#1a1a1a;margin-bottom:8px">Descadastro realizado</h2>
-      <p style="color:#6b7280;line-height:1.6">O email <strong>${email}</strong> foi removido da nossa lista de newsletters. Você não receberá mais comunicações da Coritiba FC.</p>
+      <p style="color:#6b7280;line-height:1.6">O email <strong>${email}</strong> foi removido da nossa lista de newsletters. Você não receberá mais comunicações da ${clubName}.</p>
     </div></body></html>
   `, { headers: { "content-type": "text/html; charset=utf-8" } });
 }

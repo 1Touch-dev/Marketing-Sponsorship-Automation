@@ -23,6 +23,7 @@ export interface TenantClubFacts {
   country?: string;
   founded_year?: number;
   follower_count?: string;
+  typical_attendance?: string;
   market_context?: string;
 }
 

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +15,10 @@ export async function GET(req: Request) {
   const type = searchParams.get("type"); // preset | library | both
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
+  const tenant = await resolveClubContext(tenantId);
 
   // Return built-in presets + saved library blocks
-  const presets = getBuiltInPresets();
+  const presets = getBuiltInPresets(tenant);
 
   let libraryBlocks: LibraryBlock[] = [];
   try {
@@ -61,7 +64,9 @@ export async function POST(req: Request) {
       section_id: string; current_content: string; proposal_type: string; company_name: string; industry: string;
     };
 
-    const prompt = `You are a Coritiba FC commercial proposal expert.
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+    const prompt = `You are a ${clubName} commercial proposal expert.
 Section: ${section_id}
 Company: ${company_name} (${industry})
 Proposal type: ${proposal_type}
@@ -90,7 +95,15 @@ Suggest 3 improvements for this section. Return JSON:
 
 type LibraryBlock = { id: string; title: string; content: string; section_type: string; tags?: string[] };
 
-function getBuiltInPresets(): Record<string, ProposalPreset> {
+function getBuiltInPresets(tenant: ClubContextInput): Record<string, ProposalPreset> {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const fullName = tenant.club_facts.club_name;
+  const localRegion = [tenant.club_facts.city, tenant.club_facts.state].filter(Boolean).join("/") || "sua região";
+
+  const aboutClub = tenant.club_facts.founded_year
+    ? `O ${fullName}, fundado em ${tenant.club_facts.founded_year}, é um dos grandes clubes do futebol brasileiro.${tenant.club_facts.follower_count ? ` Com ${tenant.club_facts.follower_count} nas redes sociais` : ""}${tenant.club_facts.stadium_name ? ` e o icônico ${tenant.club_facts.stadium_name}` : ""}, o ${clubName} oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se à sua torcida.`
+    : `O ${clubName} oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se à sua torcida.`;
+
   return {
     sponsorship: {
       id: "sponsorship",
@@ -99,8 +112,8 @@ function getBuiltInPresets(): Record<string, ProposalPreset> {
       icon: "🏆",
       sections: ["executive_summary","company_intelligence","sponsorship_strategy","activation_plan","deliverables","pricing_table","about_coritiba","next_steps"],
       default_content: {
-        executive_summary: "Proposta de Parceria Estratégica — Coritiba FC × [EMPRESA]",
-        about_coritiba: "O Coritiba Foot Ball Club, fundado em 1909, é o clube mais antigo do Paraná e um dos grandes do futebol brasileiro. Com mais de 1,5 milhão de seguidores nas redes sociais, transmissões nacionais no Brasileirão e Copa do Brasil, e o icônico Couto Pereira com capacidade para 30.000 torcedores, o Coritiba oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se ao orgulho paranaense.",
+        executive_summary: `Proposta de Parceria Estratégica — ${clubName} × [EMPRESA]`,
+        about_coritiba: aboutClub,
       },
     },
     barter: {
@@ -110,7 +123,7 @@ function getBuiltInPresets(): Record<string, ProposalPreset> {
       icon: "🔄",
       sections: ["executive_summary","barter_overview","goods_services_offered","sponsorship_exchange","valuation","activation_plan","next_steps"],
       default_content: {
-        executive_summary: "Proposta de Permuta Estratégica — Coritiba FC × [EMPRESA]",
+        executive_summary: `Proposta de Permuta Estratégica — ${clubName} × [EMPRESA]`,
       },
     },
     lei_de_incentivo: {
@@ -120,7 +133,7 @@ function getBuiltInPresets(): Record<string, ProposalPreset> {
       icon: "⚖️",
       sections: ["executive_summary","lei_overview","esg_alignment","social_impact","fiscal_benefit","project_details","about_coritiba","next_steps"],
       default_content: {
-        executive_summary: "Proposta Lei de Incentivo Esportivo — Coritiba FC × [EMPRESA]",
+        executive_summary: `Proposta Lei de Incentivo Esportivo — ${clubName} × [EMPRESA]`,
         lei_overview: "Através da Lei Federal de Incentivo ao Esporte (Lei nº 11.438/2006) e Lei Rouanet, empresas podem destinar parte do IR devido ao patrocínio de projetos esportivos e culturais aprovados, com dedução de até 100% do valor investido.",
       },
     },
@@ -131,13 +144,13 @@ function getBuiltInPresets(): Record<string, ProposalPreset> {
       icon: "🌱",
       sections: ["executive_summary","esg_overview","community_impact","social_metrics","partnership_model","activation_plan","reporting","next_steps"],
       default_content: {
-        executive_summary: "Parceria ESG e Impacto Social — Coritiba FC × [EMPRESA]",
+        executive_summary: `Parceria ESG e Impacto Social — ${clubName} × [EMPRESA]`,
       },
     },
     local_business: {
       id: "local_business",
       name: "Local Business Package",
-      description: "Tailored for Curitiba/Paraná local companies",
+      description: `Tailored for ${localRegion} local companies`,
       icon: "📍",
       sections: ["executive_summary","local_context","sponsorship_strategy","deliverables","pricing_table","next_steps"],
       default_content: {},

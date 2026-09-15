@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/pipedrive/sync";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 /**
  * POST /api/proposals/[id]/track-view
@@ -77,7 +78,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const companyName = Array.isArray(prop.companies)
         ? (prop.companies[0] as { company_name: string } | undefined)?.company_name
         : (prop.companies as { company_name: string } | null)?.company_name;
-      const dealTitle = `${companyName} × Coritiba FC — ${prop.title}`;
+      const dealClubTenant = await resolveClubContext(tenantId);
+      const dealClubName = dealClubTenant.club_facts.short_name ?? dealClubTenant.club_facts.club_name;
+      const dealTitle = `${companyName} × ${dealClubName} — ${prop.title}`;
       logActivity({ dealTitle, activityType: "Proposta visualizada", note: `Sponsor viewed proposal at ${new Date().toISOString()}` }).catch(() => {});
     }
   } catch {

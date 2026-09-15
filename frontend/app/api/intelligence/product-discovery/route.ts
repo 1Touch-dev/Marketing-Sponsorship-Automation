@@ -23,6 +23,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -44,15 +46,22 @@ type DiscoveredSeller = {
   source: "apify_search" | "ai_generated";
 };
 
-const TIER_GEO: Record<Tier, string> = {
-  local: "Curitiba e região metropolitana, Paraná",
-  state: "Estado do Paraná",
-  national: "Brasil",
-};
+function buildTierGeo(tenant: ClubContextInput): Record<Tier, string> {
+  const city = tenant.club_facts.city ?? "Brasil";
+  const state = tenant.club_facts.state ?? "Brasil";
+  return {
+    local: `${city} e região metropolitana, ${state}`,
+    state: `Estado do ${state}`,
+    national: "Brasil",
+  };
+}
 
 export async function POST(req: Request) {
   const auth = await requirePermission("run_intelligence");
   if ("error" in auth) return auth.error;
+
+  const tenant = await resolveClubContext(auth.user.tenant_id);
+  const TIER_GEO = buildTierGeo(tenant);
 
   const startTime = Date.now();
   try {
@@ -109,7 +118,7 @@ export async function POST(req: Request) {
       ).slice(0, 20);
       const keywords = [...new Set(searchResults.flatMap((r) => r.keywords))].slice(0, 15);
 
-      perTier[tier] = await aiClassifySellers(product, tier, geo, domains, keywords, limit_per_tier);
+      perTier[tier] = await aiClassifySellers(product, tier, geo, domains, keywords, limit_per_tier, tenant);
     }
 
     const allSellers = activeTiers.flatMap((t) => perTier[t]);
@@ -161,8 +170,10 @@ async function aiClassifySellers(
   domains: Array<{ domain: string; title: string; description: string }>,
   keywords: string[],
   limit: number,
+  tenant: ClubContextInput,
 ): Promise<DiscoveredSeller[]> {
-  const prompt = `You are Coritiba FC's commercial intelligence analyst.
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const prompt = `You are ${clubName}'s commercial intelligence analyst.
 CRITICAL: NEVER mention any Brazilian football club as a prospect or competitor.
 
 Product / goods: "${product}"
@@ -174,7 +185,7 @@ ${domains.map((d) => `- ${d.domain}: "${d.title}" — ${(d.description ?? "").sl
 Keywords: ${keywords.join(", ")}
 
 Find up to ${Math.min(limit, 15)} real companies located/operating in "${geo}" that SELL or MANUFACTURE "${product}".
-For each, judge whether they are a good sponsorship prospect for Coritiba FC and whether they have barter potential (can exchange goods/services for exposure).
+For each, judge whether they are a good sponsorship prospect for ${clubName} and whether they have barter potential (can exchange goods/services for exposure).
 
 Return JSON ONLY:
 {

@@ -6,6 +6,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
@@ -102,6 +103,8 @@ export async function generatePersonalizedProposalForCompany(
   // generated proposal always belongs to whichever tenant owns the company
   // it's for.
   const tenantId = (company as unknown as { tenant_id: string }).tenant_id;
+  const tenant = await resolveClubContext(tenantId);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
   const intel = (company.full_intelligence as Record<string, unknown>) ?? {};
   const intelBlock = buildIntelligenceContext(intel);
@@ -124,7 +127,7 @@ export async function generatePersonalizedProposalForCompany(
       .from("campaigns")
       .insert({
         tenant_id: tenantId,
-        title: `${company.company_name} × Coritiba FC — Sponsorship`,
+        title: `${company.company_name} × ${clubName} — Sponsorship`,
         summary: `Agent-generated outreach campaign for ${company.company_name}`,
         company_id: companyId,
         status: "draft",
@@ -136,7 +139,7 @@ export async function generatePersonalizedProposalForCompany(
     campaignId = newCampaign.id;
   }
 
-  const campaignTitle = existingCampaign?.title ?? `${company.company_name} × Coritiba FC — Sponsorship`;
+  const campaignTitle = existingCampaign?.title ?? `${company.company_name} × ${clubName} — Sponsorship`;
   const campaignSummary = existingCampaign?.summary ?? `Partnership outreach for ${company.company_name}`;
 
   const { system, user } = proposalPrompt({
@@ -151,6 +154,7 @@ export async function generatePersonalizedProposalForCompany(
       title: campaignTitle,
       summary: campaignSummary,
     },
+    tenant,
   });
 
   // When real intelligence exists, push for specificity grounded in it. When
@@ -160,7 +164,7 @@ export async function generatePersonalizedProposalForCompany(
   // inventing specifics exactly when it had no real data to draw from.
   const closingInstruction = intelBlock
     ? "\n\nIMPORTANT: This proposal must be uniquely written for this sponsor only — reference their industry, market, and the COMPANY INTELLIGENCE above. Do not use generic boilerplate. Per rule 10, only state sponsor-specific facts that appear in that intelligence block."
-    : "\n\nIMPORTANT: No verified company intelligence is available for this sponsor. Do NOT invent specific facts about their business, goals, campaigns, headcount, or activity — per rule 10, write this proposal in general, industry-appropriate terms for their sector instead, while still keeping it compelling and specific about what Coritiba FC offers.";
+    : `\n\nIMPORTANT: No verified company intelligence is available for this sponsor. Do NOT invent specific facts about their business, goals, campaigns, headcount, or activity — per rule 10, write this proposal in general, industry-appropriate terms for their sector instead, while still keeping it compelling and specific about what ${clubName} offers.`;
 
   const enhancedUser = user + intelBlock + closingInstruction;
 
@@ -228,6 +232,7 @@ export async function generatePersonalizedProposalForCompany(
   }
 
   await sb.from("proposal_versions").insert({
+    tenant_id: tenantId,
     proposal_id: proposal.id,
     version: 1,
     content: proposalContent as unknown as ProposalContent,

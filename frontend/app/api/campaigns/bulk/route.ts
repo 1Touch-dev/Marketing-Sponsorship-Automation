@@ -4,6 +4,8 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 import {
   strategyVariantsResponseSchema,
   pricingTiersResponseSchema,
@@ -47,7 +49,9 @@ type GenResult = {
   error?: string;
 };
 
-async function generateForCompany(company: Company, objective: string): Promise<GenResult> {
+async function generateForCompany(company: Company, objective: string, tenant: ClubContextInput): Promise<GenResult> {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const stadiumName = tenant.club_facts.stadium_name ?? "the stadium";
   const context = `Company: ${company.company_name}
 Industry: ${company.industry ?? "general"}
 Country: ${company.country ?? "BR"}
@@ -57,11 +61,11 @@ Objective: ${objective}`;
   try {
     // --- Step 1: Campaign brief (needed by proposal prompt) ---
     const campaignRes = await invokeClaude<{ title?: string; summary?: string; activation?: string }>({
-      system: "You are a sports sponsorship strategist for Coritiba FC (Brazilian football club). Respond in JSON.",
-      messages: [{ role: "user", content: `Generate a sponsorship campaign strategy for Coritiba FC × ${company.company_name}.
+      system: `You are a sports sponsorship strategist for ${clubName} (Brazilian football club). Respond in JSON.`,
+      messages: [{ role: "user", content: `Generate a sponsorship campaign strategy for ${clubName} × ${company.company_name}.
 ${context}
 
-Return JSON: { title, summary (2-3 sentences), activation (2-3 sentences about Couto Pereira activation) }` }],
+Return JSON: { title, summary (2-3 sentences), activation (2-3 sentences about ${stadiumName} activation) }` }],
       json: true, maxTokens: 700, temperature: 0.7,
     });
     const camp = (campaignRes.json ?? {}) as { title?: string; summary?: string; activation?: string };
@@ -69,8 +73,8 @@ Return JSON: { title, summary (2-3 sentences), activation (2-3 sentences about C
     // --- Step 2: Proposal content + variants + pricing in parallel ---
     const [proposalRes, variantsRes, pricingRes] = await Promise.all([
       invokeClaude<unknown>({
-        system: "You are a sponsorship proposal writer for Coritiba FC. Respond in JSON.",
-        messages: [{ role: "user", content: `Write a concise proposal for Coritiba FC × ${company.company_name}.
+        system: `You are a sponsorship proposal writer for ${clubName}. Respond in JSON.`,
+        messages: [{ role: "user", content: `Write a concise proposal for ${clubName} × ${company.company_name}.
 ${context}
 Campaign: ${camp.title ?? "Partnership Proposal"}
 
@@ -78,14 +82,14 @@ Return JSON: { executive_summary, campaign_rationale, sponsorship_value, activat
         json: true, maxTokens: 1200, temperature: 0.65,
       }),
       invokeClaude<unknown>({
-        system: "You are a Coritiba FC sponsorship strategy expert. Respond in JSON.",
-        messages: [{ role: "user", content: `3 strategy variants for Coritiba FC × ${company.company_name} (${company.industry ?? "general"}).
+        system: `You are a ${clubName} sponsorship strategy expert. Respond in JSON.`,
+        messages: [{ role: "user", content: `3 strategy variants for ${clubName} × ${company.company_name} (${company.industry ?? "general"}).
 Return JSON: { strategies: [{ name, tagline, description, key_benefits (array), estimated_reach, best_for }] }` }],
         json: true, maxTokens: 900, temperature: 0.75,
       }),
       invokeClaude<unknown>({
-        system: "You are a Coritiba FC sponsorship pricing expert. Respond in JSON.",
-        messages: [{ role: "user", content: `3 pricing tiers for Coritiba FC × ${company.company_name} (${company.industry ?? "general"}, ${company.country ?? "BR"}).
+        system: `You are a ${clubName} sponsorship pricing expert. Respond in JSON.`,
+        messages: [{ role: "user", content: `3 pricing tiers for ${clubName} × ${company.company_name} (${company.industry ?? "general"}, ${company.country ?? "BR"}).
 Return JSON: { tiers: [{ name, price_brl, description, includes (array), best_for, roi_estimate }] }` }],
         json: true, maxTokens: 700, temperature: 0.6,
       }),
@@ -97,11 +101,11 @@ Return JSON: { tiers: [{ name, price_brl, description, includes (array), best_fo
 
     const proposalContent = parsedProposal.success
       ? (parsedProposal.data as unknown as ProposalContent)
-      : ({ title: camp.title ?? `Coritiba FC × ${company.company_name}`, executive_summary: camp.summary ?? "" } as ProposalContent);
+      : ({ title: camp.title ?? `${clubName} × ${company.company_name}`, executive_summary: camp.summary ?? "" } as ProposalContent);
 
     return {
       campaign: {
-        title: camp.title ?? `Coritiba FC × ${company.company_name}`,
+        title: camp.title ?? `${clubName} × ${company.company_name}`,
         summary: camp.summary ?? "",
         activation: camp.activation ?? null,
       },
@@ -115,8 +119,8 @@ Return JSON: { tiers: [{ name, price_brl, description, includes (array), best_fo
     };
   } catch (e) {
     return {
-      campaign: { title: `Coritiba FC × ${company.company_name}`, summary: "", activation: null },
-      proposal: { title: `Coritiba FC × ${company.company_name}` } as ProposalContent,
+      campaign: { title: `${clubName} × ${company.company_name}`, summary: "", activation: null },
+      proposal: { title: `${clubName} × ${company.company_name}` } as ProposalContent,
       strategy_variants: [],
       pricing_tiers: [],
       error: e instanceof Error ? e.message : "Generation failed",
@@ -176,9 +180,10 @@ export async function POST(req: Request) {
   }
 
   // Generate all companies in parallel batches of 3 to speed up without overwhelming Bedrock
+  const tenant = await resolveClubContext(auth.user.tenant_id);
   const BATCH_SIZE = 3;
   const generatedResults = await batchMap(companies as Company[], BATCH_SIZE, (c) =>
-    generateForCompany(c, objective)
+    generateForCompany(c, objective, tenant)
   );
 
   // Persist results to DB

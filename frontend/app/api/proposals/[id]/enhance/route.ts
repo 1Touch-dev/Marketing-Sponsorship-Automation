@@ -7,6 +7,7 @@ import {
   visualPromptsPrompt,
   companyIntelligencePrompt,
 } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import {
   strategyVariantsResponseSchema,
   pricingTiersResponseSchema,
@@ -90,6 +91,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
 
   const results: Record<string, unknown> = {};
+  const tenant = await resolveClubContext(auth.user.tenant_id);
 
   // Run all layers in parallel for speed
   // Add a small stagger to avoid Bedrock throttling on simultaneous requests
@@ -99,7 +101,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (layers.includes("variants")) {
     tasks.push(delay(0).then(async () => {
       try {
-        const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = strategyVariantsPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2500 });
         const normalized = normalizeStrategyVariants(r.json);
         const vr = validateAiOutput(strategyVariantsResponseSchema, normalized, { workflow_name: "proposal.enhance.variants", silent: true });
@@ -111,7 +113,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (layers.includes("pricing")) {
     tasks.push(delay(1000).then(async () => {
       try {
-        const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = pricingTiersPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2000 });
         const normalized = normalizePricingTiers(r.json);
         const vr = validateAiOutput(pricingTiersResponseSchema, normalized, { workflow_name: "proposal.enhance.pricing", silent: true });
@@ -123,7 +125,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (layers.includes("visuals")) {
     tasks.push(delay(2000).then(async () => {
       try {
-        const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx });
+        const pt = visualPromptsPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 2000 });
         const normalized = normalizeVisualPrompts(r.json);
         const vr = validateAiOutput(visualPromptsResponseSchema, normalized, { workflow_name: "proposal.enhance.visuals", silent: true });
@@ -135,7 +137,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (layers.includes("intelligence")) {
     tasks.push(delay(3000).then(async () => {
       try {
-        const pt = companyIntelligencePrompt({ company: companyCtx });
+        const pt = companyIntelligencePrompt({ company: companyCtx, tenant });
         const r = await invokeClaude<unknown>({ system: pt.system, messages: [{ role: "user", content: pt.user }], json: true, maxTokens: 1500 });
         const normalized = normalizeCompanyIntelligence(r.json);
         const vr = validateAiOutput(companyIntelligenceResponseSchema, normalized, { workflow_name: "proposal.enhance.intelligence", silent: true });
@@ -154,11 +156,11 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   if (results.intelligence != null) {
     updatePayload.intelligence = results.intelligence;
     // Also cache on company
-    await sb.from("companies").update({ intelligence: results.intelligence }).eq("id", (proposal as { company_id: string }).company_id);
+    await sb.from("companies").update({ intelligence: results.intelligence }).eq("id", (proposal as { company_id: string }).company_id).eq("tenant_id", auth.user.tenant_id);
   }
 
   if (Object.keys(updatePayload).length > 0) {
-    await sb.from("proposals").update(updatePayload).eq("id", proposal.id);
+    await sb.from("proposals").update(updatePayload).eq("id", proposal.id).eq("tenant_id", auth.user.tenant_id);
   }
 
   if (eventId) {
@@ -180,6 +182,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
 
   // Return full updated proposal
-  const { data: updated } = await sb.from("proposals").select("*").eq("id", proposal.id).single();
+  const { data: updated } = await sb.from("proposals").select("*").eq("id", proposal.id).eq("tenant_id", auth.user.tenant_id).single();
   return NextResponse.json({ data: updated, enhancement_results: results });
 }

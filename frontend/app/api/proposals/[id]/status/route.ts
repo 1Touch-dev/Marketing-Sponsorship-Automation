@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createOrUpdateDeal } from "@/lib/pipedrive/sync";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
         .from("proposals")
         .select("title, share_token, companies(company_name)")
         .eq("id", ctx.params.id)
+        .eq("tenant_id", auth.user.tenant_id)
         .single();
 
       if (proposal) {
@@ -48,8 +50,10 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
           : (proposal.companies as { company_name: string } | null)?.company_name) ?? "Unknown";
         const appUrl = process.env.APP_URL ?? "";
         const shareToken = proposal.share_token as string | null;
+        const tenant = await resolveClubContext(auth.user.tenant_id);
+        const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
         createOrUpdateDeal({
-          title: `${companyName} × Coritiba FC — ${proposal.title}`,
+          title: `${companyName} × ${clubName} — ${proposal.title}`,
           orgName: companyName,
           status: "open",
           proposalId: ctx.params.id,

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
 
@@ -39,7 +40,11 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
           : []
     );
 
-    const prompt = `You are a senior sponsorship strategist for Coritiba FC, a Brazilian football club.
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+    const clubRegion = [tenant.club_facts.state, tenant.club_facts.city].filter(Boolean).join("/") || "its home market";
+
+    const prompt = `You are a senior sponsorship strategist for ${clubName}, a Brazilian football club.
 
 COMPANY BEING ANALYSED:
 Name: ${co.company_name}
@@ -66,7 +71,7 @@ Perform a deep differentiator analysis and produce a JSON object with:
       "call_to_action": "suggested cta for proposal"
     }
   ],
-  "personalised_proposal_intro": "Opening paragraph personalized for this brand — reference their specific differentiators, why Coritiba FC is the RIGHT partner for THEM specifically",
+  "personalised_proposal_intro": "Opening paragraph personalized for this brand — reference their specific differentiators, why ${clubName} is the RIGHT partner for THEM specifically",
   "personalised_outreach_email": "Short 150-word cold outreach email personalised to decision maker using differentiators as hooks",
   "sponsorship_fit": {
     "score": 8.5,
@@ -74,14 +79,14 @@ Perform a deep differentiator analysis and produce a JSON object with:
     "best_format": "jerseys|led_boards|digital|hospitality|barter|hybrid",
     "ideal_package": "describe the ideal package for this specific company"
   },
-  "competitive_advantage_summary": "2-sentence summary of how partnering with Coritiba FC differentiates them FROM their competitors"
+  "competitive_advantage_summary": "2-sentence summary of how partnering with ${clubName} differentiates them FROM their competitors"
 }
 
 Rules:
 - Be SPECIFIC — mention real brand attributes, not generic statements
 - Never mention rival football clubs
 - Focus on Brazilian market context
-- Reference Coritiba FC's Paraná/Curitiba audience as a strategic asset`;
+- Reference ${clubName}'s ${clubRegion} audience as a strategic asset`;
 
     const result = await invokeClaude({
       system: "You are a commercial intelligence analyst. Always respond with valid JSON only. Never use markdown code blocks or code fences.",

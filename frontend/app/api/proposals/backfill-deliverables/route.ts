@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
-import { CORITIBA_CONTEXT } from "@/lib/bedrock/prompts";
+import { buildClubContext } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -64,6 +66,10 @@ export async function POST(req: Request) {
   const batch = needsBackfill.slice(0, limit);
   const results: { id: string; status: string; deliverables?: string[] }[] = [];
 
+  const tenant = await resolveClubContext(auth.user.tenant_id);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const clubContext = buildClubContext(tenant);
+
   for (const proposal of batch) {
     try {
       const companyName = (proposal as ProposalRow).companies?.company_name ?? "the sponsor";
@@ -72,13 +78,13 @@ export async function POST(req: Request) {
       const content = (proposal as ProposalRow).content as Record<string, unknown> | null;
 
       const system = [
-        "You are a sponsorship sales director at Coritiba Foot Ball Club.",
-        "Generate exactly 5 concrete, measurable deliverables for a Coritiba FC sponsorship.",
-        "Each deliverable must reference a specific Coritiba FC asset with quantity.",
-        "Examples: 'Jersey chest badge — 25 home + away matches', 'Couto Pereira LED perimeter — 3 min/match x 19 home games', 'Co-branded Instagram post — 4 posts/month'.",
+        `You are a sponsorship sales director at ${tenant.club_facts.club_name}.`,
+        `Generate exactly 5 concrete, measurable deliverables for a ${clubName} sponsorship.`,
+        `Each deliverable must reference a specific ${clubName} asset with quantity.`,
+        "Examples: 'Jersey chest badge — 25 home + away matches', 'Stadium LED perimeter — 3 min/match x 19 home games', 'Co-branded Instagram post — 4 posts/month'.",
         "Output MUST be valid JSON: { \"deliverables\": [\"item1\", \"item2\", \"item3\", \"item4\", \"item5\"] }",
         "",
-        CORITIBA_CONTEXT,
+        clubContext,
       ].join("\n");
 
       const user = [
@@ -87,7 +93,7 @@ export async function POST(req: Request) {
         campaignTitle ? `Campaign: ${campaignTitle}` : null,
         content?.activation_plan ? `Activation context: ${String(content.activation_plan).slice(0, 500)}` : null,
         "",
-        "Generate 5 specific deliverables for this Coritiba FC sponsorship package.",
+        `Generate 5 specific deliverables for this ${clubName} sponsorship package.`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -134,9 +140,11 @@ export async function POST(req: Request) {
 /** GET /api/proposals/backfill-deliverables — just report count */
 export async function GET() {
   const sb = supabaseAdmin();
+  const tenantId = await resolveTenantId();
   const { data: proposals, error } = await sb
     .from("proposals")
     .select("id, content")
+    .eq("tenant_id", tenantId)
     .limit(500);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

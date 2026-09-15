@@ -12,6 +12,7 @@ import { resolveCompanyDomain, extractDomainFromWebsite } from "@/lib/intelligen
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import {
   loadDefaultEmailTemplate,
   generateEmailWithTemplate,
@@ -32,11 +33,12 @@ export type ToolResult = {
 };
 
 // ── Helper: resolve sender from team_members DB ───────────────────────────────
-async function getDefaultSenderName(sb: ReturnType<typeof supabaseAdmin>): Promise<string> {
+async function getDefaultSenderName(sb: ReturnType<typeof supabaseAdmin>, tenantId: string): Promise<string> {
   try {
     const { data } = await sb
       .from("team_members")
       .select("full_name")
+      .eq("tenant_id", tenantId as never)
       .eq("default_sender", true as never)
       .eq("active", true as never)
       .limit(1)
@@ -47,11 +49,12 @@ async function getDefaultSenderName(sb: ReturnType<typeof supabaseAdmin>): Promi
   }
 }
 
-async function getDefaultSenderTitle(sb: ReturnType<typeof supabaseAdmin>): Promise<string | null> {
+async function getDefaultSenderTitle(sb: ReturnType<typeof supabaseAdmin>, tenantId: string): Promise<string | null> {
   try {
     const { data } = await sb
       .from("team_members")
       .select("title")
+      .eq("tenant_id", tenantId as never)
       .eq("default_sender", true as never)
       .eq("active", true as never)
       .limit(1)
@@ -305,13 +308,14 @@ export async function toolGenerateOutreachEmail(input: {
   try {
     const { data: proposal } = await sb
       .from("proposals")
-      .select("id, title, status, content, company_id, share_token, companies(id, company_name, industry, website, country)")
+      .select("id, title, status, content, company_id, share_token, tenant_id, companies(id, company_name, industry, website, country)")
       .eq("id", input.proposal_id)
       .single();
 
     if (!proposal) {
       return { success: false, data: {}, summary: "Proposal not found" };
     }
+    const tenantId = (proposal as { tenant_id: string }).tenant_id;
     if (proposal.status !== "approved") {
       return {
         success: false,
@@ -327,8 +331,8 @@ export async function toolGenerateOutreachEmail(input: {
     const summary =
       content?.executive_summary || content?.campaign_rationale || proposal.title;
 
-    const senderName = await getDefaultSenderName(sb);
-    const senderTitle = await getDefaultSenderTitle(sb);
+    const senderName = await getDefaultSenderName(sb, tenantId);
+    const senderTitle = await getDefaultSenderTitle(sb, tenantId);
     const proposalLink = proposal.share_token
       ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
       : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}`;
@@ -361,6 +365,7 @@ export async function toolGenerateOutreachEmail(input: {
     }
 
     if (!emailOutput) {
+      const tenant = await resolveClubContext(tenantId);
       const { system, user } = outreachEmailPrompt({
         company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
         proposalTitle: proposal.title,
@@ -370,6 +375,7 @@ export async function toolGenerateOutreachEmail(input: {
         proposalLink,
         senderName,
         senderTitle,
+        tenant,
       });
 
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -396,6 +402,7 @@ export async function toolGenerateOutreachEmail(input: {
       .from("emails")
       .insert(
         guardColumns("emails", {
+          tenant_id: tenantId,
           proposal_id: proposal.id,
           recipient: input.recipient_email,
           subject: emailOutput.subject,

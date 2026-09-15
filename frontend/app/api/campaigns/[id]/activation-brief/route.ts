@@ -4,6 +4,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -87,6 +88,7 @@ export async function POST(
       .from("campaign_inventory_items")
       .select("name, category, inventory_type, quantity")
       .eq("campaign_id", id)
+      .eq("tenant_id", auth.user.tenant_id)
       .eq("included", true);
     lines = (dbLines as Array<{ name: string; category: string; inventory_type: string; quantity: number }>) ?? [];
   }
@@ -100,6 +102,8 @@ export async function POST(
 
   let aiBrief: string | null = null;
   try {
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
     const lineList = lines.length > 0
       ? lines.map(l => `- ${l.name} × ${l.quantity}`).join("\n")
       : "Nenhum item de inventário vinculado ainda.";
@@ -110,11 +114,11 @@ export async function POST(
     const result = await invokeClaude({
       messages: [{
         role: "user",
-        content: `You are a sponsorship activation coordinator for Coritiba FC.
+        content: `You are a sponsorship activation coordinator for ${clubName}.
 
 Campaign: ${(campaign as Record<string, unknown>).title}
 Sponsor: ${companyName}
-Activation notes: ${String((campaign as Record<string, unknown>).activation ?? "Patrocínio Coritiba FC")}
+Activation notes: ${String((campaign as Record<string, unknown>).activation ?? `Patrocínio ${clubName}`)}
 
 Selected inventory:
 ${lineList}

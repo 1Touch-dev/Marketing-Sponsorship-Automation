@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { executionBriefSchema, normalizeExecutionBrief, validateAiOutput } from "@/lib/ai/schemas";
 import type { StrategyVariant } from "@/lib/ai/schemas";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 60;
 
@@ -43,6 +44,7 @@ export async function POST(
   const { data: inventoryItems } = await (sb as ReturnType<typeof supabaseAdmin>)
     .from("inventory_items" as "companies")
     .select("name, inventory_type, category, content_hours, team_required, production_cost, setup_hours, avg_views, line_items")
+    .eq("tenant_id" as "id", auth.user.tenant_id)
     .eq("status", "active") as unknown as { data: Array<Record<string, unknown>> | null };
 
   const inventoryContext = inventoryItems && inventoryItems.length > 0
@@ -60,7 +62,11 @@ export async function POST(
       }`
     : "";
 
-  const prompt = `You are a sports marketing operations expert for Coritiba FC.
+  const tenant = await resolveClubContext(auth.user.tenant_id);
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const stadiumName = tenant.club_facts.stadium_name ?? "the stadium";
+
+  const prompt = `You are a sports marketing operations expert for ${clubName}.
 
 Generate a detailed execution brief for EACH campaign strategy in this sponsorship proposal.
 For each strategy, estimate based on the actual inventory items and their real production hours/costs:
@@ -90,7 +96,7 @@ Return JSON:
       "estimated_duration": "8–12 weeks",
       "estimated_cost_brl": "R$ 45.000 – R$ 70.000",
       "resources_needed": ["Videographer (8h)", "Graphic designer (16h)", "Social media team (4h/week)", "Player involvement (2h)"],
-      "action_items": ["Briefing criativo com time de marketing", "Gravação de vídeo no Couto Pereira", "Edição e aprovação", "Publicação nas redes"],
+      "action_items": ["Briefing criativo com time de marketing", "Gravação de vídeo no ${stadiumName}", "Edição e aprovação", "Publicação nas redes"],
       "complexity": "medium",
       "key_risk": "Player availability during match week",
       "total_team_hours": 40
@@ -102,7 +108,7 @@ Return JSON:
 
   try {
     const raw = await invokeClaude({
-      system: "You are a sports marketing operations expert for Coritiba FC. Return only valid JSON.",
+      system: `You are a sports marketing operations expert for ${clubName}. Return only valid JSON.`,
       messages: [{ role: "user", content: prompt }],
       maxTokens: 4096,
       json: true,

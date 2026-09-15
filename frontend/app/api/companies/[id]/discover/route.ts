@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
 
@@ -29,6 +30,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     const co = company as Record<string, unknown>;
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
     // ── Step 1: Generate competitor search queries ────────────────────────────
     const queryPrompt = `You are a Brazilian market research analyst.
@@ -59,7 +62,7 @@ Generate a JSON object with:
   ],
   "differentiators": {
     "unique_strengths": ["what makes ${co.company_name} unique vs competitors"],
-    "competitor_weaknesses": ["gaps competitors have that Coritiba FC partnership could fill"],
+    "competitor_weaknesses": ["gaps competitors have that a ${clubName} partnership could fill"],
     "proposal_angle": "The key differentiation angle to use when pitching ${co.company_name}",
     "best_strategy": "awareness|engagement|conversion|loyalty|barter|lei_de_incentivo",
     "personalization_hooks": ["specific things about this brand to reference in proposals"]

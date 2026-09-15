@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { followupEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -84,11 +85,13 @@ export async function POST(req: Request) {
     metadata: { parent_email_id: typedEmail.id },
   });
 
+  const tenant = await resolveClubContext(auth.user.tenant_id);
   const { system, user } = followupEmailPrompt({
     company,
     previousSubject: typedEmail.subject,
     previousBody: typedEmail.body_text ?? "",
     daysSinceSent: daysSince,
+    tenant,
   });
 
   let validated: EmailOutput | null = null;

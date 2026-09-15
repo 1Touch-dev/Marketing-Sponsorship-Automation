@@ -11,6 +11,8 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { resolveClubContext } from "@/lib/tenants/club-context";
+import type { ClubContextInput } from "@/lib/bedrock/prompts";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -38,7 +40,8 @@ export async function POST(req: Request) {
     const scraped = await scrapeWebsiteWithFallback(targetUrl, { useApify: true });
 
     // AI enrichment from scraped content
-    const enrichPrompt = buildEnrichmentPrompt(company as Record<string,string>, scraped);
+    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const enrichPrompt = buildEnrichmentPrompt(company as Record<string,string>, scraped, tenant);
     const enrichResult = await invokeClaude({
       messages: [{ role: "user", content: enrichPrompt }],
       maxTokens: 2500,
@@ -115,9 +118,11 @@ export async function POST(req: Request) {
   }
 }
 
-function buildEnrichmentPrompt(company: Record<string, string>, scraped: { title: string; meta_description?: string; hero_text: string; keywords: string[]; sponsorship_mentions: string[]; tech_signals: string[]; social_links: string[]; navigation: string[]; cta_texts: string[] }): string {
-  return `You are Coritiba FC's commercial intelligence analyst.
-CRITICAL: NEVER mention Athletico Paranaense, Corinthians, Flamengo, Palmeiras, São Paulo FC, or any football club.
+function buildEnrichmentPrompt(company: Record<string, string>, scraped: { title: string; meta_description?: string; hero_text: string; keywords: string[]; sponsorship_mentions: string[]; tech_signals: string[]; social_links: string[]; navigation: string[]; cta_texts: string[] }, tenant: ClubContextInput): string {
+  const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+  const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "any football club";
+  return `You are ${clubName}'s commercial intelligence analyst.
+CRITICAL: NEVER mention ${rivalsList}.
 
 Company: ${company.company_name}
 URL: ${company.website ?? "unknown"}

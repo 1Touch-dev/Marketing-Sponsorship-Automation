@@ -5,9 +5,10 @@ import { useState } from "react";
 interface LeadInterestFormProps {
   proposalId: string;
   companyName?: string;
+  clubName?: string;
 }
 
-export function LeadInterestForm({ proposalId, companyName = "" }: LeadInterestFormProps) {
+export function LeadInterestForm({ proposalId, companyName = "", clubName = "o clube" }: LeadInterestFormProps) {
   const [name, setName] = useState("");
   const [company, setCompany] = useState(companyName);
   const [email, setEmail] = useState("");
@@ -64,7 +65,7 @@ export function LeadInterestForm({ proposalId, companyName = "" }: LeadInterestF
             </div>
             <h2 className="text-2xl font-bold text-slate-900">Fale com nossa equipe</h2>
             <p className="text-slate-500 mt-1.5 text-sm">
-              Preencha o formulário abaixo e um especialista em patrocínios do Coritiba FC entrará em contato.
+              Preencha o formulário abaixo e um especialista em patrocínios do {clubName} entrará em contato.
             </p>
           </div>
 
@@ -159,7 +160,7 @@ export function LeadInterestForm({ proposalId, companyName = "" }: LeadInterestF
                 Concordo com o uso dos meus dados para contato comercial conforme a{" "}
                 <span className="font-semibold text-slate-800">LGPD</span>{" "}
                 (Lei Geral de Proteção de Dados — Lei 13.709/2018). Seus dados serão usados
-                exclusivamente para fins de contato comercial pelo Coritiba FC.
+                exclusivamente para fins de contato comercial pelo {clubName}.
               </label>
             </div>
 

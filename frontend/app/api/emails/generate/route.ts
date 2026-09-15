@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt, negotiationEmailPrompt, barterEmailPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 import {
   loadEmailTemplateForFlow,
   generateEmailWithTemplate,
@@ -109,6 +110,7 @@ export async function POST(req: Request) {
   }
 
   if (!validated) {
+    const tenant = await resolveClubContext(auth.user.tenant_id);
     const promptArgs = {
       company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
       proposalTitle: proposal.title,
@@ -118,6 +120,7 @@ export async function POST(req: Request) {
       senderTitle,
       proposalLink,
       tone: parsed.data.tone,
+      tenant,
     };
     const { system, user } =
       flowType === "negotiation"
