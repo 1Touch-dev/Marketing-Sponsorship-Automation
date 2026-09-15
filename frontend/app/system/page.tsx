@@ -24,14 +24,32 @@ const TEST_KEYWORDS = ["test", "sample", "demo", "diagnostic", "example", "url c
 export default async function SystemMaintenancePage() {
   const sb = supabaseAdmin();
 
-  const [failedWorkflows, stuckWorkflows, allProposals, allCompanies, validationFailures, auditLogs] = await Promise.all([
+  const startOfDayUtc = new Date();
+  startOfDayUtc.setUTCHours(0, 0, 0, 0);
+
+  const [failedWorkflows, stuckWorkflows, allProposals, allCompanies, validationFailures, auditLogs, todaySpend] = await Promise.all([
     sb.from("workflow_events").select("id, workflow_name, error_message, created_at").eq("status", "failed").order("created_at", { ascending: false }).limit(20),
     sb.from("workflow_events").select("id", { count: "exact", head: true }).in("status", ["started", "processing"]).lt("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString()),
     sb.from("proposals").select("id, title, status, status_reason").order("created_at", { ascending: false }).limit(100),
     sb.from("companies").select("id, company_name, status").order("created_at", { ascending: false }).limit(200),
     sb.from("audit_logs").select("id", { count: "exact", head: true }).like("action", "ai.validation_failed%"),
     sb.from("audit_logs").select("action, created_at, metadata").like("action", "system.maintenance%").order("created_at", { ascending: false }).limit(10),
+    sb.from("spend_ledger" as "companies").select("amount_usd, category" as "id").gte("created_at" as "id", startOfDayUtc.toISOString()),
   ]);
+
+  // Pattern 5 (spend guard) UI surface — the enforcement itself has existed
+  // since 2026-09-08 (lib/monitoring/spend-guard.ts), but there was never a
+  // dashboard to actually see today's spend without querying the DB by hand.
+  const spendRows = (todaySpend.data ?? []) as unknown as Array<{ amount_usd: number; category: string }>;
+  const spendCapUsd = Number(process.env.DAILY_SPEND_CAP_USD) > 0 ? Number(process.env.DAILY_SPEND_CAP_USD) : 25;
+  const spendTodayUsd = spendRows.reduce((sum, r) => sum + Number(r.amount_usd ?? 0), 0);
+  const spendByCategory = Array.from(
+    spendRows.reduce((map, r) => {
+      map.set(r.category, (map.get(r.category) ?? 0) + Number(r.amount_usd ?? 0));
+      return map;
+    }, new Map<string, number>()),
+  ).map(([category, usd]) => ({ category, usd }));
+  const spendPct = Math.min(100, (spendTodayUsd / spendCapUsd) * 100);
 
   const failedCount = failedWorkflows.data?.length ?? 0;
   const stuckCount = stuckWorkflows.count ?? 0;
@@ -121,6 +139,43 @@ export default async function SystemMaintenancePage() {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* AI Spend Cap (Pattern 5) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" />
+            AI Spend Cap (Today, UTC)
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Hard daily ceiling on paid AI calls (Bedrock text + image generation) — new calls are blocked once this is reached.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-semibold">${spendTodayUsd.toFixed(2)}</span>
+            <span className="text-sm text-muted-foreground">of ${spendCapUsd.toFixed(2)} cap</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full ${spendPct >= 100 ? "bg-red-500" : spendPct >= 80 ? "bg-amber-500" : "bg-green-500"}`}
+              style={{ width: `${spendPct}%` }}
+            />
+          </div>
+          {spendByCategory.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+              {spendByCategory.map((c) => (
+                <div key={c.category} className="rounded-lg border px-3 py-2 text-xs">
+                  <div className="text-muted-foreground">{c.category}</div>
+                  <div className="font-semibold">${c.usd.toFixed(3)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No paid AI calls recorded yet today.</p>
+          )}
         </CardContent>
       </Card>
 
