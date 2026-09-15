@@ -255,9 +255,9 @@ Every individual item from the source report, so nothing gets lost in the phase 
 6. [x] OAuth/integration compromise cascades — short-lived rotating tokens, minimum scope, kill switch — **Done**
 7. [x] Single point of failure in backups — immutable, access-isolated, offsite, separate credentials — **Done, live-verified**
 8. [ ] Trust-fund/liquidity mismanagement — segregate customer float from operating cash, independent audit — organizational/N/A (no customer float exists on the platform today)
-9. [ ] Enterprise trust erosion from over-automation — visible "human takeover" mode, conservative marketing claims — not started
+9. [x] Enterprise trust erosion from over-automation — visible "human takeover" mode, conservative marketing claims — **Done 2026-09-15.** New `HumanInTheLoopBadge` on `/approvals` and the Outreach Agent panel. Copy was fact-checked against the actual code before shipping — an earlier draft claimed "no email is ever sent automatically," which traced back false (`mode: "auto"` batch campaigns skip the proposal-approval pause by design). Corrected to the claim that's unconditionally true: no real outbound email has ever left the system, because live sending (Pattern 3) was never wired up.
 10. [ ] Founder/team conflict — organizational, clear decision rights before scale pressure (not a build item)
-11. [ ] Poor unit economics — price to true per-lead cost from day one, track cost-to-serve continuously — not started (cost-to-serve tracking overlaps with Phase 12)
+11. [x] Poor unit economics — price to true per-lead cost from day one, track cost-to-serve continuously — **Done 2026-09-15.** `invokeClaude()`/`converseWithTools()` now accept optional `entityType`/`entityId`, threaded into the 4 highest-value company-scoped call sites (proposal wizard, opportunity-gap, differentiators, outreach agent). New `CostToServeCard` on the company page aggregates real `spend_ledger` rows per company. Live-verified: regenerated a real AI call, confirmed the row landed with the correct entity linkage, confirmed the card rendered it.
 12. [ ] Weak product-market fit — validate with design partners before broad automation, build a defensible data moat — not started
 
 ### A.2 — Section 4, Full Feature Roadmap
