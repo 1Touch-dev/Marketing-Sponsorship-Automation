@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, DollarSign, Plus, Activity, CheckCircle, Target, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { HygieneCheckPanel } from "./hygiene-check-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,26 @@ export default async function PipelinePage() {
   const tenantId = await resolveTenantId();
 
   // Use companies table with pipeline_stage — no separate table needed
-  const { data: companiesRaw } = await sb
+  // Found live-testing 2026-09-17 (building the Pipeline Hygiene Agent,
+  // Phase 8): this query previously selected "estimated_value", a column
+  // that doesn't exist anywhere on `companies` — Supabase returned an
+  // error, `companiesRaw` came back undefined, and the whole page silently
+  // rendered as if there were zero companies in every stage (540 real
+  // companies hidden), with no error surfaced anywhere. No `estimated_value`
+  // equivalent exists in the schema for any table upstream of a signed
+  // contract (`contracts.total_value_brl` is the first real money figure
+  // in the data model) — so this is corrected to not fabricate one,
+  // rather than papering over the gap.
+  const { data: companiesRaw, error: companiesError } = await sb
     .from("companies")
-    .select("id, company_name, industry, status, pipeline_stage, estimated_value, updated_at")
+    .select("id, company_name, industry, status, pipeline_stage, updated_at")
     .eq("tenant_id", tenantId)
     .not("pipeline_stage", "is", null)
     .order("updated_at", { ascending: false });
+
+  if (companiesError) {
+    console.error("[pipeline] failed to load companies", companiesError.message);
+  }
 
   type PipelineCompany = {
     id: string;
@@ -41,7 +56,6 @@ export default async function PipelinePage() {
     industry?: string | null;
     status?: string | null;
     pipeline_stage?: string | null;
-    estimated_value?: number | null;
     updated_at?: string | null;
   };
 
@@ -52,8 +66,6 @@ export default async function PipelinePage() {
     return acc;
   }, {});
 
-  const totalValue = companies.reduce((sum, c) => sum + (Number(c.estimated_value) || 0), 0);
-  const wonValue = stageGroups["closed_won"].reduce((sum, c) => sum + (Number(c.estimated_value) || 0), 0);
   const activeLeads = companies.filter((c) => !["closed_won", "closed_lost"].includes(c.pipeline_stage ?? ""));
   const migrationNeeded = false;
 
@@ -74,6 +86,8 @@ export default async function PipelinePage() {
       />
 
       {migrationNeeded && null}
+
+      <HygieneCheckPanel />
 
       {/* Pipedrive notice */}
       <Card className="border-blue-200 bg-blue-50/30">
@@ -99,8 +113,8 @@ export default async function PipelinePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <StatCard label="Active Leads" value={activeLeads.length.toString()} icon={<Target className="h-4 w-4" />} color="blue" />
         <StatCard label="Won Deals" value={stageGroups["closed_won"].length.toString()} icon={<CheckCircle className="h-4 w-4" />} color="green" />
-        <StatCard label="Pipeline Value" value={totalValue > 0 ? `R$ ${(totalValue / 1000).toFixed(0)}K` : "—"} icon={<DollarSign className="h-4 w-4" />} color="purple" />
-        <StatCard label="Revenue Won" value={wonValue > 0 ? `R$ ${(wonValue / 1000).toFixed(0)}K` : "—"} icon={<TrendingUp className="h-4 w-4" />} color="amber" />
+        <StatCard label="Pipeline Value" value="Not tracked" icon={<DollarSign className="h-4 w-4" />} color="purple" />
+        <StatCard label="Revenue Won" value="Not tracked" icon={<TrendingUp className="h-4 w-4" />} color="amber" />
       </div>
 
       {/* Pipeline stages */}
@@ -136,11 +150,6 @@ export default async function PipelinePage() {
                 <CardTitle className="text-sm flex items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium ${stage.color}`}>{stage.label}</span>
                   <span className="text-muted-foreground">({stageCompanies.length})</span>
-                  {stageCompanies.length > 0 && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      R$ {stageCompanies.reduce((s, c) => s + (Number(c.estimated_value) || 0), 0).toLocaleString("pt-BR")}
-                    </span>
-                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
@@ -165,7 +174,7 @@ export default async function PipelinePage() {
 
 type PipelineCompany = {
   id: string; company_name: string; industry?: string | null; status?: string | null;
-  pipeline_stage?: string | null; estimated_value?: number | null; updated_at?: string | null;
+  pipeline_stage?: string | null; updated_at?: string | null;
 };
 
 function CompanyRow({ company }: { company: PipelineCompany }) {
@@ -181,7 +190,6 @@ function CompanyRow({ company }: { company: PipelineCompany }) {
         {company.status && <p className="text-xs text-muted-foreground mt-0.5 capitalize">Status: {company.status}</p>}
       </div>
       <div className="shrink-0 text-right space-y-0.5">
-        {company.estimated_value ? <p className="text-sm font-medium">R$ {Number(company.estimated_value).toLocaleString("pt-BR")}</p> : null}
         <Link href={`/companies/${company.id}`} className="text-xs text-blue-600 hover:underline block">
           View →
         </Link>

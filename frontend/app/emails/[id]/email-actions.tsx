@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { CheckCircle2, ExternalLink, Send, FlaskConical, AlertTriangle, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, Send, FlaskConical, AlertTriangle, X, MessageSquareText } from "lucide-react";
 import type { EmailRow } from "@/types/database";
 
 // Patterns that indicate unresolved template placeholders
@@ -46,13 +46,48 @@ export function EmailActions({ email }: { email: EmailRow }) {
 
   // Inbound messages (Phase 2 reply capture) are read-only here — approve/
   // send/follow-up actions only make sense for our own outbound emails.
+  // Exception: an objection/needs-info reply can trigger the Negotiation
+  // Agent (Phase 8) to draft a grounded counter-response.
   if (email.direction === "inbound") {
+    const canNegotiate = email.reply_classification === "objection" || email.reply_classification === "needs_info";
     return (
       <Card>
         <CardHeader>
           <CardTitle>Actions</CardTitle>
-          <CardDescription>Inbound message — no actions available.</CardDescription>
+          <CardDescription>
+            {canNegotiate ? "This reply looks like it needs a response." : "Inbound message — no actions available."}
+          </CardDescription>
         </CardHeader>
+        {canNegotiate && (
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full gap-1.5"
+              disabled={!!busy}
+              onClick={async () => {
+                setBusy("negotiate");
+                try {
+                  const res = await fetch(`/api/emails/${email.id}/negotiate`, { method: "POST" });
+                  const j = await res.json();
+                  if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
+                  toast({ variant: "success", title: "Draft de negociação criado" });
+                  router.push(`/emails/${j.draftEmailId}`);
+                } catch (err) {
+                  toast({
+                    variant: "destructive",
+                    title: "Falha ao gerar resposta",
+                    description: err instanceof Error ? err.message : "Unknown error",
+                  });
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              <MessageSquareText className="h-4 w-4" />
+              {busy === "negotiate" ? "Gerando resposta…" : "Draft Negotiation Response"}
+            </Button>
+          </CardContent>
+        )}
       </Card>
     );
   }
