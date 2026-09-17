@@ -11,6 +11,7 @@ import { IntelligencePanel } from "./intelligence-panel";
 import { ProposalLandingVisuals } from "./proposal-landing-visuals";
 import { resolveKpiTemplate } from "@/lib/proposals/kpi-templates";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
+import { resolveVideoEmbed } from "@/lib/proposals/video-embed";
 import {
   TrendingUp, Users, MapPin, Target, CheckCircle2, Building2,
   ArrowRight, Trophy, Tv2, Zap, Globe, Megaphone, BarChart3,
@@ -297,6 +298,8 @@ export function ProposalLandingPage({
     investment_note: string;
     cta: string;
     campaign_video_url?: string;
+    video_intro_url?: string;
+    video_intro_caption?: string;
     kpi_template_id?: string;
   };
 
@@ -535,6 +538,42 @@ export function ProposalLandingPage({
             </div>
           </div>
         </div>
+
+        {/* Personalized video intro (Task 8) — a sponsor-specific welcome
+            message, distinct from the generic mid-page campaign video
+            below. Shown right after the hero/summary card so it's one of
+            the first things a sponsor sees. */}
+        {content?.video_intro_url && (() => {
+          const embed = resolveVideoEmbed(content.video_intro_url!);
+          if (!embed) return null;
+          return (
+            <div className="mb-2 rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-5 sm:p-6 pb-0 flex items-center gap-2">
+                <Play className="h-4 w-4 text-green-700" />
+                <span className="text-xs font-semibold uppercase tracking-wider text-green-700">
+                  Mensagem pessoal para {company.company_name}
+                </span>
+              </div>
+              <div className="p-5 sm:p-6 pt-3 space-y-3">
+                <div className="aspect-video rounded-xl overflow-hidden bg-black">
+                  {embed.kind === "iframe" ? (
+                    <iframe
+                      src={embed.embedUrl}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video src={embed.url} controls className="w-full h-full object-cover" />
+                  )}
+                </div>
+                {content.video_intro_caption && (
+                  <p className="text-sm text-slate-600 leading-relaxed">{content.video_intro_caption}</p>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Executive summary */}
         {content?.executive_summary && (

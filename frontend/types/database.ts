@@ -186,6 +186,12 @@ export interface ProposalContent {
   deliverables?: string[];
   investment_note?: string;
   cta?: string;
+  /** Task 8 — personalized video intro block, shown near the top of the
+   *  public share page (distinct from campaign_video_url, the generic
+   *  mid-page campaign video). A short, sponsor-specific welcome message
+   *  recorded by the sales rep. */
+  video_intro_url?: string;
+  video_intro_caption?: string;
   [k: string]: unknown;
 }
 

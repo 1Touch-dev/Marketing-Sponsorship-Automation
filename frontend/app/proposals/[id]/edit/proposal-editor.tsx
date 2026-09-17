@@ -13,7 +13,7 @@ import {
   Package, DollarSign, Zap, Save, ArrowLeft,
   AlertCircle, Info, CheckCircle2, History,
   Sparkles, Loader2, PenLine, ChevronDown, ChevronUp,
-  RotateCcw, Send, Calendar,
+  RotateCcw, Send, Calendar, Play,
   type LucideIcon,
 } from "lucide-react";
 
@@ -278,6 +278,9 @@ export function ProposalEditor({
     investment_note: initialContent?.investment_note ?? "",
     cta: initialContent?.cta ?? "",
     title: initialContent?.title ?? initialTitle,
+    campaign_video_url: initialContent?.campaign_video_url ?? "",
+    video_intro_url: initialContent?.video_intro_url ?? "",
+    video_intro_caption: initialContent?.video_intro_caption ?? "",
   });
   const [reason, setReason] = useState("");
   const [deliverablesText, setDeliverablesText] = useState(
@@ -534,6 +537,33 @@ export function ProposalEditor({
             />
             <div className="text-xs text-muted-foreground">
               If set, the &ldquo;Agendar Reunião&rdquo; button on the public proposal page will link here instead of sending an email.
+            </div>
+          </div>
+
+          {/* Personalized video intro (Task 8) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="video_intro_url" className="flex items-center gap-2 font-semibold">
+              <Play className="h-4 w-4 text-primary" /> Personalized Video Intro
+              <span className="text-xs font-normal text-muted-foreground">(YouTube, Vimeo, Loom, or direct .mp4)</span>
+            </Label>
+            <Input
+              id="video_intro_url"
+              type="url"
+              value={content.video_intro_url ?? ""}
+              onChange={(e) => setContent({ ...content, video_intro_url: e.target.value })}
+              placeholder="https://youtu.be/... or https://loom.com/share/..."
+            />
+            {content.video_intro_url && (
+              <Textarea
+                rows={2}
+                value={content.video_intro_caption ?? ""}
+                onChange={(e) => setContent({ ...content, video_intro_caption: e.target.value })}
+                placeholder="Optional caption shown under the video (e.g. what the sponsor should expect)"
+                className="mt-1.5"
+              />
+            )}
+            <div className="text-xs text-muted-foreground">
+              Shown near the top of the public share page as a personal welcome message for {"{Company Name}"}.
             </div>
           </div>
 
