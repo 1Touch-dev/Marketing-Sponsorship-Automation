@@ -17,6 +17,9 @@ import { getProposalFulfillmentData } from "@/lib/proposals/fulfillment";
 import { PdfDownloadButton } from "./pdf-download-button";
 import { ViewTracker } from "./view-tracker";
 import { ScrollProgressBar } from "./scroll-progress-bar";
+import { AccessGateForm } from "./access-gate-form";
+import { cookies } from "next/headers";
+import { gateCookieName, verifyGateToken } from "@/lib/proposals/access-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -93,8 +96,33 @@ export default async function PublicProposalViewPage({
     share_token?: string | null;
   };
 
-  const p = proposal as EnrichedProposal & { meeting_link?: string | null };
+  const p = proposal as EnrichedProposal & {
+    meeting_link?: string | null;
+    access_gate_enabled?: boolean;
+    access_gate_type?: "passcode" | "nda";
+    access_gate_nda_text?: string | null;
+  };
   const company = p.companies;
+
+  // Optional NDA/passcode gate (migration 0049) — checked server-side so
+  // gated content never reaches the initial HTML response for a browser
+  // that hasn't passed the gate, rather than just hiding it client-side.
+  if (p.access_gate_enabled) {
+    const cookieStore = cookies();
+    const gatePassed = verifyGateToken(params.token, cookieStore.get(gateCookieName(params.token))?.value);
+    if (!gatePassed) {
+      return (
+        <AccessGateForm
+          token={params.token}
+          type={p.access_gate_type === "nda" ? "nda" : "passcode"}
+          ndaText={p.access_gate_nda_text ?? null}
+          companyName={company?.company_name ?? ""}
+          clubName={clubName}
+          crestUrl={crestUrl}
+        />
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen w-full bg-white pb-24">

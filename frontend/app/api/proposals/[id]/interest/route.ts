@@ -31,5 +31,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     },
   });
 
+  // Per-visitor identified engagement (2026-09-17) — this is the moment an
+  // anonymous viewer becomes a known one. Backfill their identity onto
+  // every proposal_views row from this browser (matched by visitor_key,
+  // persisted client-side) for this proposal, so the admin engagement view
+  // can show a real name/email instead of just a session count.
+  if (body.visitor_key) {
+    await sb
+      .from("proposal_views" as "companies")
+      .update({
+        visitor_name: body.name ?? null,
+        visitor_email: body.email ?? null,
+        visitor_company: body.company ?? null,
+      } as never)
+      .eq("proposal_id", params.id)
+      .eq("visitor_key" as "id", body.visitor_key as unknown as string);
+  }
+
   return NextResponse.json({ ok: true });
 }

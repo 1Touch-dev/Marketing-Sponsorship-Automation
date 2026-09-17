@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getOrCreateVisitorKey } from "./visitor-key";
 
 interface LeadInterestFormProps {
   proposalId: string;
@@ -30,7 +31,7 @@ export function LeadInterestForm({ proposalId, companyName = "", clubName = "o c
       const res = await fetch(`/api/proposals/${proposalId}/interest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, email, phone, message, lgpdConsent }),
+        body: JSON.stringify({ name, company, email, phone, message, lgpdConsent, visitor_key: getOrCreateVisitorKey() }),
       });
       if (!res.ok) throw new Error("Erro ao enviar");
       setStatus("success");

@@ -15,11 +15,12 @@ import { GenerateEmailPanel } from "./generate-email-panel";
 import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import { ProposalShareButton } from "./proposal-share-button";
+import { AccessGateSettings } from "./access-gate-settings";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
-import { getProposalEngagementStats } from "@/lib/proposals/engagement";
+import { getProposalEngagementStats, getProposalVisitorBreakdown } from "@/lib/proposals/engagement";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
 import { VersionHistoryPanel } from "@/components/proposals/version-history-panel";
@@ -74,6 +75,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const hasImages = inlineImages.length > 0;
 
   const engagement = await getProposalEngagementStats(sb, proposal.id);
+  const visitorBreakdown = await getProposalVisitorBreakdown(sb, proposal.id);
   const viewCount = engagement.view_count;
 
   type EnrichedProposal = typeof proposal & {
@@ -145,6 +147,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             )}
             <EnhanceProposalButton proposalId={proposal.id} hasIntelligence={hasIntelligenceLayer} />
             <ProposalShareButton proposalId={proposal.id} shareToken={p.share_token ?? null} />
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/proposals/${proposal.id}/export-pdf`}>
+                📑 Export Branded PDF
+              </a>
+            </Button>
             {proposal.status === "approved" && (
               <ConvertToContractButton
                 proposalId={proposal.id}
@@ -360,9 +367,53 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                     ⚠ Gone cold — no view in {engagement.days_since_last_view} days. Consider a follow-up.
                   </div>
                 )}
+
+                {/* Per-visitor breakdown — replaces the aggregate-only view
+                    count with who actually viewed, once identified via the
+                    lead-interest form on the share page. */}
+                {visitorBreakdown.length > 0 && (
+                  <div className="mt-3 pt-3 border-t space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">By visitor</div>
+                    {visitorBreakdown.map((v, i) => (
+                      <div key={v.visitor_key ?? `unidentified-${i}`} className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium truncate">
+                            {v.name || v.email || "Visitante anônimo"}
+                          </div>
+                          {(v.company || v.email) && (
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {[v.company, v.email].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-medium">{v.view_count}x</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {Math.round(v.total_time_on_page_seconds / 60 * 10) / 10}min
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
+
+          {/* Optional NDA/passcode access gate (migration 0049) */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Share Link Protection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AccessGateSettings
+                proposalId={proposal.id}
+                initialEnabled={!!(p as unknown as { access_gate_enabled?: boolean }).access_gate_enabled}
+                initialType={((p as unknown as { access_gate_type?: string }).access_gate_type === "nda" ? "nda" : "passcode")}
+                initialNdaText={(p as unknown as { access_gate_nda_text?: string | null }).access_gate_nda_text ?? null}
+              />
+            </CardContent>
+          </Card>
 
           {/* Inline image preview — shown at step 4 so you can review before going live */}
           {inlineImages.length > 0 && (

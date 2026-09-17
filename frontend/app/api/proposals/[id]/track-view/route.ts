@@ -20,7 +20,11 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
 
-  let body: { view_id?: string; time_on_page_seconds?: number; max_scroll_pct?: number } = {};
+  let body: {
+    view_id?: string;
+    time_on_page_seconds?: number;
+    max_scroll_pct?: number;
+  } = {};
   try {
     body = await req.json();
   } catch {
@@ -43,6 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token") ?? "";
   const variant = searchParams.get("variant") ?? "A";
+  const visitorKey = searchParams.get("visitor_key") || null;
 
   // Public, unauthenticated route (a sponsor viewing the share link) — no
   // session to resolve a tenant from, so look it up from the proposal itself.
@@ -61,9 +66,39 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     metadata: { token, variant, user_agent: req.headers.get("user-agent"), timestamp: new Date().toISOString() },
   });
 
+  // Per-visitor identified engagement (2026-09-17) — if this browser has
+  // already identified itself on a prior visit to this same proposal (via
+  // the lead-interest form, which backfills visitor_name/email onto past
+  // rows sharing this visitor_key), carry that identity forward onto this
+  // new session too, so repeat visits from a known sponsor stay attributed
+  // without asking them to re-submit the form.
+  type CarriedIdentity = { visitor_name: string | null; visitor_email: string | null; visitor_company: string | null };
+  let carriedIdentity: CarriedIdentity | null = null;
+  if (visitorKey) {
+    const { data: priorIdentified } = await sb
+      .from("proposal_views" as "companies")
+      .select("visitor_name, visitor_email, visitor_company" as "id")
+      .eq("proposal_id", params.id)
+      .eq("visitor_key" as "id", visitorKey as unknown as string)
+      .not("visitor_email" as "id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    carriedIdentity = priorIdentified as unknown as CarriedIdentity | null;
+  }
+
   const { data: viewRow } = await sb
     .from("proposal_views" as "companies")
-    .insert({ tenant_id: tenantId, proposal_id: params.id, variant, user_agent: req.headers.get("user-agent") } as never)
+    .insert({
+      tenant_id: tenantId,
+      proposal_id: params.id,
+      variant,
+      user_agent: req.headers.get("user-agent"),
+      visitor_key: visitorKey,
+      visitor_name: carriedIdentity?.visitor_name ?? null,
+      visitor_email: carriedIdentity?.visitor_email ?? null,
+      visitor_company: carriedIdentity?.visitor_company ?? null,
+    } as never)
     .select("id")
     .maybeSingle();
 

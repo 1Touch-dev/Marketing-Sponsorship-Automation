@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { getOrCreateVisitorKey } from "./visitor-key";
 
 /**
  * Phase 5 — native engagement analytics (master_report.md Section 4 P0
@@ -21,7 +22,9 @@ export function ViewTracker({
   const sentRef = useRef(false);
 
   useEffect(() => {
-    fetch(`/api/proposals/${proposalId}/track-view?token=${token}&variant=${variant}`, { method: "POST" })
+    const visitorKey = getOrCreateVisitorKey();
+    const visitorParam = visitorKey ? `&visitor_key=${encodeURIComponent(visitorKey)}` : "";
+    fetch(`/api/proposals/${proposalId}/track-view?token=${token}&variant=${variant}${visitorParam}`, { method: "POST" })
       .then((r) => r.json())
       .then((j: { view_id?: string | null }) => {
         viewIdRef.current = j.view_id ?? null;
