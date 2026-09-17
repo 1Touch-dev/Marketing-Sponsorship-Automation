@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { recordAudit } from "@/lib/audit/log";
 
 export const runtime = "nodejs";
 
@@ -25,5 +26,14 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await recordAudit({
+    entity_type: "email",
+    entity_id: ctx.params.id,
+    action: status === "approved" ? "email.approved" : "email.rejected",
+    performed_by: auth.user.id,
+    actor_email: auth.user.email,
+  });
+
   return NextResponse.json({ data });
 }

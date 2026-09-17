@@ -79,3 +79,27 @@ export async function notifyGoneColdNudge(args: {
     `:snowflake: *Proposal gone cold* — "${args.proposalTitle}" was viewed but no activity for ${args.daysSinceLastView} day(s). A follow-up draft is queued for review.\n<${args.appUrl}/followups|Open follow-ups>`
   );
 }
+
+export async function notifyWeeklyValidationReport(args: {
+  isClean: boolean;
+  totalSpendUsd: number;
+  spendCapBreachCount: number;
+  emailBypassCount: number;
+  proposalBypassCount: number;
+  appUrl: string;
+}): Promise<void> {
+  if (args.isClean) {
+    await sendSlackNotification(
+      `:white_check_mark: *Weekly validation report — clean* — no spend-cap breaches or approval bypasses in the last 7 days. Total AI spend: $${args.totalSpendUsd.toFixed(2)}.`
+    );
+    return;
+  }
+  const issues = [
+    args.spendCapBreachCount > 0 && `${args.spendCapBreachCount} spend-cap breach day(s)`,
+    args.emailBypassCount > 0 && `${args.emailBypassCount} email(s) sent without a recorded approval`,
+    args.proposalBypassCount > 0 && `${args.proposalBypassCount} proposal(s) approved without a recorded decision`,
+  ].filter(Boolean).join(", ");
+  await sendSlackNotification(
+    `:rotating_light: *Weekly validation report — issues found* — ${issues}. Total AI spend: $${args.totalSpendUsd.toFixed(2)}.\n<${args.appUrl}/system|Open system maintenance>`
+  );
+}
