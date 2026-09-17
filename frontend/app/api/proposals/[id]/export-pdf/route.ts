@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { renderUrlToPdf } from "@/lib/proposals/pdf-export";
 import { randomBytes } from "crypto";
+import { gateCookieName, signGateToken } from "@/lib/proposals/access-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -23,7 +24,7 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
   const sb = supabaseAdmin();
   const { data: proposal } = await sb
     .from("proposals")
-    .select("id, title, share_token")
+    .select("id, title, share_token, access_gate_enabled")
     .eq("id", ctx.params.id)
     .eq("tenant_id", auth.user.tenant_id)
     .maybeSingle();
@@ -39,10 +40,23 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
   // Render against localhost — this runs headlessly on the same box, so
   // there's no reason to route through the public ngrok URL just to loop
   // back to the same server.
-  const internalUrl = `http://localhost:${process.env.PORT || 3000}/proposals/view/${shareToken}`;
+  const port = process.env.PORT || 3000;
+  const internalUrl = `http://localhost:${port}/proposals/view/${shareToken}`;
+
+  // If an NDA/passcode gate (Task 6) is enabled on this proposal, the
+  // headless renderer has no way to pass it interactively — found
+  // live-testing 2026-09-17: the exported "PDF" was just a 1-page capture
+  // of the password prompt. The admin requesting this export is already
+  // authenticated (requirePermission above), so it's correct to bypass
+  // the sponsor-facing gate for this internal render, the same way a
+  // logged-in admin already sees the real proposal everywhere else.
+  const gateEnabled = !!(proposal as { access_gate_enabled?: boolean }).access_gate_enabled;
+  const cookies = gateEnabled
+    ? [{ name: gateCookieName(shareToken), value: signGateToken(shareToken), url: internalUrl }]
+    : undefined;
 
   try {
-    const pdf = await renderUrlToPdf(internalUrl);
+    const pdf = await renderUrlToPdf(internalUrl, { cookies });
 
     await recordAudit({
       entity_type: "proposal",
