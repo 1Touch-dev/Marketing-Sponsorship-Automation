@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireInternalAuth } from "@/lib/internal-auth";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -77,20 +78,24 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
+
   const { table } = await req.json().catch(() => ({ table: null }));
   const sb = supabaseAdmin();
+  const tenant_id = CORITIBA_TENANT_ID;
   if (table === "coritiba_metrics") {
-    const { error } = await sb.from("coritiba_metrics" as "companies").insert(CORITIBA_SEED as unknown[]);
+    const { error } = await sb.from("coritiba_metrics" as "companies").insert(CORITIBA_SEED.map(r => ({ ...r, tenant_id })) as unknown[]);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, seeded: CORITIBA_SEED.length });
   }
   if (table === "inventory_items") {
-    const { error } = await sb.from("inventory_items" as "companies").insert(INVENTORY_SEED as unknown[]);
+    const { error } = await sb.from("inventory_items" as "companies").insert(INVENTORY_SEED.map(r => ({ ...r, tenant_id })) as unknown[]);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, seeded: INVENTORY_SEED.length });
   }
   if (table === "social_projects") {
-    const { error } = await sb.from("social_projects" as "companies").insert(SOCIAL_SEED as unknown[]);
+    const { error } = await sb.from("social_projects" as "companies").insert(SOCIAL_SEED.map(r => ({ ...r, tenant_id })) as unknown[]);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, seeded: SOCIAL_SEED.length });
   }
