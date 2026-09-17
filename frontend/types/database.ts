@@ -195,6 +195,10 @@ export interface ProposalContent {
   /** Task 9 — data-room-style document bundle (decks, spec sheets, media
    *  kits) attached to a proposal, downloadable from the public share page. */
   document_bundle?: Array<{ url: string; path: string; name: string; size: number; uploaded_at: string }>;
+  /** Task 10 — auto-generated the moment a contract is signed (see
+   *  app/api/contracts/route.ts POST), one checklist item per contracted
+   *  deliverable plus a few standard onboarding steps. */
+  fulfillment_tasks?: Array<{ id: string; title: string; status: "pending" | "done"; created_at: string; completed_at: string | null }>;
   [k: string]: unknown;
 }
 

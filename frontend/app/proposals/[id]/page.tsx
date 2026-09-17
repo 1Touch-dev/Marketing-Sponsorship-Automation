@@ -17,6 +17,7 @@ import { ProposalLandingPage } from "@/components/proposals/proposal-landing-pag
 import { ProposalShareButton } from "./proposal-share-button";
 import { AccessGateSettings } from "./access-gate-settings";
 import { DocumentBundleManager } from "./document-bundle-manager";
+import { FulfillmentTasksPanel } from "./fulfillment-tasks-panel";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
@@ -415,6 +416,23 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               />
             </CardContent>
           </Card>
+
+          {/* Fulfillment checklist (Task 10) — only exists once a contract
+              has been signed on this proposal (see api/contracts POST). */}
+          {(p.content as { fulfillment_tasks?: Array<{ id: string; title: string; status: "pending" | "done"; created_at: string; completed_at: string | null }> })?.fulfillment_tasks?.length ? (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Fulfillment Checklist</CardTitle>
+                <CardDescription>Auto-generated when the contract was signed</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FulfillmentTasksPanel
+                  proposalId={proposal.id}
+                  initialTasks={(p.content as { fulfillment_tasks: Array<{ id: string; title: string; status: "pending" | "done"; created_at: string; completed_at: string | null }> }).fulfillment_tasks}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* Data-room-style document bundle (Task 9) */}
           <Card>
