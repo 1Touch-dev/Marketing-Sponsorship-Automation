@@ -18,6 +18,7 @@ import { ProposalShareButton } from "./proposal-share-button";
 import { AccessGateSettings } from "./access-gate-settings";
 import { DocumentBundleManager } from "./document-bundle-manager";
 import { FulfillmentTasksPanel } from "./fulfillment-tasks-panel";
+import { ESignaturePanel } from "./esignature-panel";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
@@ -79,6 +80,17 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const engagement = await getProposalEngagementStats(sb, proposal.id);
   const visitorBreakdown = await getProposalVisitorBreakdown(sb, proposal.id);
   const viewCount = engagement.view_count;
+
+  // Task 11 — e-signature panel only renders once a contract exists on
+  // this proposal (same gating as the Fulfillment Checklist above it).
+  const { data: linkedContract } = await sb
+    .from("contracts")
+    .select("id, signature_status, signing_url, signed_pdf_url")
+    .eq("proposal_id", proposal.id)
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   type EnrichedProposal = typeof proposal & {
     companies: { company_name: string; industry?: string | null; website?: string | null; country?: string | null; notes?: string | null; logo_url?: string | null } | null;
@@ -433,6 +445,24 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               </CardContent>
             </Card>
           ) : null}
+
+          {/* E-signature via Documenso (Task 11) — only once a contract exists */}
+          {linkedContract && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">E-Signature</CardTitle>
+                <CardDescription>Send the contract for signature via Documenso</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ESignaturePanel
+                  contractId={linkedContract.id}
+                  initialStatus={(linkedContract.signature_status as "not_sent" | "draft" | "pending" | "completed" | "rejected" | "cancelled") ?? "not_sent"}
+                  initialSigningUrl={linkedContract.signing_url ?? null}
+                  initialSignedPdfUrl={linkedContract.signed_pdf_url ?? null}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Data-room-style document bundle (Task 9) */}
           <Card>

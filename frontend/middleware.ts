@@ -27,6 +27,7 @@ const PUBLIC_PREFIXES = [
                        // otherwise enforces. Each /portal page and
                        // /api/portal/* route checks its own cookie.
   "/api/portal/",
+  "/api/documenso/webhook", // called by Documenso's own servers, no session
 ];
 
 // API endpoints called directly from the public proposal share page
