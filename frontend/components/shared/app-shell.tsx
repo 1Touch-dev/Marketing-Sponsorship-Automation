@@ -16,7 +16,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isPublicView =
     pathname.startsWith("/proposals/view/") ||
     /^\/proposals\/[^/]+\/view$/.test(pathname) ||
-    /^\/proposals\/[^/]+\/deck$/.test(pathname);
+    /^\/proposals\/[^/]+\/deck$/.test(pathname) ||
+    // Sponsor self-serve portal (Task 12) — its own magic-link auth, never
+    // the internal CRM chrome, same reasoning as the proposal share pages.
+    pathname.startsWith("/portal");
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {

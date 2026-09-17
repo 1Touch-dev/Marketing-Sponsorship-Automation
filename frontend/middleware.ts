@@ -21,6 +21,12 @@ const PUBLIC_PREFIXES = [
   "/brand/",           // club logo/crest assets — needed on public proposal share pages
   "/api/internal/",   // secured by INTERNAL_API_SECRET instead of session
   "/api/system/",     // health checks — secured at route level if needed
+  "/portal",          // sponsor self-serve portal — its own magic-link/
+                       // signed-cookie auth (lib/portal/session.ts), not
+                       // the internal Supabase session this middleware
+                       // otherwise enforces. Each /portal page and
+                       // /api/portal/* route checks its own cookie.
+  "/api/portal/",
 ];
 
 // API endpoints called directly from the public proposal share page
