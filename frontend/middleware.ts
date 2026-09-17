@@ -48,6 +48,15 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/proposals\/detect-cold$/,
   /^\/api\/email-sequences\/advance$/,
   /^\/api\/gmail\/sync-threads$/,
+  // Access-gate passcode/NDA verification (Task 6) — called from the public
+  // gate form on /proposals/view/[token] by a real anonymous sponsor, who
+  // by definition has no admin session. Found live-testing 2026-09-17: this
+  // was never exempted, so every real visitor entering a passcode got
+  // middleware's generic {"error":"Unauthorized"} instead of the route's
+  // own "Senha incorreta."/success handling — the only reason it ever
+  // appeared to work was that it was tested from an already-logged-in
+  // admin browser tab, which carried a valid session cookie incidentally.
+  /^\/api\/proposals\/view\/[^/]+\/verify-gate$/,
 ];
 
 export async function middleware(req: NextRequest) {
