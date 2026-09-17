@@ -251,7 +251,15 @@ function CurrentUserBadge() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  clubName = "Coritiba FC",
+  tagline = "Commercial Intelligence",
+  crestUrl,
+}: {
+  clubName?: string;
+  tagline?: string;
+  crestUrl?: string | null;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") return localStorage.getItem("sidebar-collapsed") === "true";
@@ -270,13 +278,24 @@ export function Sidebar() {
       <div className={cn("px-5 py-4 border-b flex-shrink-0", collapsed && "px-2 flex justify-center")}>
         {collapsed ? (
           <div className="h-5 w-5 flex items-center justify-center">
-            <Trophy className="h-4 w-4 text-muted-foreground" />
+            {crestUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={crestUrl} alt={clubName} className="h-5 w-5 object-contain" />
+            ) : (
+              <Trophy className="h-4 w-4 text-muted-foreground" />
+            )}
           </div>
         ) : (
-          <>
-            <div className="text-sm font-bold tracking-tight text-foreground">Coritiba FC</div>
-            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Commercial Intelligence</div>
-          </>
+          <div className="flex items-center gap-2">
+            {crestUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={crestUrl} alt={clubName} className="h-6 w-6 object-contain shrink-0" />
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-bold tracking-tight text-foreground truncate">{clubName}</div>
+              <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5 truncate">{tagline}</div>
+            </div>
+          </div>
         )}
       </div>
       {!collapsed && (

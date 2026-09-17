@@ -8,7 +8,17 @@ import { GlobalSearch } from "@/components/shared/global-search";
 import { QuickActionsFAB } from "@/components/shared/quick-actions";
 import { UserRoleProvider } from "@/lib/auth/use-user-role";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  clubName,
+  tagline,
+  crestUrl,
+}: {
+  children: React.ReactNode;
+  clubName?: string;
+  tagline?: string;
+  crestUrl?: string | null;
+}) {
   const pathname = usePathname();
   // /proposals/view/* lives in the (public) route group (no sidebar by design)
   // /proposals/[id]/view is the admin-linked landing page — strip sidebar so
@@ -36,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <UserRoleProvider>
       <div className="flex min-h-screen flex-col md:flex-row">
-        <Sidebar />
+        <Sidebar clubName={clubName} tagline={tagline} crestUrl={crestUrl} />
         <div className="flex flex-1 flex-col min-w-0 max-w-full">
           <MobileNav />
           <main className="flex-1">
