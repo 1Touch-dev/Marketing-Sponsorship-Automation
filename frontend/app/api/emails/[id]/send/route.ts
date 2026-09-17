@@ -6,16 +6,92 @@ import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-ev
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 import { resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
+import { decryptSecret } from "@/lib/security/secret-crypto";
+import { serverEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
+ * Delivers a real, clearly-labeled test copy of this email via Gmail to a
+ * manually-chosen address. Deliberately never touches the real email row's
+ * status/sent_at/Pipedrive record — a test send must not be indistinguishable
+ * from (or a substitute for) the real approve/send flow below.
+ *
+ * Previously this whole path didn't exist: the UI sent { mode: "send",
+ * test_only: true, test_recipient } but the route ignored both extra fields,
+ * so clicking "Send Test Email" silently performed a REAL send instead of a
+ * test — found 2026-09-16 while auditing this route for Phase 3's
+ * approval-gate-bypass tracking.
+ */
+async function sendTestCopy(
+  sb: ReturnType<typeof supabaseAdmin>,
+  tenantId: string,
+  email: Record<string, unknown>,
+  testRecipient: string,
+): Promise<NextResponse> {
+  const env = serverEnv();
+  const senderEmail = env.DEFAULT_FROM_EMAIL;
+  if (!senderEmail) {
+    return NextResponse.json({ error: "DEFAULT_FROM_EMAIL not configured — cannot send a real test email." }, { status: 412 });
+  }
+
+  const { data: user } = await sb
+    .from("users")
+    .select("metadata")
+    .eq("email", senderEmail)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  const tokens = (user?.metadata as Record<string, unknown> | undefined)?.gmail_tokens as
+    | { access_token?: string; refresh_token?: string; expiry_date?: number }
+    | undefined;
+  if (!tokens?.refresh_token) {
+    return NextResponse.json(
+      { error: "Gmail not connected — cannot send a real test email. Connect Gmail in Settings first." },
+      { status: 412 },
+    );
+  }
+
+  try {
+    const gmail = gmailClientFromTokens({
+      access_token: tokens.access_token ? decryptSecret(tokens.access_token) : undefined,
+      refresh_token: tokens.refresh_token ? decryptSecret(tokens.refresh_token) : undefined,
+      expiry_date: tokens.expiry_date,
+    });
+
+    const draft = await createGmailDraft(gmail, {
+      from: senderEmail,
+      to: testRecipient,
+      subject: `[TEST] ${String(email.subject ?? "")}`,
+      bodyText: String(email.body_text ?? ""),
+      bodyHtml: email.body_html ? String(email.body_html) : undefined,
+    });
+    if (!draft.id) throw new Error("Gmail did not return a draft id");
+    await sendGmailDraft(gmail, draft.id);
+
+    await recordAudit({
+      entity_type: "email",
+      entity_id: String(email.id),
+      action: "email.test_sent",
+      metadata: { test_recipient: testRecipient },
+    });
+
+    return NextResponse.json({ success: true, test_recipient: testRecipient });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Test send failed: ${message}` }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/emails/:id/send
- * Body: { mode?: "draft" | "send" }
+ * Body: { mode?: "draft" | "send", test_only?: boolean, test_recipient?: string }
  *
  * "draft" = mark email as approved in DB + log activity to Pipedrive as scheduled (done:0)
- * "send"  = mark email as sent in DB + log activity to Pipedrive as done (done:1)
+ * "send"  = mark email as sent in DB + log activity to Pipedrive as done (done:1) —
+ *           only allowed once the email is already in "approved" status.
+ * test_only=true bypasses both of the above entirely — see sendTestCopy().
  *
  * Uses Pipedrive Activities API (type: "email") instead of Gmail.
  * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
@@ -28,7 +104,11 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const rl = checkRateLimit(`email-send:${ip}`, { max: 20, windowMs: 60_000 });
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
 
-  const body = (await req.json().catch(() => ({}))) as { mode?: "draft" | "send" };
+  const body = (await req.json().catch(() => ({}))) as {
+    mode?: "draft" | "send";
+    test_only?: boolean;
+    test_recipient?: string;
+  };
   const mode = body.mode === "send" ? "send" : "draft";
 
   const sb = supabaseAdmin();
@@ -40,8 +120,31 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .single();
   if (getErr || !email) return NextResponse.json({ error: "Email not found" }, { status: 404 });
 
+  if (body.test_only) {
+    if (!body.test_recipient) {
+      return NextResponse.json({ error: "test_recipient is required" }, { status: 400 });
+    }
+    return sendTestCopy(sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
+  }
+
   if (email.status === "sent") {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
+  }
+
+  // Infrastructure-enforced approval gate (Phase 3 finding, 2026-09-16) —
+  // this route previously let mode="send" through regardless of the email's
+  // current status, so a draft or pending_approval email could be sent
+  // directly without ever having gone through the explicit approve step
+  // (mode="draft" below, or the separate PATCH .../status route). Both
+  // send_proposal and approve_proposal happen to be admin/approver-only
+  // today, which limited the blast radius, but the gate itself was not
+  // actually enforced — exactly the class of issue the Phase 3 validation
+  // window exists to catch.
+  if (mode === "send" && email.status !== "approved") {
+    return NextResponse.json(
+      { error: `Email must be approved before sending (current status: "${email.status}"). Approve it first.` },
+      { status: 409 },
+    );
   }
 
   // Pre-send validation: block if [Nome] or {{variable}} placeholders are unresolved

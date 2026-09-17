@@ -295,7 +295,8 @@ export function EmailActions({ email }: { email: EmailRow }) {
           <div className="flex gap-2">
             <Button
               onClick={() => call("send")}
-              disabled={!!busy || isSent}
+              disabled={!!busy || isSent || !isApproved}
+              title={!isApproved && !isSent ? "Approve the email first" : undefined}
               className="flex-1"
             >
               <Send className="h-4 w-4 mr-2" />
