@@ -16,6 +16,7 @@ import { DuplicateProposalButton } from "./duplicate-proposal-button";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import { ProposalShareButton } from "./proposal-share-button";
 import { AccessGateSettings } from "./access-gate-settings";
+import { DocumentBundleManager } from "./document-bundle-manager";
 import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
@@ -411,6 +412,20 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                 initialEnabled={!!(p as unknown as { access_gate_enabled?: boolean }).access_gate_enabled}
                 initialType={((p as unknown as { access_gate_type?: string }).access_gate_type === "nda" ? "nda" : "passcode")}
                 initialNdaText={(p as unknown as { access_gate_nda_text?: string | null }).access_gate_nda_text ?? null}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Data-room-style document bundle (Task 9) */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Documents</CardTitle>
+              <CardDescription>Attachments downloadable from the share page</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DocumentBundleManager
+                proposalId={proposal.id}
+                initialDocuments={(p.content as { document_bundle?: Array<{ url: string; path: string; name: string; size: number; uploaded_at: string }> })?.document_bundle ?? []}
               />
             </CardContent>
           </Card>

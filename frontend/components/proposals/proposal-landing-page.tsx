@@ -16,7 +16,7 @@ import {
   TrendingUp, Users, MapPin, Target, CheckCircle2, Building2,
   ArrowRight, Trophy, Tv2, Zap, Globe, Megaphone, BarChart3,
   Star, Shield, ChevronDown, ChevronUp, Calendar, Play,
-  Image as ImageIcon,
+  Image as ImageIcon, FileDown,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -307,6 +307,7 @@ export function ProposalLandingPage({
   const hasIntelligence = intelligence != null;
   const strategyVariants = (proposal.strategy_variants ?? []) as SV[];
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
+  const documentBundle = proposal.content?.document_bundle ?? [];
   const kpi = resolveKpiTemplate(kpiTemplateId ?? content?.kpi_template_id, {
     isCoritiba: tenant.isCoritiba,
     clubName: tenant.clubName,
@@ -841,6 +842,32 @@ export function ProposalLandingPage({
             Calendário atualizado a cada rodada. Ativações de patrocínio confirmadas com 2 semanas de antecedência.
           </p>
         </Section>
+        )}
+
+        {/* Data-room-style document bundle (Task 9) */}
+        {documentBundle.length > 0 && (
+          <Section id="documents" title="Documentos" badge="Materiais de Apoio"
+            subtitle="Baixe os materiais complementares desta proposta">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {documentBundle.map((doc) => (
+                <a
+                  key={doc.path}
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 rounded-xl bg-white border border-slate-200 p-4 hover:border-green-300 hover:shadow-sm transition-all"
+                >
+                  <div className="rounded-lg bg-green-50 p-2.5 shrink-0">
+                    <FileDown className="h-5 w-5 text-green-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800 truncate">{doc.name}</p>
+                    <p className="text-xs text-slate-400">{Math.round(doc.size / 1024)} KB · Baixar</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Section>
         )}
 
         {/* CTA */}

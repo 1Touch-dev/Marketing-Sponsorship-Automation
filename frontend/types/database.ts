@@ -192,6 +192,9 @@ export interface ProposalContent {
    *  recorded by the sales rep. */
   video_intro_url?: string;
   video_intro_caption?: string;
+  /** Task 9 — data-room-style document bundle (decks, spec sheets, media
+   *  kits) attached to a proposal, downloadable from the public share page. */
+  document_bundle?: Array<{ url: string; path: string; name: string; size: number; uploaded_at: string }>;
   [k: string]: unknown;
 }
 
