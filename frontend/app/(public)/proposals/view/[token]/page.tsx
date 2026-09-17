@@ -16,6 +16,7 @@ import { FulfillmentSection } from "./fulfillment-section";
 import { getProposalFulfillmentData } from "@/lib/proposals/fulfillment";
 import { PdfDownloadButton } from "./pdf-download-button";
 import { ViewTracker } from "./view-tracker";
+import { ScrollProgressBar } from "./scroll-progress-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,7 @@ export default async function PublicProposalViewPage({
           </div>
         </div>
       </div>
+      <ScrollProgressBar />
 
       {/* ─── Main landing page content ─── */}
       <ProposalLandingPage

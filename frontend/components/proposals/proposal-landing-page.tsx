@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils";
 import type { PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
@@ -180,11 +180,44 @@ function Section({
   id?: string; title: string; subtitle?: string; badge?: string;
   children: React.ReactNode; className?: string; dark?: boolean;
 }) {
+  const ref = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Fade+rise into view once, the first time each section crosses ~15%
+    // into the viewport — a one-shot reveal, not a repeating scroll gimmick.
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section
+      ref={ref}
       id={id}
+      // A pre-existing global rule (main > *) runs a one-shot 0.2s
+      // fadeSlideIn entrance animation with fill-mode "both" on every direct
+      // child of <main> — these Section elements are direct children, so
+      // that animation's end state (opacity:1) was silently overriding this
+      // component's own scroll-triggered opacity classes (found live-testing
+      // 2026-09-17: computed opacity stayed 1 even for sections far below
+      // the fold on initial load). Disabling it here via inline style
+      // (highest specificity short of !important) lets the scroll-linked
+      // reveal below actually control opacity.
+      style={{ animation: "none" }}
       className={cn(
-        "py-12 border-t",
+        "py-12 border-t transition-all duration-700 ease-out print:opacity-100 print:translate-y-0",
+        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4",
         dark ? "border-green-900 bg-[#0a1f0a] -mx-6 px-6 sm:-mx-8 sm:px-8" : "border-slate-100",
         className
       )}
@@ -516,6 +549,26 @@ export function ProposalLandingPage({
         )}
 
 
+        {/* Deliverables — moved up to lead with the concrete sponsor
+            benefit (what's in it for them) ahead of club-side narrative
+            content, per competitive research on sponsorship-platform UX
+            (2026-09-16): benefits-first framing before strategy/rationale. */}
+        {content?.deliverables && content.deliverables.length > 0 && (
+          <Section id="deliverables" title="Entregas e Benefícios" badge="O que está incluso"
+            subtitle="Todos os benefícios garantidos ao longo da parceria">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {content.deliverables.map((d, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 p-4 sm:p-5 hover:border-green-200 hover:shadow-sm transition-all">
+                  <div className="rounded-full bg-green-100 p-1 shrink-0 mt-0.5">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  </div>
+                  <p className="text-slate-700 text-sm leading-relaxed">{d}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {hasIntelligence ? (
           <Section id="intelligence" title="Por que esta parceria" badge="Fit comercial"
             subtitle={`Contexto de mercado e alinhamento entre sua marca e o ${tenant.clubName}`}>
@@ -600,23 +653,6 @@ export function ProposalLandingPage({
             </div>
           </Section>
         ) : null}
-
-        {/* Deliverables */}
-        {content?.deliverables && content.deliverables.length > 0 && (
-          <Section id="deliverables" title="Entregas e Benefícios" badge="O que está incluso"
-            subtitle="Todos os benefícios garantidos ao longo da parceria">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {content.deliverables.map((d, i) => (
-                <div key={i} className="flex items-start gap-3 rounded-xl bg-white border border-slate-200 p-4 sm:p-5 hover:border-green-200 hover:shadow-sm transition-all">
-                  <div className="rounded-full bg-green-100 p-1 shrink-0 mt-0.5">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  </div>
-                  <p className="text-slate-700 text-sm leading-relaxed">{d}</p>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
 
         {/* DB proposal packages (Prata / Ouro / Diamante) */}
         {packages.length > 0 && (
