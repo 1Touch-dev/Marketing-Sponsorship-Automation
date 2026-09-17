@@ -41,7 +41,7 @@ type PanelState =
       recipient_name: string;
     }
   | { phase: "done"; run_id: string; steps: StepDisplay[]; result: AgentResult; summary: string }
-  | { phase: "error"; message: string; run_id?: string; steps: StepDisplay[] };
+  | { phase: "error"; message: string; run_id?: string; steps: StepDisplay[]; blockingRunId?: string };
 
 const TOOL_ICON: Record<string, React.ReactNode> = {
   enrich_contacts: <Users className="h-3.5 w-3.5" />,
@@ -89,7 +89,12 @@ export function OutreachAgentPanel({
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: "Unknown error" }));
-        setPanelState({ phase: "error", message: err.error ?? "Failed to start agent", steps: [] });
+        setPanelState({
+          phase: "error",
+          message: err.error ?? "Failed to start agent",
+          steps: [],
+          blockingRunId: response.status === 409 ? err.run_id : undefined,
+        });
         return;
       }
 
@@ -279,6 +284,21 @@ export function OutreachAgentPanel({
     setPanelState({ phase: "idle" });
   };
 
+  const [cancellingStuckRun, setCancellingStuckRun] = useState(false);
+
+  const cancelStuckRun = async () => {
+    if (panelState.phase !== "error" || !panelState.blockingRunId) return;
+    setCancellingStuckRun(true);
+    try {
+      await fetch(`/api/agents/outreach/${panelState.blockingRunId}`, { method: "DELETE" });
+      setPanelState({ phase: "idle" });
+    } catch {
+      alert("Failed to cancel the stuck run — try again.");
+    } finally {
+      setCancellingStuckRun(false);
+    }
+  };
+
   const steps = "steps" in panelState ? panelState.steps : [];
   const isRunning = panelState.phase === "running";
   const isPausedProposal = panelState.phase === "paused_proposal";
@@ -362,6 +382,14 @@ export function OutreachAgentPanel({
           <div className="flex items-center gap-1.5 mt-1">
             <XCircle className="h-3.5 w-3.5 text-destructive" />
             <span className="text-xs text-destructive">{panelState.message}</span>
+          </div>
+        )}
+        {isError && panelState.phase === "error" && panelState.blockingRunId && (
+          <div className="mt-2">
+            <Button size="sm" variant="outline" onClick={cancelStuckRun} disabled={cancellingStuckRun} className="gap-1.5 text-destructive border-destructive/30">
+              {cancellingStuckRun ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StopCircle className="h-3.5 w-3.5" />}
+              Cancel Stuck Run & Retry
+            </Button>
           </div>
         )}
       </CardHeader>
