@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, DollarSign, Plus, Activity, CheckCircle, Target, ArrowRight } from "lucide-react";
-import Link from "next/link";
 import { HygieneCheckPanel } from "./hygiene-check-panel";
+import { PipelineBoard } from "./pipeline-board";
 
 export const dynamic = "force-dynamic";
 
@@ -137,35 +137,11 @@ export default async function PipelinePage() {
                 <span key={s.key} className={`px-3 py-1.5 rounded-full text-xs font-medium ${s.color}`}>{s.label}</span>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">Standard 4-stage commercial funnel for Coritiba FC sponsorship deals. Assign leads to stages using the company profile.</p>
+            <p className="text-xs text-muted-foreground mt-2">Standard 4-stage commercial funnel for Coritiba FC sponsorship deals. Drag a card to move it between stages.</p>
           </CardContent>
         </Card>
 
-        {STAGES.filter((s) => s.key !== "closed_lost" || stageGroups["closed_lost"].length > 0).map((stage) => {
-          const stageCompanies = stageGroups[stage.key] || [];
-          if (stageCompanies.length === 0 && stage.key === "closed_won") return null;
-          return (
-            <Card key={stage.key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${stage.color}`}>{stage.label}</span>
-                  <span className="text-muted-foreground">({stageCompanies.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {stageCompanies.length > 0 ? (
-                  <div className="divide-y">
-                    {stageCompanies.map((company) => (
-                      <CompanyRow key={company.id} company={company} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground py-2">No companies in this stage</p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        <PipelineBoard initialCompanies={companies} stages={STAGES} />
       </div>
 
     </div>
@@ -176,27 +152,6 @@ type PipelineCompany = {
   id: string; company_name: string; industry?: string | null; status?: string | null;
   pipeline_stage?: string | null; updated_at?: string | null;
 };
-
-function CompanyRow({ company }: { company: PipelineCompany }) {
-  return (
-    <div className="py-3 flex items-center gap-3">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Link href={`/companies/${company.id}`} className="text-sm font-medium truncate hover:underline text-primary">
-            {company.company_name}
-          </Link>
-          {company.industry && <Badge variant="outline" className="text-xs capitalize shrink-0">{company.industry}</Badge>}
-        </div>
-        {company.status && <p className="text-xs text-muted-foreground mt-0.5 capitalize">Status: {company.status}</p>}
-      </div>
-      <div className="shrink-0 text-right space-y-0.5">
-        <Link href={`/companies/${company.id}`} className="text-xs text-blue-600 hover:underline block">
-          View →
-        </Link>
-      </div>
-    </div>
-  );
-}
 
 function StatCard({ label, value, icon, color }: { label: string; value: string; icon: React.ReactNode; color: string }) {
   const colors: Record<string, string> = {
