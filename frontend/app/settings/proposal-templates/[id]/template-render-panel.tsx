@@ -7,19 +7,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toaster";
 import {
-  Search, Loader2, Play, Building2, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles,
+  Search, Loader2, Play, Building2, CheckCircle2, XCircle, Clock, ExternalLink, Sparkles, FileDown,
 } from "lucide-react";
 
 type FoundCompany = { id: string; company_name: string; industry: string | null; website: string | null };
 
 type BulkRow = {
-  id: string;
+  render_id: string;
   company_id: string;
   company_name: string;
   status: "pending" | "running" | "completed" | "failed";
   rendered_url: string | null;
   error: string | null;
 };
+
+function DownloadPdfLink({ renderId }: { renderId: string }) {
+  return (
+    <a href={`/api/proposal-templates/renders/${renderId}/pdf`} target="_blank" rel="noopener noreferrer">
+      <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
+        <FileDown className="h-2.5 w-2.5" /> PDF
+      </Button>
+    </a>
+  );
+}
 
 type BulkState = {
   batch_id: string;
@@ -45,7 +55,7 @@ export function TemplateRenderPanel({ templateId, templateName }: { templateId: 
   const [hasSearched, setHasSearched] = useState(false);
 
   const [singleRendering, setSingleRendering] = useState<string | null>(null);
-  const [singleResults, setSingleResults] = useState<Record<string, { url?: string; error?: string }>>({});
+  const [singleResults, setSingleResults] = useState<Record<string, { url?: string; renderId?: string; error?: string }>>({});
 
   const [launchingBulk, setLaunchingBulk] = useState(false);
   const [bulkState, setBulkState] = useState<BulkState | null>(null);
@@ -104,7 +114,7 @@ export function TemplateRenderPanel({ templateId, templateName }: { templateId: 
         toast({ variant: "destructive", title: "Render failed", description: j.error });
         return;
       }
-      setSingleResults((prev) => ({ ...prev, [companyId]: { url: j.rendered_url } }));
+      setSingleResults((prev) => ({ ...prev, [companyId]: { url: j.rendered_url, renderId: j.render_id } }));
       toast({ variant: "success", title: "Rendered", description: "Presentation generated successfully." });
     } catch {
       setSingleResults((prev) => ({ ...prev, [companyId]: { error: "Network error" } }));
@@ -233,11 +243,14 @@ export function TemplateRenderPanel({ templateId, templateName }: { templateId: 
                       {result?.error && <p className="text-[10px] text-red-600 truncate">{result.error}</p>}
                     </div>
                     {result?.url ? (
-                      <a href={result.url} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
-                          View <ExternalLink className="h-2.5 w-2.5" />
-                        </Button>
-                      </a>
+                      <div className="flex gap-1">
+                        <a href={result.url} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
+                            View <ExternalLink className="h-2.5 w-2.5" />
+                          </Button>
+                        </a>
+                        {result.renderId && <DownloadPdfLink renderId={result.renderId} />}
+                      </div>
                     ) : (
                       <Button
                         size="sm"
@@ -297,18 +310,21 @@ export function TemplateRenderPanel({ templateId, templateName }: { templateId: 
               {bulkState.renders.map((r) => {
                 const meta = STATUS_META[r.status];
                 return (
-                  <div key={r.id} className="flex items-center gap-2 px-3 py-2">
+                  <div key={r.render_id} className="flex items-center gap-2 px-3 py-2">
                     <span className={meta.className}>{meta.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{r.company_name}</p>
                       {r.error && <p className="text-[10px] text-red-600 truncate">{r.error}</p>}
                     </div>
                     {r.rendered_url && (
-                      <a href={r.rendered_url} target="_blank" rel="noopener noreferrer">
-                        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
-                          View <ExternalLink className="h-2.5 w-2.5" />
-                        </Button>
-                      </a>
+                      <div className="flex gap-1">
+                        <a href={r.rendered_url} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2">
+                            View <ExternalLink className="h-2.5 w-2.5" />
+                          </Button>
+                        </a>
+                        <DownloadPdfLink renderId={r.render_id} />
+                      </div>
                     )}
                   </div>
                 );

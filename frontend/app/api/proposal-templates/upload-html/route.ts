@@ -1,8 +1,10 @@
 /**
  * POST /api/proposal-templates/upload-html
- * Accepts multipart/form-data with an HTML file, scans it for `[[TOKEN]]` /
- * `[[IMG:KEY]]` placeholders, stores the raw file in Supabase Storage, and
- * creates (or updates) a `proposal_templates` row with `source_type = 'html'`.
+ * Accepts multipart/form-data with an HTML or .pptx file. A .pptx is
+ * converted to HTML first (lib/presentations/pptx-to-html.ts) — from there
+ * both formats share one path: scan for `[[TOKEN]]` / `[[IMG:KEY]]`
+ * placeholders, store the (possibly converted) HTML in Supabase Storage,
+ * and create/update a `proposal_templates` row with `source_type = 'html'`.
  *
  * Body (multipart): file, name, industry?, description?, template_id? (to re-upload/replace)
  */
@@ -10,6 +12,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { buildPlaceholderConfig, type PlaceholderConfig } from "@/lib/presentations/placeholder-parser";
+import { convertPptxToHtml } from "@/lib/presentations/pptx-to-html";
 import { requirePermission } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
@@ -39,15 +42,35 @@ export async function POST(req: Request) {
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
   if (!name && !templateId) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
-  const maxBytes = 5 * 1024 * 1024; // 5 MB — HTML templates should be small
-  if (file.size > maxBytes) return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 413 });
-
   const lowerName = file.name.toLowerCase();
-  if (!lowerName.endsWith(".html") && !lowerName.endsWith(".htm") && file.type !== "text/html") {
-    return NextResponse.json({ error: "Only .html/.htm files are accepted (PPT/Slides coming later)" }, { status: 415 });
+  const isPptx = lowerName.endsWith(".pptx") || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  const isHtml = lowerName.endsWith(".html") || lowerName.endsWith(".htm") || file.type === "text/html";
+  if (!isPptx && !isHtml) {
+    return NextResponse.json({ error: "Only .html/.htm or .pptx files are accepted" }, { status: 415 });
   }
 
-  const html = await file.text();
+  // PowerPoint files carry embedded images, so they need more headroom than
+  // a plain HTML template.
+  const maxBytes = isPptx ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return NextResponse.json({ error: `File too large (max ${isPptx ? 25 : 5} MB)` }, { status: 413 });
+  }
+
+  let html: string;
+  if (isPptx) {
+    try {
+      const pptxBuffer = Buffer.from(await file.arrayBuffer());
+      const converted = await convertPptxToHtml(pptxBuffer, {
+        tenantId: auth.user.tenant_id,
+        storagePrefix: `templates/pptx-media/${templateId ?? "new"}_${Date.now()}`,
+      });
+      html = converted.html;
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Could not read this .pptx file" }, { status: 400 });
+    }
+  } else {
+    html = await file.text();
+  }
   if (!html.trim()) return NextResponse.json({ error: "Uploaded file is empty" }, { status: 400 });
 
   // Preserve existing placeholder config (prompts/types already set) when re-uploading.
@@ -64,10 +87,12 @@ export async function POST(req: Request) {
 
   const placeholderConfig = buildPlaceholderConfig(html, existingConfig);
 
-  const safeName = file.name.replace(/[^a-z0-9._-]/gi, "_").toLowerCase();
-  const storagePath = `templates/${templateId ?? "new"}_${Date.now()}_${safeName}`;
+  // Stored as HTML regardless of source format — a converted .pptx becomes a
+  // normal HTML template from here on, reusing the whole render/PDF pipeline.
+  const safeName = file.name.replace(/\.(pptx?|html?)$/i, "").replace(/[^a-z0-9._-]/gi, "_").toLowerCase();
+  const storagePath = `templates/${templateId ?? "new"}_${Date.now()}_${safeName}.html`;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const buffer = Buffer.from(html, "utf-8");
   const { error: uploadError } = await sb.storage.from(BUCKET).upload(storagePath, buffer, {
     contentType: "text/html",
     upsert: true,

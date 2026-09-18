@@ -24,7 +24,7 @@ export function UploadHtmlTemplateButton() {
       return;
     }
     if (!file) {
-      toast({ variant: "destructive", title: "Choose an .html file" });
+      toast({ variant: "destructive", title: "Choose an .html or .pptx file" });
       return;
     }
     setUploading(true);
@@ -61,7 +61,7 @@ export function UploadHtmlTemplateButton() {
   if (!open) {
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
-        <UploadCloud className="h-3.5 w-3.5" /> Upload HTML template
+        <UploadCloud className="h-3.5 w-3.5" /> Upload template (HTML or PPTX)
       </Button>
     );
   }
@@ -69,13 +69,15 @@ export function UploadHtmlTemplateButton() {
   return (
     <div className="rounded-lg border bg-card p-4 space-y-3 max-w-md">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <FileCode className="h-4 w-4 text-primary" /> Upload HTML presentation template
+        <FileCode className="h-4 w-4 text-primary" /> Upload presentation template
       </div>
       <p className="text-xs text-muted-foreground">
         Use <code className="bg-muted px-1 rounded">[[TOKEN]]</code> for text (e.g.{" "}
         <code className="bg-muted px-1 rounded">[[COMPANY_NAME]]</code>) and{" "}
         <code className="bg-muted px-1 rounded">[[IMG:KEY]]</code> for images (e.g.{" "}
-        <code className="bg-muted px-1 rounded">[[IMG:JERSEY_CHEST]]</code>) inside your HTML file.
+        <code className="bg-muted px-1 rounded">[[IMG:JERSEY_CHEST]]</code>) as literal text anywhere
+        in an .html file or a PowerPoint slide's text box. For Google Slides, export as
+        PowerPoint (.pptx) first, then upload here.
       </p>
       <div className="space-y-1.5">
         <Label>Name</Label>
@@ -90,7 +92,7 @@ export function UploadHtmlTemplateButton() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".html,.htm,text/html"
+          accept=".html,.htm,.pptx,text/html,application/vnd.openxmlformats-officedocument.presentationml.presentation"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           className="text-xs w-full rounded-md border bg-background px-3 py-2"
         />
