@@ -2,10 +2,16 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { verifySessionToken, PORTAL_COOKIE } from "@/lib/portal/session";
+import { getTenantById } from "@/lib/tenants/current";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import type { ProposalContent } from "@/types/database";
 import { LogOut, CheckCircle2, Circle, ExternalLink, FileDown } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_CLUB_NAME = "Coritiba FC";
+const DEFAULT_CREST = "/brand/coritiba-crest.png";
+const DEFAULT_PRIMARY_HEX = "#1a8f3c"; // Coritiba green
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   draft: { label: "Em preparação", color: "bg-slate-100 text-slate-600" },
@@ -25,11 +31,25 @@ export default async function PortalDashboardPage() {
   const sb = supabaseAdmin();
   const { data: company } = await sb
     .from("companies")
-    .select("id, company_name, logo_url, industry")
+    .select("id, company_name, logo_url, industry, tenant_id")
     .eq("id", session.companyId)
     .maybeSingle();
 
   if (!company) redirect("/portal/login");
+
+  // White-label the sponsor's own dashboard — this is exactly the surface
+  // master_report.md §6.1 means by "each customer's sponsors see a branded
+  // portal under the customer's own brand, not the platform's." Portal
+  // sessions have no platform_users identity (magic-link cookie, not a
+  // Supabase session), so getCurrentTenant() can't be used here — resolve
+  // via the sponsor's own company.tenant_id instead.
+  const tenant = company.tenant_id ? await getTenantById(company.tenant_id) : null;
+  const isCoritiba = !tenant || tenant.id === CORITIBA_TENANT_ID;
+  const clubName = tenant?.club_facts.short_name ?? tenant?.club_facts.club_name ?? DEFAULT_CLUB_NAME;
+  const crestUrl = isCoritiba ? DEFAULT_CREST : (tenant?.branding.crest_url ?? tenant?.branding.logo_url ?? null);
+  const primaryHex = (tenant?.branding.primary_color && /^#[0-9a-f]{6}$/i.test(tenant.branding.primary_color))
+    ? tenant.branding.primary_color
+    : DEFAULT_PRIMARY_HEX;
 
   const { data: proposals } = await sb
     .from("proposals")
@@ -43,8 +63,10 @@ export default async function PortalDashboardPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/coritiba-crest.png" alt="Coritiba FC" className="h-8 w-8 object-contain" />
+            {crestUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={crestUrl} alt={clubName} className="h-8 w-8 object-contain" />
+            )}
             <div>
               <div className="text-sm font-bold text-slate-800">Portal do Patrocinador</div>
               <div className="text-xs text-slate-400">{company.company_name}</div>
@@ -61,7 +83,7 @@ export default async function PortalDashboardPage() {
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Suas propostas e contratos</h1>
-          <p className="text-sm text-slate-500 mt-1">Acompanhe o andamento das parcerias com o Coritiba FC.</p>
+          <p className="text-sm text-slate-500 mt-1">Acompanhe o andamento das parcerias com o {clubName}.</p>
         </div>
 
         {(!proposals || proposals.length === 0) && (
@@ -97,7 +119,8 @@ export default async function PortalDashboardPage() {
                     href={`/proposals/view/${p.share_token}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 font-medium"
+                    style={{ color: primaryHex }}
+                    className="inline-flex items-center gap-1.5 text-sm hover:opacity-80 font-medium"
                   >
                     Ver proposta completa <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -112,8 +135,8 @@ export default async function PortalDashboardPage() {
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
                     <div
-                      className="h-full bg-green-500"
-                      style={{ width: `${tasks.length ? (doneCount / tasks.length) * 100 : 0}%` }}
+                      className="h-full"
+                      style={{ width: `${tasks.length ? (doneCount / tasks.length) * 100 : 0}%`, backgroundColor: primaryHex }}
                     />
                   </div>
                   <div className="space-y-1 pt-2">
