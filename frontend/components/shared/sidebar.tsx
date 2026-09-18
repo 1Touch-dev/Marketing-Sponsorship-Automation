@@ -44,6 +44,7 @@ import {
   LayoutTemplate,
   CalendarDays,
   Flame,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
@@ -129,6 +130,7 @@ const NAV: NavItem[] = [
   // CRM & Integrations
   { href: "/crm-sync", label: "CRM Sync", icon: GitMerge, group: "integrations" },
   // System
+  { href: "/agents", label: "Agents", icon: Bot, group: "system" },
   { href: "/workflow-events", label: "Workflows", icon: Activity, group: "system" },
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
   { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
