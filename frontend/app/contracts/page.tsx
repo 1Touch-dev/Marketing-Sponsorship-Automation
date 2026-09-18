@@ -4,6 +4,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatDate } from "@/lib/utils";
 import { FileCheck, DollarSign, AlertTriangle } from "lucide-react";
+import { RenewalCheckPanel } from "./renewal-check-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,8 @@ export default async function ContractsPage() {
           Export CSV
         </a>
       } />
+
+      <RenewalCheckPanel />
 
       <div className="grid grid-cols-3 gap-4">
         {[
