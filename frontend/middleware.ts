@@ -7,6 +7,13 @@ const PUBLIC_ROUTES = new Set([
   "/api/auth/login",
   "/api/auth/session",
   "/api/health",        // public health check endpoint
+  // Niche go-to-market landing pages (master_report.md §6.1 "front doors",
+  // Phase 9) — public marketing pages, no session by definition.
+  "/sports-clubs",
+  "/nonprofits",
+  "/conferences",
+  "/chambers",
+  "/festivals",
 ]);
 
 // Public path prefixes
@@ -58,6 +65,9 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   // appeared to work was that it was tested from an already-logged-in
   // admin browser tab, which carried a valid session cookie incidentally.
   /^\/api\/proposals\/view\/[^/]+\/verify-gate$/,
+  // Lead-capture form on the public niche landing pages above — called by a
+  // real anonymous visitor, no session by definition.
+  /^\/api\/leads$/,
 ];
 
 export async function middleware(req: NextRequest) {
