@@ -43,6 +43,16 @@ const serverSchema = z.object({
   MSA_INTERNAL_WEBHOOK_SECRET: z
     .preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().min(8).optional()),
 
+  /** Phase 9 — public read-only MCP server for partner agencies/n8n workflows
+   *  (master_report.md Section 5's "longer-horizon" item). Bearer token for
+   *  POST /api/mcp/public — a distinct secret from INTERNAL_API_SECRET since
+   *  this one is meant to be handed to real external partners, not just used
+   *  internally. Server responds 503 until this is configured. */
+  MCP_PUBLIC_API_KEY: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(16).optional()
+  ),
+
   /** Replicate — AI image hosting (jersey/stadium mockups). Optional until Ruhani provides token. */
   REPLICATE_API_TOKEN: z.preprocess(
     (v) => (v === "" || v === undefined ? undefined : v),

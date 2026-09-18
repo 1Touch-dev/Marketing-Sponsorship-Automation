@@ -35,6 +35,7 @@ const PUBLIC_PREFIXES = [
                        // /api/portal/* route checks its own cookie.
   "/api/portal/",
   "/api/documenso/webhook", // called by Documenso's own servers, no session
+  "/api/mcp/public",        // public read-only MCP server — own bearer-token auth (MCP_PUBLIC_API_KEY), not a session
 ];
 
 // API endpoints called directly from the public proposal share page
