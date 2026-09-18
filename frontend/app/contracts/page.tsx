@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { formatDate } from "@/lib/utils";
 import { FileCheck, DollarSign, AlertTriangle } from "lucide-react";
 import { RenewalCheckPanel } from "./renewal-check-panel";
+import { ReportingCheckPanel } from "./reporting-check-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,10 @@ export default async function ContractsPage() {
         </a>
       } />
 
-      <RenewalCheckPanel />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RenewalCheckPanel />
+        <ReportingCheckPanel />
+      </div>
 
       <div className="grid grid-cols-3 gap-4">
         {[
