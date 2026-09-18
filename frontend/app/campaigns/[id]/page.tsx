@@ -9,6 +9,7 @@ import { DuplicateCampaignButton } from "./duplicate-campaign-button";
 import { PreapproveToggle } from "./preapprove-toggle";
 import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
 import { ActivationBriefPanel } from "@/components/campaigns/activation-brief-panel";
+import { resolveJobImageUrl } from "@/lib/proposals/proposal-images";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import {
@@ -52,6 +53,16 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     .eq("campaign_id", campaign.id)
     .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false });
+
+  const { data: campaignImagesRaw } = await sb
+    .from("image_generation_jobs" as "companies")
+    .select("id, output_urls, selected_url, prompt, job_type")
+    .eq("campaign_id" as "id", campaign.id)
+    .eq("tenant_id" as "id", tenantId)
+    .order("created_at", { ascending: false }) as unknown as {
+      data: Array<{ id: string; output_urls?: Array<{ url?: string }> | null; selected_url: string | null; prompt: string; job_type: string }> | null;
+    };
+  const campaignImages = (campaignImagesRaw ?? []).map((img) => ({ ...img, imageUrl: resolveJobImageUrl(img) }));
 
   const company = (campaign as {
     companies: { company_name: string; industry: string | null; country: string | null } | null;
@@ -245,6 +256,30 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                     </li>
                   ))}
                 </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Images assigned to this campaign */}
+          {campaignImages && campaignImages.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Generated images for this campaign</CardTitle>
+                <CardDescription className="text-xs">
+                  Assign more from the <Link href="/assets" className="text-primary hover:underline">Asset Library</Link>.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-2">
+                  {campaignImages.map((img) => (
+                    <a key={img.id} href="/assets" title={img.prompt} className="block aspect-square rounded-md overflow-hidden border bg-muted">
+                      {img.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img.imageUrl} alt={img.prompt?.slice(0, 60) ?? img.job_type} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                      ) : null}
+                    </a>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

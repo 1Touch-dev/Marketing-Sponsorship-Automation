@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   const tenantId = await resolveTenantId();
   const sb = supabaseAdmin();
   let query = sb.from("image_generation_jobs" as "companies")
-    .select("id, job_type, status, prompt, image_url, proposal_id, company_id, created_at, updated_at, metadata")
+    .select("id, job_type, status, prompt, output_urls, selected_url, proposal_id, company_id, campaign_id, created_at, updated_at")
     .eq("tenant_id" as "id", tenantId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -46,7 +46,6 @@ export async function POST(req: Request) {
       job_type: string; prompt: string; negative_prompt?: string;
       proposal_id?: string; company_id?: string;
       model?: string; size?: string; quality?: string;
-      folder?: string; tags?: string[];
     };
 
     const sb = supabaseAdmin();
@@ -54,7 +53,6 @@ export async function POST(req: Request) {
       ...body,
       tenant_id: auth.user.tenant_id,
       status: "pending_approval",
-      metadata: { folder: body.folder, tags: body.tags },
     }).select("id").single();
 
     if (error) throw error;
@@ -71,16 +69,20 @@ export async function PATCH(req: Request) {
   if ("error" in auth) return auth.error;
 
   try {
-    const { id, status, tags, folder, related_proposal_id, related_company_id, archived_reason } =
-      await req.json() as Record<string, unknown>;
+    const body = await req.json() as Record<string, unknown>;
+    // tags/folder removed 2026-09-18 — image_generation_jobs has no
+    // metadata column (or any tag/folder concept); this had been silently
+    // failing every call that set either field.
+    const { id, status, related_proposal_id, related_company_id } = body;
 
     const sb = supabaseAdmin();
     const updatePayload: Record<string, unknown> = {};
     if (status) updatePayload.status = status;
-    if (tags) updatePayload.metadata = { tags };
-    if (folder) updatePayload.metadata = { ...(updatePayload.metadata as Record<string,unknown> ?? {}), folder };
     if (related_proposal_id) updatePayload.proposal_id = related_proposal_id;
     if (related_company_id) updatePayload.company_id = related_company_id;
+    // present-but-empty means "unassign" (clearing the campaign), so check key
+    // presence rather than truthiness
+    if ("related_campaign_id" in body) updatePayload.campaign_id = body.related_campaign_id || null;
 
     await sb.from("image_generation_jobs" as "companies").update(updatePayload as unknown as Record<string,unknown>).eq("id", id as string).eq("tenant_id" as "id", auth.user.tenant_id);
     await recordAudit({ action: `asset.${status ?? "updated"}`, entity_type: "image_job", entity_id: id as string, metadata: { status: status as string } });

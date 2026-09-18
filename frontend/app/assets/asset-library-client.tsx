@@ -3,12 +3,14 @@
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
-import { Search, Filter, Archive, CheckCircle, XCircle, Clock, ImageIcon, Loader2, Tag, Link2 } from "lucide-react";
+import { Search, Filter, Archive, CheckCircle, XCircle, Clock, ImageIcon, Loader2, Tag, Link2, Megaphone } from "lucide-react";
+import { resolveJobImageUrl } from "@/lib/proposals/proposal-images";
 
 export type Asset = {
   id: string; job_type: string; status: string; prompt: string;
-  image_url?: string; proposal_id?: string; company_id?: string;
-  created_at: string; metadata?: Record<string, unknown>;
+  output_urls?: Array<{ url?: string; index?: number }>; selected_url?: string | null;
+  proposal_id?: string; company_id?: string; campaign_id?: string;
+  created_at: string;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -21,15 +23,17 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   failed: { label: "Failed", color: "text-red-600 bg-red-50 dark:bg-red-900/30", icon: XCircle },
 };
 
-export function AssetLibraryClient({ assets, proposals, companies }: {
+export function AssetLibraryClient({ assets, proposals, companies, campaigns }: {
   assets: Asset[];
   proposals: Array<{ id: string; title: string }>;
   companies: Array<{ id: string; company_name: string }>;
+  campaigns: Array<{ id: string; title: string; company_id: string | null }>;
 }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCompany, setFilterCompany] = useState("all");
+  const [filterCampaign, setFilterCampaign] = useState("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [updating, setUpdating] = useState<string | null>(null);
   const [bulkUpdating, setBulkUpdating] = useState(false);
@@ -41,9 +45,10 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
       const matchesSearch = !search || a.prompt?.toLowerCase().includes(search.toLowerCase()) || a.job_type?.includes(search.toLowerCase());
       const matchesStatus = filterStatus === "all" || a.status === filterStatus;
       const matchesCompany = filterCompany === "all" || a.company_id === filterCompany;
-      return matchesSearch && matchesStatus && matchesCompany;
+      const matchesCampaign = filterCampaign === "all" || a.campaign_id === filterCampaign;
+      return matchesSearch && matchesStatus && matchesCompany && matchesCampaign;
     });
-  }, [assets, search, filterStatus, filterCompany]);
+  }, [assets, search, filterStatus, filterCompany, filterCampaign]);
 
   function toggleSelect(id: string) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -74,10 +79,24 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
   }
 
   const companyName = (id?: string) => companies.find(c => c.id === id)?.company_name ?? "—";
+  const campaignTitle = (id?: string) => campaigns.find(c => c.id === id)?.title ?? "—";
   const proposalTitle = (id?: string) => {
     const p = proposals.find(p => p.id === id);
     return p ? p.title.slice(0, 30) + (p.title.length > 30 ? "…" : "") : "—";
   };
+
+  async function assignCampaign(assetId: string, campaignId: string) {
+    setUpdating(assetId);
+    try {
+      await fetch("/api/assets", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: assetId, related_campaign_id: campaignId }),
+      });
+      toast({ variant: "success", title: campaignId ? "Assigned to campaign" : "Removed from campaign" });
+      setTimeout(() => window.location.reload(), 800);
+    } finally { setUpdating(null); }
+  }
 
   const statusList = ["all", "completed", "pending_approval", "generating", "rejected", "archived"];
   // Unique companies with assets
@@ -85,6 +104,18 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
     const ids = new Set(assets.map(a => a.company_id).filter(Boolean));
     return companies.filter(c => ids.has(c.id));
   }, [assets, companies]);
+  const assetCampaigns = useMemo(() => {
+    const ids = new Set(assets.map(a => a.campaign_id).filter(Boolean));
+    return campaigns.filter(c => ids.has(c.id));
+  }, [assets, campaigns]);
+  // Campaigns to offer for a given asset: prefer the ones belonging to the
+  // same company (campaigns are company-scoped) so the dropdown stays short,
+  // but fall back to all campaigns when the asset has no company set.
+  function campaignOptionsFor(asset: Asset) {
+    if (!asset.company_id) return campaigns;
+    const scoped = campaigns.filter(c => c.company_id === asset.company_id);
+    return scoped.length > 0 ? scoped : campaigns;
+  }
 
   return (
     <div className="space-y-4">
@@ -109,6 +140,12 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
           <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)} className="text-xs border rounded-lg px-2 py-1.5 bg-card">
             <option value="all">All Companies</option>
             {assetCompanies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+          </select>
+        )}
+        {assetCampaigns.length > 0 && (
+          <select value={filterCampaign} onChange={e => setFilterCampaign(e.target.value)} className="text-xs border rounded-lg px-2 py-1.5 bg-card">
+            <option value="all">All Campaigns</option>
+            {assetCampaigns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         )}
         <div className="flex gap-1 ml-auto">
@@ -144,12 +181,13 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
           const cfg = STATUS_CONFIG[asset.status] ?? STATUS_CONFIG.pending_approval;
           const StatusIcon = cfg.icon;
           const isSelected = selected.includes(asset.id);
+          const imgUrl = resolveJobImageUrl(asset);
           return (
             <div key={asset.id} className={`rounded-xl border bg-card overflow-hidden group hover:shadow-md transition-all ${isSelected ? "ring-2 ring-primary border-primary" : ""}`}>
               {/* Preview */}
               <div className="aspect-video bg-muted relative overflow-hidden cursor-pointer" onClick={() => setPreview(asset)}>
-                {asset.image_url ? (
-                  <img src={asset.image_url} alt={asset.prompt?.slice(0,80) ?? "Asset preview"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                {imgUrl ? (
+                  <img src={imgUrl} alt={asset.prompt?.slice(0,80) ?? "Asset preview"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     <ImageIcon className="h-8 w-8 opacity-30" aria-hidden="true" />
@@ -174,6 +212,24 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
                   <span className="capitalize">{asset.job_type?.replace(/_/g, " ")}</span>
                   {asset.company_id && <><span>·</span><Link2 className="h-2.5 w-2.5" /><span className="truncate">{companyName(asset.company_id)}</span></>}
                 </div>
+                {asset.campaign_id && (
+                  <div className="flex items-center gap-1 text-[10px] text-primary">
+                    <Megaphone className="h-2.5 w-2.5" />
+                    <span className="truncate">{campaignTitle(asset.campaign_id)}</span>
+                  </div>
+                )}
+                <select
+                  value={asset.campaign_id ?? ""}
+                  onChange={e => assignCampaign(asset.id, e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  disabled={updating === asset.id}
+                  className="w-full text-[10px] border rounded px-1.5 py-1 bg-card"
+                >
+                  <option value="">Assign to campaign…</option>
+                  {campaignOptionsFor(asset).map(c => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
                 <div className="text-[10px] text-muted-foreground">{new Date(asset.created_at).toLocaleDateString("pt-BR")}</div>
 
                 {/* Actions */}
@@ -209,7 +265,7 @@ export function AssetLibraryClient({ assets, proposals, companies }: {
       {preview && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
           <div className="bg-card rounded-2xl overflow-hidden max-w-2xl w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-            {preview.image_url ? <img src={preview.image_url} alt={preview.prompt?.slice(0,80) ?? "Preview"} className="w-full" /> : <div className="aspect-video bg-muted flex items-center justify-center"><ImageIcon className="h-16 w-16 opacity-20" aria-hidden="true" /></div>}
+            {resolveJobImageUrl(preview) ? <img src={resolveJobImageUrl(preview)!} alt={preview.prompt?.slice(0,80) ?? "Preview"} className="w-full" /> : <div className="aspect-video bg-muted flex items-center justify-center"><ImageIcon className="h-16 w-16 opacity-20" aria-hidden="true" /></div>}
             <div className="p-4 space-y-2">
               <p className="text-sm">{preview.prompt}</p>
               <div className="flex items-center justify-between text-xs text-muted-foreground">

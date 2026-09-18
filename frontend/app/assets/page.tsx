@@ -12,15 +12,28 @@ export default async function AssetsPage() {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
 
-  const [{ data: jobs }, { data: proposals }, { data: companies }] = await Promise.all([
+  const [{ data: jobs, error: jobsError }, { data: proposals }, { data: companies }, { data: campaigns }] = await Promise.all([
+    // Found live-testing 2026-09-18 (wiring up campaign-image assignment):
+    // this previously selected "image_url", a column that has never existed
+    // on image_generation_jobs (the real fields are output_urls[]/
+    // selected_url, resolved via resolveJobImageUrl — same helper the
+    // proposal-facing image pickers already use). Supabase returned an
+    // error, `jobs` came back undefined, and the whole page silently showed
+    // "0 Total Assets" against 214 real rows, with no error surfaced
+    // anywhere — same bug class as the Pipeline page's estimated_value
+    // issue found the day before. Also dropped "metadata", a second
+    // nonexistent column caught the same way once the first error was
+    // fixed and logged — this table has no folder/tag concept at all.
     sb.from("image_generation_jobs" as "companies")
-      .select("id, job_type, status, prompt, image_url, proposal_id, company_id, created_at, metadata")
+      .select("id, job_type, status, prompt, output_urls, selected_url, proposal_id, company_id, campaign_id, created_at")
       .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false })
       .limit(200),
     sb.from("proposals").select("id, title").eq("tenant_id", tenantId).limit(100),
     sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").limit(100),
+    sb.from("campaigns").select("id, title, company_id").eq("tenant_id", tenantId).limit(200),
   ]);
+  if (jobsError) console.error("[assets] failed to load image_generation_jobs", jobsError.message);
 
   const statusCounts: Record<string, number> = {};
   for (const j of (jobs ?? []) as Array<Record<string,string>>) {
@@ -62,6 +75,7 @@ export default async function AssetsPage() {
         assets={(jobs ?? []) as unknown as Asset[]}
         proposals={(proposals ?? []) as Array<{ id: string; title: string }>}
         companies={(companies ?? []) as Array<{ id: string; company_name: string }>}
+        campaigns={(campaigns ?? []) as Array<{ id: string; title: string; company_id: string | null }>}
       />
     </>
   );
