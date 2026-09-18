@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
-import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
+import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 
@@ -126,6 +126,18 @@ export async function POST(req: Request) {
       nilContext = nilTermsInstructionBlock(company.notes as string | null, clubName);
     }
 
+    // Phase 9 — segment-tuned template variants (master_report.md §6.1):
+    // Grant/ESG for nonprofits, Exhibitor Package for conferences. Both
+    // override the base stadium/fan-exposure framing rather than extend it.
+    let grantEsgContext = "";
+    if (body.proposal_type === "grant_esg") {
+      grantEsgContext = grantEsgInstructionBlock(company.notes as string | null, clubName);
+    }
+    let exhibitorContext = "";
+    if (body.proposal_type === "exhibitor_package") {
+      exhibitorContext = exhibitorPackageInstructionBlock(company.notes as string | null, clubName);
+    }
+
     const strategyVariant = selectedStrategies[0]?.replace(/_/g, " ") ?? null;
 
     const { system, user } = proposalPrompt({
@@ -135,7 +147,7 @@ export async function POST(req: Request) {
       tenant,
     });
 
-    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext;
+    const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext + grantEsgContext + exhibitorContext;
 
     const result = await invokeClaude({
       messages: [{ role: "user", content: enhancedUser }],

@@ -9,6 +9,7 @@ import {
   Check, ChevronRight, ChevronLeft, Sparkles, Building2,
   Package, Brain, Zap, FileText, Users, Globe, MapPin,
   TrendingUp, Heart, Repeat2, Loader2, Star, Pencil,
+  Landmark, LayoutGrid,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ type Company = {
 };
 type Campaign = { id: string; title: string; summary: string | null; status: string };
 type MatchOption = { id: string; opponent: string; match_date: string };
-type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand" | "nil_creator";
+type ProposalType = "sponsorship" | "barter" | "lei_de_incentivo" | "mixed" | "esg_community" | "local_business" | "national_brand" | "nil_creator" | "grant_esg" | "exhibitor_package";
 type BarterSplitTemplateKey = "full_barter" | "25_75" | "50_50" | "75_25";
 type Component = { id: string; name: string; category: string; type: string; icon: React.ElementType; price?: string };
 type Strategy = { key: string; label: string; description: string; icon: React.ElementType; color: string };
@@ -44,6 +45,8 @@ const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: st
   { type: "local_business", label: "Local Business", description: "Regional Curitiba/Paraná SME — high-visibility local activation", icon: MapPin, color: "orange" },
   { type: "national_brand", label: "National Brand", description: "Large national brand — broadcast, digital, full stadium integration", icon: TrendingUp, color: "indigo" },
   { type: "nil_creator", label: "NIL / Creator Deal", description: "Individual athlete, creator or influencer — image rights, content collabs, appearances", icon: Users, color: "pink" },
+  { type: "grant_esg", label: "Grant / ESG Funding", description: "Nonprofit soliciting cause-marketing or CSR funding — impact-led, not stadium exposure", icon: Landmark, color: "teal" },
+  { type: "exhibitor_package", label: "Exhibitor Package", description: "Conference/trade-show booth, speaking slot, and attendee access — not stadium exposure", icon: LayoutGrid, color: "cyan" },
 ];
 
 // ── Inventory components ───────────────────────────────────────────────────
@@ -348,6 +351,7 @@ export function ProposalWizard({
 
   const availableComponents = proposalType === "barter" ? BARTER_COMPONENTS :
     proposalType === "lei_de_incentivo" ? SOCIAL_COMPONENTS :
+    proposalType === "grant_esg" ? SOCIAL_COMPONENTS :
     proposalType === "nil_creator" ? NIL_COMPONENTS :
     proposalType === "mixed" ? [...INVENTORY_COMPONENTS, ...BARTER_COMPONENTS.slice(0,3), ...SOCIAL_COMPONENTS.slice(0,2)] :
     INVENTORY_COMPONENTS;
@@ -355,7 +359,7 @@ export function ProposalWizard({
   const recommendedStrategies = selectedCompany ? ALL_STRATEGIES.filter(s => {
     const bt = selectedCompany.business_type ?? "B2C";
     const seg = selectedCompany.segment ?? "local";
-    if (proposalType === "lei_de_incentivo") return ["esg", "community", "youth"].includes(s.key);
+    if (proposalType === "lei_de_incentivo" || proposalType === "grant_esg") return ["esg", "community", "youth"].includes(s.key);
     if (proposalType === "barter") return ["barter_negotiation", "hybrid_activation", "community"].includes(s.key);
     if (proposalType === "nil_creator") return ["digital_social", "fan_engagement", "hybrid_activation"].includes(s.key);
     if (bt === "B2B") return ["hospitality", "premium_branding", "awareness", "barter_negotiation", "hybrid_activation"].includes(s.key);
@@ -375,6 +379,8 @@ export function ProposalWizard({
     slate: "border-slate-400 bg-slate-50 dark:bg-slate-800/40",
     yellow: "border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20",
     indigo: "border-indigo-400 bg-indigo-50 dark:bg-indigo-900/20",
+    teal: "border-teal-400 bg-teal-50 dark:bg-teal-900/20",
+    cyan: "border-cyan-400 bg-cyan-50 dark:bg-cyan-900/20",
   };
 
   return (
@@ -609,7 +615,7 @@ export function ProposalWizard({
             )}
 
             {/* Fallback static list for barter/lei + when DB empty */}
-            {!inventoryLoading && (proposalType === "barter" || proposalType === "lei_de_incentivo" || proposalType === "nil_creator" || dbInventory.length === 0) && (
+            {!inventoryLoading && (proposalType === "barter" || proposalType === "lei_de_incentivo" || proposalType === "grant_esg" || proposalType === "nil_creator" || dbInventory.length === 0) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {availableComponents.map(comp => {
                   const selected = selectedComponents.includes(comp.id);

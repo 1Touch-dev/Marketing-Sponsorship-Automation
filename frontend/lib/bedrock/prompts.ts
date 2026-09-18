@@ -486,6 +486,75 @@ export function nilTermsInstructionBlock(
 }
 
 // ---------------------------------------------------------------------------
+// Grant/ESG proposal variant (Phase 9 — master_report.md §6.1: "the
+// existing 'Aliança Estratégica' deck engine gets a template variant per
+// niche... Grant/ESG for nonprofits"). Appended when proposal_type is
+// "grant_esg" — the rights-holder here is soliciting cause-marketing/CSR
+// funding rather than selling stadium/match-day brand exposure, so the
+// base proposalPrompt()'s stadium/fan-reach framing is explicitly
+// overridden rather than extended. Same claim-grounding discipline as
+// every other instruction block: never invent beneficiary counts, impact
+// metrics, or program details that aren't in the organization's real notes.
+// ---------------------------------------------------------------------------
+export function grantEsgInstructionBlock(
+  orgNotes?: string | null,
+  clubName = "Coritiba FC",
+): string {
+  const hasNotes = !!orgNotes?.trim();
+
+  return [
+    "",
+    "GRANT/ESG PARTNERSHIP FRAMING (override the base framing above — this is NOT a stadium/match-day sponsorship pitch):",
+    `${clubName} is soliciting cause-marketing / CSR / grant funding from this company, not selling brand exposure to matchday fans. Do not lead with stadium capacity, attendance figures, or in-stadium placements.`,
+    "Reframe every section around: the social program or cause this funding supports, measurable community impact, and the alignment between the funder's own CSR/ESG goals and this program — not media reach.",
+    hasNotes
+      ? `Known real facts about the program/beneficiaries (from the organization's notes) — only use these, do not add more: ${orgNotes}`
+      : "No real facts about specific beneficiary counts, program history, or measured outcomes are on file — do NOT invent any. Describe the program's structure and intent qualitatively rather than with fabricated statistics.",
+    "In addition to the standard proposal JSON fields, include this extra key:",
+    `"grant_esg_terms": {
+  "program_focus": "one short phrase naming the social cause/program area (only from real notes above if given, otherwise keep general, e.g. 'youth community development')",
+  "impact_metrics": ["how impact will be reported back to the funder — reporting cadence and qualitative method, not invented numbers"],
+  "use_of_funds": "1-2 sentences on how the contribution would be used",
+  "esg_alignment_note": "1-2 sentences connecting this to the funder's own likely CSR/ESG reporting needs, phrased generally, not assuming specifics about the funder's ESG program unless it's in real company data"
+}`,
+    "Per Rule 10, only cite a specific beneficiary count, past grant amount, or outcome statistic if it appears in the real notes above — otherwise stay qualitative.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Exhibitor Package proposal variant (Phase 9 — master_report.md §6.1:
+// "...Exhibitor Package for conferences"). Appended when proposal_type is
+// "exhibitor_package" — the rights-holder here is a conference/trade-show
+// organizer selling booth space and attendee access, not a sports club
+// selling matchday exposure. Same override-not-extend approach as the
+// Grant/ESG block above.
+// ---------------------------------------------------------------------------
+export function exhibitorPackageInstructionBlock(
+  eventNotes?: string | null,
+  clubName = "Coritiba FC",
+): string {
+  const hasNotes = !!eventNotes?.trim();
+
+  return [
+    "",
+    "EXHIBITOR PACKAGE FRAMING (override the base framing above — this is NOT a stadium/match-day sponsorship pitch):",
+    `${clubName} is selling an exhibitor/sponsor package for a conference or trade-show event, not stadium or match-day exposure. Do not reference stadium capacity, attendance at matches, or in-stadium placements.`,
+    "Reframe every section around real conference-exhibitor deliverables: booth space and location tier, session/speaking-slot access, attendee list or lead-retrieval access, badge-scan data, and on-site signage at the event venue.",
+    hasNotes
+      ? `Known real facts about this event (from the organization's notes) — only use these, do not add more: ${eventNotes}`
+      : "No real facts about expected attendee count, past event attendance, or exhibitor history are on file — do NOT invent any. Describe booth tier and access qualitatively rather than with fabricated attendance numbers.",
+    "In addition to the standard proposal JSON fields, include this extra key:",
+    `"exhibitor_terms": {
+  "booth_tier": "one of: standard | premium | headline",
+  "deliverables": ["booth space, speaking slots, badge-scan/lead access, signage — only reference specifics confirmed in real notes above, otherwise describe generally"],
+  "attendee_access_note": "1-2 sentences on what audience/attendee access is included, phrased qualitatively unless real attendance figures were provided",
+  "structure_notes": "2-3 sentences on the proposed exhibitor relationship rationale"
+}`,
+    "Per Rule 10, only state a specific attendance figure, exhibitor count, or past-event statistic if it appears in the real notes above — otherwise keep every deliverable general.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // Pricing tiers
 // ---------------------------------------------------------------------------
 export function pricingTiersPrompt(args: {
