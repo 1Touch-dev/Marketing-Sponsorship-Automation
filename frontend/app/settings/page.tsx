@@ -8,7 +8,7 @@ import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import {
   Shield, Trophy, XCircle, CheckCircle2, Zap,
   FileText, Users, DollarSign, Image, Brain,
-  Mail, ChevronRight,
+  Mail, ChevronRight, LayoutTemplate, Workflow, Newspaper, Send,
 } from "lucide-react";
 import { BackfillButton } from "./backfill-button";
 import { GmailDisconnectButton } from "./gmail-disconnect-button";
@@ -191,11 +191,21 @@ export default async function SettingsPage({
         </div>
       ) : null}
 
-      {/* Quick navigation to sub-settings */}
+      {/* Quick navigation to sub-settings.
+          Presentation Templates, Email Flows, Newsletter Config, and Sender
+          Profiles used to also be top-level sidebar links (see the 2026-09-23
+          UX audit's sidebar-imbalance finding). They're now reachable only
+          here, so this grid is their sole entry point — removing them from
+          the sidebar without listing them here would have made them
+          unreachable outside of typing the URL directly. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { href: "/settings/team", icon: Users, label: "Team Members", desc: "Sender profiles" },
+          { href: "/settings/team", icon: Users, label: "Team Members", desc: "Who has platform access" },
+          { href: "/settings/sender-profiles", icon: Send, label: "Sender Profiles", desc: "Who sends outreach emails" },
           { href: "/settings/email-templates", icon: Mail, label: "Email Templates", desc: "Reusable templates" },
+          { href: "/settings/email-flows", icon: Workflow, label: "Email Flows", desc: "Outreach sequences" },
+          { href: "/settings/proposal-templates", icon: LayoutTemplate, label: "Presentation Templates", desc: "Proposal deck layouts" },
+          { href: "/settings/newsletter", icon: Newspaper, label: "Newsletter Config", desc: "Newsletter settings" },
           { href: "/inventory", icon: DollarSign, label: "Inventory", desc: "Sponsorship items" },
           { href: "/settings", icon: Shield, label: "Platform", desc: "Integrations & migrations" },
         ].map(({ href, icon: Icon, label, desc }) => (

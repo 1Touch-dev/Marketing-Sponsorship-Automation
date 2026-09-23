@@ -40,8 +40,6 @@ import {
   FileCheck,
   BarChart3,
   Radar,
-  Workflow,
-  LayoutTemplate,
   CalendarDays,
   Flame,
   Bot,
@@ -101,16 +99,14 @@ const NAV: NavItem[] = [
   { href: "/reports", label: "Reports", icon: BarChart3, group: "core" },
   // Proposal workflow
   { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
+  { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
   { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
   { href: "/proposals/bulk", label: "Bulk Proposals", icon: Users, group: "proposals" },
   { href: "/campaigns/bulk", label: "Bulk Campaigns", icon: Zap, group: "proposals" },
   { href: "/proposals/bulk-approve", label: "Bulk Approve", icon: CheckSquare, group: "proposals" },
-  { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
-  { href: "/settings/proposal-templates", label: "Presentation Templates", icon: LayoutTemplate, group: "proposals" },
   { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
   { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
   { href: "/settings/email-templates", label: "Email Templates", icon: ScrollText, group: "proposals" },
-  { href: "/settings/email-flows", label: "Email Flows", icon: Workflow, group: "proposals" },
   { href: "/settings/warmup-sequences", label: "Warm-up Strategies", icon: Flame, group: "proposals" },
   { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
   { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
@@ -122,7 +118,6 @@ const NAV: NavItem[] = [
   { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
   { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
   { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
-  { href: "/settings/newsletter", label: "Newsletter Config", icon: Newspaper, group: "intelligence" },
   // Media & Assets
   { href: "/media-generation", label: "AI Image Gen", icon: Sparkles, group: "media" },
   { href: "/mockup-editor", label: "Mockup Editor", icon: Layers, group: "media" },
@@ -135,9 +130,33 @@ const NAV: NavItem[] = [
   { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
   { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
-  { href: "/settings/sender-profiles", label: "Sender Profiles", icon: Users, group: "system" },
   { href: "/users", label: "Team & Roles", icon: Users, group: "system", adminOnly: true },
 ];
+
+// Presentation Templates, Email Flows, Newsletter Config, and Sender
+// Profiles used to also be top-level sidebar links duplicating their
+// /settings/* routes (see the 2026-09-23 UX audit — removing 4 of 15 items
+// from the Proposal Workflow group); they're reachable via Settings' own
+// quick-nav grid instead now.
+//
+// Simple prefix matching ("does pathname start with item.href") caused two
+// sidebar items to highlight as active at once whenever one item's href was
+// itself a path-segment prefix of another's — not just /settings vs.
+// /settings/email-templates, but also /proposals vs. /proposals/new and
+// /proposals/bulk vs. /proposals/bulk-approve. Picking the single
+// longest/most-specific matching href, computed once across the whole NAV
+// list, fixes every one of these for good rather than excluding routes
+// one at a time.
+function computeActiveHref(pathname: string | null, items: NavItem[]): string | null {
+  if (!pathname) return null;
+  let best: string | null = null;
+  for (const item of items) {
+    const href = item.href;
+    const matches = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
+    if (matches && (best === null || href.length > best.length)) best = href;
+  }
+  return best;
+}
 
 const GROUPS: Record<string, { pt: string; en: string }> = {
   core: { pt: "CRM", en: "CRM" },
@@ -162,6 +181,8 @@ function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebar
     return acc;
   }, {});
 
+  const activeHref = computeActiveHref(pathname, NAV);
+
   return (
     <>
       {Object.entries(GROUPS).map(([group, groupLabel]) => {
@@ -184,9 +205,7 @@ function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebar
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const Icon = item.icon;
-                  const active =
-                    pathname === item.href ||
-                    (item.href !== "/" && pathname?.startsWith(item.href));
+                  const active = item.href === activeHref;
                   return (
                     <Link
                       key={item.href}
