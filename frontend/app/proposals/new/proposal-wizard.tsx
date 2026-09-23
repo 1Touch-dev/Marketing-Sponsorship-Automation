@@ -380,10 +380,16 @@ export function ProposalWizard({
     }
   }
 
-  const filteredCompanies = companies.filter(c =>
+  // Found in the 2026-09-23 UX audit: this dropdown rendered all 537
+  // companies into the DOM at once even before typing a search term. Once
+  // a real search term narrows the match set, show everything that
+  // matches (typically a handful) — only cap the unfiltered browse state.
+  const COMPANY_PICKER_LIMIT = 40;
+  const allFilteredCompanies = companies.filter(c =>
     c.company_name.toLowerCase().includes(companySearch.toLowerCase()) ||
     (c.industry ?? "").toLowerCase().includes(companySearch.toLowerCase())
   );
+  const filteredCompanies = companySearch ? allFilteredCompanies : allFilteredCompanies.slice(0, COMPANY_PICKER_LIMIT);
 
   const availableComponents = proposalType === "barter" ? BARTER_COMPONENTS :
     proposalType === "lei_de_incentivo" ? SOCIAL_COMPONENTS :
@@ -514,6 +520,11 @@ export function ProposalWizard({
               ))}
               {filteredCompanies.length === 0 && (
                 <div className="text-center py-6 text-muted-foreground text-sm">No companies found. <a href="/companies/new" className="text-primary underline">Add a company first.</a></div>
+              )}
+              {!companySearch && allFilteredCompanies.length > COMPANY_PICKER_LIMIT && (
+                <p className="text-center text-xs text-muted-foreground py-1">
+                  Showing {COMPANY_PICKER_LIMIT} of {allFilteredCompanies.length} — type to search the rest
+                </p>
               )}
             </div>
 
