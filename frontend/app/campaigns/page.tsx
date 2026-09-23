@@ -16,6 +16,9 @@ type CampaignRow = {
   id: string;
   title: string;
   summary: string | null;
+  activation: string | null;
+  description: string | null;
+  cta: string | null;
   status: string;
   created_at: string;
   company_id: string;
@@ -41,6 +44,18 @@ function detectStrategyTag(title: string, summary: string | null): string | null
   return null;
 }
 
+// Found in the 2026-09-23 UX audit (James's specific flagged concern): an
+// empty wizard-generated shell and a fully-developed campaign both show the
+// identical gray "draft" pill on identical card layouts — the only way to
+// tell them apart was opening each one and reading closely. Same check the
+// preapprove route (api/campaigns/[id]/preapprove) already uses to block
+// pre-approving content-free campaigns.
+const WIZARD_BOILERPLATE = /^Wizard-generated campaign for /;
+function hasRealContent(c: { summary: string | null; activation: string | null; description: string | null; cta: string | null }): boolean {
+  if (c.activation || c.description || c.cta) return true;
+  return !!c.summary && !WIZARD_BOILERPLATE.test(c.summary);
+}
+
 export default async function CampaignsPage({
   searchParams,
 }: {
@@ -52,7 +67,7 @@ export default async function CampaignsPage({
     sb.from("companies").select("id, company_name, industry").eq("tenant_id", tenantId).order("company_name"),
     sb
       .from("campaigns")
-      .select("id, title, summary, status, created_at, company_id, companies(id, company_name, industry)")
+      .select("id, title, summary, activation, description, cta, status, created_at, company_id, companies(id, company_name, industry)")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(200),
@@ -198,6 +213,7 @@ export default async function CampaignsPage({
             campaigns.map((c) => {
               const tag = detectStrategyTag(c.title, c.summary);
               const tagClass = tag ? STRATEGY_KEYWORDS[tag] : null;
+              const hasContent = hasRealContent(c);
               return (
                 <div
                   key={c.id}
@@ -227,19 +243,29 @@ export default async function CampaignsPage({
                         <StatusBadge status={c.status} />
                       </div>
                     </div>
-                    {tag && tagClass && (
+                    {tag && tagClass ? (
                       <div className="mt-2 ml-9">
                         <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${tagClass}`}>
                           <Tag className="h-2.5 w-2.5" />
                           {tag.charAt(0).toUpperCase() + tag.slice(1)} Strategy
                         </span>
                       </div>
-                    )}
-                    {c.summary && (
+                    ) : !hasContent ? (
+                      <div className="mt-2 ml-9">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          No content generated yet
+                        </span>
+                      </div>
+                    ) : null}
+                    {hasContent && c.summary ? (
                       <p className="text-sm mt-2 ml-9 text-muted-foreground leading-relaxed">
                         {truncate(c.summary, 200)}
                       </p>
-                    )}
+                    ) : !hasContent ? (
+                      <p className="text-sm mt-2 ml-9 text-muted-foreground/60 italic">
+                        Placeholder only — open to generate a real strategy
+                      </p>
+                    ) : null}
                   </Link>
 
                   {/* Action footer */}

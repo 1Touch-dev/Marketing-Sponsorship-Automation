@@ -158,10 +158,14 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
     blue: "bg-blue-50 text-blue-700", green: "bg-green-50 text-green-700",
     purple: "bg-purple-50 text-purple-700", amber: "bg-amber-50 text-amber-700",
   };
+  // Found in the 2026-09-23 UX audit: "Not tracked" rendered in the same
+  // bold colored typography as the real Active Leads figure — visually
+  // indistinguishable from a genuine number at a glance.
+  const untracked = value === "Not tracked";
   return (
-    <div className={`rounded-lg border p-3 ${colors[color] || ""}`}>
-      <div className="flex items-center gap-1.5 text-xs opacity-70 mb-1">{icon}{label}</div>
-      <p className="text-2xl font-bold">{value}</p>
+    <div className={`rounded-lg border p-3 ${untracked ? "bg-muted/20" : colors[color] || ""}`}>
+      <div className={`flex items-center gap-1.5 text-xs mb-1 ${untracked ? "text-muted-foreground" : "opacity-70"}`}>{icon}{label}</div>
+      <p className={untracked ? "text-base font-medium text-muted-foreground" : "text-2xl font-bold"}>{value}</p>
     </div>
   );
 }

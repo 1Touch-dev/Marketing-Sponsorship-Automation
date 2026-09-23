@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatDate, truncate } from "@/lib/utils";
+import { formatDate, truncate, cn } from "@/lib/utils";
 import {
   Building2,
   FileText,
@@ -392,32 +392,43 @@ export default async function DashboardPage() {
 
       {/* Revenue Hero */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-5">
-          <div className="flex items-center gap-2 text-xs text-green-700 font-medium mb-1 uppercase tracking-wide">
+        {/* Found in the 2026-09-23 UX audit: empty KPI cards rendered "—" in
+            the identical bold/colored treatment as populated ones, giving no
+            visual signal that a figure isn't tracked yet vs. genuinely zero.
+            Each card below now switches to a muted, smaller, un-colored
+            style when there's nothing real behind the number. */}
+        <div className={cn("rounded-xl border-2 p-5", d.totalRevenueBrl > 0 ? "border-green-200 bg-green-50" : "border-muted bg-muted/20")}>
+          <div className={cn("flex items-center gap-2 text-xs font-medium mb-1 uppercase tracking-wide", d.totalRevenueBrl > 0 ? "text-green-700" : "text-muted-foreground")}>
             <DollarSign className="h-4 w-4" /> Total Active Revenue
           </div>
-          <p className="text-3xl font-extrabold text-green-800">
-            {d.totalRevenueBrl > 0 ? `R$ ${(d.totalRevenueBrl / 1000).toFixed(0)}K` : "—"}
-          </p>
-          <p className="text-xs text-green-600 mt-1">{d.signedContractCount} active contracts</p>
+          {d.totalRevenueBrl > 0 ? (
+            <p className="text-3xl font-extrabold text-green-800">R$ {(d.totalRevenueBrl / 1000).toFixed(0)}K</p>
+          ) : (
+            <p className="text-lg font-medium text-muted-foreground">Not tracked</p>
+          )}
+          <p className={cn("text-xs mt-1", d.totalRevenueBrl > 0 ? "text-green-600" : "text-muted-foreground")}>{d.signedContractCount} active contracts</p>
         </div>
-        <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-5">
-          <div className="flex items-center gap-2 text-xs text-blue-700 font-medium mb-1 uppercase tracking-wide">
+        <div className={cn("rounded-xl border-2 p-5", d.pipelineValueBrl > 0 ? "border-blue-200 bg-blue-50" : "border-muted bg-muted/20")}>
+          <div className={cn("flex items-center gap-2 text-xs font-medium mb-1 uppercase tracking-wide", d.pipelineValueBrl > 0 ? "text-blue-700" : "text-muted-foreground")}>
             <BarChart2 className="h-4 w-4" /> Pipeline Value
           </div>
-          <p className="text-3xl font-extrabold text-blue-800">
-            {d.pipelineValueBrl > 0 ? `R$ ${(d.pipelineValueBrl / 1000).toFixed(0)}K` : "—"}
-          </p>
-          <p className="text-xs text-blue-600 mt-1">{d.approvedProposalCount} approved proposals</p>
+          {d.pipelineValueBrl > 0 ? (
+            <p className="text-3xl font-extrabold text-blue-800">R$ {(d.pipelineValueBrl / 1000).toFixed(0)}K</p>
+          ) : (
+            <p className="text-lg font-medium text-muted-foreground">Not tracked</p>
+          )}
+          <p className={cn("text-xs mt-1", d.pipelineValueBrl > 0 ? "text-blue-600" : "text-muted-foreground")}>{d.approvedProposalCount} approved proposals</p>
         </div>
-        <div className="rounded-xl border-2 border-purple-200 bg-purple-50 p-5">
-          <div className="flex items-center gap-2 text-xs text-purple-700 font-medium mb-1 uppercase tracking-wide">
+        <div className={cn("rounded-xl border-2 p-5", d.avgDealSizeBrl > 0 ? "border-purple-200 bg-purple-50" : "border-muted bg-muted/20")}>
+          <div className={cn("flex items-center gap-2 text-xs font-medium mb-1 uppercase tracking-wide", d.avgDealSizeBrl > 0 ? "text-purple-700" : "text-muted-foreground")}>
             <TrendingUp className="h-4 w-4" /> Avg Deal Size
           </div>
-          <p className="text-3xl font-extrabold text-purple-800">
-            {d.avgDealSizeBrl > 0 ? `R$ ${(d.avgDealSizeBrl / 1000).toFixed(0)}K` : "—"}
-          </p>
-          <p className="text-xs text-purple-600 mt-1">per active contract</p>
+          {d.avgDealSizeBrl > 0 ? (
+            <p className="text-3xl font-extrabold text-purple-800">R$ {(d.avgDealSizeBrl / 1000).toFixed(0)}K</p>
+          ) : (
+            <p className="text-lg font-medium text-muted-foreground">Not tracked</p>
+          )}
+          <p className={cn("text-xs mt-1", d.avgDealSizeBrl > 0 ? "text-purple-600" : "text-muted-foreground")}>per active contract</p>
         </div>
       </div>
 
