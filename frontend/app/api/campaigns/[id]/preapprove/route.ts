@@ -28,6 +28,47 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const preapproved = body?.preapproved !== false;
 
   const sb = supabaseAdmin();
+
+  // Guard found live 2026-09-23 (James, screenshot): a campaign with no real
+  // content — no inventory, just the wizard's auto-generated placeholder
+  // concept — could still be marked pre-approved and fed straight into
+  // unattended batch outreach with nothing real behind it. Only checked when
+  // turning pre-approval ON; revoking it is always allowed.
+  if (preapproved) {
+    const { data: campaign, error: campaignErr } = await sb
+      .from("campaigns")
+      .select("summary")
+      .eq("id", ctx.params.id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .maybeSingle();
+    if (campaignErr || !campaign) {
+      return NextResponse.json({ error: campaignErr?.message ?? "Campaign not found" }, { status: 404 });
+    }
+
+    const summary = (campaign.summary as string | null)?.trim() ?? "";
+    const isPlaceholderConcept = !summary || /^Wizard-generated campaign for /.test(summary);
+    if (isPlaceholderConcept) {
+      return NextResponse.json(
+        { error: "This campaign has no real concept written yet — fill in a real campaign concept before marking it pre-approved." },
+        { status: 400 },
+      );
+    }
+
+    const { count: includedCount, error: inventoryErr } = await sb
+      .from("campaign_inventory_items" as "companies")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id" as "id", ctx.params.id)
+      .eq("tenant_id" as "id", auth.user.tenant_id)
+      .eq("included" as "id", true as unknown as string);
+    if (inventoryErr) return NextResponse.json({ error: inventoryErr.message }, { status: 500 });
+    if (!includedCount) {
+      return NextResponse.json(
+        { error: "This campaign has no inventory items included yet — add at least one to the package before marking it pre-approved." },
+        { status: 400 },
+      );
+    }
+  }
+
   const { data, error } = await sb
     .from("campaigns")
     .update({
