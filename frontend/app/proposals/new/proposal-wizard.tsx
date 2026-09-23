@@ -36,17 +36,25 @@ const STEPS = [
 ];
 
 // ── Proposal types ─────────────────────────────────────────────────────────
-const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: string; icon: React.ElementType; color: string }> = [
-  { type: "sponsorship", label: "Sponsorship", description: "Traditional sponsor package — jersey, LED boards, digital, VIP, press", icon: Star, color: "blue" },
-  { type: "barter", label: "Barter / Goods", description: "Exchange goods/services instead of cash — negotiation-driven partnership", icon: Repeat2, color: "amber" },
-  { type: "lei_de_incentivo", label: "Lei de Incentivo", description: "Tax-incentive social project — ESG, community programs, sport development", icon: Heart, color: "green" },
-  { type: "mixed", label: "Mixed Proposal", description: "Hybrid: cash sponsorship + barter + social impact combined", icon: Zap, color: "purple" },
-  { type: "esg_community", label: "ESG / Community", description: "Social impact partnership — youth, environment, inclusion, CSR", icon: Heart, color: "emerald" },
-  { type: "local_business", label: "Local Business", description: "Regional Curitiba/Paraná SME — high-visibility local activation", icon: MapPin, color: "orange" },
-  { type: "national_brand", label: "National Brand", description: "Large national brand — broadcast, digital, full stadium integration", icon: TrendingUp, color: "indigo" },
-  { type: "nil_creator", label: "NIL / Creator Deal", description: "Individual athlete, creator or influencer — image rights, content collabs, appearances", icon: Users, color: "pink" },
-  { type: "grant_esg", label: "Grant / ESG Funding", description: "Nonprofit soliciting cause-marketing or CSR funding — impact-led, not stadium exposure", icon: Landmark, color: "teal" },
-  { type: "exhibitor_package", label: "Exhibitor Package", description: "Conference/trade-show booth, speaking slot, and attendee access — not stadium exposure", icon: LayoutGrid, color: "cyan" },
+// Found in the 2026-09-23 UX audit: these 10 types used to render as one
+// flat, ungrouped list mixing three different taxonomies (deal structure,
+// client scale, use case) — and three of them (lei_de_incentivo,
+// esg_community, grant_esg) all referenced ESG/CSR/community language with
+// near-identical one-line descriptions, making them hard to tell apart.
+// Grouped into the 3 clusters the audit suggested, with each ESG-flavored
+// option's description rewritten to name who it's actually for.
+const PROPOSAL_CLUSTERS = ["Cash Sponsorship", "Non-Cash / Hybrid", "Social Impact & Grants"] as const;
+const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: string; icon: React.ElementType; color: string; cluster: typeof PROPOSAL_CLUSTERS[number] }> = [
+  { type: "sponsorship", label: "Sponsorship", description: "Traditional sponsor package — jersey, LED boards, digital, VIP, press", icon: Star, color: "blue", cluster: "Cash Sponsorship" },
+  { type: "local_business", label: "Local Business", description: "Regional Curitiba/Paraná SME — high-visibility local activation", icon: MapPin, color: "orange", cluster: "Cash Sponsorship" },
+  { type: "national_brand", label: "National Brand", description: "Large national brand — broadcast, digital, full stadium integration", icon: TrendingUp, color: "indigo", cluster: "Cash Sponsorship" },
+  { type: "barter", label: "Barter / Goods", description: "Exchange goods/services instead of cash — negotiation-driven partnership", icon: Repeat2, color: "amber", cluster: "Non-Cash / Hybrid" },
+  { type: "mixed", label: "Mixed Proposal", description: "Hybrid: cash sponsorship + barter + social impact combined", icon: Zap, color: "purple", cluster: "Non-Cash / Hybrid" },
+  { type: "nil_creator", label: "NIL / Creator Deal", description: "Individual athlete, creator or influencer — image rights, content collabs, appearances", icon: Users, color: "pink", cluster: "Non-Cash / Hybrid" },
+  { type: "exhibitor_package", label: "Exhibitor Package", description: "Conference/trade-show booth, speaking slot, and attendee access — not stadium exposure", icon: LayoutGrid, color: "cyan", cluster: "Non-Cash / Hybrid" },
+  { type: "lei_de_incentivo", label: "Lei de Incentivo", description: "For sponsors using Brazil's sports tax-incentive law — the spend offsets taxes owed in exchange for a formal, government-registered project", icon: Heart, color: "green", cluster: "Social Impact & Grants" },
+  { type: "esg_community", label: "ESG / Community", description: "For an ongoing CSR partnership funded directly by the sponsor — youth, environment, inclusion — no tax mechanism involved", icon: Heart, color: "emerald", cluster: "Social Impact & Grants" },
+  { type: "grant_esg", label: "Grant / ESG Funding", description: "For a nonprofit/NGO seeking the club's platform and audience to solicit its own cause-marketing funding — not a sponsorship of the club", icon: Landmark, color: "teal", cluster: "Social Impact & Grants" },
 ];
 
 // Found in the 2026-09-23 UX audit: this only covered 7 of the 20 distinct
@@ -422,28 +430,35 @@ export function ProposalWizard({
             <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> What type of proposal?</CardTitle>
             <CardDescription>Choose the proposal category — this shapes the components, pricing, and AI strategy generation.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {PROPOSAL_TYPES.map(pt => (
-              <button
-                key={pt.type}
-                onClick={() => setProposalType(pt.type)}
-                className={`w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all ${
-                  proposalType === pt.type
-                    ? colorMap[pt.color] + " border-opacity-100"
-                    : "border-border hover:border-muted-foreground/40 bg-card"
-                }`}
-              >
-                <div className={`mt-0.5 rounded-lg p-2 ${proposalType === pt.type ? "bg-white/60 dark:bg-black/20" : "bg-muted"}`}>
-                  <pt.icon className="h-5 w-5" />
+          <CardContent className="space-y-5">
+            {PROPOSAL_CLUSTERS.map(cluster => (
+              <div key={cluster} className="space-y-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{cluster}</div>
+                <div className="space-y-2">
+                  {PROPOSAL_TYPES.filter(pt => pt.cluster === cluster).map(pt => (
+                    <button
+                      key={pt.type}
+                      onClick={() => setProposalType(pt.type)}
+                      className={`w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all ${
+                        proposalType === pt.type
+                          ? colorMap[pt.color] + " border-opacity-100"
+                          : "border-border hover:border-muted-foreground/40 bg-card"
+                      }`}
+                    >
+                      <div className={`mt-0.5 rounded-lg p-2 ${proposalType === pt.type ? "bg-white/60 dark:bg-black/20" : "bg-muted"}`}>
+                        <pt.icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold flex items-center gap-2">
+                          {pt.label}
+                          {proposalType === pt.type && <Check className="h-4 w-4 text-green-500" />}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-0.5">{pt.description}</div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="flex-1">
-                  <div className="font-semibold flex items-center gap-2">
-                    {pt.label}
-                    {proposalType === pt.type && <Check className="h-4 w-4 text-green-500" />}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-0.5">{pt.description}</div>
-                </div>
-              </button>
+              </div>
             ))}
             <div className="flex justify-end pt-2">
               <Button onClick={next} className="gap-2">Continue <ChevronRight className="h-4 w-4" /></Button>
