@@ -201,14 +201,9 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               </div>
             )}
 
-            {campaign.prompt_version && (
-              <div className="text-xs text-muted-foreground border-t pt-3 flex items-center gap-2">
-                <span>Prompt version:</span>
-                <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{campaign.prompt_version}</span>
-                <span className="text-muted-foreground/60">·</span>
-                <span>Created {formatDate(campaign.created_at)}</span>
-              </div>
-            )}
+            <div className="text-xs text-muted-foreground border-t pt-3">
+              Generated {formatDate(campaign.created_at)}
+            </div>
           </CardContent>
         </Card>
 
@@ -290,10 +285,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            💰 Pacote de Inventário
+            💰 Inventory Package
           </CardTitle>
           <CardDescription>
-            Monte o pacote de patrocínio com itens de estádio, digital e ativação. Ajuste preços e quantidades antes de gerar a proposta.
+            Build the sponsorship package with stadium, digital, and activation items. Adjust prices and quantities before generating the proposal.
           </CardDescription>
         </CardHeader>
         <CardContent>

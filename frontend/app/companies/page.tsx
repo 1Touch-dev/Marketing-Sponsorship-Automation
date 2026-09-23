@@ -223,7 +223,7 @@ export default async function CompaniesPage({
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                {c.pipeline_stage && (
+                {c.pipeline_stage && c.pipeline_stage !== c.status && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize hidden sm:block">
                     {c.pipeline_stage.replace(/_/g, " ")}
                   </span>

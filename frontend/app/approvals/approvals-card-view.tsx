@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 import { Check, X, Pencil, ChevronLeft, ChevronRight, Mail, Loader2, ExternalLink, PartyPopper, Building2, Keyboard } from "lucide-react";
 
 export type ApprovalItem = {
@@ -306,18 +307,18 @@ export function ApprovalsCardView({ items }: Props) {
                 <Check className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-800 dark:text-slate-200">Proposta aprovada! 🎉</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-slate-200">Proposal approved!</h3>
                 <p className="text-xs text-muted-foreground">{approvedItem.title}</p>
               </div>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Enviar email de outreach agora?
+                Send outreach email now?
               </p>
               {loadingTemplates ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando templates…
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading templates…
                 </div>
               ) : emailTemplates.length > 0 ? (
                 <select
@@ -325,18 +326,20 @@ export function ApprovalsCardView({ items }: Props) {
                   onChange={(e) => setSelectedTemplate(e.target.value)}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Selecione um template…</option>
+                  <option value="">Select a template…</option>
                   {emailTemplates.map((t) => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               ) : (
                 <p className="text-sm text-muted-foreground bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
-                  Nenhum template disponível.{" "}
-                  <a href="/emails" className="text-indigo-600 underline" target="_blank">Criar template →</a>
+                  No template available.{" "}
+                  <a href="/emails" className="text-indigo-600 underline" target="_blank">Create template →</a>
                 </p>
               )}
             </div>
+
+            <HumanInTheLoopBadge compact />
 
             <div className="flex gap-3">
               <Button
@@ -347,7 +350,7 @@ export function ApprovalsCardView({ items }: Props) {
                   if (currentIndex < queueItems.length - 1) goNext();
                 }}
               >
-                Pular
+                Skip
               </Button>
               <Button
                 asChild
@@ -356,7 +359,7 @@ export function ApprovalsCardView({ items }: Props) {
               >
                 <a href={`/proposals/${approvedItem.id}`} target="_blank">
                   <ExternalLink className="h-3.5 w-3.5" />
-                  Ver proposta
+                  View proposal
                 </a>
               </Button>
               <Button
@@ -365,7 +368,7 @@ export function ApprovalsCardView({ items }: Props) {
                 disabled={!selectedTemplate || sendingEmail}
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Enviar email
+                Send email
               </Button>
             </div>
           </div>
@@ -515,6 +518,10 @@ export function ApprovalsCardView({ items }: Props) {
               </div>
 
               <CardTitle className="mt-3 text-lg leading-snug">{currentItem.title}</CardTitle>
+
+              <div className="mt-3">
+                <HumanInTheLoopBadge compact />
+              </div>
             </CardHeader>
 
             {currentItem.preview && (

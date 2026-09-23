@@ -24,7 +24,7 @@ export function ApprovalsViewToggle({ items, listView }: Props) {
             onClick={() => setMode("list")}
           >
             <LayoutList className="h-4 w-4 mr-1.5" />
-            Lista
+            List
           </Button>
           <Button
             variant={mode === "cards" ? "default" : "ghost"}
@@ -33,7 +33,7 @@ export function ApprovalsViewToggle({ items, listView }: Props) {
             onClick={() => setMode("cards")}
           >
             <Layers className="h-4 w-4 mr-1.5" />
-            Vista em Cards
+            Card View
           </Button>
         </div>
       </div>

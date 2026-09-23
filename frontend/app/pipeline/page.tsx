@@ -95,10 +95,10 @@ export default async function PipelinePage() {
           <div className="flex items-start gap-3">
             <Activity className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-blue-800">Pipedrive Integration Architecture Ready</p>
+              <p className="text-sm font-semibold text-blue-800">Pipedrive Integration Ready</p>
               <p className="text-sm text-blue-700 mt-1">
-                All leads are structured with <code className="bg-blue-100 px-1 rounded text-xs">pipedrive_deal_id</code>, <code className="bg-blue-100 px-1 rounded text-xs">pipedrive_org_id</code>, and <code className="bg-blue-100 px-1 rounded text-xs">pipedrive_synced_at</code> fields.
-                When you&apos;re ready to connect Pipedrive, the integration layer is pre-built.
+                Every lead here is already tracked in a way that&apos;s ready to sync with Pipedrive.
+                When you&apos;re ready to connect it, the integration layer is pre-built.
               </p>
               <a href="https://mcp.pipedream.com/app/pipedrive" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
                 Pipedrive MCP Integration Docs

@@ -320,11 +320,9 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                 {renderSection("Investment", (p.content as unknown as Record<string, string>)?.investment_note)}
                 {renderBarterTerms((p.content as unknown as { barter_terms?: BarterTerms })?.barter_terms)}
                 {renderSection("Call to action", (p.content as unknown as Record<string, string>)?.cta)}
-                {p.prompt_version && (
-                  <div className="text-xs text-muted-foreground border-t pt-2">
-                    Prompt version: <span className="font-mono">{p.prompt_version}</span>
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground border-t pt-2">
+                  Generated {formatDate(p.created_at)}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -575,9 +573,9 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
 
           {p.prompt_version && (
             <Card>
-              <CardHeader><CardTitle>Generation Details</CardTitle></CardHeader>
+              <CardHeader><CardTitle>AI Generation</CardTitle></CardHeader>
               <CardContent className="text-xs text-muted-foreground space-y-1">
-                <div>Prompt version: <span className="font-mono">{p.prompt_version}</span></div>
+                <div>Generated {formatDate(p.created_at)}</div>
                 <div className="flex gap-2 flex-wrap mt-2">
                   {p.strategy_variants?.length ? (
                     <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs">

@@ -40,7 +40,7 @@ export function HygieneCheckPanel() {
               <ShieldAlert className="h-4 w-4 text-amber-600" />
               Pipeline Hygiene Check
             </CardTitle>
-            <CardDescription>Flags deals with no activity for 14+ days (Phase 8, Team 2 agent)</CardDescription>
+            <CardDescription>Flags deals with no activity for 14+ days</CardDescription>
           </div>
           <Button size="sm" variant="outline" disabled={loading} onClick={runCheck}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Run Check"}

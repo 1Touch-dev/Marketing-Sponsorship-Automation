@@ -180,7 +180,7 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground text-sm gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" /> Carregando inventário…
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading inventory…
       </div>
     );
   }
@@ -190,13 +190,13 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Inventário da Campanha</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Monte o pacote de patrocínio com itens e preços</p>
+          <h3 className="text-sm font-semibold text-slate-800">Campaign Inventory</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Build the sponsorship package with items and prices</p>
         </div>
         <div className="flex items-center gap-2">
           {savedAt && (
             <span className="flex items-center gap-1 text-xs text-green-600">
-              <Check className="h-3 w-3" /> Salvo {savedAt}
+              <Check className="h-3 w-3" /> Saved {savedAt}
             </span>
           )}
           <button
@@ -205,14 +205,14 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
             className="flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-            Salvar
+            Save
           </button>
           <button
             onClick={() => setShowCatalog(v => !v)}
             className="flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             <Plus className="h-3 w-3" />
-            Adicionar item
+            Add item
             {showCatalog ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
         </div>
@@ -223,7 +223,7 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              {dbInventory.length > 0 ? "Catálogo do Banco de Dados" : "Catálogo Padrão"}
+              {dbInventory.length > 0 ? "Database Catalog" : "Default Catalog"}
             </div>
             <div className="flex gap-1.5">
               {(["physical", "digital"] as const).map(t => (
@@ -236,7 +236,7 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
                   )}
                 >
                   {t === "physical" ? <Package className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
-                  {t === "physical" ? "Físico" : "Digital"}
+                  {t === "physical" ? "Physical" : "Digital"}
                 </button>
               ))}
             </div>
@@ -264,8 +264,8 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
             ))}
             {catalogFiltered.length === 0 && (
               <p className="text-xs text-muted-foreground py-2">
-                Nenhum item {catalogTab === "physical" ? "físico" : "digital"} no catálogo.{" "}
-                <a href="/inventory" className="text-primary underline">Adicionar no inventário →</a>
+                No {catalogTab === "physical" ? "physical" : "digital"} items in the catalog.{" "}
+                <a href="/inventory" className="text-primary underline">Add to inventory →</a>
               </p>
             )}
           </div>
@@ -280,10 +280,10 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-6"></th>
                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600">Item</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-24">Qtde</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-32">Preço Unit.</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-24">Qty</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-32">Unit Price</th>
                 <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-28">Total</th>
-                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-24">Incluso</th>
+                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-600 w-24">Included</th>
                 <th className="w-20 px-3 py-2.5"></th>
               </tr>
             </thead>
@@ -315,7 +315,7 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
                         <input
                           value={line.notes}
                           onChange={e => updateLine(line.id, { notes: e.target.value })}
-                          placeholder="Notas (opcional)…"
+                          placeholder="Notes (optional)…"
                           className="w-full text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-400 text-slate-500"
                         />
                       </div>
@@ -408,14 +408,14 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
                 <td colSpan={4} className="px-3 py-3 text-xs font-bold text-green-800 uppercase tracking-wide">
                   <span className="flex items-center gap-1.5">
                     <TrendingUp className="h-3.5 w-3.5" />
-                    Valor Total do Pacote
+                    Total Package Value
                   </span>
                 </td>
                 <td className="px-3 py-3 text-sm font-extrabold text-green-800">
                   {formatBRL(total)}
                 </td>
                 <td colSpan={2} className="px-3 py-3 text-xs text-green-600">
-                  {lines.filter(l => l.included).length} itens inclusos
+                  {lines.filter(l => l.included).length} items included
                 </td>
               </tr>
             </tfoot>
@@ -424,12 +424,12 @@ export function CampaignInventoryTable({ campaignId, initialLines = [], onSaved 
       ) : (
         <div className="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center">
           <DollarSign className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Adicione itens do catálogo para montar o pacote de patrocínio</p>
+          <p className="text-sm text-slate-500">Add items from the catalog to build the sponsorship package</p>
           <button
             onClick={() => setShowCatalog(true)}
             className="mt-3 text-xs text-primary hover:underline flex items-center gap-1 mx-auto"
           >
-            <RefreshCw className="h-3 w-3" /> Abrir catálogo
+            <RefreshCw className="h-3 w-3" /> Open catalog
           </button>
         </div>
       )}

@@ -74,11 +74,11 @@ export function OpportunityGapPanel({
           className={data ? "" : "bg-sky-600 hover:bg-sky-700 text-white"}
         >
           {loading ? (
-            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analisando…</>
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analyzing…</>
           ) : data ? (
-            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Re-executar</>
+            <><RefreshCw className="h-3.5 w-3.5 mr-1.5" />Re-run</>
           ) : (
-            <><Compass className="h-3.5 w-3.5 mr-1.5" />Analisar</>
+            <><Compass className="h-3.5 w-3.5 mr-1.5" />Analyze</>
           )}
         </Button>
       </div>
@@ -90,8 +90,8 @@ export function OpportunityGapPanel({
       {!data && !loading && !error && (
         <div className="px-5 py-8 text-center text-sm text-slate-500">
           <Compass className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-          <p>Identifique onde <strong>{companyName}</strong> tem menos presença em patrocínio</p>
-          <p className="text-xs mt-1 text-slate-400">Baseado apenas em dados reais já coletados sobre a empresa</p>
+          <p>Identify where <strong>{companyName}</strong> has less sponsorship presence</p>
+          <p className="text-xs mt-1 text-slate-400">Based only on real data already collected about the company</p>
         </div>
       )}
 
