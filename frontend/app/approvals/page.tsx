@@ -50,7 +50,24 @@ export default async function ApprovalsPage({
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
 
-  const [{ data: proposals }, { data: campaigns }, { data: emails }] = await Promise.all([
+  // Found in the 2026-09-23 UX audit: the headline "N items" and per-section
+  // "(N)" counts below were computed from `.length` of these same queries,
+  // which are capped at .limit(100)/.limit(50)/.limit(50) for display
+  // performance — so the count silently equaled "whatever fit under the
+  // cap," not the real total. Confirmed live: 169 real campaigns sit in
+  // status draft/selected, but the page reported "50" (the campaigns
+  // fetch's own limit) and the /agents page's independent count of the same
+  // statuses (169, uncapped) disagreed as a result. Real counts now come
+  // from separate {count:"exact", head:true} queries that don't fetch or
+  // cap any rows.
+  const [
+    { data: proposals },
+    { data: campaigns },
+    { data: emails },
+    { count: totalProposalsReal },
+    { count: totalCampaignsReal },
+    { count: totalEmailsReal },
+  ] = await Promise.all([
     sb
       .from("proposals")
       .select("id, title, status, version, updated_at, company_id, content_md, companies(company_name)")
@@ -72,6 +89,12 @@ export default async function ApprovalsPage({
       .in("status", ["draft", "pending_approval", "approved"])
       .order("created_at", { ascending: false })
       .limit(50),
+    sb.from("proposals").select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId).in("status", ["under_review", "revision_requested", "draft", "approved"]),
+    sb.from("campaigns").select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId).in("status", ["draft", "selected"]),
+    sb.from("emails").select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId).in("status", ["draft", "pending_approval", "approved"]),
   ]);
 
   const typeFilter = searchParams.type ?? "all";
@@ -91,10 +114,19 @@ export default async function ApprovalsPage({
   const showCampaigns = typeFilter === "all" || typeFilter === "campaigns";
   const showEmails = typeFilter === "all" || typeFilter === "emails";
 
+  // Real counts only apply when no single-status narrowing is active (the
+  // real-count queries above don't take statusFilter into account) — with a
+  // specific status selected, the capped fetch is realistically going to
+  // contain every matching row anyway, so the filtered-array length stays
+  // accurate for that narrower case.
+  const proposalCount = !statusFilter ? (totalProposalsReal ?? filteredProposals.length) : filteredProposals.length;
+  const campaignCount = !statusFilter ? (totalCampaignsReal ?? filteredCampaigns.length) : filteredCampaigns.length;
+  const emailCount = !statusFilter ? (totalEmailsReal ?? filteredEmails.length) : filteredEmails.length;
+
   const totalCount =
-    (showProposals ? filteredProposals.length : 0) +
-    (showCampaigns ? filteredCampaigns.length : 0) +
-    (showEmails ? filteredEmails.length : 0);
+    (showProposals ? proposalCount : 0) +
+    (showCampaigns ? campaignCount : 0) +
+    (showEmails ? emailCount : 0);
 
   // Build card items for the tinder-style view
   const cardItems: ApprovalItem[] = [];
@@ -156,8 +188,11 @@ export default async function ApprovalsPage({
           <div className="flex items-center gap-2 mb-2">
             <FileText className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Proposals ({filteredProposals.length})
+              Proposals ({proposalCount})
             </h2>
+            {proposalCount > filteredProposals.length && (
+              <span className="text-xs text-muted-foreground">showing most recent {filteredProposals.length}</span>
+            )}
           </div>
           <div className="space-y-2">
             {filteredProposals.map((p) => (
@@ -185,8 +220,11 @@ export default async function ApprovalsPage({
           <div className="flex items-center gap-2 mb-2">
             <Zap className="h-4 w-4 text-amber-500" />
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Campaigns ({filteredCampaigns.length})
+              Campaigns ({campaignCount})
             </h2>
+            {campaignCount > filteredCampaigns.length && (
+              <span className="text-xs text-muted-foreground">showing most recent {filteredCampaigns.length}</span>
+            )}
           </div>
           <div className="space-y-2">
             {filteredCampaigns.map((c) => (
@@ -214,8 +252,11 @@ export default async function ApprovalsPage({
           <div className="flex items-center gap-2 mb-2">
             <Mail className="h-4 w-4 text-blue-500" />
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Emails ({filteredEmails.length})
+              Emails ({emailCount})
             </h2>
+            {emailCount > filteredEmails.length && (
+              <span className="text-xs text-muted-foreground">showing most recent {filteredEmails.length}</span>
+            )}
           </div>
           <div className="space-y-2">
             {filteredEmails.map((e) => (

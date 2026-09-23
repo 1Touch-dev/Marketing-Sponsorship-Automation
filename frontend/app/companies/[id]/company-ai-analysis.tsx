@@ -22,11 +22,12 @@ interface Props {
   notes: string | null;
   hasIntelligence: boolean;
   intelligence: Record<string, unknown> | null;
+  intelligenceUpdatedAt?: string | null;
   competitors: string[];
 }
 
 export function CompanyAIAnalysis({
-  companyId, companyName, industry, website, notes, intelligence, competitors: rawCompetitors,
+  companyId, companyName, industry, website, notes, intelligence, intelligenceUpdatedAt, competitors: rawCompetitors,
 }: Props) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -35,6 +36,13 @@ export function CompanyAIAnalysis({
   const [enrichLoading, setEnrichLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown> | null>(intelligence);
+  // Found in the 2026-09-23 UX audit: AI-generated advice like "Best
+  // timing" carries no visible generation date, so a recommendation
+  // referencing a quarter that closed over a year ago reads the same as
+  // one generated this morning. Tracked locally too (not just the
+  // server-passed prop) so it updates immediately after a real re-analysis
+  // in this session, not only after a full page reload.
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<string | null>(intelligenceUpdatedAt ?? null);
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
   const [serpData, setSerpData] = useState<Record<string, unknown> | null>(
     (intelligence?.serp_intelligence as Record<string, unknown>) ?? null
@@ -118,6 +126,7 @@ export function CompanyAIAnalysis({
       const j = await res.json() as { intelligence: Record<string, unknown>; error?: string };
       if (!res.ok) throw new Error(j?.error ?? "Analysis failed");
       setData(j.intelligence);
+      setLastGeneratedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -141,6 +150,7 @@ export function CompanyAIAnalysis({
       const j = await res.json() as { intelligence: Record<string, unknown>; error?: string };
       if (!res.ok) throw new Error(j?.error ?? "Scrape failed");
       setData(j.intelligence);
+      setLastGeneratedAt(new Date().toISOString());
       setScrapeStatus("Complete");
       setActiveTab("intelligence");
     } catch (err) {
@@ -349,12 +359,25 @@ export function CompanyAIAnalysis({
                 </div>
               )}
 
-              {!!data.best_contact_timing && (
-                <div className="flex items-center gap-2 text-sm p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                  <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                  <span className="text-amber-800 dark:text-amber-300"><strong>Best timing:</strong> {String(data.best_contact_timing)}</span>
-                </div>
-              )}
+              {!!data.best_contact_timing && (() => {
+                const generatedDate = lastGeneratedAt ? new Date(lastGeneratedAt) : null;
+                const daysOld = generatedDate ? Math.floor((Date.now() - generatedDate.getTime()) / 86_400_000) : null;
+                const isStale = daysOld !== null && daysOld > 90;
+                return (
+                  <div className="flex items-center gap-2 text-sm p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <CheckCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                    <span className="text-amber-800 dark:text-amber-300 flex-1">
+                      <strong>Best timing:</strong> {String(data.best_contact_timing)}
+                    </span>
+                    {generatedDate && (
+                      <span className={`text-xs whitespace-nowrap ${isStale ? "text-red-600 dark:text-red-400 font-medium" : "text-amber-600/70"}`}>
+                        {isStale ? "stale — " : "generated "}
+                        {generatedDate.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </>
           )}
 

@@ -126,7 +126,13 @@ export function CampaignGenerator({
       <Button type="submit" disabled={submitting || !companyId} className="w-full">
         {submitting ? "Generating ideas…" : "Generate ideas"}
       </Button>
-      <p className="text-xs text-muted-foreground">Uses AWS Bedrock — Claude Sonnet.</p>
+      {/* Found in the 2026-09-23 UX audit: this named a specific backing
+          infra provider that's been silently wrong since the AWS Bedrock
+          credentials went invalid (confirmed live: every real call this
+          session fell back to the direct Anthropic API, not Bedrock).
+          Names the actual model, not an infra detail that can drift out
+          from under the copy without anyone noticing. */}
+      <p className="text-xs text-muted-foreground">Powered by Claude (Anthropic).</p>
     </form>
   );
 }

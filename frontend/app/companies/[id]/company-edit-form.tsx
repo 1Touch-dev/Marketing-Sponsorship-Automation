@@ -9,8 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Save, X, Tag, Plus } from "lucide-react";
 
-const SEGMENTS = ["local", "state", "national", "international"];
-const SIZES = ["small", "medium", "large"];
+// Found in the 2026-09-23 UX audit: Google's real row has segment="global"
+// and company_size="enterprise", neither of which were in these lists — a
+// <select defaultValue> that doesn't match any <option> silently falls back
+// to the first option in the DOM, so the form showed "Local"/"Small" for a
+// company that's actually "Global"/"Enterprise". Beyond the display
+// mismatch, saving the form without touching these two fields would have
+// silently overwritten the real values. Extended to cover every value
+// actually present in the companies table, not just the two seen live.
+const SEGMENTS = ["local", "state", "national", "international", "global"];
+const SIZES = ["small", "medium", "large", "enterprise"];
 const BUSINESS_TYPES = ["B2C", "B2B", "Both"];
 const PIPELINE_STAGES = ["competitor", "prospect", "qualified", "contacted", "proposal_sent", "negotiation", "closed_won", "closed_lost"];
 

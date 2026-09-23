@@ -82,7 +82,13 @@ async function loadDashboard() {
   ] = await Promise.all([
     sb.from("companies").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).neq("status", "closed"),
     sb.from("campaigns").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).in("status", ["approved", "under_review", "draft"]),
+    // Found in the 2026-09-23 UX audit: this used to count only 3 of the
+    // real proposal statuses (approved/under_review/draft), so the "131
+    // Proposals" KPI tile silently disagreed with what /proposals itself
+    // shows (135) when clicked — the tile links straight there. Matches
+    // /proposals' own filter now (everything except rejected) so the
+    // number a user sees is the number they land on.
+    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).neq("status", "rejected"),
     sb.from("proposals")
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId)
@@ -122,12 +128,20 @@ async function loadDashboard() {
     .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
 
   // Revenue from signed contracts
-  const { data: contractsData } = await sb
+  // Found live-testing the 2026-09-23 dashboard fix: this selected
+  // "total_value", a column that has never existed on contracts (the real
+  // column is total_value_brl) — same silent-failure bug class as the
+  // Pipeline/Asset Library issues found earlier this project. contractsData
+  // came back undefined, so both "Total Active Revenue" ("—") and
+  // "N active contracts" (0) were wrong the whole time, on 2 real active
+  // contracts.
+  const { data: contractsData, error: contractsError } = await sb
     .from("contracts")
-    .select("total_value")
+    .select("total_value_brl")
     .eq("tenant_id", tenantId)
     .eq("status", "active");
-  const totalRevenueBrl = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value) || 0), 0);
+  if (contractsError) console.error("[dashboard] failed to load contracts", contractsError.message);
+  const totalRevenueBrl = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value_brl) || 0), 0);
   const signedContractCount = contractsData?.length ?? 0;
   const avgDealSizeBrl = signedContractCount > 0 ? Math.round(totalRevenueBrl / signedContractCount) : 0;
 
@@ -500,12 +514,18 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <Link href="/proposals?status=active_contract" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
+        <Link href="/contracts" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
           <div className="flex items-center gap-2 mb-1">
             <Trophy className="h-4 w-4 text-amber-500" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Contracts</span>
           </div>
-          <div className="text-xl font-bold text-amber-600">{d.activeContractCount}</div>
+          {/* Found in the 2026-09-23 UX audit: this tile previously showed
+              proposals.count where status="active_contract" (a proposal
+              pipeline stage) while the Revenue Hero card above showed
+              contracts.count where status="active" (real signed contracts)
+              — same label, two different tables, disagreeing counts on the
+              same dashboard. Both now read the real contracts table. */}
+          <div className="text-xl font-bold text-amber-600">{d.signedContractCount}</div>
           <p className="text-[10px] text-muted-foreground mt-0.5">signed sponsors</p>
         </Link>
 

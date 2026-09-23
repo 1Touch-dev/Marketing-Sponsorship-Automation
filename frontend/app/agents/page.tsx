@@ -21,11 +21,18 @@ export default async function AgentsPage() {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
 
+  // Found in the 2026-09-23 UX audit: this page's own caption says "every
+  // agent below writes here, nowhere else" — i.e. claims to be the same
+  // queue as /approvals — but its status filters here were narrower
+  // (missing "approved" on proposals/emails) than what /approvals actually
+  // queries, so the two pages showed disagreeing totals (275 vs 173) for
+  // what was supposed to be the identical count. Now matches /approvals'
+  // filters exactly.
   const [{ count: pendingProposals }, { count: pendingEmails }, { count: pendingCampaigns }] = await Promise.all([
     sb.from("proposals").select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId).in("status", ["under_review", "revision_requested", "draft"]),
+      .eq("tenant_id", tenantId).in("status", ["under_review", "revision_requested", "draft", "approved"]),
     sb.from("emails").select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId).in("status", ["draft", "pending_approval"]),
+      .eq("tenant_id", tenantId).in("status", ["draft", "pending_approval", "approved"]),
     sb.from("campaigns").select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId).in("status", ["draft", "selected"]),
   ]);

@@ -132,7 +132,15 @@ export function DifferentiatorPanel({
           {data.sponsorship_fit && (
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
               <div>
-                <div className="text-xs text-slate-500">Sponsorship Fit</div>
+                {/* Found in the 2026-09-23 UX audit: this panel's score and
+                    the company page's own "Sponsorship Fit" card are two
+                    independent AI calls (general intelligence vs. this
+                    differentiator-specific analysis) that can legitimately
+                    disagree — they were both labeled identically, which
+                    read as the same page contradicting itself. Labeled
+                    distinctly instead of trying to force them into one
+                    number. */}
+                <div className="text-xs text-slate-500">Differentiator Fit</div>
                 <div className={`text-2xl font-bold ${fitColor}`}>{fitScore.toFixed(1)}<span className="text-sm font-normal text-slate-400">/10</span></div>
               </div>
               <div className="flex-1">

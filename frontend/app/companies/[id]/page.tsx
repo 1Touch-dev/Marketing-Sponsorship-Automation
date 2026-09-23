@@ -176,6 +176,7 @@ export default async function CompanyDetailPage({
             notes={company.notes}
             hasIntelligence={hasIntelligence}
             intelligence={intelligence}
+            intelligenceUpdatedAt={(company as Record<string, unknown>).intelligence_updated_at as string | null}
             competitors={competitors}
           />
 

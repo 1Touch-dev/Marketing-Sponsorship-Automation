@@ -49,6 +49,34 @@ const PROPOSAL_TYPES: Array<{ type: ProposalType; label: string; description: st
   { type: "exhibitor_package", label: "Exhibitor Package", description: "Conference/trade-show booth, speaking slot, and attendee access — not stadium exposure", icon: LayoutGrid, color: "cyan" },
 ];
 
+// Found in the 2026-09-23 UX audit: this only covered 7 of the 20 distinct
+// categories actually present in inventory_items — every other category
+// (13 of them, including "led_board" itself) fell through to the raw DB
+// string, which the CSS uppercase transform then rendered as e.g.
+// "LED_BOARD" verbatim. Covers every real category value on file, plus a
+// humanizing fallback for anything added later that isn't listed here yet.
+const INVENTORY_CATEGORY_LABEL: Record<string, string> = {
+  jersey: "Jersey", stadium: "Stadium / LED Boards", press: "Press & Events",
+  hospitality: "VIP Hospitality", social: "Digital / Social Media",
+  player: "Player Content", email: "Email & Newsletter",
+  social_post: "Social Posts", banner: "Stadium Banners & Signage",
+  stadium_branding: "Stadium Branding", youtube: "YouTube / Broadcast",
+  led_board: "LED Perimeter Board", training_kit: "Training Kit",
+  vip_area: "VIP Area", sponsored_content: "Sponsored Site Content",
+  press_backdrop: "Press Backdrop", scoreboard: "Scoreboard",
+  email_newsletter: "Email Newsletter", stories: "Stories",
+  reels: "Reels", influencer: "Player / Influencer Content",
+  // 2026-09-23: 3 items ("Ingressos Coxa Day/Run", "Ingressos por Show" —
+  // event tickets) were miscategorized under led_board and have been moved
+  // here, a category that didn't exist until this fix.
+  tickets: "Event Tickets",
+};
+
+function humanizeCategory(cat: string | null | undefined): string {
+  if (!cat) return "Other";
+  return cat.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
 // ── Inventory components ───────────────────────────────────────────────────
 const INVENTORY_COMPONENTS: Component[] = [
   { id: "jersey_chest", name: "Jersey — Principal (Chest)", category: "jersey", type: "physical", icon: FileText, price: "R$80K–250K/mês" },
@@ -546,15 +574,10 @@ export function ProposalWizard({
                 {/* Group by category */}
                 {Array.from(new Set(dbInventory.map(i => i.category))).map(cat => {
                   const items = dbInventory.filter(i => i.category === cat);
-                  const catLabel: Record<string, string> = {
-                    jersey: "Jersey", stadium: "Stadium / LED Boards", press: "Press & Events",
-                    hospitality: "VIP Hospitality", social: "Digital / Social Media",
-                    player: "Player Content", email: "Email & Newsletter",
-                  };
                   return (
                     <div key={cat}>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{catLabel[cat] ?? cat}</div>
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{INVENTORY_CATEGORY_LABEL[cat ?? ""] ?? humanizeCategory(cat)}</div>
                         <div className="flex gap-2">
                           <button
                             onClick={() => items.forEach(item => { if (!selectedInventoryLines.find(l => l.inventory_id === item.id)) toggleInventoryLine(item); })}
