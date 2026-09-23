@@ -23,6 +23,7 @@ import { getCompanyCostToServe } from "@/lib/companies/cost-to-serve";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
+import { CompanyDetailTabs } from "@/components/companies/company-detail-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -124,37 +125,127 @@ export default async function CompanyDetailPage({
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column — details + edit */}
-        <div className="lg:col-span-2 space-y-6">
+      <CompanyDetailTabs
+        overview={
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Company info cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <InfoCard icon={<Building2 className="h-4 w-4 text-blue-500" />} label="Status" value={<StatusBadge status={company.status} />} />
+                <InfoCard icon={<Tag className="h-4 w-4 text-purple-500" />} label="Segment" value={segment ? <Badge variant="outline" className="capitalize">{segment}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
+                <InfoCard icon={<Briefcase className="h-4 w-4 text-green-500" />} label="Size" value={companySize ? <Badge variant="outline" className="capitalize">{companySize}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
+                <InfoCard icon={<Users className="h-4 w-4 text-orange-500" />} label="Type" value={businessType ? <Badge variant="outline">{businessType}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
+              </div>
 
-          {/* Outreach Agent */}
-          <OutreachAgentPanel companyId={company.id} companyName={company.company_name} />
+              {/* Tags */}
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag: string) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      <Tag className="h-3 w-3 mr-1" />
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
-          {/* Warm-up Strategy */}
-          <WarmupStrategyPanel companyId={company.id} />
+              {/* Notes */}
+              {company.notes && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{company.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Company info cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <InfoCard icon={<Building2 className="h-4 w-4 text-blue-500" />} label="Status" value={<StatusBadge status={company.status} />} />
-            <InfoCard icon={<Tag className="h-4 w-4 text-purple-500" />} label="Segment" value={segment ? <Badge variant="outline" className="capitalize">{segment}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
-            <InfoCard icon={<Briefcase className="h-4 w-4 text-green-500" />} label="Size" value={companySize ? <Badge variant="outline" className="capitalize">{companySize}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
-            <InfoCard icon={<Users className="h-4 w-4 text-orange-500" />} label="Type" value={businessType ? <Badge variant="outline">{businessType}</Badge> : <span className="text-muted-foreground text-sm">—</span>} />
-          </div>
-
-          {/* Tags */}
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {tags.map((tag: string) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  <Tag className="h-3 w-3 mr-1" />
-                  {tag}
-                </Badge>
-              ))}
+              {/* Pipeline */}
+              {leads && leads.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Pipeline</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {leads.map((l) => (
+                      <div key={(l as Record<string, unknown>).id as string} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                        <span className="text-sm truncate">{(l as Record<string, unknown>).title as string}</span>
+                        <Badge variant="outline" className="text-xs capitalize">{((l as Record<string, unknown>).stage as string)?.replace("_", " ")}</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          )}
 
-          {/* Edit form */}
+            <div className="space-y-4">
+              {/* Contact info */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                    <span>Contact</span>
+                    <RefetchLogoButton
+                      companyId={company.id}
+                      website={company.website}
+                      companyName={company.company_name}
+                    />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {company.website && (
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                        {company.website.replace(/^https?:\/\//, "")}
+                      </a>
+                    </div>
+                  )}
+                  {contactName && (
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{contactName}</span>
+                    </div>
+                  )}
+                  {contactEmail && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <a href={`mailto:${contactEmail}`} className="text-blue-600 hover:underline">{contactEmail}</a>
+                    </div>
+                  )}
+                  {contactPhone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{contactPhone}</span>
+                    </div>
+                  )}
+                  {company.country && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{company.country}</span>
+                    </div>
+                  )}
+                  {company.created_at && (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground">Added {new Date(company.created_at).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                  )}
+                  {pipelineStage && (
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <Badge variant="outline" className="capitalize text-xs">{pipelineStage.replace("_", " ")}</Badge>
+                    </div>
+                  )}
+                  {(!contactName && !contactEmail && !contactPhone) && (
+                    <p className="text-muted-foreground text-xs">No contact info — add via edit form</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        }
+        crm={
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -166,236 +257,145 @@ export default async function CompanyDetailPage({
               <CompanyEditForm company={company as Record<string, unknown>} />
             </CardContent>
           </Card>
+        }
+        intelligence={
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <CompanyAIAnalysis
+                companyId={company.id}
+                companyName={company.company_name}
+                industry={company.industry}
+                website={company.website}
+                notes={company.notes}
+                hasIntelligence={hasIntelligence}
+                intelligence={intelligence}
+                intelligenceUpdatedAt={(company as Record<string, unknown>).intelligence_updated_at as string | null}
+                competitors={competitors}
+              />
 
-          {/* AI Intelligence */}
-          <CompanyAIAnalysis
-            companyId={company.id}
-            companyName={company.company_name}
-            industry={company.industry}
-            website={company.website}
-            notes={company.notes}
-            hasIntelligence={hasIntelligence}
-            intelligence={intelligence}
-            intelligenceUpdatedAt={(company as Record<string, unknown>).intelligence_updated_at as string | null}
-            competitors={competitors}
-          />
+              {competitors.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="h-4 w-4 text-red-500" />
+                      Competitors Identified
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {(competitors as string[]).map((c, i) => (
+                        <Badge key={i} variant="destructive" className="text-xs opacity-80">{c}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
-          {/* Competitor list */}
-          {competitors.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Target className="h-4 w-4 text-red-500" />
-                  Competitors Identified
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {(competitors as string[]).map((c, i) => (
-                    <Badge key={i} variant="destructive" className="text-xs opacity-80">{c}</Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+            <div className="space-y-4">
+              {intelligence && (intelligence.coritiba_fit_score !== undefined || intelligence.sponsorship_fit_score !== undefined) && (() => {
+                const fitScore = intelligence.coritiba_fit_score ?? intelligence.sponsorship_fit_score;
+                const scoreNum = typeof fitScore === "number" ? fitScore : Number(fitScore);
+                const rationale = intelligence.coritiba_fit_rationale as string | undefined;
+                const colorClass = scoreNum >= 8
+                  ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
+                  : scoreNum >= 5
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
+                  : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
+                const badgeClass = scoreNum >= 8
+                  ? "bg-green-600 text-white"
+                  : scoreNum >= 5
+                  ? "bg-amber-500 text-white"
+                  : "bg-red-500 text-white";
+                const labelClass = scoreNum >= 8
+                  ? "text-green-700 dark:text-green-400"
+                  : scoreNum >= 5
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-red-700 dark:text-red-400";
+                return (
+                  <Card className={`border ${colorClass}`}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className={`text-sm uppercase tracking-wide flex items-center gap-2 ${labelClass}`}>
+                        <Trophy className="h-4 w-4" />
+                        Sponsorship Fit
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-3xl font-bold rounded-full h-14 w-14 flex items-center justify-center shrink-0 ${badgeClass}`}>
+                          {scoreNum}
+                        </span>
+                        <div>
+                          <p className={`text-xs font-medium ${labelClass}`}>Score out of 10</p>
+                          <p className={`text-xs mt-0.5 ${labelClass}`}>
+                            {scoreNum >= 8 ? "Excellent fit" : scoreNum >= 5 ? "Good potential" : "Low priority"}
+                          </p>
+                        </div>
+                      </div>
+                      {rationale && (
+                        <p className={`text-xs leading-relaxed ${labelClass}`}>{rationale}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
-        {/* Right column — sidebar */}
-        <div className="space-y-4">
+              <InventorySuggestionPanel companyId={company.id} companyName={company.company_name} />
+              <DifferentiatorPanel companyId={company.id} companyName={company.company_name} />
+              <OpportunityGapPanel companyId={company.id} companyName={company.company_name} />
+              <CostToServeCard data={costToServe} />
+            </div>
+          </div>
+        }
+        outreach={
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <OutreachAgentPanel companyId={company.id} companyName={company.company_name} />
+              <WarmupStrategyPanel companyId={company.id} />
+            </div>
 
-          {/* Sponsorship Fit Score */}
-          {intelligence && (intelligence.coritiba_fit_score !== undefined || intelligence.sponsorship_fit_score !== undefined) && (() => {
-            const fitScore = intelligence.coritiba_fit_score ?? intelligence.sponsorship_fit_score;
-            const scoreNum = typeof fitScore === "number" ? fitScore : Number(fitScore);
-            const rationale = intelligence.coritiba_fit_rationale as string | undefined;
-            const colorClass = scoreNum >= 8
-              ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800"
-              : scoreNum >= 5
-              ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800"
-              : "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800";
-            const badgeClass = scoreNum >= 8
-              ? "bg-green-600 text-white"
-              : scoreNum >= 5
-              ? "bg-amber-500 text-white"
-              : "bg-red-500 text-white";
-            const labelClass = scoreNum >= 8
-              ? "text-green-700 dark:text-green-400"
-              : scoreNum >= 5
-              ? "text-amber-700 dark:text-amber-400"
-              : "text-red-700 dark:text-red-400";
-            return (
-              <Card className={`border ${colorClass}`}>
-                <CardHeader className="pb-2">
-                  <CardTitle className={`text-sm uppercase tracking-wide flex items-center gap-2 ${labelClass}`}>
-                    <Trophy className="h-4 w-4" />
-                    Sponsorship Fit
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                    <span>Proposals ({proposals?.length ?? 0})</span>
+                    <Link href={`/proposals?company=${encodeURIComponent(company.company_name)}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-3xl font-bold rounded-full h-14 w-14 flex items-center justify-center shrink-0 ${badgeClass}`}>
-                      {scoreNum}
-                    </span>
-                    <div>
-                      <p className={`text-xs font-medium ${labelClass}`}>Score out of 10</p>
-                      <p className={`text-xs mt-0.5 ${labelClass}`}>
-                        {scoreNum >= 8 ? "Excellent fit" : scoreNum >= 5 ? "Good potential" : "Low priority"}
-                      </p>
-                    </div>
-                  </div>
-                  {rationale && (
-                    <p className={`text-xs leading-relaxed ${labelClass}`}>{rationale}</p>
+                  {proposals && proposals.length > 0 ? proposals.map((p) => (
+                    <Link key={p.id} href={`/proposals/${p.id}`} title={p.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors group">
+                      <span className="text-sm truncate min-w-0">{p.title || "Untitled"}</span>
+                      <StatusBadge status={p.status} />
+                    </Link>
+                  )) : (
+                    <p className="text-sm text-muted-foreground">No proposals yet</p>
                   )}
                 </CardContent>
               </Card>
-            );
-          })()}
 
-          {/* AI Inventory Suggestion */}
-          <InventorySuggestionPanel companyId={company.id} companyName={company.company_name} />
-
-          {/* Differentiator Analysis */}
-          <DifferentiatorPanel companyId={company.id} companyName={company.company_name} />
-
-          {/* White-space / Opportunity Gap */}
-          <OpportunityGapPanel companyId={company.id} companyName={company.company_name} />
-
-          {/* AI cost-to-serve (Pattern 11 — unit economics) */}
-          <CostToServeCard data={costToServe} />
-
-          {/* Contact info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
-                <span>Contact</span>
-                <RefetchLogoButton
-                  companyId={company.id}
-                  website={company.website}
-                  companyName={company.company_name}
-                />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {company.website && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                    {company.website.replace(/^https?:\/\//, "")}
-                  </a>
-                </div>
-              )}
-              {contactName && (
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>{contactName}</span>
-                </div>
-              )}
-              {contactEmail && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <a href={`mailto:${contactEmail}`} className="text-blue-600 hover:underline">{contactEmail}</a>
-                </div>
-              )}
-              {contactPhone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>{contactPhone}</span>
-                </div>
-              )}
-              {company.country && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span>{company.country}</span>
-                </div>
-              )}
-              {company.created_at && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground">Added {new Date(company.created_at).toLocaleDateString("pt-BR")}</span>
-                </div>
-              )}
-              {pipelineStage && (
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <Badge variant="outline" className="capitalize text-xs">{pipelineStage.replace("_", " ")}</Badge>
-                </div>
-              )}
-              {(!contactName && !contactEmail && !contactPhone) && (
-                <p className="text-muted-foreground text-xs">No contact info — add via edit form</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent proposals */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
-                <span>Proposals ({proposals?.length ?? 0})</span>
-                <Link href={`/proposals?company=${encodeURIComponent(company.company_name)}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {proposals && proposals.length > 0 ? proposals.map((p) => (
-                <Link key={p.id} href={`/proposals/${p.id}`} title={p.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors group">
-                  <span className="text-sm truncate min-w-0">{p.title || "Untitled"}</span>
-                  <StatusBadge status={p.status} />
-                </Link>
-              )) : (
-                <p className="text-sm text-muted-foreground">No proposals yet</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent campaigns */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
-                <span>Campaigns ({campaigns?.length ?? 0})</span>
-                <Link href={`/campaigns?company=${encodeURIComponent(company.company_name)}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {campaigns && campaigns.length > 0 ? campaigns.map((c) => (
-                <Link key={c.id} href={`/campaigns/${c.id}`} title={c.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors">
-                  <span className="text-sm truncate min-w-0">{c.title || "Untitled"}</span>
-                  <StatusBadge status={c.status} />
-                </Link>
-              )) : (
-                <p className="text-sm text-muted-foreground">No campaigns yet</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Pipeline */}
-          {leads && leads.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Pipeline</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {leads.map((l) => (
-                  <div key={(l as Record<string, unknown>).id as string} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                    <span className="text-sm truncate">{(l as Record<string, unknown>).title as string}</span>
-                    <Badge variant="outline" className="text-xs capitalize">{((l as Record<string, unknown>).stage as string)?.replace("_", " ")}</Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Notes */}
-          {company.notes && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{company.notes}</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
+                    <span>Campaigns ({campaigns?.length ?? 0})</span>
+                    <Link href={`/campaigns?company=${encodeURIComponent(company.company_name)}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {campaigns && campaigns.length > 0 ? campaigns.map((c) => (
+                    <Link key={c.id} href={`/campaigns/${c.id}`} title={c.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors">
+                      <span className="text-sm truncate min-w-0">{c.title || "Untitled"}</span>
+                      <StatusBadge status={c.status} />
+                    </Link>
+                  )) : (
+                    <p className="text-sm text-muted-foreground">No campaigns yet</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        }
+      />
     </div>
   );
 }
