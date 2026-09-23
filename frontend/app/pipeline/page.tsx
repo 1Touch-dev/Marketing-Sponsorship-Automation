@@ -39,11 +39,24 @@ export default async function PipelinePage() {
   // contract (`contracts.total_value_brl` is the first real money figure
   // in the data model) — so this is corrected to not fabricate one,
   // rather than papering over the gap.
+  // Found live-testing the 2026-09-23 Kanban rebuild: 6 companies had
+  // status="competitor" and/or pipeline_stage="competitor" (one row had
+  // only the latter — status had drifted to "prospect" while pipeline_stage
+  // stayed "competitor", so a single .neq("status", ...) check missed it).
+  // "competitor" isn't one of the 10 stage keys below, so all 6 were
+  // silently invisible in every column while still counting toward "Active
+  // Leads" (a stat/render mismatch, same class as the dashboard bugs found
+  // earlier this project). All are rival clubs tracked for competitive
+  // intel, not real sponsorship leads — excluded on either field now,
+  // rather than given their own column, since a competitor isn't a deal
+  // moving through this funnel.
   const { data: companiesRaw, error: companiesError } = await sb
     .from("companies")
     .select("id, company_name, industry, status, pipeline_stage, updated_at")
     .eq("tenant_id", tenantId)
     .not("pipeline_stage", "is", null)
+    .neq("status", "competitor")
+    .neq("pipeline_stage", "competitor")
     .order("updated_at", { ascending: false });
 
   if (companiesError) {
