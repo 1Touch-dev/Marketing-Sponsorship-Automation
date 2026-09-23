@@ -140,6 +140,7 @@ Required JSON structure:
     await sb.from("companies").update({
       full_intelligence: updated,
       intelligence: updated,
+      intelligence_updated_at: new Date().toISOString(),
     }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
 
     logger.info("SERP intelligence completed", {

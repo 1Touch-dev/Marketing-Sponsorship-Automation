@@ -125,12 +125,14 @@ export async function POST(req: Request) {
             status: "active",
             intelligence: co.intelligence,
             full_intelligence: co.intelligence,
+            intelligence_updated_at: new Date().toISOString(),
           }).eq("id", existing.id);
           results.push({ action: "updated", company: co.company_name, id: existing.id });
         } else {
           const { data: created } = await sb.from("companies").insert({
             ...co,
             full_intelligence: co.intelligence,
+            intelligence_updated_at: new Date().toISOString(),
           }).select("id").single();
           results.push({ action: "created", company: co.company_name, id: created?.id });
         }

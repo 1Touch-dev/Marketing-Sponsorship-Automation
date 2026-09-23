@@ -122,7 +122,7 @@ Rules:
     };
 
     await sb.from("companies")
-      .update({ full_intelligence: updatedIntelligence } as unknown as Record<string, unknown>)
+      .update({ full_intelligence: updatedIntelligence, intelligence_updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
       .eq("id", companyId)
       .eq("tenant_id", auth.user.tenant_id);
 

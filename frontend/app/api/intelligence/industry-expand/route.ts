@@ -97,6 +97,7 @@ export async function POST(req: Request) {
             apify_used: apifyUsed,
           },
         },
+        intelligence_updated_at: new Date().toISOString(),
       }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
     }
 

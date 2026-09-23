@@ -92,6 +92,7 @@ export async function POST(req: Request) {
     await sb.from("companies").update({
       intelligence: intelligencePayload,
       full_intelligence: intelligencePayload,
+      intelligence_updated_at: new Date().toISOString(),
       ...(autoLabels.segment ? { segment: autoLabels.segment } : {}),
       ...(autoLabels.size ? { company_size: autoLabels.size } : {}),
       ...(autoLabels.business_type ? { business_type: autoLabels.business_type } : {}),

@@ -94,7 +94,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
     const updatedIntelligence = { ...intel, opportunity_gap: opportunityGap };
     await sb
       .from("companies")
-      .update({ full_intelligence: updatedIntelligence } as unknown as Record<string, unknown>)
+      .update({ full_intelligence: updatedIntelligence, intelligence_updated_at: new Date().toISOString() } as unknown as Record<string, unknown>)
       .eq("id", company.id)
       .eq("tenant_id", auth.user.tenant_id);
 

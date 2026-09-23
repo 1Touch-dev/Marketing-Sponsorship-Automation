@@ -261,6 +261,7 @@ async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller
           barter_potential: s.barter_potential,
           source: s.source,
         },
+        intelligence_updated_at: new Date().toISOString(),
       } as unknown as never)
       .select("id")
       .single();

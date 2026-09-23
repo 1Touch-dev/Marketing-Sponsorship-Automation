@@ -87,6 +87,14 @@ export async function POST(req: Request) {
   const sb = supabaseAdmin();
 
   try {
+    const { data: existing } = await sb
+      .from("companies")
+      .select("full_intelligence")
+      .eq("id", company_id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .maybeSingle();
+    const existingIntelligence = (existing?.full_intelligence as Record<string, unknown>) ?? {};
+
     const tenant = await resolveClubContext(auth.user.tenant_id);
     const response = await invokeClaude({
       system: "You are a commercial intelligence analyst for Brazilian football club sponsorships. Always respond with valid JSON only. Never use markdown code blocks or code fences.",
@@ -141,11 +149,16 @@ export async function POST(req: Request) {
       competitors = (intelligence.competitor_brands as string[]).map((name) => ({ name }));
     }
 
-    // Save to DB — write to both columns for compatibility
+    // Save to DB — write to both columns for compatibility.
+    // full_intelligence merges onto the existing row: differentiators/,
+    // opportunity_gap, and discover-route fields all live as sibling keys in
+    // this same JSON blob, and a plain overwrite here was silently deleting
+    // them every time someone clicked "Re-analyze" (found live-testing on
+    // Google's page: its differentiator analysis vanished after a re-run).
     const { data, error } = await sb
       .from("companies")
       .update({
-        full_intelligence: { ...intelligence, competitors },
+        full_intelligence: { ...existingIntelligence, ...intelligence, competitors },
         intelligence: { ...intelligence, competitors },
         intelligence_updated_at: new Date().toISOString(),
         competitors: competitors.map((c) => (typeof c === "string" ? c : (c as Record<string,string>).name)),

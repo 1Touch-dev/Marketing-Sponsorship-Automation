@@ -111,6 +111,7 @@ async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null,
         last_discovery_at: new Date().toISOString(),
         discovery_method: result.apify_used ? "apify+claude" : "claude_only",
       },
+      intelligence_updated_at: new Date().toISOString(),
     }).eq("id", company.id).eq("tenant_id", tenantId);
 
     await recordAudit({

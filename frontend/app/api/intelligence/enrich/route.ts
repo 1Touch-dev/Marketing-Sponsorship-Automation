@@ -226,7 +226,7 @@ export async function POST(req: Request) {
 
     await sb
       .from("companies")
-      .update({ full_intelligence: updatedIntelligence })
+      .update({ full_intelligence: updatedIntelligence, intelligence_updated_at: new Date().toISOString() })
       .eq("id", company_id)
       .eq("tenant_id", auth.user.tenant_id);
 

@@ -127,6 +127,7 @@ Rules:
               discovered_from: companyId,
               discovery_reason: comp.reason,
             },
+            intelligence_updated_at: new Date().toISOString(),
           })
           .select("id")
           .single();
@@ -153,6 +154,7 @@ Rules:
       .update({
         competitors: competitorNames,
         full_intelligence: updatedIntelligence,
+        intelligence_updated_at: new Date().toISOString(),
         last_discovery_at: new Date().toISOString(),
         discovery_method: "ai_auto",
       } as unknown as Record<string, unknown>)
