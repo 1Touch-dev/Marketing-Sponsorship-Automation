@@ -8,8 +8,16 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, truncate } from "@/lib/utils";
 import { Filter, FileText, ChevronRight } from "lucide-react";
 import { BulkLogoUploader } from "@/components/proposals/bulk-logo-uploader";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
+// Grouped-by-status is the default landing view — capped per group so it
+// stays fast (found in the 2026-09-23 UX audit: this page used to fetch up
+// to 300 rows and render every one of them at once). "View all" links into
+// the flat, fully-paginated view scoped to that status.
+const GROUP_PREVIEW_LIMIT = 8;
 
 const PROPOSAL_STATUSES = [
   "draft", "under_review", "revision_requested", "approved", "scheduled", "sent", "rejected",
@@ -26,64 +34,37 @@ type ProposalRow = {
   companies: { id: string; company_name: string; industry: string | null; logo_url?: string | null } | null;
 };
 
+const PROPOSAL_SELECT = "id, title, status, version, updated_at, created_at, content, company_id, companies!inner(id, company_name, industry, logo_url)";
+
 export default async function ProposalsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; status?: string; company?: string; industry?: string; sort?: string; date_from?: string; date_to?: string; has_logo?: string };
+  searchParams: { q?: string; status?: string; company?: string; industry?: string; sort?: string; date_from?: string; date_to?: string; has_logo?: string; page?: string; view?: string };
 }) {
   const sb = supabaseAdmin();
   const tenant = await getCurrentTenant();
   const tenantId = tenant?.id ?? CORITIBA_TENANT_ID;
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  const [proposalsResult, companiesResult] = await Promise.all([
-    sb
-      .from("proposals")
-      .select("id, title, status, version, updated_at, created_at, content, companies(id, company_name, industry, logo_url)")
-      .eq("tenant_id", tenantId)
-      .neq("status", "rejected")
-      .order("updated_at", { ascending: false })
-      .limit(300),
-    sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").order("company_name"),
-  ]);
-
-  let proposals = (proposalsResult.data ?? []) as unknown as ProposalRow[];
-  const companies = companiesResult.data ?? [];
-
-  // Filters
-  if (searchParams.status) {
-    proposals = proposals.filter((p) => p.status === searchParams.status);
-  }
-  if (searchParams.company) {
-    proposals = proposals.filter((p) => p.companies?.id === searchParams.company);
-  }
-  if (searchParams.industry) {
-    const ind = searchParams.industry.toLowerCase();
-    proposals = proposals.filter((p) => (p.companies?.industry ?? "").toLowerCase().includes(ind));
-  }
-  if (searchParams.q) {
-    const q = searchParams.q.toLowerCase();
-    proposals = proposals.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        (p.companies?.company_name ?? "").toLowerCase().includes(q),
-    );
-  }
-  if (searchParams.sort === "oldest") {
-    proposals = [...proposals].sort(
-      (a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime(),
-    );
-  }
-  if (searchParams.date_from) {
-    proposals = proposals.filter((p) => new Date(p.created_at) >= new Date(searchParams.date_from!));
-  }
-  if (searchParams.date_to) {
-    proposals = proposals.filter((p) => new Date(p.created_at) <= new Date(searchParams.date_to! + "T23:59:59"));
-  }
-  if (searchParams.has_logo === "yes") {
-    proposals = proposals.filter((p) => !!(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
-  }
-  if (searchParams.has_logo === "no") {
-    proposals = proposals.filter((p) => !(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
+  // Found in the 2026-09-23 UX audit: this page used to fetch up to 300 rows
+  // and filter/sort them entirely in JS, then render every matching row at
+  // once. Filtering/sorting now happens in SQL; has_logo is the one
+  // exception (it depends on a JSONB array inside `content`, which isn't
+  // cheaply filterable in SQL here) and stays as a post-fetch filter, same
+  // as before — just now scoped to one page instead of up to 300 rows.
+  function applyFilters<T>(query: T): T {
+    let q = query as any; // eslint-disable-line
+    q = q.eq("tenant_id", tenantId).neq("status", "rejected");
+    if (searchParams.status) q = q.eq("status", searchParams.status);
+    if (searchParams.company) q = q.eq("company_id", searchParams.company);
+    if (searchParams.industry) q = q.ilike("companies.industry", `%${searchParams.industry.replace(/[%_]/g, "")}%`);
+    if (searchParams.q) {
+      const term = searchParams.q.replace(/[%_]/g, "");
+      q = q.or(`title.ilike.%${term}%,companies.company_name.ilike.%${term}%`);
+    }
+    if (searchParams.date_from) q = q.gte("created_at", searchParams.date_from);
+    if (searchParams.date_to) q = q.lte("created_at", `${searchParams.date_to}T23:59:59`);
+    return q as T;
   }
 
   const hasFilters = !!(
@@ -95,20 +76,63 @@ export default async function ProposalsPage({
     searchParams.date_to ||
     searchParams.has_logo
   );
+  // has_logo can't be expressed in SQL here (see applyFilters comment), so
+  // it also forces the flat view — applying it under grouped-by-status
+  // counts would make those counts wrong.
+  const grouped = !searchParams.q && !searchParams.sort && !searchParams.has_logo && searchParams.view !== "all";
 
-  // Group by status for grouped view
-  const byStatus = PROPOSAL_STATUSES.map((s) => ({
-    status: s,
-    items: proposals.filter((p) => p.status === s),
-  })).filter((g) => g.items.length > 0);
+  const companiesResultPromise = sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").order("company_name");
 
-  const grouped = !searchParams.q && !searchParams.sort;
+  let proposals: ProposalRow[] = [];
+  let totalCount = 0;
+  let byStatus: Array<{ status: string; items: ProposalRow[]; totalInGroup: number }> = [];
+
+  if (grouped) {
+    const groupResults = await Promise.all(
+      PROPOSAL_STATUSES.map((s) =>
+        applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
+          .eq("status", s)
+          .order("updated_at", { ascending: false })
+          .limit(GROUP_PREVIEW_LIMIT),
+      ),
+    );
+    byStatus = PROPOSAL_STATUSES.map((s, i) => ({
+      status: s,
+      items: (groupResults[i].data ?? []) as unknown as ProposalRow[],
+      totalInGroup: groupResults[i].count ?? 0,
+    })).filter((g) => g.totalInGroup > 0);
+    totalCount = byStatus.reduce((sum, g) => sum + g.totalInGroup, 0);
+    proposals = byStatus.flatMap((g) => g.items);
+  } else {
+    const offset = (page - 1) * PAGE_SIZE;
+    const [pageResult] = await Promise.all([
+      applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
+        .order("updated_at", { ascending: searchParams.sort === "oldest" })
+        .range(offset, offset + PAGE_SIZE - 1),
+    ]);
+    proposals = (pageResult.data ?? []) as unknown as ProposalRow[];
+    totalCount = pageResult.count ?? proposals.length;
+  }
+
+  const companiesResult = await companiesResultPromise;
+  const companies = companiesResult.data ?? [];
+
+  // has_logo: JS post-filter (see comment above applyFilters). Only applied
+  // in the flat view — combining it with the grouped view's per-status
+  // counts would make the counts lie, so has_logo implicitly falls back to
+  // the flat paginated view via the filter bar's own behavior below.
+  if (!grouped && searchParams.has_logo === "yes") {
+    proposals = proposals.filter((p) => !!(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
+  }
+  if (!grouped && searchParams.has_logo === "no") {
+    proposals = proposals.filter((p) => !(p.companies?.logo_url || (p.content?.uploaded_assets ?? []).length > 0));
+  }
 
   return (
     <>
       <PageHeader
         title="Proposals"
-        description={`${proposals.length} sponsorship proposals · Coritiba FC`}
+        description={`${totalCount} sponsorship proposals · Coritiba FC`}
         actions={
           <a
             href="/api/export/proposals"
@@ -211,12 +235,12 @@ export default async function ProposalsPage({
             </a>
           )}
           <span className="ml-auto text-xs text-muted-foreground self-center">
-            {proposals.length} result{proposals.length !== 1 ? "s" : ""}
+            {totalCount} result{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
       </form>
 
-      {proposals.length === 0 ? (
+      {totalCount === 0 ? (
         <EmptyState
           title={hasFilters ? "No proposals match filters" : "No proposals yet"}
           description={
@@ -226,13 +250,19 @@ export default async function ProposalsPage({
           }
         />
       ) : grouped ? (
-        /* Grouped by status */
+        /* Grouped by status — capped preview per group, "View all" drills
+           into the flat paginated view scoped to that status. */
         <div className="space-y-6">
-          {byStatus.map(({ status, items }) => (
+          {byStatus.map(({ status, items, totalInGroup }) => (
             <div key={status}>
               <div className="flex items-center gap-2 mb-2">
                 <StatusBadge status={status} />
-                <span className="text-xs text-muted-foreground">{items.length} proposal{items.length !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-muted-foreground">{totalInGroup} proposal{totalInGroup !== 1 ? "s" : ""}</span>
+                {totalInGroup > GROUP_PREVIEW_LIMIT && (
+                  <Link href={`/proposals?status=${status}&view=all`} className="text-xs text-blue-600 hover:underline ml-auto">
+                    View all {totalInGroup} →
+                  </Link>
+                )}
               </div>
               <div className="space-y-2">
                 {items.map((p) => (
@@ -247,6 +277,7 @@ export default async function ProposalsPage({
           {proposals.map((p) => (
             <ProposalRow key={p.id} proposal={p} />
           ))}
+          <PaginationControls page={page} pageSize={PAGE_SIZE} totalCount={totalCount} basePath="/proposals" searchParams={searchParams} />
         </div>
       )}
     </>

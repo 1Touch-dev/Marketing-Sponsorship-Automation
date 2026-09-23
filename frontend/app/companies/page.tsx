@@ -4,6 +4,7 @@ import { getCurrentTenant } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "./bulk-import-button";
@@ -11,6 +12,8 @@ import { BulkFetchLogosButton } from "./bulk-fetch-logos-button";
 import { Building2, Globe, Calendar, Filter, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 const INDUSTRIES = [
   "Automotivo", "Financeiro", "Alimentos e Bebidas", "Alimentação / Bebidas",
@@ -25,63 +28,69 @@ const INDUSTRIES = [
   "Beleza / Cosméticos / ESG", "Moda Esportiva",
 ];
 
+type CompanyRow = {
+  id: string;
+  company_name: string;
+  industry: string | null;
+  status: string;
+  country: string | null;
+  created_at: string;
+  pipeline_stage: string | null;
+  company_size: string | null;
+  business_type: string | null;
+  logo_url: string | null;
+  logo_source: string | null;
+};
+
 export default async function CompaniesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; industry?: string; status?: string; sort?: string; size?: string; stage?: string; country?: string };
+  searchParams: { q?: string; industry?: string; status?: string; sort?: string; size?: string; stage?: string; country?: string; page?: string };
 }) {
   const sb = supabaseAdmin();
   const tenant = await getCurrentTenant();
-  const { data: rawCompanies } = await sb
-    .from("companies")
-    .select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type, logo_url, logo_source")
-    .eq("tenant_id", tenant?.id ?? "00000000-0000-0000-0000-000000000001")
-    .neq("status", "closed")
-    .order("created_at", { ascending: false })
-    .limit(600);
+  const tenantId = tenant?.id ?? "00000000-0000-0000-0000-000000000001";
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
-  let companies = (rawCompanies ?? []) as Array<{
-    id: string;
-    company_name: string;
-    industry: string | null;
-    status: string;
-    country: string | null;
-    created_at: string;
-    pipeline_stage: string | null;
-    company_size: string | null;
-    business_type: string | null;
-    logo_url: string | null;
-    logo_source: string | null;
-  }>;
+  // Found in the 2026-09-23 UX audit: this page used to fetch up to 600 rows
+  // and filter/sort them entirely in JS, then render every matching row into
+  // the DOM at once (537 rows — a full-page screenshot of this page timed
+  // out during the audit). Filtering/sorting now happens in SQL, and only
+  // one page of results is fetched and rendered at a time.
+  function applyFilters<T>(query: T): T {
+    let q = query as any; // eslint-disable-line
+    q = q.eq("tenant_id", tenantId).neq("status", "closed");
+    if (searchParams.q) {
+      const term = searchParams.q.replace(/[%_]/g, "");
+      q = q.or(`company_name.ilike.%${term}%,industry.ilike.%${term}%,country.ilike.%${term}%`);
+    }
+    if (searchParams.industry && !searchParams.q) {
+      q = q.ilike("industry", `%${searchParams.industry.replace(/[%_]/g, "")}%`);
+    }
+    if (searchParams.status) q = q.eq("status", searchParams.status);
+    if (searchParams.size) q = q.eq("company_size", searchParams.size);
+    if (searchParams.stage) q = q.eq("pipeline_stage", searchParams.stage);
+    if (searchParams.country) q = q.ilike("country", `%${searchParams.country.replace(/[%_]/g, "")}%`);
+    return q as T;
+  }
 
-  if (searchParams.q) {
-    const q = searchParams.q.toLowerCase();
-    companies = companies.filter(
-      (c) =>
-        c.company_name.toLowerCase().includes(q) ||
-        (c.industry ?? "").toLowerCase().includes(q) ||
-        (c.country ?? "").toLowerCase().includes(q),
-    );
-  }
-  if (searchParams.industry && !searchParams.q) {
-    const ind = searchParams.industry.toLowerCase();
-    companies = companies.filter((c) => (c.industry ?? "").toLowerCase().includes(ind));
-  }
-  if (searchParams.status) {
-    companies = companies.filter((c) => c.status === searchParams.status);
-  }
-  if (searchParams.size) {
-    companies = companies.filter((c) => c.company_size === searchParams.size);
-  }
-  if (searchParams.stage) {
-    companies = companies.filter((c) => c.pipeline_stage === searchParams.stage);
-  }
-  if (searchParams.country) {
-    companies = companies.filter((c) => (c.country ?? "").toLowerCase().includes(searchParams.country!.toLowerCase()));
-  }
-  if (searchParams.sort === "name") {
-    companies = [...companies].sort((a, b) => a.company_name.localeCompare(b.company_name));
-  }
+  const offset = (page - 1) * PAGE_SIZE;
+  const [pageResult, countResult, logoResult] = await Promise.all([
+    applyFilters(
+      sb.from("companies").select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type, logo_url, logo_source"),
+    )
+      .order(searchParams.sort === "name" ? "company_name" : "created_at", { ascending: searchParams.sort === "name" })
+      .range(offset, offset + PAGE_SIZE - 1),
+    applyFilters(sb.from("companies").select("id", { count: "exact", head: true })),
+    // Lightweight id+logo_url fetch across ALL matching rows (not just this
+    // page) — BulkFetchLogosButton scopes its bulk action to the full
+    // filtered set, not just the visible page.
+    applyFilters(sb.from("companies").select("id, logo_url")).limit(600),
+  ]);
+
+  const companies = (pageResult.data ?? []) as CompanyRow[];
+  const totalCount = countResult.count ?? companies.length;
+  const allFilteredForBulk = (logoResult.data ?? []) as Array<{ id: string; logo_url: string | null }>;
 
   const hasFilters = !!(searchParams.q || searchParams.industry || searchParams.status || searchParams.size || searchParams.stage || searchParams.country);
 
@@ -89,13 +98,13 @@ export default async function CompaniesPage({
     <>
       <PageHeader
         title="Companies"
-        description={`${companies.length} target companies for sponsorship outreach.`}
+        description={`${totalCount} target companies for sponsorship outreach.`}
         actions={
           <div className="flex items-center gap-2">
             <BulkImportButton />
             <BulkFetchLogosButton
-              companyIds={companies.map((c) => c.id)}
-              missingCount={companies.filter((c) => !c.logo_url).length}
+              companyIds={allFilteredForBulk.map((c) => c.id)}
+              missingCount={allFilteredForBulk.filter((c) => !c.logo_url).length}
               hasFilters={hasFilters}
             />
             <a
@@ -183,7 +192,7 @@ export default async function CompaniesPage({
         <div className="flex gap-2 pt-1">
           <button type="submit" className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Apply</button>
           {hasFilters && <a href="/companies" className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent">Clear filters</a>}
-          <span className="ml-auto text-xs text-muted-foreground self-center">{companies.length} result{companies.length !== 1 ? "s" : ""}</span>
+          <span className="ml-auto text-xs text-muted-foreground self-center">{totalCount} result{totalCount !== 1 ? "s" : ""}</span>
         </div>
       </form>
 
@@ -233,6 +242,7 @@ export default async function CompaniesPage({
               </div>
             </Link>
           ))}
+          <PaginationControls page={page} pageSize={PAGE_SIZE} totalCount={totalCount} basePath="/companies" searchParams={searchParams} />
         </div>
       )}
     </>

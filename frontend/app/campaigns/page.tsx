@@ -9,8 +9,11 @@ import Link from "next/link";
 import { formatDate, truncate } from "@/lib/utils";
 import { Filter, Lightbulb, ArrowRight, Tag, ChevronRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 type CampaignRow = {
   id: string;
@@ -59,50 +62,42 @@ function hasRealContent(c: { summary: string | null; activation: string | null; 
 export default async function CampaignsPage({
   searchParams,
 }: {
-  searchParams: { company?: string; q?: string; status?: string; industry?: string; sort?: string };
+  searchParams: { company?: string; q?: string; status?: string; industry?: string; sort?: string; page?: string };
 }) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
-  const [{ data: companies }, { data: allCampaigns }] = await Promise.all([
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+
+  // Found in the 2026-09-23 UX audit: this page used to fetch up to 200 rows
+  // and filter/sort them entirely in JS, then render every matching row at
+  // once (169 campaigns — one of the pages whose full-page screenshot came
+  // out unusably tall). Filtering/sorting now happens in SQL, paginated.
+  function applyFilters<T>(query: T): T {
+    let q = query as any; // eslint-disable-line
+    q = q.eq("tenant_id", tenantId);
+    if (searchParams.q) {
+      const term = searchParams.q.replace(/[%_]/g, "");
+      q = q.or(`title.ilike.%${term}%,summary.ilike.%${term}%,companies.company_name.ilike.%${term}%`);
+    }
+    if (searchParams.status) q = q.eq("status", searchParams.status);
+    if (searchParams.company) q = q.eq("company_id", searchParams.company);
+    if (searchParams.industry) q = q.ilike("companies.industry", `%${searchParams.industry.replace(/[%_]/g, "")}%`);
+    return q as T;
+  }
+
+  const offset = (page - 1) * PAGE_SIZE;
+  const [{ data: companies }, pageResult] = await Promise.all([
     sb.from("companies").select("id, company_name, industry").eq("tenant_id", tenantId).order("company_name"),
-    sb
-      .from("campaigns")
-      .select("id, title, summary, activation, description, cta, status, created_at, company_id, companies(id, company_name, industry)")
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false })
-      .limit(200),
+    applyFilters(
+      sb.from("campaigns").select("id, title, summary, activation, description, cta, status, created_at, company_id, companies!inner(id, company_name, industry)", { count: "exact" }),
+    )
+      .order("created_at", { ascending: searchParams.sort === "oldest" })
+      .range(offset, offset + PAGE_SIZE - 1),
   ]);
 
   const preselectedCompanyId = searchParams.company ?? "";
-
-  let campaigns = (allCampaigns ?? []) as unknown as CampaignRow[];
-
-  // Filters
-  if (searchParams.q) {
-    const q = searchParams.q.toLowerCase();
-    campaigns = campaigns.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        (c.companies?.company_name ?? "").toLowerCase().includes(q) ||
-        (c.summary ?? "").toLowerCase().includes(q),
-    );
-  }
-  if (searchParams.status) {
-    campaigns = campaigns.filter((c) => c.status === searchParams.status);
-  }
-  if (searchParams.company) {
-    campaigns = campaigns.filter((c) => c.companies?.id === searchParams.company);
-  }
-  if (searchParams.industry) {
-    campaigns = campaigns.filter((c) =>
-      (c.companies?.industry ?? "").toLowerCase().includes(searchParams.industry!.toLowerCase()),
-    );
-  }
-  if (searchParams.sort === "oldest") {
-    campaigns = [...campaigns].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    );
-  }
+  const campaigns = (pageResult.data ?? []) as unknown as CampaignRow[];
+  const totalCount = pageResult.count ?? campaigns.length;
 
   const hasFilters = !!(
     searchParams.q ||
@@ -195,12 +190,12 @@ export default async function CampaignsPage({
                 </a>
               )}
               <span className="ml-auto text-xs text-muted-foreground self-center">
-                {campaigns.length} campaign{campaigns.length !== 1 ? "s" : ""}
+                {totalCount} campaign{totalCount !== 1 ? "s" : ""}
               </span>
             </div>
           </form>
 
-          {campaigns.length === 0 ? (
+          {totalCount === 0 ? (
             <EmptyState
               title={hasFilters ? "No campaigns match filters" : "No campaigns yet"}
               description={
@@ -288,6 +283,7 @@ export default async function CampaignsPage({
               );
             })
           )}
+          <PaginationControls page={page} pageSize={PAGE_SIZE} totalCount={totalCount} basePath="/campaigns" searchParams={searchParams} />
         </div>
       </div>
     </>
