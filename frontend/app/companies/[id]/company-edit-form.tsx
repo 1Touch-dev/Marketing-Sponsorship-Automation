@@ -191,15 +191,15 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="contact_name">Name</Label>
-            <Input id="contact_name" name="contact_name" defaultValue={(company.contact_name as string) || ""} placeholder="João Silva" />
+            <Input id="contact_name" name="contact_name" defaultValue={(company.contact_name as string) || ""} placeholder="No contact on file" className="placeholder:italic" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contact_email">Email</Label>
-            <Input id="contact_email" name="contact_email" type="email" defaultValue={(company.contact_email as string) || ""} placeholder="joao@empresa.com" />
+            <Input id="contact_email" name="contact_email" type="email" defaultValue={(company.contact_email as string) || ""} placeholder="No email on file" className="placeholder:italic" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contact_phone">Phone</Label>
-            <Input id="contact_phone" name="contact_phone" defaultValue={(company.contact_phone as string) || ""} placeholder="+55 41 99999-9999" />
+            <Input id="contact_phone" name="contact_phone" defaultValue={(company.contact_phone as string) || ""} placeholder="No phone on file" className="placeholder:italic" />
           </div>
         </div>
       </div>

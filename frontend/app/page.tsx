@@ -466,24 +466,19 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Quick Actions — found in the 2026-09-23 UX audit: this dashboard had
+          up to 3 ways to start the same action (header button, this tile
+          row, and the global floating "+"). Dropped the two tiles that just
+          re-pointed to the same destination as a header button above
+          (Generate Campaign → /campaigns, Create Proposal → /proposals/new);
+          kept the two with no header-button equivalent, plus the FAB for
+          cross-page quick-add. */}
+      <div className="grid grid-cols-2 gap-3 max-w-xl">
         <Link href="/companies/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-blue-400 hover:shadow-sm transition-all p-4 group">
           <div className="h-9 w-9 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
             <Building2 className="h-4.5 w-4.5 text-blue-600" />
           </div>
           <div><div className="text-sm font-semibold">Add Company</div><div className="text-xs text-slate-500">+ auto-discover</div></div>
-        </Link>
-        <Link href="/campaigns" className="flex items-center gap-3 rounded-xl border bg-white hover:border-green-400 hover:shadow-sm transition-all p-4 group">
-          <div className="h-9 w-9 rounded-lg bg-green-100 flex items-center justify-center group-hover:bg-green-200 transition-colors">
-            <Zap className="h-4.5 w-4.5 text-green-600" />
-          </div>
-          <div><div className="text-sm font-semibold">Generate Campaign</div><div className="text-xs text-slate-500">AI-powered</div></div>
-        </Link>        <Link href="/proposals/new" className="flex items-center gap-3 rounded-xl border bg-white hover:border-indigo-400 hover:shadow-sm transition-all p-4 group">
-          <div className="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-            <FileText className="h-4.5 w-4.5 text-indigo-600" />
-          </div>
-          <div><div className="text-sm font-semibold">Create Proposal</div><div className="text-xs text-slate-500">guided wizard</div></div>
         </Link>
         <Link href="/media-generation" className="flex items-center gap-3 rounded-xl border bg-white hover:border-violet-400 hover:shadow-sm transition-all p-4 group">
           <div className="h-9 w-9 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors">

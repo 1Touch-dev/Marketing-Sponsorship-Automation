@@ -128,6 +128,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     <>
       <PageHeader
         title={proposal.title}
+        titleClassName="text-xl font-semibold tracking-tight line-clamp-2"
         description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)} · ${viewCount ?? 0} sponsor views`}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
@@ -182,6 +183,21 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           </div>
         }
       />
+
+      {/* Guided approval flow — where this proposal stands and what's next.
+          Found in the 2026-09-23 UX audit: this was the single most useful
+          "what's the status" element on the page, but sat ~65% of the way
+          down a 10,450px page, below a giant title and a full proposal-text
+          block. Moved directly under the header, above the fold. */}
+      <div className="mb-6">
+        <ApprovalFlowPanel
+          proposalId={proposal.id}
+          proposalStatus={proposal.status}
+          shareToken={p.share_token ?? null}
+          hasImages={hasImages}
+          hasLogo={hasLogo}
+        />
+      </div>
 
       {/* Logo upload warning — shown when no logo is present */}
       {!hasLogo && (
@@ -344,15 +360,6 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
       {/* Admin sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="space-y-6">
-          {/* Guided approval flow — shows where you are and next step */}
-          <ApprovalFlowPanel
-            proposalId={proposal.id}
-            proposalStatus={proposal.status}
-            shareToken={p.share_token ?? null}
-            hasImages={hasImages}
-            hasLogo={hasLogo}
-          />
-
           {/* Phase 5 — engagement analytics (views, time-on-page, scroll depth) */}
           {engagement.view_count > 0 && (
             <Card>

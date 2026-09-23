@@ -336,8 +336,8 @@ export default async function CompanyDetailPage({
             </CardHeader>
             <CardContent className="space-y-2">
               {proposals && proposals.length > 0 ? proposals.map((p) => (
-                <Link key={p.id} href={`/proposals/${p.id}`} className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors group">
-                  <span className="text-sm truncate">{p.title || "Untitled"}</span>
+                <Link key={p.id} href={`/proposals/${p.id}`} title={p.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors group">
+                  <span className="text-sm truncate min-w-0">{p.title || "Untitled"}</span>
                   <StatusBadge status={p.status} />
                 </Link>
               )) : (
@@ -356,8 +356,8 @@ export default async function CompanyDetailPage({
             </CardHeader>
             <CardContent className="space-y-2">
               {campaigns && campaigns.length > 0 ? campaigns.map((c) => (
-                <Link key={c.id} href={`/campaigns/${c.id}`} className="flex items-center justify-between p-2 rounded-md hover:bg-muted transition-colors">
-                  <span className="text-sm truncate">{c.title || "Untitled"}</span>
+                <Link key={c.id} href={`/campaigns/${c.id}`} title={c.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors">
+                  <span className="text-sm truncate min-w-0">{c.title || "Untitled"}</span>
                   <StatusBadge status={c.status} />
                 </Link>
               )) : (
