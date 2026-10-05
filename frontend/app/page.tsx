@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
-import { PageHeader } from "@/components/shared/page-header";
+import { HojeTitle } from "./hoje-title";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,9 +126,11 @@ async function loadDashboard() {
     // number a user sees is the number they land on.
     sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).neq("status", "rejected"),
     sb.from("proposals")
-      .select("id", { count: "exact", head: true })
+      .select("id, title, status, companies(company_name)", { count: "exact" })
       .eq("tenant_id", tenantId)
-      .in("status", ["under_review", "revision_requested"]),
+      .in("status", ["under_review", "revision_requested"])
+      .order("updated_at", { ascending: false })
+      .limit(8),
     sb.from("proposals")
       .select("id, title, status, updated_at, companies(company_name)")
       .eq("tenant_id", tenantId)
@@ -140,7 +142,12 @@ async function loadDashboard() {
       .eq("tenant_id", tenantId)
       .order("updated_at", { ascending: false })
       .limit(5),
-    sb.from("followups").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "pending"),
+    sb.from("followups")
+      .select("id, reason, status", { count: "exact" })
+      .eq("tenant_id", tenantId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(8),
     sb.from("audit_logs")
       .select("id, action, entity_type, created_at, actor_email")
       .eq("tenant_id", tenantId)
@@ -158,10 +165,15 @@ async function loadDashboard() {
 
   const failedWorkflows = await sb
     .from("workflow_events")
-    .select("id", { count: "exact", head: true })
+    .select("id, workflow_name, error_message", { count: "exact" })
     .eq("tenant_id", tenantId)
     .eq("status", "failed")
-    .then((r) => ({ count: r.error ? 0 : (r.count ?? 0) }));
+    .order("created_at", { ascending: false })
+    .limit(8)
+    .then((r) => ({
+      count: r.error ? 0 : (r.count ?? 0),
+      rows: r.error ? [] : (r.data ?? []),
+    }));
 
   // Revenue from signed contracts
   // Found live-testing the 2026-09-23 dashboard fix: this selected
@@ -173,7 +185,7 @@ async function loadDashboard() {
   // contracts.
   const { data: contractsData, error: contractsError } = await sb
     .from("contracts")
-    .select("total_value_brl")
+    .select("id, title, status, total_value_brl")
     .eq("tenant_id", tenantId)
     .eq("status", "active");
   if (contractsError) console.error("[dashboard] failed to load contracts", contractsError.message);
@@ -252,6 +264,10 @@ async function loadDashboard() {
     pendingApprovalCount: pendingApprovals.count ?? 0,
     pendingFollowupCount: pendingFollowups.count ?? 0,
     failedWorkflowCount: failedWorkflows.count,
+    waitingProposals: pendingApprovals.data ?? [],
+    pendingFollowupRows: pendingFollowups.data ?? [],
+    failedWorkflowRows: failedWorkflows.rows,
+    contractRows: (contractsData ?? []) as { id: string; title: string | null; status: string | null; total_value_brl: number | null }[],
     recentProposals: recentProposals.data ?? [],
     recentEmails: recentEmails.data ?? [],
     recentAudit: cleanAudit,
@@ -361,37 +377,102 @@ export default async function DashboardPage() {
     },
   ];
 
+  const companyLabel = (companies: unknown): string | null => {
+    if (!companies) return null;
+    if (Array.isArray(companies)) {
+      const first = companies[0] as { company_name?: string } | undefined;
+      return first?.company_name ?? null;
+    }
+    return (companies as { company_name?: string }).company_name ?? null;
+  };
+
+  const workItems: { key: string; href: string; kind: string; title: string; detail: string }[] = [
+    ...(d.waitingProposals as { id: string; title: string | null; status: string | null; companies: unknown }[]).map((p) => ({
+      key: `proposal-${p.id}`,
+      href: `/proposals/${p.id}`,
+      kind: "Approval",
+      title: p.title || "Proposal",
+      detail: [companyLabel(p.companies), p.status].filter(Boolean).join(" · "),
+    })),
+    ...d.pendingFollowupRows.map((f) => ({
+      key: `followup-${f.id}`,
+      href: "/followups",
+      kind: "Follow-up",
+      title: f.reason || "Follow-up",
+      detail: f.status ?? "",
+    })),
+    ...d.failedWorkflowRows.map((event) => ({
+      key: `workflow-${event.id}`,
+      href: "/workflow-events",
+      kind: "Failed workflow",
+      title: event.workflow_name || "Workflow",
+      detail: event.error_message ? truncate(event.error_message, 80) : "",
+    })),
+    ...d.contractRows.slice(0, 8).map((contract) => ({
+      key: `contract-${contract.id}`,
+      href: "/contracts",
+      kind: "Contract",
+      title: contract.title || "Contract",
+      detail: contract.status ?? "",
+    })),
+  ];
+
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description="Coritiba FC — Commercial Sponsorship Platform"
-        actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            {isHealthy && (
-              <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 text-xs">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                All systems healthy
-              </Badge>
-            )}
-            <Button asChild variant="outline" size="sm">
-              <Link href="/campaigns">
-                <Plus className="h-4 w-4 mr-1" />
-                New Campaign
-              </Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link href="/proposals/new">
-                <Zap className="h-4 w-4 mr-1" />
-                Create Proposal
-              </Link>
-            </Button>
-          </div>
-        }
-      />
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="min-w-0">
+          <HojeTitle />
+          <p className="text-sm text-muted-foreground">Coritiba FC — Commercial Sponsorship Platform</p>
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          {isHealthy && (
+            <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 text-xs">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              All systems healthy
+            </Badge>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/campaigns">
+              <Plus className="h-4 w-4 mr-1" />
+              New Campaign
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href="/proposals/new">
+              <Zap className="h-4 w-4 mr-1" />
+              Create Proposal
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-      {/* Revenue Hero */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="mb-6 rounded-xl border bg-card">
+        {workItems.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-muted-foreground">Nothing waiting</p>
+        ) : (
+          <ul>
+            {workItems.map((item) => (
+              <li key={item.key} className="border-b last:border-b-0">
+                <Link
+                  href={item.href}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-accent transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{item.kind}</div>
+                    <div className="text-sm font-medium truncate">{item.title}</div>
+                  </div>
+                  {item.detail ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">{item.detail}</span>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Revenue cards sit below the work list so the numbers stay, but are not the entry point. */}
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Found in the 2026-09-23 UX audit: empty KPI cards rendered "—" in
             the identical bold/colored treatment as populated ones, giving no
             visual signal that a figure isn't tracked yet vs. genuinely zero.

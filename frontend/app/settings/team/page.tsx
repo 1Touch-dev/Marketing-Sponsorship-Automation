@@ -25,8 +25,8 @@ export default async function TeamMembersPage() {
   return (
     <>
       <PageHeader
-        title="Team Members"
-        description="Manage team sender profiles. The default sender is used in all outreach emails."
+        title="Teammates"
+        description="People on the club roster. This is not permission to send email"
       />
       <TeamMembersManager initialMembers={members} />
     </>

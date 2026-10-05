@@ -9,6 +9,7 @@ import {
   Shield, Trophy, XCircle, CheckCircle2, Zap,
   FileText, Users, DollarSign, Image, Brain,
   Mail, ChevronRight, LayoutTemplate, Workflow, Newspaper, Send,
+  GitMerge, ScrollText, Wrench, BarChart3, Flame,
 } from "lucide-react";
 import { BackfillButton } from "./backfill-button";
 import { GmailDisconnectButton } from "./gmail-disconnect-button";
@@ -200,13 +201,19 @@ export default async function SettingsPage({
           unreachable outside of typing the URL directly. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { href: "/settings/team", icon: Users, label: "Team Members", desc: "Who has platform access" },
-          { href: "/settings/sender-profiles", icon: Send, label: "Sender Profiles", desc: "Who sends outreach emails" },
+          { href: "/settings/team", icon: Users, label: "Teammates", desc: "People on the club roster. This is not permission to send email" },
+          { href: "/settings/sender-profiles", icon: Send, label: "Who the email is from", desc: "The name and address on outreach email" },
           { href: "/settings/email-templates", icon: Mail, label: "Email Templates", desc: "Reusable templates" },
           { href: "/settings/email-flows", icon: Workflow, label: "Email Flows", desc: "Outreach sequences" },
           { href: "/settings/proposal-templates", icon: LayoutTemplate, label: "Presentation Templates", desc: "Proposal deck layouts" },
           { href: "/settings/newsletter", icon: Newspaper, label: "Newsletter Config", desc: "Newsletter settings" },
+          { href: "/settings/warmup-sequences", icon: Flame, label: "Warm-up Strategies", desc: "CRM warm-up sequences" },
           { href: "/inventory", icon: DollarSign, label: "Inventory", desc: "Sponsorship items" },
+          { href: "/users", icon: Users, label: "Login accounts", desc: "Who can sign in, and what they are allowed to do" },
+          { href: "/crm-sync", icon: GitMerge, label: "CRM Sync", desc: "Pipedrive connection" },
+          { href: "/audit", icon: ScrollText, label: "Audit", desc: "Activity log" },
+          { href: "/system", icon: Wrench, label: "Maintenance", desc: "System health" },
+          { href: "/reports", icon: BarChart3, label: "Reports", desc: "Revenue and pipeline" },
           { href: "/settings", icon: Shield, label: "Platform", desc: "Integrations & migrations" },
         ].map(({ href, icon: Icon, label, desc }) => (
           <a

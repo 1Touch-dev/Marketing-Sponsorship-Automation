@@ -201,7 +201,7 @@ export function TeamMembersManager({ initialMembers }: { initialMembers: Member[
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <Users className="h-4 w-4" /> Team Members ({members.length})
+          <Users className="h-4 w-4" /> Teammates ({members.length})
         </h2>
         <Button size="sm" onClick={() => { setEditMember(null); setShowForm(true); }} className="gap-1.5">
           <Plus className="h-4 w-4" /> Add Member

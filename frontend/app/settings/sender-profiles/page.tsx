@@ -16,7 +16,7 @@ export default async function SenderProfilesPage() {
 
   return (
     <>
-      <PageHeader title="Sender Profiles" description="Team members who send sponsorship outreach emails." />
+      <PageHeader title="Who the email is from" description="The name and address on outreach email" />
       <SenderProfilesClient initialProfiles={profiles} />
     </>
   );

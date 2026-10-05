@@ -7,46 +7,22 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Building2,
-  Lightbulb,
   FileText,
-  CheckSquare,
-  Mail,
-  MessageSquare,
-  Clock,
-  ScrollText,
   Settings,
-  Activity,
   Menu,
   X,
-  Shield,
   Trophy,
   Package,
-  Repeat2,
-  Heart,
-  TrendingUp,
-  Image,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Wrench,
-  Sparkles,
-  Layers,
-  Wand2,
-  GitMerge,
-  Zap,
-  Users,
   LogOut,
-  Newspaper,
-  FileCheck,
-  BarChart3,
-  Radar,
   CalendarDays,
-  Flame,
   Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
 import { useLang, t } from "@/lib/i18n/lang-context";
+import { NAV_MODULES, moduleForPath, type NavModule } from "@/lib/nav/modules";
 
 function LangToggle() {
   const { lang, toggle } = useLang();
@@ -80,156 +56,78 @@ function GlobalSearchCompact() {
   );
 }
 
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  group?: string;
-  adminOnly?: boolean;
+const MODULE_ICONS: Record<string, React.ElementType> = {
+  hoje: LayoutDashboard,
+  relacionamentos: Building2,
+  projetos: CalendarDays,
+  estudio: FileText,
+  ativos: Package,
+  agentes: Bot,
+  settings: Settings,
 };
 
-const NAV: NavItem[] = [
-  // Core CRM
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, group: "core" },
-  { href: "/companies", label: "Companies", icon: Building2, group: "core" },
-  { href: "/contacts", label: "Contacts", icon: Users, group: "core" },
-  { href: "/pipeline", label: "Pipeline", icon: TrendingUp, group: "core" },
-  { href: "/contracts", label: "Contracts", icon: FileCheck, group: "core" },
-  { href: "/matches", label: "Matches", icon: CalendarDays, group: "core" },
-  { href: "/reports", label: "Reports", icon: BarChart3, group: "core" },
-  // Proposal workflow
-  { href: "/proposals/new", label: "New Proposal", icon: Wand2, group: "proposals" },
-  { href: "/proposals", label: "Proposals", icon: FileText, group: "proposals" },
-  { href: "/campaigns", label: "Campaigns", icon: Lightbulb, group: "proposals" },
-  { href: "/proposals/bulk", label: "Bulk Proposals", icon: Users, group: "proposals" },
-  { href: "/campaigns/bulk", label: "Bulk Campaigns", icon: Zap, group: "proposals" },
-  { href: "/proposals/bulk-approve", label: "Bulk Approve", icon: CheckSquare, group: "proposals" },
-  { href: "/approvals", label: "Approvals", icon: CheckSquare, group: "proposals" },
-  { href: "/emails", label: "Emails", icon: Mail, group: "proposals" },
-  { href: "/settings/email-templates", label: "Email Templates", icon: ScrollText, group: "proposals" },
-  { href: "/settings/warmup-sequences", label: "Warm-up Strategies", icon: Flame, group: "proposals" },
-  { href: "/newsletter", label: "Newsletter", icon: Newspaper, group: "proposals" },
-  { href: "/threads", label: "Threads", icon: MessageSquare, group: "proposals" },
-  { href: "/followups", label: "Follow-ups", icon: Clock, group: "proposals" },
-  // Intelligence
-  { href: "/coritiba-intelligence", label: "Coritiba Intel", icon: Trophy, group: "intelligence" },
-  { href: "/product-discovery", label: "Product Discovery", icon: Radar, group: "intelligence" },
-  { href: "/inventory", label: "Inventory", icon: Package, group: "intelligence" },
-  { href: "/barter", label: "Barter / Procurement", icon: Repeat2, group: "intelligence" },
-  { href: "/lei-de-incentivo", label: "Lei de Incentivo", icon: Heart, group: "intelligence" },
-  { href: "/brand-assets", label: "Brand Assets", icon: Shield, group: "intelligence" },
-  // Media & Assets
-  { href: "/media-generation", label: "AI Image Gen", icon: Sparkles, group: "media" },
-  { href: "/mockup-editor", label: "Mockup Editor", icon: Layers, group: "media" },
-  { href: "/assets", label: "Asset Library", icon: Image, group: "media" },
-  // CRM & Integrations
-  { href: "/crm-sync", label: "CRM Sync", icon: GitMerge, group: "integrations" },
-  // System
-  { href: "/agents", label: "Agents", icon: Bot, group: "system" },
-  { href: "/workflow-events", label: "Workflows", icon: Activity, group: "system" },
-  { href: "/audit", label: "Audit", icon: ScrollText, group: "system" },
-  { href: "/system", label: "Maintenance", icon: Wrench, group: "system" },
-  { href: "/settings", label: "Settings", icon: Settings, group: "system" },
-  { href: "/users", label: "Team & Roles", icon: Users, group: "system", adminOnly: true },
-];
-
-// Presentation Templates, Email Flows, Newsletter Config, and Sender
-// Profiles used to also be top-level sidebar links duplicating their
-// /settings/* routes (see the 2026-09-23 UX audit — removing 4 of 15 items
-// from the Proposal Workflow group); they're reachable via Settings' own
-// quick-nav grid instead now.
-//
-// Simple prefix matching ("does pathname start with item.href") caused two
-// sidebar items to highlight as active at once whenever one item's href was
-// itself a path-segment prefix of another's — not just /settings vs.
-// /settings/email-templates, but also /proposals vs. /proposals/new and
-// /proposals/bulk vs. /proposals/bulk-approve. Picking the single
-// longest/most-specific matching href, computed once across the whole NAV
-// list, fixes every one of these for good rather than excluding routes
-// one at a time.
-function computeActiveHref(pathname: string | null, items: NavItem[]): string | null {
-  if (!pathname) return null;
-  let best: string | null = null;
-  for (const item of items) {
-    const href = item.href;
-    const matches = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
-    if (matches && (best === null || href.length > best.length)) best = href;
-  }
-  return best;
+function ModuleLink({
+  navModule,
+  active,
+  onClick,
+  sidebarCollapsed,
+}: {
+  navModule: NavModule;
+  active: boolean;
+  onClick?: () => void;
+  sidebarCollapsed?: boolean;
+}) {
+  const { lang } = useLang();
+  const Icon = MODULE_ICONS[navModule.id] ?? LayoutDashboard;
+  const label = t(navModule.labelKey, lang);
+  return (
+    <Link
+      href={navModule.href}
+      onClick={onClick}
+      title={sidebarCollapsed ? label : undefined}
+      className={cn(
+        "flex items-center rounded-md py-1.5 text-sm font-medium transition-colors",
+        sidebarCollapsed ? "justify-center px-0" : "gap-2 px-3",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+      )}
+    >
+      <Icon className="h-4 w-4 flex-shrink-0" />
+      {!sidebarCollapsed && <span>{label}</span>}
+    </Link>
+  );
 }
-
-const GROUPS: Record<string, { pt: string; en: string }> = {
-  core: { pt: "CRM", en: "CRM" },
-  proposals: { pt: "Fluxo de Propostas", en: "Proposal Workflow" },
-  intelligence: { pt: "Inteligência", en: "Intelligence" },
-  media: { pt: "Mídia & Visuais", en: "Media & Visuals" },
-  integrations: { pt: "Integrações", en: "Integrations" },
-  system: { pt: "Sistema", en: "System" },
-};
 
 function NavLinks({ onClick, sidebarCollapsed }: { onClick?: () => void; sidebarCollapsed?: boolean }) {
   const pathname = usePathname();
-  const [groupCollapsed, setGroupCollapsed] = React.useState<Record<string, boolean>>({});
-  const { role } = useUserRole();
-  const { lang } = useLang();
-
-  const groupedItems = NAV.reduce<Record<string, NavItem[]>>((acc, item) => {
-    if (item.adminOnly && role !== "admin") return acc;
-    const g = item.group || "core";
-    acc[g] = acc[g] || [];
-    acc[g].push(item);
-    return acc;
-  }, {});
-
-  const activeHref = computeActiveHref(pathname, NAV);
+  const active = moduleForPath(pathname);
+  const workModules = NAV_MODULES.filter((navModule) => !navModule.utility);
+  const settingsModule = NAV_MODULES.find((navModule) => navModule.utility);
 
   return (
     <>
-      {Object.entries(GROUPS).map(([group, groupLabel]) => {
-        const items = groupedItems[group] || [];
-        const isGroupCollapsed = groupCollapsed[group];
-
-        return (
-          <div key={group} className="mb-1">
-            {!sidebarCollapsed && (
-              <button
-                type="button"
-                onClick={() => setGroupCollapsed((c) => ({ ...c, [group]: !c[group] }))}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span>{groupLabel[lang]}</span>
-                <ChevronDown className={cn("h-3 w-3 transition-transform", isGroupCollapsed && "-rotate-90")} />
-              </button>
-            )}
-            {(!isGroupCollapsed || sidebarCollapsed) && (
-              <div className="space-y-0.5">
-                {items.map((item) => {
-                  const Icon = item.icon;
-                  const active = item.href === activeHref;
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onClick}
-                      title={sidebarCollapsed ? item.label : undefined}
-                      className={cn(
-                        "flex items-center rounded-md py-1.5 text-sm font-medium transition-colors",
-                        sidebarCollapsed ? "justify-center px-0" : "gap-2 px-3",
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      {!sidebarCollapsed && <span>{t(item.label, lang)}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <div className="space-y-0.5">
+        {workModules.map((navModule) => (
+          <ModuleLink
+            key={navModule.id}
+            navModule={navModule}
+            active={active?.id === navModule.id}
+            onClick={onClick}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+        ))}
+      </div>
+      {settingsModule && (
+        <div className={cn("mt-2 border-t pt-2", sidebarCollapsed && "mx-1")}>
+          <ModuleLink
+            navModule={settingsModule}
+            active={active?.id === settingsModule.id}
+            onClick={onClick}
+            sidebarCollapsed={sidebarCollapsed}
+          />
+        </div>
+      )}
     </>
   );
 }

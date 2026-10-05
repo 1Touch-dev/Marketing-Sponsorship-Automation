@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Building2, Globe, Calendar, Tag, Users, Briefcase,
   TrendingUp, Brain, Target, ArrowLeft, Plus, Pencil,
-  MapPin, Phone, Mail, Activity, Zap, FileText, Trophy
+  MapPin, Phone, Mail, Activity, FileText, Trophy
 } from "lucide-react";
 import { CompanyEditForm } from "./company-edit-form";
 import { CompanyAIAnalysis } from "./company-ai-analysis";
@@ -97,22 +97,16 @@ export default async function CompanyDetailPage({
                 All Companies
               </Button>
             </Link>
-            <Link href={`/campaigns?company=${encodeURIComponent(company.company_name)}`}>
+            <Link href={`/campaigns?company=${company.id}`}>
               <Button variant="outline" size="sm">
                 <Activity className="h-4 w-4 mr-1" />
                 Campaigns
               </Button>
             </Link>
-            <Link href={`/proposals/generate?company_id=${company.id}`} className="hidden sm:block">
+            <Link href={`/campaigns?company=${company.id}`}>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 New Campaign
-              </Button>
-            </Link>
-            <Link href={`/campaigns?company=${company.id}`}>
-              <Button size="sm" variant="outline">
-                <Zap className="h-4 w-4 mr-1" />
-                Generate Campaign
               </Button>
             </Link>
             <Link href={`/proposals/new?company_id=${company.id}`}>
@@ -378,7 +372,7 @@ export default async function CompanyDetailPage({
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide flex items-center justify-between">
                     <span>Campaigns ({campaigns?.length ?? 0})</span>
-                    <Link href={`/campaigns?company=${encodeURIComponent(company.company_name)}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
+                    <Link href={`/campaigns?company=${company.id}`} className="text-blue-600 hover:underline text-xs normal-case">View all</Link>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">

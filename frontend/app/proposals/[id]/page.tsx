@@ -127,6 +127,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   return (
     <>
       <PageHeader
+        layout="stacked"
         title={proposal.title}
         titleClassName="text-xl font-semibold tracking-tight line-clamp-2"
         description={`${company?.company_name ?? "—"} · v${proposal.version} · last updated ${formatDate(proposal.updated_at)} · ${viewCount ?? 0} sponsor views`}

@@ -68,6 +68,14 @@ export const T: Record<string, Record<Lang, string>> = {
   "Sender Profiles": { pt: "Perfis de Envio", en: "Sender Profiles" },
   "Matches": { pt: "Jogos", en: "Matches" },
   "Warm-up Strategies": { pt: "Estratégias de Aquecimento", en: "Warm-up Strategies" },
+  "Hoje": { pt: "Hoje", en: "Today" },
+  "Relacionamentos": { pt: "Relacionamentos", en: "Relationships" },
+  "Projetos": { pt: "Projetos", en: "Projects" },
+  "Estúdio": { pt: "Estúdio", en: "Studio" },
+  "Ativos e dados": { pt: "Ativos e dados", en: "Rights and data" },
+  "Agentes": { pt: "Agentes", en: "Agents" },
+  "Bulk Proposals": { pt: "Propostas em Massa", en: "Bulk Proposals" },
+  "Product Discovery": { pt: "Descoberta de Produtos", en: "Product Discovery" },
 };
 
 export function t(key: string, lang: Lang): string {

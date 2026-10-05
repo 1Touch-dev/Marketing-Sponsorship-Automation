@@ -123,7 +123,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" className="pl-8 pr-3 py-1.5 w-full rounded-lg border bg-card text-sm outline-none focus:ring-2 ring-primary/30" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" aria-label="Search assets" className="pl-8 pr-3 py-1.5 w-full rounded-lg border bg-card text-sm outline-none focus:ring-2 ring-primary/30" />
         </div>
         <div className="flex gap-1 flex-wrap">
           {statusList.map(s => {
@@ -137,19 +137,19 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
           })}
         </div>
         {assetCompanies.length > 0 && (
-          <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)} className="text-xs border rounded-lg px-2 py-1.5 bg-card">
+          <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)} aria-label="Filter by company" className="text-xs border rounded-lg px-2 py-1.5 bg-card">
             <option value="all">All Companies</option>
             {assetCompanies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
           </select>
         )}
         {assetCampaigns.length > 0 && (
-          <select value={filterCampaign} onChange={e => setFilterCampaign(e.target.value)} className="text-xs border rounded-lg px-2 py-1.5 bg-card">
+          <select value={filterCampaign} onChange={e => setFilterCampaign(e.target.value)} aria-label="Filter by campaign" className="text-xs border rounded-lg px-2 py-1.5 bg-card">
             <option value="all">All Campaigns</option>
             {assetCampaigns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         )}
         <div className="flex gap-1 ml-auto">
-          <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded border ${viewMode === "grid" ? "bg-primary/10 border-primary/40" : "bg-card border-border"}`} title="Grid view">
+          <button type="button" onClick={() => setViewMode("grid")} className={`p-1.5 rounded border ${viewMode === "grid" ? "bg-primary/10 border-primary/40" : "bg-card border-border"}`} aria-label="Grid view">
             <Filter className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -184,29 +184,31 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
           const imgUrl = resolveJobImageUrl(asset);
           return (
             <div key={asset.id} className={`rounded-xl border bg-card overflow-hidden group hover:shadow-md transition-all ${isSelected ? "ring-2 ring-primary border-primary" : ""}`}>
-              {/* Preview */}
-              <div className="aspect-video bg-muted relative overflow-hidden cursor-pointer" onClick={() => setPreview(asset)}>
-                {imgUrl ? (
-                  <img src={imgUrl} alt={asset.prompt?.slice(0,80) ?? "Asset preview"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <ImageIcon className="h-8 w-8 opacity-30" aria-hidden="true" />
-                  </div>
-                )}
-                <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>
+              {/* Preview — the image is a button; the checkbox stays a separate control. */}
+              <div className="aspect-video bg-muted relative overflow-hidden">
+                <button type="button" className="absolute inset-0 cursor-pointer" onClick={() => setPreview(asset)} aria-label={`Preview ${asset.prompt?.slice(0, 80) || "asset"}`}>
+                  {imgUrl ? (
+                    <img src={imgUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  ) : (
+                    <span className="flex items-center justify-center h-full text-muted-foreground">
+                      <ImageIcon className="h-8 w-8 opacity-30" aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+                <div className={`pointer-events-none absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.color}`}>
                   <StatusIcon className="h-2.5 w-2.5" />
                   {cfg.label}
                 </div>
-                {/* Checkbox */}
-                <div className="absolute top-2 left-2">
+                <div className="absolute top-2 left-2 z-10">
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(asset.id)}
-                    className="h-3.5 w-3.5 rounded border border-white/80 bg-white/30 cursor-pointer" onClick={e => e.stopPropagation()} />
+                    aria-label={`Select ${asset.prompt?.slice(0, 40) || "asset"}`}
+                    className="h-3.5 w-3.5 rounded border border-white/80 bg-white/30 cursor-pointer" />
                 </div>
               </div>
 
               {/* Info */}
               <div className="p-3 space-y-2">
-                <div className="text-xs font-medium line-clamp-2">{asset.prompt ?? "No prompt"}</div>
+                <div lang="pt-BR" className="text-xs font-medium line-clamp-2">{asset.prompt ?? "No prompt"}</div>
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   <Tag className="h-2.5 w-2.5" />
                   <span className="capitalize">{asset.job_type?.replace(/_/g, " ")}</span>
@@ -223,6 +225,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
                   onChange={e => assignCampaign(asset.id, e.target.value)}
                   onClick={e => e.stopPropagation()}
                   disabled={updating === asset.id}
+                  aria-label="Assign to campaign"
                   className="w-full text-[10px] border rounded px-1.5 py-1 bg-card"
                 >
                   <option value="">Assign to campaign…</option>
@@ -230,7 +233,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </select>
-                <div className="text-[10px] text-muted-foreground">{new Date(asset.created_at).toLocaleDateString("pt-BR")}</div>
+                <div lang="pt-BR" className="text-[10px] text-muted-foreground">{new Date(asset.created_at).toLocaleDateString("pt-BR")}</div>
 
                 {/* Actions */}
                 <div className="flex gap-1 pt-1">
@@ -240,7 +243,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
                     </Button>
                   )}
                   {asset.status !== "archived" && (
-                    <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => updateAsset(asset.id, { status: "archived" })} disabled={updating === asset.id}>
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" aria-label="Archive" onClick={() => updateAsset(asset.id, { status: "archived" })} disabled={updating === asset.id}>
                       <Archive className="h-2.5 w-2.5" />
                     </Button>
                   )}

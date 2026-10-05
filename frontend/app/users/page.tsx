@@ -17,8 +17,8 @@ export default async function UsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Team & Roles"
-        description="Invite teammates and control what each person can do on the platform."
+        title="Login accounts"
+        description="Who can sign in, and what they are allowed to do"
       />
 
       {/* Roles reference card */}

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar, MobileNav } from "@/components/shared/sidebar";
+import { ModuleSecondaryNav } from "@/components/shared/module-secondary-nav";
 import { ContentWrapper } from "@/components/shared/content-wrapper";
 import { GlobalSearch } from "@/components/shared/global-search";
 import { QuickActionsFAB } from "@/components/shared/quick-actions";
@@ -49,6 +50,7 @@ export function AppShell({
         <Sidebar clubName={clubName} tagline={tagline} crestUrl={crestUrl} />
         <div className="flex flex-1 flex-col min-w-0 max-w-full">
           <MobileNav />
+          <ModuleSecondaryNav />
           <main className="flex-1">
             <ContentWrapper>{children}</ContentWrapper>
           </main>
