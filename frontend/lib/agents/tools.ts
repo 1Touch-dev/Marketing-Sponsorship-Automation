@@ -19,6 +19,7 @@ import {
   type EmailTemplateVariables,
 } from "@/lib/email/template-engine";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
+import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
 import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import { guardColumns } from "@/lib/db/column-guard";
 import { serverEnv } from "@/lib/env";
@@ -458,6 +459,13 @@ export async function toolSendEmail(input: {
 }): Promise<ToolResult> {
   const sb = supabaseAdmin();
 
+  // An email whose last send has an unknown outcome is never sent again until
+  // a person reconciles it, or the recipient could be contacted twice.
+  const pre = await loadDelivery(sb, null, input.email_id);
+  if (pre && !pre.view.canSend && pre.view.state !== "crm_activity_recorded") {
+    return { success: false, data: { sent: false }, summary: `Not sending: ${pre.view.blockedReason}` };
+  }
+
   // Infrastructure-enforced send gate: atomically claim the email by flipping
   // it to a transient "sending" status, guarded on it not already being
   // sent/sending. Two concurrent callers (double-click, retry, two approve
@@ -528,6 +536,12 @@ export async function toolSendEmail(input: {
       },
     }).eq("id", email.id);
 
+    await recordMessageEventSafe(sb, String(email.tenant_id), String(email.id), {
+      event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
+      source: "crm",
+      detail: { pipedrive_activity_id: activity_id, error: pdError ?? null, by: "agent" },
+    });
+
     return {
       success: !pdError,
       data: {
@@ -535,9 +549,10 @@ export async function toolSendEmail(input: {
         pipedrive_activity_id: activity_id,
         pipedrive_error: pdError ?? null,
       },
+      // Truthful on purpose: nothing here emails the recipient, it logs the send in the CRM.
       summary: pdError
-        ? `Email sent but Pipedrive logging failed: ${pdError}`
-        : `Email sent · Pipedrive activity #${activity_id}`,
+        ? `Email marked sent, but CRM logging failed: ${pdError}. This platform has no email provider connected, so the recipient was not emailed by it.`
+        : `Email marked sent and logged in the CRM (Pipedrive activity #${activity_id}). This platform has no email provider connected, so the recipient was not emailed by it.`,
     };
   } catch (err) {
     logger.warn("Agent tool send_email failed", { error: String(err) });

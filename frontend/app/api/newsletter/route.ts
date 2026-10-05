@@ -104,6 +104,7 @@ export async function POST(req: Request) {
     success: true,
     newsletter,
     recipient_count: resolvedEmails.length,
-    message: `Newsletter sent to ${resolvedEmails.length} recipients`,
+    // Truthful on purpose: this saves the newsletter; no email provider is connected, so nothing was emailed.
+    message: `Newsletter saved for ${resolvedEmails.length} recipients. No email was sent: this platform has no email provider connected yet.`,
   });
 }

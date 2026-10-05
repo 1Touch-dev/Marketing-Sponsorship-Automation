@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
 
 // 1x1 transparent GIF
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
@@ -29,6 +30,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         },
       });
     } catch { /* non-fatal */ }
+
+    // The recipient's own mail client fetched the pixel: a fact from outside this platform.
+    await recordMessageEventSafe(sb, tenantId, params.id, {
+      event_type: "opened", source: "platform", detail: { via: "open_pixel", user_agent: ua },
+    });
 
     try {
       await sb.from("emails")

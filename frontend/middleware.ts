@@ -57,6 +57,12 @@ const PUBLIC_API_PATTERNS: RegExp[] = [
   /^\/api\/proposals\/detect-cold$/,
   /^\/api\/email-sequences\/advance$/,
   /^\/api\/gmail\/sync-threads$/,
+  // Delivery and signature callbacks from an email provider / the e-signature
+  // provider: no session by definition. Each route checks its own credential
+  // (INTERNAL_API_SECRET, or a logged-in person for the few facts a person
+  // may record), and the signers route checks the session itself for reads.
+  /^\/api\/emails\/[^/]+\/events$/,
+  /^\/api\/contracts\/[^/]+\/signers$/,
   // Access-gate passcode/NDA verification (Task 6) — called from the public
   // gate form on /proposals/view/[token] by a real anonymous sponsor, who
   // by definition has no admin session. Found live-testing 2026-09-17: this

@@ -9,6 +9,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { serverEnv } from "@/lib/env";
+import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -129,6 +130,20 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   if (email.status === "sent") {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
+  }
+
+  // Nothing is sent again when the recipient may already have the message: a
+  // send whose outcome is unknown (a timeout after the provider may have
+  // accepted it), one a person reported sending, or one a provider already
+  // has. Otherwise the recipient could be contacted twice.
+  if (mode === "send") {
+    const current = await loadDelivery(sb, auth.user.tenant_id, email.id);
+    if (current && !current.view.canSend) {
+      return NextResponse.json(
+        { error: current.view.blockedReason, code: current.view.state, delivery: current.view },
+        { status: 409 },
+      );
+    }
   }
 
   // Infrastructure-enforced approval gate (Phase 3 finding, 2026-09-16) —
@@ -273,6 +288,23 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     await completeWorkflow(eventId, { pipedrive_activity_id: activity_id, mode });
   }
 
+  // Record what actually happened. Approving is one fact; logging an activity
+  // in the CRM is another. Neither means the recipient has the message.
+  if (mode === "draft") {
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: "content_approved", source: "platform", actor_user_id: auth.user.id, actor_email: auth.user.email,
+    });
+  } else {
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
+      source: "crm",
+      actor_user_id: auth.user.id,
+      actor_email: auth.user.email,
+      detail: { pipedrive_activity_id: activity_id, error: pdError ?? null },
+    });
+  }
+  const deliveryAfter = await loadDelivery(sb, auth.user.tenant_id, email.id);
+
   await recordAudit({
     entity_type: "email",
     entity_id: email.id,
@@ -288,5 +320,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     data: updated,
     pipedrive_activity_id: activity_id,
     pipedrive_warning: pdError ? `Pipedrive log failed: ${pdError}` : null,
+    delivery: deliveryAfter?.view ?? null,
   });
 }

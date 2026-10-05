@@ -6,6 +6,7 @@ import { renderUrlToPdf } from "@/lib/proposals/pdf-export";
 import { sendForSignature } from "@/lib/documenso/client";
 import { gateCookieName, signGateToken } from "@/lib/proposals/access-gate";
 import { randomBytes } from "crypto";
+import { applySignerEvent } from "@/lib/contracts/signers-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -98,6 +99,12 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
         signing_url: signingUrl,
       } as Record<string, unknown>)
       .eq("id", contract.id);
+
+    // The signer is tracked on their own from here, so one signature is never
+    // mistaken for the whole contract. Never blocks the send that already happened.
+    await applySignerEvent(sb, auth.user.tenant_id, contract.id, {
+      email: contact.email, name: contact.full_name || null, role: "signer", required: true, status: "sent",
+    }).catch(() => undefined);
 
     await recordAudit({
       entity_type: "contract",

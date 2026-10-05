@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
@@ -31,6 +32,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         ip: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "",
         timestamp: new Date().toISOString(),
       },
+    });
+
+    void recordMessageEventSafe(sb, tenantId, params.id, {
+      event_type: "clicked", source: "platform", detail: { via: "tracked_link", url: targetUrl },
     });
 
     // Update clicked_at on email (only first click) — fire and forget

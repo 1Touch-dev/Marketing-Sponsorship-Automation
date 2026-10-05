@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { getEnvelopeStatus, downloadSignedPdf } from "./client";
+import { applySignerEvent } from "@/lib/contracts/signers-store";
+import { signerEventFromRecipient } from "@/lib/contracts/signature-state";
 
 const DOCUMENSO_TO_LOCAL: Record<string, string> = {
   DRAFT: "draft",
@@ -23,7 +25,7 @@ export async function syncContractSignatureStatus(
   const sb = supabaseAdmin();
   const { data: contract } = await sb
     .from("contracts")
-    .select("id, documenso_envelope_id, signature_status")
+    .select("id, tenant_id, documenso_envelope_id, signature_status")
     .eq("id", contractId)
     .maybeSingle();
 
@@ -31,8 +33,19 @@ export async function syncContractSignatureStatus(
     throw new Error(`Contract ${contractId} has no linked Documenso envelope`);
   }
 
-  const { status, completedAt } = await getEnvelopeStatus(contract.documenso_envelope_id);
+  const { status, completedAt, recipients } = await getEnvelopeStatus(contract.documenso_envelope_id);
   const localStatus = DOCUMENSO_TO_LOCAL[status] ?? "pending";
+
+  // Record each recipient's own progress, so one person signing a contract
+  // that needs several signatures is never mistaken for it being complete.
+  // Never blocks the status sync itself.
+  try {
+    for (const recipient of recipients) {
+      await applySignerEvent(sb, String((contract as { tenant_id: string }).tenant_id), contract.id, signerEventFromRecipient(recipient));
+    }
+  } catch (err) {
+    console.error("[documenso] recording signer progress failed", err);
+  }
   const updates: Record<string, unknown> = { signature_status: localStatus };
   const justCompleted = localStatus === "completed" && contract.signature_status !== "completed";
 
