@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serverEnv } from "@/lib/env";
 import { extractJson } from "@/lib/bedrock/client";
+import { clampMaxTokens, MIN_CACHEABLE_CHARS, prefixChars, systemBlocks, withToolCache } from "@/lib/ai/cost-controls";
 import type {
   ClaudeResult,
   ConverseMessage,
@@ -21,7 +22,7 @@ import type {
  * Model id note: Bedrock uses "us.anthropic.claude-sonnet-4-6" (inference
  * profile prefix); the direct Anthropic API uses the bare "claude-sonnet-4-6".
  */
-const DIRECT_MODEL_ID = "claude-sonnet-4-6";
+const DIRECT_MODEL_ID = process.env.ANTHROPIC_MODEL_ID || "claude-sonnet-4-6";
 
 let cachedClient: Anthropic | null = null;
 
@@ -31,7 +32,8 @@ function client(): Anthropic {
   if (!env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not configured — cannot use the direct Anthropic fallback");
   }
-  cachedClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  // Bounded: a hung request must not pile up behind retries.
+  cachedClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 120_000, maxRetries: 2 });
   return cachedClient;
 }
 
@@ -44,9 +46,11 @@ export async function invokeClaudeDirect<T = unknown>(
 ): Promise<ClaudeResult<T>> {
   const res = await client().messages.create({
     model: DIRECT_MODEL_ID,
-    max_tokens: opts.maxTokens ?? 2048,
+    max_tokens: clampMaxTokens(opts.maxTokens, 2048),
     temperature: opts.temperature ?? 0.4,
-    system: opts.system,
+    // The system prompt is the static part of a call; mark it cacheable when
+    // it is large enough to cache, so repeat calls read it at a tenth of the price.
+    system: systemBlocks(opts.system),
     messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
   });
 
@@ -60,7 +64,12 @@ export async function invokeClaudeDirect<T = unknown>(
   return {
     text,
     json: parsed,
-    usage: { input_tokens: res.usage.input_tokens, output_tokens: res.usage.output_tokens },
+    usage: {
+      input_tokens: res.usage.input_tokens,
+      output_tokens: res.usage.output_tokens,
+      cache_read_input_tokens: res.usage.cache_read_input_tokens ?? 0,
+      cache_creation_input_tokens: res.usage.cache_creation_input_tokens ?? 0,
+    },
     raw: res,
   };
 }
@@ -111,13 +120,23 @@ export async function converseWithToolsDirect(opts: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<ConverseResult> {
+  const tools = toAnthropicTools(opts.tools);
+  const messages = toAnthropicMessages(opts.messages);
+
+  // Agent loops resend tools + system prompt + the whole history every turn.
+  // Cache the static prefix (tools and system) with explicit markers, and let
+  // automatic caching cover the growing conversation tail. Skipped when the
+  // whole request is too small to cache, so small calls never pay the write premium.
+  const cacheable = prefixChars(opts.system, tools) + JSON.stringify(messages).length >= MIN_CACHEABLE_CHARS;
+
   const res = await client().messages.create({
     model: DIRECT_MODEL_ID,
-    max_tokens: opts.maxTokens ?? 4096,
+    max_tokens: clampMaxTokens(opts.maxTokens, 4096),
     temperature: opts.temperature ?? 0.3,
-    system: opts.system,
-    messages: toAnthropicMessages(opts.messages),
-    tools: toAnthropicTools(opts.tools),
+    system: cacheable ? systemBlocks(opts.system) : opts.system,
+    messages,
+    tools: cacheable ? withToolCache(tools) : tools,
+    ...(cacheable ? { cache_control: { type: "ephemeral" as const } } : {}),
   });
 
   const toolCalls: ConverseTool[] = [];
@@ -140,6 +159,11 @@ export async function converseWithToolsDirect(opts: {
     message: { role: "assistant", content: contentBlocks },
     toolCalls,
     text,
-    usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens },
+    usage: {
+      inputTokens: res.usage.input_tokens,
+      outputTokens: res.usage.output_tokens,
+      cacheReadTokens: res.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: res.usage.cache_creation_input_tokens ?? 0,
+    },
   };
 }

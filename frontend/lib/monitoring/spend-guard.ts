@@ -24,6 +24,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { logger } from "@/lib/monitoring/logger";
+import { claudeCostUsd, DayTally, InFlight } from "@/lib/ai/cost-controls";
 
 /** Default ceiling if DAILY_SPEND_CAP_USD isn't set — well above normal
  * observed usage (~$271/mo total per the Aug 2026 cost audit, i.e. ~$9/day
@@ -39,13 +40,26 @@ export const IMAGE_COST_ESTIMATES_USD: Record<string, number> = {
   standard: 0.07,
 };
 
-/** Bedrock Claude Sonnet pricing per the Aug 2026 cost audit — $3/1M input
- * tokens, $15/1M output tokens. */
-const BEDROCK_INPUT_USD_PER_TOKEN = 3 / 1_000_000;
-const BEDROCK_OUTPUT_USD_PER_TOKEN = 15 / 1_000_000;
+/** Claude Sonnet pricing — $3/1M input, $15/1M output, cache reads at 0.1x
+ * input and 5-minute cache writes at 1.25x input (see lib/ai/cost-controls). */
+export function bedrockCallCostUsd(
+  inputTokens: number,
+  outputTokens: number,
+  cacheReadTokens = 0,
+  cacheWriteTokens = 0,
+): number {
+  return claudeCostUsd({ input: inputTokens, output: outputTokens, cacheRead: cacheReadTokens, cacheWrite: cacheWriteTokens });
+}
 
-export function bedrockCallCostUsd(inputTokens: number, outputTokens: number): number {
-  return inputTokens * BEDROCK_INPUT_USD_PER_TOKEN + outputTokens * BEDROCK_OUTPUT_USD_PER_TOKEN;
+// Calls that have started but not yet been recorded count against the cap,
+// so a burst of parallel calls cannot all pass the check before any is billed.
+const inFlight = new InFlight();
+// Same-process tally of today's spend: keeps the cap meaningful when the
+// ledger read fails and the check would otherwise fail open with no signal.
+const dayTally = new DayTally();
+
+export function reserveInFlightCall(): () => void {
+  return inFlight.reserve();
 }
 
 function dailyCapUsd(): number {
@@ -85,10 +99,14 @@ export async function checkDailySpendCap(): Promise<SpendCapCheck> {
       0
     );
 
-    return { ok: todaySpendUsd < cap, todaySpendUsd, capUsd: cap };
+    const withInFlight = todaySpendUsd + inFlight.usd;
+    return { ok: withInFlight < cap, todaySpendUsd: withInFlight, capUsd: cap };
   } catch (err) {
-    logger.warn("Spend cap check failed — failing open (allowing the call)", { error: String(err) });
-    return { ok: true, todaySpendUsd: -1, capUsd: cap };
+    // The ledger read failed, so fall back to this process's own tally rather
+    // than allowing everything: the cap still holds for what this process spends.
+    const fallbackSpend = dayTally.get() + inFlight.usd;
+    logger.warn("Spend cap check failed — using in-process tally", { error: String(err), fallbackSpend });
+    return { ok: fallbackSpend < cap, todaySpendUsd: fallbackSpend, capUsd: cap };
   }
 }
 
@@ -105,6 +123,7 @@ export async function recordSpend(entry: {
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
+  dayTally.add(entry.amountUsd);
   try {
     const sb = supabaseAdmin();
     await sb.from("spend_ledger" as "companies").insert({
