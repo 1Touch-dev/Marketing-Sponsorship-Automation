@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { generateFulfillmentTasks } from "@/lib/proposals/fulfillment-tasks";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
+import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
   // last-unit conflict is rejected without leaving a contract row behind.
   let activatedHere = false;
   if (body.proposal_id) {
+    const terms = await guardActivationTerms(sb, auth.user.tenant_id, body.proposal_id, auth.user.id);
+    if (!terms.ok) return NextResponse.json({ error: terms.message, code: terms.code }, { status: 409 });
     const activation = await activateProposalUnits(sb, auth.user.tenant_id, body.proposal_id);
     if (!activation.ok) {
       if ("notFound" in activation) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

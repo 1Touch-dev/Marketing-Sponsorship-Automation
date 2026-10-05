@@ -9,6 +9,8 @@ import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/syn
 import crypto from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
+import { approveRevision } from "@/lib/proposals/revision-store";
+import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 
 export const runtime = "nodejs";
 
@@ -44,12 +46,25 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   // Insert approval record (skip for status-only transitions that aren't in approval_decision enum)
   const SKIP_APPROVAL_INSERT = new Set(["submit_review", "active_contract"]);
+
+  // An approval applies to one exact revision of the terms: freeze the
+  // current terms and bind the approval to them.
+  let approvedRevisionId: string | null = null;
+  if (parsed.data.decision === "approve") {
+    const frozen = await approveRevision(sb, auth.user.tenant_id, parsed.data.proposal_id, { reason: "Approved", userId: auth.user.id });
+    if (frozen.ok) approvedRevisionId = frozen.revision.id;
+    else if (frozen.skipped === "error") {
+      return NextResponse.json({ error: `Could not freeze the approved terms: ${frozen.error ?? "unknown error"}` }, { status: 500 });
+    }
+  }
+
   if (!SKIP_APPROVAL_INSERT.has(parsed.data.decision)) {
     const { error: insErr } = await sb.from("approvals").insert({
       tenant_id: auth.user.tenant_id,
       proposal_id: parsed.data.proposal_id,
       decision: parsed.data.decision,
       comments: parsed.data.comments ?? null,
+      ...(approvedRevisionId ? { revision_id: approvedRevisionId } : {}),
     });
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
   }
@@ -61,6 +76,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   // when it stops being active; the first two steps below are conditional
   // updates, so concurrent requests cannot double-commit the last unit.
   if (newStatus === "active_contract") {
+    const terms = await guardActivationTerms(sb, auth.user.tenant_id, parsed.data.proposal_id, auth.user.id);
+    if (!terms.ok) return NextResponse.json({ error: terms.message, code: terms.code }, { status: 409 });
     const activation = await activateProposalUnits(sb, auth.user.tenant_id, parsed.data.proposal_id);
     if (!activation.ok) {
       if ("notFound" in activation) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
