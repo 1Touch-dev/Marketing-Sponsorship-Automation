@@ -19,6 +19,8 @@ export const COMMERCIAL_CONTENT_KEYS = [
 ] as const;
 
 export type QuoteLine = {
+  /** the quote line's own id: one identifier carried through contract, delivery and renewal */
+  allocation_id: string | null;
   inventory_id: string;
   /** display only, not part of the checksum (an inventory rename must not look like a change) */
   name: string | null;
@@ -34,6 +36,7 @@ export type QuoteLine = {
 };
 
 export type LineRow = {
+  id?: string | null;
   inventory_id: string;
   quantity?: number | null;
   scope?: string | null;
@@ -64,6 +67,7 @@ export function buildQuoteLines(rows: LineRow[]): QuoteLine[] {
     const discount = toNumber(r.discount_pct);
     const gross = unitPrice === null ? null : unitPrice * quantity;
     return {
+      allocation_id: r.id ?? null,
       inventory_id: r.inventory_id,
       name: r.name ?? null,
       quantity,

@@ -26,6 +26,7 @@ import { invokeClaude } from "@/lib/bedrock/client";
 import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
+import { carryAllocationsToRenewal } from "@/lib/allocations/store";
 import type { ProposalContent } from "@/types/database";
 
 const CRITICAL_DAYS = 15;
@@ -211,6 +212,14 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
       if (propErr || !proposal) {
         skipped.push({ contractId: contract.id, reason: propErr?.message ?? "Failed to create proposal" });
         continue;
+      }
+
+      // Carry the expiring contract's allocations onto the renewal draft so
+      // each asset keeps its identity; a failure here must not lose the draft.
+      try {
+        await carryAllocationsToRenewal(sb, state.tenantId, contract.id, proposal.id);
+      } catch (err) {
+        console.error("[renewal-agent] carrying allocations failed", err);
       }
 
       drafted.push({

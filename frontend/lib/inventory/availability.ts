@@ -64,6 +64,10 @@ const UNIT_LABELS: Record<CanonicalUnit, string> = {
   per_send: "per send",
 };
 
+export function unitLabel(unit: string | null | undefined): string {
+  return (unit && (UNIT_LABELS as Record<string, string>)[unit]) || (unit ?? "").replace(/_/g, " ");
+}
+
 const UNIT_PATTERNS: Array<[RegExp, CanonicalUnit]> = [
   [/\b(ano|year|season|temporada|anual)\b/i, "per_season"],
   [/\b(m[eê]s|month|mensal)\b/i, "per_month"],

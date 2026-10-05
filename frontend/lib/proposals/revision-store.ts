@@ -10,7 +10,7 @@ import {
 
 type Sb = any;
 
-const BASE_LINE_COLUMNS = "inventory_id, quantity, scope, unit_type, currency, price_agreed, inventory_items(name)";
+const BASE_LINE_COLUMNS = "id, inventory_id, quantity, scope, unit_type, currency, price_agreed, inventory_items(name)";
 const FULL_LINE_COLUMNS = `${BASE_LINE_COLUMNS}, discount_pct, discount_authorized_by, tax_treatment, period_label`;
 
 /** True when the error means migration 0052 has not been applied yet. */

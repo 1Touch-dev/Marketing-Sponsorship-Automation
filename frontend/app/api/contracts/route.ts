@@ -5,6 +5,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { generateFulfillmentTasks } from "@/lib/proposals/fulfillment-tasks";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
 import { guardActivationTerms } from "@/lib/proposals/approval-guard";
+import { appendAllocationTasks, createContractAllocations } from "@/lib/allocations/store";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -81,6 +82,15 @@ export async function POST(req: NextRequest) {
       .update(updates)
       .eq("id", body.proposal_id)
       .eq("tenant_id", auth.user.tenant_id);
+
+    // One allocation id per quote line, carried into the contract and its
+    // delivery tasks. Never blocks contract creation: the contract exists.
+    try {
+      const recorded = await createContractAllocations(sb, auth.user.tenant_id, data.id, body.proposal_id);
+      if (recorded.ok) await appendAllocationTasks(sb, auth.user.tenant_id, body.proposal_id, data.id);
+    } catch (err) {
+      console.error("[contracts] allocation record failed", err);
+    }
   }
 
   await sb.from("audit_logs").insert({
