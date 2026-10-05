@@ -6,6 +6,7 @@ import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { soldOutLines, type InventoryLike } from "@/lib/inventory/availability";
 
 export const maxDuration = 90;
 
@@ -46,6 +47,29 @@ export async function POST(req: Request) {
     // Load company
     const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+
+    // Reject sold-out inventory before spending anything on generation
+    if (inventoryLines.length > 0) {
+      const { data: invRows } = await (sb as any)
+        .from("inventory_items")
+        .select("id, name, availability, total_quantity, quantity_sold, quantity_reserved")
+        .eq("tenant_id", auth.user.tenant_id)
+        .in("id", inventoryLines.map((l) => l.inventory_id));
+      const conflicts = soldOutLines(
+        inventoryLines,
+        new Map(((invRows ?? []) as Array<InventoryLike & { id: string }>).map((r) => [r.id, r])),
+      );
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Some selected inventory is no longer available: ${conflicts.map((c) => `${c.name} (${c.reason})`).join("; ")}`,
+            code: "inventory_unavailable",
+            conflicts,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     // Load company intelligence + differentiators
     const co = company as Record<string, unknown>;
