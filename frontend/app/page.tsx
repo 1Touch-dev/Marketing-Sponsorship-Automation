@@ -173,6 +173,7 @@ async function loadDashboard() {
     .then((r) => ({
       count: r.error ? 0 : (r.count ?? 0),
       rows: r.error ? [] : (r.data ?? []),
+      error: r.error?.message ?? null,
     }));
 
   // Revenue from signed contracts
@@ -264,6 +265,12 @@ async function loadDashboard() {
     pendingApprovalCount: pendingApprovals.count ?? 0,
     pendingFollowupCount: pendingFollowups.count ?? 0,
     failedWorkflowCount: failedWorkflows.count,
+    workListError:
+      pendingApprovals.error?.message
+      ?? pendingFollowups.error?.message
+      ?? failedWorkflows.error
+      ?? contractsError?.message
+      ?? null,
     waitingProposals: pendingApprovals.data ?? [],
     pendingFollowupRows: pendingFollowups.data ?? [],
     failedWorkflowRows: failedWorkflows.rows,
@@ -447,7 +454,9 @@ export default async function DashboardPage() {
       </div>
 
       <section className="mb-6 rounded-xl border bg-card">
-        {workItems.length === 0 ? (
+        {d.workListError ? (
+          <p className="px-4 py-3 text-sm text-destructive">Couldn&apos;t load what&apos;s waiting</p>
+        ) : workItems.length === 0 ? (
           <p className="px-4 py-3 text-sm text-muted-foreground">Nothing waiting</p>
         ) : (
           <ul>

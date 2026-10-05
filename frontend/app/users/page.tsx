@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
-  const { data: users } = await sb
+  const { data: users, error: usersError } = await sb
     .from("platform_users" as "companies")
     .select("*")
     .eq("tenant_id" as "id", tenantId)
@@ -55,7 +55,10 @@ export default async function UsersPage() {
         </div>
       </div>
 
-      <UsersManager initialUsers={(users ?? []) as unknown as import("@/lib/auth/roles").PlatformUser[]} />
+      <UsersManager
+        initialUsers={(usersError ? [] : users ?? []) as unknown as import("@/lib/auth/roles").PlatformUser[]}
+        loadError={usersError?.message ?? null}
+      />
     </div>
   );
 }

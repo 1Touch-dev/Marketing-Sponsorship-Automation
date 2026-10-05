@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { formatDate, truncate } from "@/lib/utils";
 import { FileText, Zap, Mail, Filter } from "lucide-react";
 import { ApprovalsViewToggle } from "./approvals-view-toggle";
+import { CampaignBulkList } from "./campaign-bulk-list";
 import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 import type { ApprovalItem } from "./approvals-card-view";
 
@@ -61,12 +62,12 @@ export default async function ApprovalsPage({
   // from separate {count:"exact", head:true} queries that don't fetch or
   // cap any rows.
   const [
-    { data: proposals },
-    { data: campaigns },
-    { data: emails },
-    { count: totalProposalsReal },
-    { count: totalCampaignsReal },
-    { count: totalEmailsReal },
+    proposalsResult,
+    campaignsResult,
+    emailsResult,
+    proposalsCountResult,
+    campaignsCountResult,
+    emailsCountResult,
   ] = await Promise.all([
     sb
       .from("proposals")
@@ -97,8 +98,26 @@ export default async function ApprovalsPage({
       .eq("tenant_id", tenantId).in("status", ["draft", "pending_approval", "approved"]),
   ]);
 
+  const proposals = proposalsResult.data;
+  const campaigns = campaignsResult.data;
+  const emails = emailsResult.data;
+  const totalProposalsReal = proposalsCountResult.count;
+  const totalCampaignsReal = campaignsCountResult.count;
+  const totalEmailsReal = emailsCountResult.count;
+
   const typeFilter = searchParams.type ?? "all";
   const statusFilter = searchParams.status ?? "";
+
+  const showProposals = typeFilter === "all" || typeFilter === "proposals";
+  const showCampaigns = typeFilter === "all" || typeFilter === "campaigns";
+  const showEmails = typeFilter === "all" || typeFilter === "emails";
+
+  const activeQueryErrors = [
+    showProposals ? proposalsResult.error?.message ?? proposalsCountResult.error?.message : null,
+    showCampaigns ? campaignsResult.error?.message ?? campaignsCountResult.error?.message : null,
+    showEmails ? emailsResult.error?.message ?? emailsCountResult.error?.message : null,
+  ].filter((message): message is string => Boolean(message));
+  const queueLoadError = activeQueryErrors[0] ?? null;
 
   const filteredProposals = (proposals as unknown as ApprovalProposal[] ?? []).filter(
     (p) => (!statusFilter || p.status === statusFilter)
@@ -109,10 +128,6 @@ export default async function ApprovalsPage({
   const filteredEmails = (emails as unknown as ApprovalEmail[] ?? []).filter(
     (e) => (!statusFilter || e.status === statusFilter)
   );
-
-  const showProposals = typeFilter === "all" || typeFilter === "proposals";
-  const showCampaigns = typeFilter === "all" || typeFilter === "campaigns";
-  const showEmails = typeFilter === "all" || typeFilter === "emails";
 
   // Real counts only apply when no single-status narrowing is active (the
   // real-count queries above don't take statusFilter into account) — with a
@@ -175,10 +190,20 @@ export default async function ApprovalsPage({
     }
   }
 
-  const listContent = totalCount === 0 ? (
+  const listContent = queueLoadError ? (
     <EmptyState
-      title="Nothing waiting for review"
-      description="Proposals, campaigns, and emails in draft or under_review status will appear here."
+      title="Couldn't load the approval queue"
+      description={queueLoadError}
+      action={<Link href="/approvals" className="text-sm font-medium underline">Try again</Link>}
+    />
+  ) : totalCount === 0 ? (
+    <EmptyState
+      title={typeFilter === "campaigns" ? "No campaigns waiting" : "Nothing waiting for review"}
+      description={
+        typeFilter === "campaigns"
+          ? "Campaigns in draft or selected status will appear here."
+          : "Proposals, campaigns, and emails in draft or under_review status will appear here."
+      }
     />
   ) : (
     <div className="space-y-6">
@@ -226,23 +251,35 @@ export default async function ApprovalsPage({
               <span className="text-xs text-muted-foreground">showing most recent {filteredCampaigns.length}</span>
             )}
           </div>
-          <div className="space-y-2">
-            {filteredCampaigns.map((c) => (
-              <Link
-                key={c.id}
-                href={`/campaigns/${c.id}`}
-                className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent transition-colors"
-              >
-                <div>
-                  <div className="font-medium text-sm">{truncate(c.title, 90)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {c.companies?.company_name ?? "—"} · {formatDate(c.created_at)}
+          {typeFilter === "campaigns" ? (
+            <CampaignBulkList
+              campaigns={filteredCampaigns.map((c) => ({
+                id: c.id,
+                title: c.title,
+                status: c.status,
+                createdAt: c.created_at,
+                companyName: c.companies?.company_name ?? "—",
+              }))}
+            />
+          ) : (
+            <div className="space-y-2">
+              {filteredCampaigns.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/campaigns/${c.id}`}
+                  className="flex items-center justify-between rounded-lg border bg-card p-4 hover:bg-accent transition-colors"
+                >
+                  <div>
+                    <div className="font-medium text-sm">{truncate(c.title, 90)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {c.companies?.company_name ?? "—"} · {formatDate(c.created_at)}
+                    </div>
                   </div>
-                </div>
-                <StatusBadge status={c.status} />
-              </Link>
-            ))}
-          </div>
+                  <StatusBadge status={c.status} />
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -330,7 +367,15 @@ export default async function ApprovalsPage({
         <span className="ml-auto text-xs text-muted-foreground">{totalCount} item{totalCount !== 1 ? "s" : ""}</span>
       </form>
 
-      <ApprovalsViewToggle items={cardItems} listView={listContent} />
+      {queueLoadError ? (
+        listContent
+      ) : (
+        <ApprovalsViewToggle
+          items={cardItems}
+          listView={listContent}
+          campaignBulkHint={typeFilter === "campaigns"}
+        />
+      )}
     </>
   );
 }

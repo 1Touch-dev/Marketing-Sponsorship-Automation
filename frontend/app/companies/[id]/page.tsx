@@ -56,7 +56,7 @@ export default async function CompanyDetailPage({
     .limit(5);
 
   // Fetch related campaigns
-  const { data: campaigns } = await sb
+  const { data: campaigns, error: campaignsError } = await sb
     .from("campaigns")
     .select("id, title, status, created_at")
     .eq("company_id", company.id)
@@ -376,7 +376,9 @@ export default async function CompanyDetailPage({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {campaigns && campaigns.length > 0 ? campaigns.map((c) => (
+                  {campaignsError ? (
+                    <p className="text-sm text-destructive">Couldn&apos;t load campaigns</p>
+                  ) : campaigns && campaigns.length > 0 ? campaigns.map((c) => (
                     <Link key={c.id} href={`/campaigns/${c.id}`} title={c.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors">
                       <span className="text-sm truncate min-w-0">{c.title || "Untitled"}</span>
                       <StatusBadge status={c.status} />

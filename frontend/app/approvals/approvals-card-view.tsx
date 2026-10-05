@@ -37,6 +37,7 @@ export function ApprovalsCardView({ items }: Props) {
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<DecisionMap>({});
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Email template picker
   const [showEmailPicker, setShowEmailPicker] = useState(false);
@@ -108,6 +109,7 @@ export function ApprovalsCardView({ items }: Props) {
     async (action: "approved" | "rejected") => {
       if (!currentItem || loading) return;
       setLoading(true);
+      setActionError(null);
       setIsAnimating(true);
 
       const apiMap: Record<ApprovalItem["type"], string> = {
@@ -124,7 +126,7 @@ export function ApprovalsCardView({ items }: Props) {
 
       try {
         const res = await fetch(apiMap[currentItem.type], {
-          method: "POST",
+          method: currentItem.type === "campaign" ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyMap[currentItem.type]),
         });
@@ -145,10 +147,13 @@ export function ApprovalsCardView({ items }: Props) {
             }
           }, 300);
         } else {
+          const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+          setActionError(typeof body.error === "string" ? body.error : "Could not save this decision");
           setIsAnimating(false);
           setDragDelta(0);
         }
       } catch {
+        setActionError("Could not save this decision");
         setIsAnimating(false);
         setDragDelta(0);
       } finally {
@@ -532,6 +537,10 @@ export function ApprovalsCardView({ items }: Props) {
                   </p>
                 </div>
               </CardContent>
+            )}
+
+            {actionError && (
+              <p className="px-6 pb-2 text-center text-sm text-destructive">{actionError}</p>
             )}
 
             <CardFooter className="flex justify-center gap-3 pt-4 pb-6">

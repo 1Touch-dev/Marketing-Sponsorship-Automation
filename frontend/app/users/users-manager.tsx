@@ -4,11 +4,18 @@ import * as React from "react";
 import { roleLabel, roleColor, type PlatformUser, type UserRole } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/shared/empty-state";
 import { useRouter } from "next/navigation";
 
 const ROLES: UserRole[] = ["admin", "sales_rep", "approver", "viewer"];
 
-export default function UsersManager({ initialUsers }: { initialUsers: PlatformUser[] }) {
+export default function UsersManager({
+  initialUsers,
+  loadError = null,
+}: {
+  initialUsers: PlatformUser[];
+  loadError?: string | null;
+}) {
   const [users, setUsers] = React.useState<PlatformUser[]>(initialUsers);
   const [showInvite, setShowInvite] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState("");
@@ -124,7 +131,13 @@ export default function UsersManager({ initialUsers }: { initialUsers: PlatformU
             </tr>
           </thead>
           <tbody className="divide-y">
-            {users.length === 0 ? (
+            {loadError ? (
+              <tr>
+                <td colSpan={6} className="p-4">
+                  <EmptyState title="Couldn't load login accounts" description={loadError} />
+                </td>
+              </tr>
+            ) : users.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-8 text-center text-muted-foreground text-sm">
                   No users yet. Run migration 0016 first, then invite your team.

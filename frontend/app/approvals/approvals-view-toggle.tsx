@@ -8,9 +8,10 @@ import { ApprovalsCardView, type ApprovalItem } from "./approvals-card-view";
 type Props = {
   items: ApprovalItem[];
   listView: ReactNode;
+  campaignBulkHint?: boolean;
 };
 
-export function ApprovalsViewToggle({ items, listView }: Props) {
+export function ApprovalsViewToggle({ items, listView, campaignBulkHint = false }: Props) {
   const [mode, setMode] = useState<"list" | "cards">("cards");
 
   return (
@@ -37,6 +38,12 @@ export function ApprovalsViewToggle({ items, listView }: Props) {
           </Button>
         </div>
       </div>
+
+      {mode === "cards" && campaignBulkHint && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          To act on several campaigns at once, switch to List.
+        </p>
+      )}
 
       {mode === "list" ? listView : <ApprovalsCardView items={items} />}
     </>
