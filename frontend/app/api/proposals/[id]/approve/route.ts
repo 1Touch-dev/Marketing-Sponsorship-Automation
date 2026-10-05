@@ -8,6 +8,7 @@ import { guardColumns } from "@/lib/db/column-guard";
 import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import crypto from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,26 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   const newStatus = STATUS_MAP[parsed.data.decision];
   if (!newStatus) return NextResponse.json({ error: "Unknown decision" }, { status: 400 });
+
+  // Inventory units are committed when a contract becomes active and released
+  // when it stops being active; the first two steps below are conditional
+  // updates, so concurrent requests cannot double-commit the last unit.
+  if (newStatus === "active_contract") {
+    const activation = await activateProposalUnits(sb, auth.user.tenant_id, parsed.data.proposal_id);
+    if (!activation.ok) {
+      if ("notFound" in activation) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: `Cannot activate this contract: ${activation.conflict.name} — ${activation.conflict.reason}`,
+          code: "inventory_unavailable",
+          conflict: activation.conflict,
+        },
+        { status: 409 },
+      );
+    }
+  } else {
+    await leaveActiveContractUnits(sb, auth.user.tenant_id, parsed.data.proposal_id, newStatus);
+  }
 
   const updateData: Record<string, unknown> = {
     status: newStatus,

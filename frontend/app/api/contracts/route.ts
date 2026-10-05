@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { generateFulfillmentTasks } from "@/lib/proposals/fulfillment-tasks";
+import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -23,12 +24,35 @@ export async function POST(req: NextRequest) {
 
   const sb = supabaseAdmin();
   const body = await req.json();
+
+  // Commit the proposal's inventory units before recording the contract, so a
+  // last-unit conflict is rejected without leaving a contract row behind.
+  let activatedHere = false;
+  if (body.proposal_id) {
+    const activation = await activateProposalUnits(sb, auth.user.tenant_id, body.proposal_id);
+    if (!activation.ok) {
+      if ("notFound" in activation) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: `Cannot create this contract: ${activation.conflict.name} — ${activation.conflict.reason}`,
+          code: "inventory_unavailable",
+          conflict: activation.conflict,
+        },
+        { status: 409 },
+      );
+    }
+    activatedHere = !activation.alreadyActive;
+  }
+
   const { data, error } = await sb
     .from("contracts")
     .insert({ ...body, tenant_id: auth.user.tenant_id })
     .select()
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (activatedHere) await leaveActiveContractUnits(sb, auth.user.tenant_id, body.proposal_id, "approved");
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   // Update proposal status to active_contract, and auto-generate the
   // fulfillment checklist (Task 10) — only if one doesn't already exist,

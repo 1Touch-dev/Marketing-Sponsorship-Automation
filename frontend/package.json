@@ -8,7 +8,7 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test:inventory": "tsx --test tests/inventory-availability.test.ts",
+    "test:inventory": "tsx --test tests/inventory-availability.test.ts tests/inventory-reservation.test.ts",
     "test:jersey-pipeline": "tsx --test tests/jersey-placement-prompts.test.ts tests/openai-renderer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
