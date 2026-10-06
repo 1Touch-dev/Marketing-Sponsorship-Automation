@@ -112,13 +112,25 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T6-07 | Tech debt | Abhishek | Revisions frozen between migration 0052 and 0055 have no stored title and show "cannot recompute". None exist in the database now. | Nothing needed unless real approvals were made in that window. | Open |
 | T6-08 | Test gap | Abhishek | The second-person case was tested with a claim recorded under another identity, because there is only one test login. | Test with two real users once a second account exists. | Open |
 
+### Task 7: one definition per metric (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T7-01 | **Decision** | James | **What counts as "pending approval"?** The registry now says: proposals under review plus emails pending approval (39 today). The Approvals queue page also lists drafts and already-approved items (173 cards), and says so on the page. | Confirm the definition, or tell us to narrow the queue to match it. | Open |
+| T7-02 | **Decision** | James | **Win rate denominator.** Today: won / (won + rejected). Proposals still in play are not counted. | Confirm "rejected" means lost, and whether stale or expired proposals should count as lost. | Open |
+| T7-03 | **Decision** | James | **Pipeline value basis.** Priced from package options (cheapest to dearest, options never summed). Only 2 of 64 open proposals have a package, so the figure is a floor, not a forecast. | Decide the pricing rule for proposals without a package (rate card or manual quote). | Open |
+| T7-04 | Data | James | **Contracted value is empty.** 2 of 2 active contracts have no value recorded, so revenue shows "—" with a caveat instead of 0. | Enter the contract values (or confirm they come from the CRM). | Open |
+| T7-05 | Data | James | 4 proposals are marked in contract, but only 2 active contract records exist (see T6-06). The dashboard and Reports show both numbers with the gap named. | Create the missing contract records, or move those proposals back. | Open |
+| T7-06 | Yash | Yash | No screen consumes `/api/metrics` yet: definition tooltips, drill-down links (`href` on every metric) and the "as of" timestamp are available but unused. | Use the endpoint in the dashboard and reports redesign. | Open |
+| T7-07 | Tech debt | Abhishek | Reports "Active Sponsors" list is proposals marked in contract, while its caption also cites contract records. | Move the list to contract records once T7-05 is resolved. | Open |
+| T7-08 | Known limit | James | "Emails marked sent" is logged in the CRM only; this platform does not email recipients yet (X-10). The label says so. | SES account, then real sending (see X-10). | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 7 Canonical metrics | None expected. Needs agreed metric definitions from James. | James |
 | 8, 9 Claim registry and club-facts content | Needs real, current source material and a named content owner; the 9th needs the actual correct facts. | James / the club |
 | 10, 11 Company stages, multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
 | 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |

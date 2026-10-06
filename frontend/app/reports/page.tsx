@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/utils";
+import { loadMetrics } from "@/lib/metrics/load";
+import { OPEN_PIPELINE_STATUSES } from "@/lib/metrics/definitions";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { FileText, TrendingUp, AlertCircle, Trophy, ExternalLink, Target, CheckCircle2, BarChart3, Award } from "lucide-react";
@@ -33,30 +35,30 @@ export default async function ReportsPage() {
   const [
     { data: activeSponsors },
     { data: pipelineProposals },
-    { data: wonProposals },
-    { data: lostProposals },
     { data: contractsData },
     { data: proposalsByMonth },
   ] = await Promise.all([
     sb.from("proposals").select("id, title, status, version, created_at, updated_at, share_token, companies(id, company_name, industry, contact_name, contact_email), campaigns(title)").eq("tenant_id", tenantId).eq("status", "active_contract").order("updated_at", { ascending: false }),
-    sb.from("proposals").select("id, title, status, updated_at, companies(company_name, industry)").eq("tenant_id", tenantId).in("status", ["approved", "under_review"]).order("updated_at", { ascending: false }).limit(10),
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "active_contract"),
-    sb.from("proposals").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("status", "rejected"),
-    sb.from("contracts").select("total_value_brl, deal_type, created_at").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(50),
+    sb.from("proposals").select("id, title, status, updated_at, companies(company_name, industry)").eq("tenant_id", tenantId).in("status", OPEN_PIPELINE_STATUSES).order("updated_at", { ascending: false }).limit(10),
+    // Active contracts only, with no row limit: the same set the dashboard's
+    // contracted value counts, so the two pages cannot disagree.
+    sb.from("contracts").select("total_value_brl, deal_type, created_at").eq("tenant_id", tenantId).eq("status", "active").order("created_at", { ascending: false }),
     sb.from("proposals").select("created_at").eq("tenant_id", tenantId).gte("created_at", new Date(Date.now() - 180 * 86400000).toISOString()).order("created_at", { ascending: true }),
   ]);
 
   const sponsors = (activeSponsors ?? []) as unknown as ActiveSponsor[];
 
-  // Revenue calculations
-  const totalRevenue = (contractsData ?? []).reduce((sum, c) => sum + (Number(c.total_value_brl) || 0), 0);
+  // Revenue, win rate and contract counts come from the one shared definition
+  // (lib/metrics), the same one the dashboard reads.
+  const { metrics: m } = await loadMetrics(sb, tenantId);
+  const totalRevenue = m.contracted_value_brl.value ?? 0;
   const revenueProgress = Math.min(100, Math.round((totalRevenue / ANNUAL_REVENUE_TARGET) * 100));
+  const revenueCaveat = m.contracted_value_brl.caveats[0] ?? null;
 
-  // Win rate
-  const wonCount = (wonProposals as unknown as { count?: number } | null)?.count ?? sponsors.length;
-  const lostCount = (lostProposals as unknown as { count?: number } | null)?.count ?? 0;
-  const totalClosed = wonCount + lostCount;
-  const winRate = totalClosed > 0 ? Math.round((wonCount / totalClosed) * 100) : 0;
+  const wonCount = m.win_rate.numerator ?? 0;
+  const totalClosed = m.win_rate.denominator ?? 0;
+  const lostCount = totalClosed - wonCount;
+  const winRate = m.win_rate.value;
 
   // Revenue by deal type
   const revenueByType: Record<string, number> = {};
@@ -104,6 +106,7 @@ export default async function ReportsPage() {
               <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${revenueProgress}%` }} />
             </div>
             <p className="text-xs text-muted-foreground mt-1">{revenueProgress}% of annual target</p>
+            {revenueCaveat && <p className="text-xs text-muted-foreground mt-1">{revenueCaveat}</p>}
           </CardContent>
         </Card>
 
@@ -114,8 +117,8 @@ export default async function ReportsPage() {
               <CheckCircle2 className="h-4 w-4 text-blue-600" />
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Win Rate</span>
             </div>
-            <div className="text-2xl font-bold text-blue-700">{winRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">{wonCount} won · {lostCount} lost · {totalClosed} closed</p>
+            <div className="text-2xl font-bold text-blue-700">{winRate === null ? "—" : `${winRate}%`}</div>
+            <p className="text-xs text-muted-foreground mt-1">{wonCount} won · {lostCount} rejected · {totalClosed} decided</p>
           </CardContent>
         </Card>
 
@@ -127,7 +130,9 @@ export default async function ReportsPage() {
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Sponsors</span>
             </div>
             <div className="text-2xl font-bold text-amber-700">{sponsors.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">{(pipelineProposals ?? []).length} more in pipeline</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {(pipelineProposals ?? []).length} more in pipeline · {m.contracts_active.value ?? 0} with a contract record
+            </p>
           </CardContent>
         </Card>
       </div>

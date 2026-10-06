@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { loadMetrics } from "@/lib/metrics/load";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
@@ -104,6 +105,13 @@ export default async function ApprovalsPage({
   const totalProposalsReal = proposalsCountResult.count;
   const totalCampaignsReal = campaignsCountResult.count;
   const totalEmailsReal = emailsCountResult.count;
+
+  // The same definition of "awaiting approval" the dashboard uses (lib/metrics),
+  // so the number a person clicks through from there is the number they land on.
+  const { metrics: m } = await loadMetrics(sb, tenantId);
+  const awaitingTotal = m.approvals_pending_total.value;
+  const awaitingProposals = m.proposals_awaiting_approval.value;
+  const awaitingEmails = m.emails_awaiting_approval.value;
 
   const typeFilter = searchParams.type ?? "all";
   const statusFilter = searchParams.status ?? "";
@@ -366,6 +374,14 @@ export default async function ApprovalsPage({
         )}
         <span className="ml-auto text-xs text-muted-foreground">{totalCount} item{totalCount !== 1 ? "s" : ""}</span>
       </form>
+
+      {!queueLoadError && awaitingTotal !== null && (
+        <p className="text-sm text-muted-foreground mb-4" data-testid="approvals-awaiting-summary">
+          <span className="font-semibold text-foreground">{awaitingTotal} awaiting approval</span>
+          {awaitingProposals !== null && awaitingEmails !== null && ` (${awaitingProposals} proposals under review, ${awaitingEmails} emails pending approval)`}.
+          {" "}The queue below also includes drafts and items that are already approved.
+        </p>
+      )}
 
       {queueLoadError ? (
         listContent

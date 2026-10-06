@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, truncate, cn } from "@/lib/utils";
+import { loadMetrics } from "@/lib/metrics/load";
 import {
   Building2,
   FileText,
@@ -258,11 +259,18 @@ async function loadDashboard() {
     (a) => !HIDDEN_AUDIT_ACTIONS.some((hidden) => a.action.startsWith(hidden))
   ).slice(0, 8);
 
+  // Every number below that also appears on another page comes from the one
+  // shared definition (lib/metrics), so pages cannot disagree with each other.
+  const snapshot = await loadMetrics(sb, tenantId);
+  const m = snapshot.metrics;
+  const contractValueExtra = m.contracted_value_brl.extra ?? {};
+  const pipelineExtra = m.pipeline_value_brl.extra ?? {};
+
   return {
     companyCount: companies.count ?? 0,
     campaignCount: campaigns.count ?? 0,
-    proposalCount: proposals.count ?? 0,
-    pendingApprovalCount: pendingApprovals.count ?? 0,
+    proposalCount: m.proposals_live.value ?? 0,
+    pendingApprovalCount: m.approvals_pending_total.value ?? 0,
     pendingFollowupCount: pendingFollowups.count ?? 0,
     failedWorkflowCount: failedWorkflows.count,
     workListError:
@@ -279,22 +287,30 @@ async function loadDashboard() {
     recentEmails: recentEmails.data ?? [],
     recentAudit: cleanAudit,
     // KPIs
-    approvedProposalCount: approvedProposals.count ?? 0,
-    sentEmailCount: sentEmails.count ?? 0,
-    activeContractCount: contractProposals.count ?? 0,
-    pipelineValueBrl: pipelineValueRaw,
-    conversionRate,
+    approvedProposalCount: m.proposals_approved.value ?? 0,
+    sentEmailCount: m.emails_marked_sent.value ?? 0,
+    activeContractCount: m.contracts_active.value ?? 0,
+    wonWithoutContractCount: m.proposals_won_without_contract.value ?? 0,
+    pipelineValueBrl: m.pipeline_value_brl.value ?? 0,
+    pipelineCeilingBrl: pipelineExtra.ceiling ?? 0,
+    pipelinePricedCount: pipelineExtra.priced_proposals ?? 0,
+    pipelineOpenCount: pipelineExtra.open_proposals ?? 0,
+    winRate: m.win_rate.value,
+    winCount: m.win_rate.numerator ?? 0,
+    decidedCount: m.win_rate.denominator ?? 0,
     // New KPIs
     gmailStatus,
-    proposalsSentThisMonthCount: proposalsSentThisMonth.count ?? 0,
+    proposalsSentThisMonthCount: m.emails_marked_sent_this_month.value ?? 0,
     imageJobStats,
-    openRate,
-    openedEmailsCount: openedEmailsCount ?? 0,
-    clickedEmailCount: clickedEmails ?? 0,
+    openRate: m.email_open_rate.value,
+    openedEmailsCount: m.emails_opened.value ?? 0,
+    clickedEmailCount: m.emails_clicked.value ?? 0,
     // Revenue KPIs
-    totalRevenueBrl,
-    signedContractCount,
-    avgDealSizeBrl,
+    totalRevenueBrl: m.contracted_value_brl.value ?? 0,
+    signedContractCount: m.contracts_active.value ?? 0,
+    contractsWithoutValue: contractValueExtra.without_value ?? 0,
+    avgDealSizeBrl: (contractValueExtra.with_value ?? 0) > 0 ? Math.round((m.contracted_value_brl.value ?? 0) / (contractValueExtra.with_value ?? 1)) : 0,
+    metricsGeneratedAt: snapshot.generated_at,
   };
 }
 
@@ -496,7 +512,11 @@ export default async function DashboardPage() {
           ) : (
             <p className="text-lg font-medium text-muted-foreground">Not tracked</p>
           )}
-          <p className={cn("text-xs mt-1", d.totalRevenueBrl > 0 ? "text-green-600" : "text-muted-foreground")}>{d.signedContractCount} active contracts</p>
+          <p className={cn("text-xs mt-1", d.totalRevenueBrl > 0 ? "text-green-600" : "text-muted-foreground")}>
+            {d.signedContractCount} active contracts
+            {d.contractsWithoutValue > 0 && ` · ${d.contractsWithoutValue} with no value recorded`}
+            {d.wonWithoutContractCount > 0 && ` · ${d.wonWithoutContractCount} more marked in contract, no record`}
+          </p>
         </div>
         <div className={cn("rounded-xl border-2 p-5", d.pipelineValueBrl > 0 ? "border-blue-200 bg-blue-50" : "border-muted bg-muted/20")}>
           <div className={cn("flex items-center gap-2 text-xs font-medium mb-1 uppercase tracking-wide", d.pipelineValueBrl > 0 ? "text-blue-700" : "text-muted-foreground")}>
@@ -507,7 +527,10 @@ export default async function DashboardPage() {
           ) : (
             <p className="text-lg font-medium text-muted-foreground">Not tracked</p>
           )}
-          <p className={cn("text-xs mt-1", d.pipelineValueBrl > 0 ? "text-blue-600" : "text-muted-foreground")}>{d.approvedProposalCount} approved proposals</p>
+          <p className={cn("text-xs mt-1", d.pipelineValueBrl > 0 ? "text-blue-600" : "text-muted-foreground")}>
+            {d.pipelineCeilingBrl > d.pipelineValueBrl ? `up to R$ ${(d.pipelineCeilingBrl / 1000).toFixed(0)}K · ` : ""}
+            priced on {d.pipelinePricedCount} of {d.pipelineOpenCount} open proposals
+          </p>
         </div>
         <div className={cn("rounded-xl border-2 p-5", d.avgDealSizeBrl > 0 ? "border-purple-200 bg-purple-50" : "border-muted bg-muted/20")}>
           <div className={cn("flex items-center gap-2 text-xs font-medium mb-1 uppercase tracking-wide", d.avgDealSizeBrl > 0 ? "text-purple-700" : "text-muted-foreground")}>
@@ -615,13 +638,13 @@ export default async function DashboardPage() {
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-1">
             <BarChart2 className="h-4 w-4 text-blue-600" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversion Rate</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Win Rate</span>
           </div>
-          <div className={`text-xl font-bold ${d.conversionRate >= 30 ? "text-emerald-700" : d.conversionRate >= 10 ? "text-amber-600" : "text-muted-foreground"}`}>
-            {d.conversionRate}%
+          <div className={`text-xl font-bold ${(d.winRate ?? 0) >= 30 ? "text-emerald-700" : (d.winRate ?? 0) >= 10 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {d.winRate === null ? "—" : `${d.winRate}%`}
           </div>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            {d.approvedProposalCount} approved + {d.activeContractCount} contracts / {d.proposalCount} total
+            {d.winCount} won / {d.decidedCount} decided (won + rejected)
           </p>
         </div>
 
@@ -643,19 +666,19 @@ export default async function DashboardPage() {
         <Link href="/emails" className="rounded-xl border bg-card p-4 hover:border-primary/30 transition-all">
           <div className="flex items-center gap-2 mb-1">
             <Send className="h-4 w-4 text-sky-600" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Emails Sent</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Emails Marked Sent</span>
           </div>
           <div className="text-xl font-bold text-sky-700">{d.sentEmailCount}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">total outreach emails</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">logged in the CRM, not emailed by the platform</p>
         </Link>
 
         <div className="rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 mb-1">
             <CalendarCheck className="h-4 w-4 text-violet-600" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sent This Month</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Marked Sent This Month</span>
           </div>
           <div className="text-xl font-bold text-violet-600">{d.proposalsSentThisMonthCount}</div>
-          <p className="text-[10px] text-muted-foreground mt-0.5">of {d.sentEmailCount} total emails sent</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">of {d.sentEmailCount} marked sent in total</p>
         </div>
 
         <div className="rounded-xl border bg-card p-4">
@@ -676,8 +699,8 @@ export default async function DashboardPage() {
             <MailOpen className="h-4 w-4 text-teal-600" />
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email Open Rate</span>
           </div>
-          <div className={`text-xl font-bold ${d.openRate >= 40 ? "text-emerald-700" : d.openRate >= 20 ? "text-amber-600" : "text-muted-foreground"}`}>
-            {d.sentEmailCount > 0 ? `${d.openRate}%` : "—"}
+          <div className={`text-xl font-bold ${(d.openRate ?? 0) >= 40 ? "text-emerald-700" : (d.openRate ?? 0) >= 20 ? "text-amber-600" : "text-muted-foreground"}`}>
+            {d.openRate === null ? "—" : `${d.openRate}%`}
           </div>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             {d.openedEmailsCount} opened / {d.sentEmailCount} sent
