@@ -10,6 +10,8 @@ import {
   type ProposalImageAsset,
 } from "@/lib/proposals/proposal-images";
 import { PrintButton } from "../view/print-button";
+import { displayValue, loadSponsorClaims, sourcesFootnote } from "@/lib/claims/sponsor-claims";
+import { DECK_AUDIENCE_STATS } from "@/lib/claims/document-claims";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ function dedupeImagesByLabel(
 // configured for a given tenant, per the platform's claim-grounding rule
 // (never state a specific fact — follower counts, stadium name — that
 // isn't actually known for the club in question).
-function buildAssetFallback(clubName: string, stadiumName: string, followerCount?: string): Record<string, { title: string; text: string }> {
+function buildAssetFallback(clubName: string, stadiumName: string): Record<string, { title: string; text: string }> {
   return {
     jersey: {
       title: "Visibilidade no Uniforme Oficial",
@@ -53,9 +55,7 @@ function buildAssetFallback(clubName: string, stadiumName: string, followerCount
     },
     social_post: {
       title: `Presença Digital — Redes Sociais do ${clubName}`,
-      text: followerCount
-        ? `Com ${followerCount}, o ${clubName} conecta sua marca diretamente ao torcedor engajado.`
-        : `O ${clubName} conecta sua marca diretamente ao torcedor engajado através das suas redes sociais oficiais.`,
+      text: `O ${clubName} conecta sua marca diretamente ao torcedor engajado através das suas redes sociais oficiais.`,
     },
     default: {
       title: `Por que patrocinar o ${clubName}?`,
@@ -93,7 +93,23 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
     .eq("proposal_id", params.id)
     .eq("tenant_id", tenantId);
 
-  const assetFallback = buildAssetFallback(clubName, stadiumName, clubFacts?.follower_count);
+  // Every club figure on this deck comes from the claims registry and is shown
+  // only while it is verified, sourced and in date (lib/claims).
+  const { claims: cl } = await loadSponsorClaims(sb, tenantId);
+  const audienceStats = DECK_AUDIENCE_STATS.filter((a) => cl[a.key]).map((a) => ({ v: displayValue(cl[a.key]), l: a.label, c: cl[a.key] }));
+  const audienceSources = sourcesFootnote(audienceStats.map((a) => a.c));
+  const stadiumStats = [
+    cl["club.stadium_capacity"] && {
+      v: displayValue(cl["club.stadium_capacity"]),
+      l: cl["club.avg_attendance"] ? `lugares, com ${displayValue(cl["club.avg_attendance"])} de público médio` : "lugares",
+      c: [cl["club.stadium_capacity"], ...(cl["club.avg_attendance"] ? [cl["club.avg_attendance"]] : [])],
+    },
+    cl["club.vip_boxes"] && { v: displayValue(cl["club.vip_boxes"]), l: "camarotes", c: [cl["club.vip_boxes"]] },
+    cl["club.points_of_sale"] && { v: displayValue(cl["club.points_of_sale"]), l: "pontos de venda ativados a cada jogo", c: [cl["club.points_of_sale"]] },
+  ].filter((x): x is { v: string; l: string; c: Array<(typeof cl)[string]> } => !!x);
+  const stadiumSources = sourcesFootnote(stadiumStats.flatMap((x) => x.c));
+
+  const assetFallback = buildAssetFallback(clubName, stadiumName);
   const primaryCategory = (packages ?? []).length > 0 ? (packages![0].category ?? "default") : "default";
   const fallback = assetFallback[primaryCategory] ?? assetFallback.default;
 
@@ -207,49 +223,30 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
           {campaignRationale && <p style={{ color: "#374151", lineHeight: 1.7, fontSize: 14 }}>{campaignRationale}</p>}
         </div>
 
-        {/* PAGE 3 — MÍDIA DE ALTO IMPACTO. The specific granular stats below
-            (público médio, sócios, Coxa iD, alcance acumulado) are Coritiba's
-            own verified numbers, not present anywhere in the tenant schema —
-            shown only for the real Coritiba tenant. Any other tenant gets a
-            smaller, honest block built only from what's actually configured
-            in club_facts, per the platform's claim-grounding rule. */}
+        {/* PAGE 3 — MÍDIA DE ALTO IMPACTO. Every figure comes from the claims
+            registry and appears only while verified, sourced and in date. With
+            none usable the whole page is left out rather than shown empty. */}
+        {audienceStats.length > 0 && (
         <div className="deck-page" style={{ padding: "48px", background: "#0e3327", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ borderLeft: "4px solid #7be89a", paddingLeft: 16, marginBottom: 32 }}>
             <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#7be89a", marginBottom: 4 }}>Mídia de Alto Impacto</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, color: "white" }}>Um canal exclusivo, com audiência garantida toda semana</h2>
           </div>
-          {isCoritiba ? (
+          {audienceStats.length > 0 ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {[
-                  { v: "23 mil", l: "NO COUTO · público médio, top 10 do Brasil" },
-                  { v: "36 mil", l: "SÓCIOS COXA · meta de 40 mil no ano" },
-                  { v: "204 mil", l: "NO COXA iD · torcedores identificados" },
-                  { v: "231 mi", l: "NAS REDES OFICIAIS · alcance acumulado" },
-                  { v: "320 mi", l: "NO MATCHDAY · views acumulados" },
-                ].map((s) => (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} data-testid="deck-audience-stats">
+                {audienceStats.map((s) => (
                   <div key={s.l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 18 }}>
                     <div style={{ fontSize: 28, fontWeight: 800, color: "#7be89a" }}>{s.v}</div>
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{s.l}</div>
                   </div>
                 ))}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 20 }}>Fonte: Bentview · Horizm · Coxa iD · Fan Base</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 20 }}>{audienceSources}</div>
             </>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              {[
-                clubFacts?.typical_attendance ? { v: clubFacts.typical_attendance, l: "PÚBLICO MÉDIO POR PARTIDA" } : null,
-                clubFacts?.follower_count ? { v: clubFacts.follower_count, l: "NAS REDES OFICIAIS" } : null,
-              ].filter((s): s is { v: string; l: string } => !!s).map((s) => (
-                <div key={s.l} style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 18 }}>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: "#7be89a" }}>{s.v}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>{s.l}</div>
-                </div>
-              ))}
-            </div>
-          )}
+          ) : null}
         </div>
+        )}
 
         {/* PAGE 4 — MATCH-SPECIFIC MEDIA REACH (only when proposal is scoped to a match) */}
         {match && reach && (
@@ -301,20 +298,21 @@ export default async function ProposalDeckPage({ params }: { params: { id: strin
             <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 3, color: "#0e3327", marginBottom: 4 }}>O Nosso Maior Ativo Físico</div>
             <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1a1a1a" }}>{stadiumName}: onde a magia e o consumo acontecem</h2>
           </div>
-          {isCoritiba ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-              {[["40.000", "lugares, com 23 mil de público médio"], ["58", "camarotes com TVs e catering premium"], ["89 PDVs", "pontos de venda ativados a cada jogo"]].map(([v, l]) => (
-                <div key={l} style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 20 }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: "#0e3327" }}>{v}</div>
-                  <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{l}</div>
-                </div>
-              ))}
-            </div>
+          {stadiumStats.length > 0 ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }} data-testid="deck-stadium-stats">
+                {stadiumStats.map(({ v, l }) => (
+                  <div key={l} style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: 12, padding: 20 }}>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: "#0e3327" }}>{v}</div>
+                    <div style={{ fontSize: 12, color: "#4b5563", marginTop: 4 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 16 }}>{stadiumSources}</div>
+            </>
           ) : (
             <p style={{ color: "#374151", lineHeight: 1.7, fontSize: 14 }}>
-              {clubFacts?.typical_attendance
-                ? `${stadiumName} recebe uma média de ${clubFacts.typical_attendance} torcedores a cada partida, com ativações de patrocínio em toda a área do estádio.`
-                : `${stadiumName} é o palco das partidas do ${clubName}, com ativações de patrocínio disponíveis em toda a área do estádio.`}
+              {`${stadiumName} é o palco das partidas do ${clubName}, com ativações de patrocínio disponíveis em toda a área do estádio.`}
             </p>
           )}
         </div>

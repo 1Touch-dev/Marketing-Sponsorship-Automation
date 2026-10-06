@@ -54,6 +54,7 @@ interface ProposalCMSEditorProps {
     stadiumName?: string;
     city?: string;
     state?: string;
+    claims?: import("@/lib/claims/sponsor-claims").SponsorClaimMap;
   };
 }
 

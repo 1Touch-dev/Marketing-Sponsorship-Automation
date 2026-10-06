@@ -125,13 +125,29 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T7-07 | Tech debt | Abhishek | Reports "Active Sponsors" list is proposals marked in contract, while its caption also cites contract records. | Move the list to contract records once T7-05 is resolved. | Open |
 | T7-08 | Known limit | James | "Emails marked sent" is logged in the CRM only; this platform does not email recipients yet (X-10). The label says so. | SES account, then real sending (see X-10). | Open |
 
+### Task 8: claim provenance registry (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T8-01 | **Content** | James / the club | **Every seeded claim is unreviewed, so sponsors currently see no club figures** on the deck, the KPI cards or the landing page (by design). Someone has to fill in each claim's source, owner, dates and verify it on `/claims`. | A named owner per claim and one pass through `/claims`. This is also Task 9's content work. | Open |
+| T8-02 | **Content** | James / the club | **Figures that contradict each other** were in circulation: average attendance (15–30k in the AI prompt, 18–28k in the old table, 23 mil on the deck, 25–36k in the KPI cards), members (36 mil vs 38.000+), social followers (1.5M+ vs per-platform rows adding to 1.35M+ before X). Each is recorded on its claim; the registry holds one value. | Pick the true figure for each. The old table also holds every metric twice (the seed ran on 18 May and 17 Jul). | Open |
+| T8-03 | **Content** | James | **"Marcas que confiam no Coritiba"** listed Heineken, Ambev, Itaú, Toyota, Red Bull, Claro and TIM on every landing page. Red Bull and Heineken are also the AI prompt's global inspiration examples, so this may never have been a partner list. Now a claim, hidden until verified. | Confirm each name is a real partner. | Open |
+| T8-04 | **Removed** | Yash / James | **"Próximas Partidas" is gone from the sponsor landing page.** Its opponents, attendances and TV audiences were invented examples (the code comment said so) and it promised "calendar updated every round". | Rebuild it from real fixtures (the `matches` table the deck already uses) when you want it back. | Open |
+| T8-05 | **Data** | James | The public sponsor page's WhatsApp button points at `5541999999999`, an obvious placeholder. Not changed in this task. | The club's real number. | Open |
+| T8-06 | Decision | James | Free-text figures can still appear in AI-written or hand-edited proposal text (a live proposal says "mais de 1 milhão de telespectadores por partida"). Approval now lists these as unsourced figures, but does not block. | Decide: warn only, or block approval while unsourced figures remain. | Open |
+| T8-07 | Yash | Yash | `/claims` is a working but unstyled review screen. Still to design: unsourced-figure list on the approval card (`GET /api/proposals/[id]/claims`), expiry reminders, a notice on the deck when figures are withheld. | Design and wire. | Open |
+| T8-08 | Tech debt | Abhishek | The old `/coritiba-intelligence` page and `POST /api/coritiba-metrics` still edit the old table, which no longer feeds any sponsor-facing page or prompt. Two places to edit the same fact. | Point that page at the registry, and (with your OK) delete the duplicate seed rows. | Open |
+| T8-09 | Tech debt | Abhishek | Other tenants' `club_facts.follower_count` and `typical_attendance` no longer reach prompts, decks or KPI cards. They have to be entered as claims. The Coritiba prompt text still carries unsourced broadcast and competition wording in `market_context`. | Tenant onboarding step that creates claims; move `market_context` figures into claims. | Open |
+| T8-10 | Behaviour | James | Sponsor pages read the registry when opened, so a claim that expires after a proposal was approved quietly disappears from the link already sent. The approval step records what was shown at the time. | Decide if an expired figure should instead be flagged to the proposal owner. | Open |
+| T8-11 | Test gap | Abhishek | The "second person must verify" rule was tested live with two real logins (a sales rep who recorded figures and an approver who verified them). The case of one person holding both permissions (an admin verifying their own version) is covered by unit tests only. T6-08 is still open for contracts. | Test the admin self-verify case once a second admin account exists. | Cleared except admin case |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 8, 9 Claim registry and club-facts content | Needs real, current source material and a named content owner; the 9th needs the actual correct facts. | James / the club |
+| 9 Club-facts content correction | Needs the actual correct facts and a named owner per claim; the registry (Task 8) is ready to hold them (T8-01, T8-02). | James / the club |
 | 10, 11 Company stages, multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
 | 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |
 | 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |

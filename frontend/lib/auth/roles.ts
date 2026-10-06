@@ -64,6 +64,12 @@ const PERMISSIONS = {
   generate_images:   ["admin", "sales_rep"] as UserRole[],
   manage_mockups:    ["admin", "sales_rep"] as UserRole[],
 
+  // Claims registry (figures shown in sponsor-facing documents, lib/claims).
+  // Anyone who sells can propose a figure; only an approver or admin verifies
+  // one, and nothing is shown to a sponsor until it is verified.
+  edit_claim:        ["admin", "sales_rep"] as UserRole[],
+  review_claim:      ["admin", "approver"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],

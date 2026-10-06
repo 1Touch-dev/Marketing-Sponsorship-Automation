@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
@@ -169,6 +170,7 @@ export async function POST(req: Request) {
       campaign: campaign ? { title: campaign.title, summary: campaign.summary } : { title: `${company.company_name} × ${clubName} Partnership` },
       strategy_variant: strategyVariant,
       tenant,
+      verifiedClaims: await loadVerifiedClaimsBlock(sb, auth.user.tenant_id),
     });
 
     const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext + grantEsgContext + exhibitorContext;

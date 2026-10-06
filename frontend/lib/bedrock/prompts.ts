@@ -1,5 +1,5 @@
 /**
- * Centralised prompt templates — v5.0.0
+ * Centralised prompt templates — v5.2.0
  *
  * PROMPT_VERSION is bumped whenever a prompt changes so that
  * campaigns / proposals / emails can record which prompt generated them.
@@ -15,9 +15,16 @@
  *  - Phase 2 (master_report.md 7.2): optional per-call tone override
  *    (warm/formal/urgent) on outreachEmailPrompt/negotiationEmailPrompt/
  *    barterEmailPrompt — replaces the previously hardcoded tone line when set.
+ *
+ * v5.2.0:
+ *  - Task 8: club figures (followers, attendance...) are no longer written into
+ *    the club context. The model may state only the VERIFIED CLUB FIGURES block
+ *    built from the claims registry (lib/claims); with none, it stays qualitative.
  */
 
-export const PROMPT_VERSION = "v5.1.0" as const;
+import { verifiedClaimsPromptBlock } from "../claims/sponsor-claims";
+
+export const PROMPT_VERSION = "v5.2.0" as const;
 
 /** Phase 2 — tone control per email flow. */
 export type EmailTone = "warm" | "formal" | "urgent";
@@ -98,7 +105,7 @@ ALL proposals, campaigns, activations, and stadium references MUST center on:
 ${f.founded_year ? `- Founded: ${f.founded_year}\n` : ""}- Home stadium: ${stadium}${location !== "its home market" ? `, ${location}` : ""}
 - Location: ${location}
 - Colors: ${primaryColor}${tenant.branding.secondary_color ? `, ${secondaryColor}` : ""} — use exact configured brand colors, never approximate
-${tenant.branding.typography ? `- Typography: ${tenant.branding.typography}\n` : ""}${f.follower_count ? `- Digital reach: ${f.follower_count}\n` : ""}${f.typical_attendance ? `- Typical attendance: ${f.typical_attendance}\n` : ""}${f.market_context ? `- Market context: ${f.market_context}\n` : ""}- Inventory available to sponsors:
+${tenant.branding.typography ? `- Typography: ${tenant.branding.typography}\n` : ""}${f.market_context ? `- Market context: ${f.market_context}\n` : ""}- Inventory available to sponsors:
 ${inventory}
 ${f.brand_rules?.length ? `\nBRAND RULES (NON-NEGOTIABLE):\n${f.brand_rules.map((r) => `- ${r}`).join("\n")}\n` : ""}${rivals.length > 0 ? `
 COMPETITOR EXCLUSION — ABSOLUTE RULE:
@@ -127,8 +134,6 @@ export const CORITIBA_CLUB_CONTEXT_INPUT: ClubContextInput = {
     state: "Paraná",
     country: "Brasil",
     founded_year: 1909,
-    follower_count: "~1.5M+ social followers across platforms",
-    typical_attendance: "15,000–30,000 per match at Couto Pereira",
     market_context: "Broadcast nationally via Globo/SporTV/Paramount+, regional Paraná TV. Key competitions: Brasileirão Série A/B, Copa do Brasil, Campeonato Paranaense. Fan identity: \"Coxa-Branca\" supporters — loyal, family-oriented, multi-generational fan base.",
     rival_clubs: [
       "Athletico Paranaense (CAP / Furacão) — DIRECT Curitiba rival",
@@ -192,6 +197,8 @@ export function campaignIdeasPrompt(args: {
   company: CompanyContext;
   objective?: string;
   maxIdeas?: number;
+  /** Task 8 — the only club figures the model may state; defaults to "none available". */
+  verifiedClaims?: string;
   /** Phase 4 — defaults to Coritiba for existing call sites; pass the
    *  requesting user's real tenant to de-hardcode. */
   tenant?: ClubContextInput;
@@ -214,6 +221,8 @@ export function campaignIdeasPrompt(args: {
       "Start your response with { and end with }. Nothing else.",
       "",
       buildClubContext(tenant),
+      "",
+      args.verifiedClaims ?? verifiedClaimsPromptBlock([]),
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
@@ -313,6 +322,9 @@ export function proposalPrompt(args: {
   strategy_variant?: string | null;
   /** Phase 4 — defaults to Coritiba for existing call sites. */
   tenant?: ClubContextInput;
+  /** Task 8 — the only club figures the model may state (lib/claims). When a
+   *  caller passes nothing, the prompt says no verified figures are available. */
+  verifiedClaims?: string;
 }) {
   const strategyNote = args.strategy_variant
     ? `\nFocus this proposal on the "${args.strategy_variant}" strategic direction.`
@@ -322,8 +334,6 @@ export function proposalPrompt(args: {
   const nickname = tenant.club_facts.nickname ?? tenant.club_facts.short_name ?? club;
   const stadium = tenant.club_facts.stadium_name ?? `${club}'s stadium`;
   const region = tenant.club_facts.city ?? "its home market";
-  const followers = tenant.club_facts.follower_count ?? "its social following";
-  const attendance = tenant.club_facts.typical_attendance ?? "its typical matchday attendance";
   const rivalsList = tenant.club_facts.rival_clubs?.map((r) => r.split(" —")[0]).join(", ") ?? "rival clubs";
   return {
     system: [
@@ -333,7 +343,7 @@ export function proposalPrompt(args: {
       `1. ALL sections MUST reference ${club}, ${stadium}, or the club's fan ecosystem.`,
       `2. NEVER mention competitor clubs (${rivalsList}).`,
       "3. Write like a seasoned partnership director — specific, benefit-led, no filler phrases ('synergy', 'leverage', 'stakeholders').",
-      `4. Ground every claim: reference ${stadium}'s capacity (${attendance}), ${club}'s digital reach (${followers}), the ${region} market.`,
+      `4. Ground every claim in the club context and the VERIFIED CLUB FIGURES block below: reference ${stadium}, ${club}'s digital reach and the ${region} market. State a number about the club ONLY if it appears in that block.`,
       `5. Each deliverable must be a concrete, measurable ${club} asset (e.g. 'Jersey chest badge — 25 home & away matches', '${stadium} LED perimeter — 3 minutes/match').`,
       `6. The activation_plan must have clear PHASES (Month 1-2 launch, Month 3-6 ramp, Month 7-12 peak activation) with specific ${club} milestones.`,
       `7. executive_summary must open with the sponsor company's business goal FIRST, then connect it to ${club}'s audience.`,
@@ -342,6 +352,8 @@ export function proposalPrompt(args: {
       "10. CLAIM GROUNDING (non-negotiable — this is real sales collateral shown to a real company): every specific factual claim you make ABOUT THE SPONSOR (their stated goals, a named campaign, headcount, revenue, recent activity, competitors, decision-makers) must come from a 'COMPANY INTELLIGENCE' block if one is provided in the user message. If no such block is provided, or it doesn't cover a topic, do NOT invent a specific fact to fill the gap — write that part in general, industry-appropriate terms instead (e.g. 'brands in the [industry] sector typically pursue...' rather than inventing this specific company's goal). A qualified, general statement is correct; a confident, specific, unsourced one is a fabrication and is not acceptable even if it sounds plausible.",
       "",
       buildClubContext(tenant),
+      "",
+      args.verifiedClaims ?? verifiedClaimsPromptBlock([]),
       "",
       STRATEGY_INSPIRATION,
     ].join("\n"),
@@ -364,7 +376,7 @@ export function proposalPrompt(args: {
   "title": "Proposal title — must name the company AND reference the club (e.g. '[Company] × ${club} — [Theme]')",
   "executive_summary": "120–150 words. Start with [Company]'s business goal. Show how the club's reach and matchday fans directly address that goal. End with a bold partnership vision.",
   "campaign_rationale": "150–180 words. Data-grounded case: the club's market, fan demographics, the sponsor's target customer overlap. Reference 2–3 specific club inventory items that match the sponsor's marketing objectives.",
-  "sponsorship_value": "120–150 words. Concrete ROI framing: brand impressions at the stadium per season, digital reach numbers, co-branded content opportunities, community activation value. Be specific — mention real club assets.",
+  "sponsorship_value": "120–150 words. Concrete ROI framing: brand visibility at the stadium and in digital channels, co-branded content opportunities, community activation value. Be specific — mention real club assets. Use a number only if it is in the VERIFIED CLUB FIGURES block; otherwise stay qualitative.",
   "activation_plan": "200–250 words. THREE clear phases:\\nPhase 1 (M1–M2): Launch activation — jersey reveal, social announcement, matchday intro event at the stadium.\\nPhase 2 (M3–M6): Ramp — LED perimeter, PA announcements, co-branded digital content, fan activation zone.\\nPhase 3 (M7–M12): Peak — title sponsorship moment, stadium naming activation, cross-promotion with club milestones.",
   "deliverables": [
     "Deliverable 1 — specific asset + quantity (e.g. 'Jersey chest badge — 25 home + away matches per season')",

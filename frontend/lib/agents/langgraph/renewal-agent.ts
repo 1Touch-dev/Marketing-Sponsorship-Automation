@@ -25,6 +25,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
 import { carryAllocationsToRenewal } from "@/lib/allocations/store";
 import type { ProposalContent } from "@/types/database";
@@ -154,6 +155,7 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
         campaign: campaignCtx,
         strategy_variant: "renewal — continuity and proven results",
         tenant,
+        verifiedClaims: await loadVerifiedClaimsBlock(sb, state.tenantId),
       });
       const result = await invokeClaude<unknown>({
         system: pt.system,

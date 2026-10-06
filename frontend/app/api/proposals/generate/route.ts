@@ -1,3 +1,4 @@
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { proposalGenerateSchema } from "@/lib/validators";
@@ -159,6 +160,7 @@ export async function POST(req: Request) {
   });
 
   const tenant = await resolveClubContext(auth.user.tenant_id);
+  const verifiedClaims = await loadVerifiedClaimsBlock(sb, auth.user.tenant_id);
 
   // ── 1. Main proposal content (with retry) ────────────────────────────────
   let proposalContent: ProposalContentAI | null = null;
@@ -168,7 +170,7 @@ export async function POST(req: Request) {
   for (attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     if (attempt > 1 && eventId) await retryWorkflow(eventId, attempt);
     try {
-      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
+      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx, tenant, verifiedClaims });
       const raw = await runGeneration(pt.system, pt.user, 3000);
       const vr = validateAiOutput(proposalContentSchema, raw, {
         workflow_name: "proposal.generate",

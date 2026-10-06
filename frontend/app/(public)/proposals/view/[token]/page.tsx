@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getTenantById } from "@/lib/tenants/current";
+import { loadSponsorClaims } from "@/lib/claims/sponsor-claims";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
@@ -50,6 +51,7 @@ export default async function PublicProposalViewPage({
   const tenantId = (proposal as { tenant_id: string }).tenant_id;
   const tenant = await getTenantById(tenantId);
   const isCoritiba = tenantId === CORITIBA_TENANT_ID;
+  const sponsorClaims = await loadSponsorClaims(sb, tenantId);
   const clubName = tenant?.club_facts.short_name ?? tenant?.club_facts.club_name ?? "o clube";
   // Coritiba's known-good asset path — not trusting the DB's crest_url for
   // this tenant since migration 0047 seeded a mismatched extension (.svg,
@@ -198,6 +200,7 @@ export default async function PublicProposalViewPage({
           stadiumName: tenant?.club_facts.stadium_name,
           city: tenant?.club_facts.city,
           state: tenant?.club_facts.state,
+          claims: sponsorClaims.claims,
         }}
         packages={(packages ?? []).map((p) => ({
           id: p.id,

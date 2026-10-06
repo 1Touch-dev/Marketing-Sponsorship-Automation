@@ -3,6 +3,7 @@
  * Uses enrichment + intelligence already stored on the company record.
  */
 
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
@@ -155,6 +156,7 @@ export async function generatePersonalizedProposalForCompany(
       summary: campaignSummary,
     },
     tenant,
+    verifiedClaims: await loadVerifiedClaimsBlock(sb, tenantId),
   });
 
   // When real intelligence exists, push for specificity grounded in it. When

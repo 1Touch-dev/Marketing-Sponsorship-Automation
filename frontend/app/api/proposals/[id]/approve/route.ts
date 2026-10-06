@@ -1,3 +1,4 @@
+import { buildProposalClaimsReport, type ProposalClaimsReport } from "@/lib/claims/proposal-report";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { approvalSchema } from "@/lib/validators";
@@ -149,11 +150,24 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .single();
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
+  // Which club figures the sponsor-facing documents will and will not show, so
+  // the approver knows what is being put in front of the sponsor (Task 8).
+  let claimsReport: ProposalClaimsReport | null = null;
+  if (parsed.data.decision === "approve") {
+    claimsReport = await buildProposalClaimsReport(sb, auth.user.tenant_id, proposal as { content?: unknown; strategy_variants?: unknown });
+  }
+
   await recordAudit({
     entity_type: "proposal",
     entity_id: parsed.data.proposal_id,
     action: `proposal.${parsed.data.decision}`,
-    metadata: { comments: parsed.data.comments ?? null, new_status: newStatus },
+    metadata: {
+      comments: parsed.data.comments ?? null,
+      new_status: newStatus,
+      ...(claimsReport
+        ? { claims_shown: claimsReport.shown, claims_withheld: claimsReport.withheld.map((w) => ({ key: w.key, state: w.state })), claims_unregistered: claimsReport.unregistered, unsourced_text_figures: claimsReport.unsourced_text_figures.map((f) => f.figure) }
+        : {}),
+    },
   });
 
   // ── Fire-and-forget: sync status change to Pipedrive ─────────────────────
@@ -177,5 +191,5 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     });
   })().catch(err => console.error("[CRM] proposal approve sync failed", err));
 
-  return NextResponse.json({ data: proposal });
+  return NextResponse.json({ data: proposal, ...(claimsReport ? { claims: claimsReport } : {}) });
 }
