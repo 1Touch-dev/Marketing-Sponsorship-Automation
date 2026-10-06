@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, Users, Calendar, DollarSign, CheckCircle, Plus, AlertCircle, Leaf, BookOpen, Activity } from "lucide-react";
 import { SocialProjectForm } from "./social-project-form";
+import { loadRegistry, type RegistryEntry } from "@/lib/claims/store";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,9 @@ export default async function LeiDeIncentivoPage() {
     migrationNeeded = true;
   }
 
+  const registry = await loadRegistry(sb, tenantId);
+  const lawClaims: Record<string, RegistryEntry> = registry.ok ? Object.fromEntries(registry.entries.map((e) => [e.key, e])) : {};
+
   const openProjects = projects.filter((p) => p.status === "open");
   const totalBudget = projects.reduce((sum, p) => sum + (Number(p.budget_total) || 0), 0);
   const totalRaised = projects.reduce((sum, p) => sum + (Number(p.budget_raised) || 0), 0);
@@ -72,21 +76,24 @@ export default async function LeiDeIncentivoPage() {
         </div>
       )}
 
-      {/* Explainer */}
+      {/* Explainer. The deduction limits are claims in the registry: shown here
+          with their review status, and used in proposals only once verified. */}
       <Card className="border-green-200 bg-green-50/40">
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div className="space-y-1">
-              <p className="font-semibold text-green-800">Lei de Incentivo ao Esporte (LIE)</p>
-              <p className="text-green-700 text-xs">Companies can donate up to 1% of IR to approved sports projects and deduct 100% from federal income tax.</p>
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold text-green-800">Lei Rouanet (Cultura)</p>
-              <p className="text-green-700 text-xs">Cultural and educational projects approved by Ministério da Cultura. Tax deductions of up to 4–6% of IR.</p>
-            </div>
+            <LawCard
+              title="Lei de Incentivo ao Esporte (Lei nº 11.438/2006)"
+              intro="Companies can direct part of the income tax they owe to approved sports projects, as sponsorship or donation."
+              claim={lawClaims["law.esporte.pj_deduction_cap"]}
+            />
+            <LawCard
+              title="Lei Rouanet (Lei nº 8.313/1991)"
+              intro="Cultural and educational projects approved by the Ministério da Cultura."
+              claim={lawClaims["law.rouanet.pj_deduction_cap"]}
+            />
             <div className="space-y-1">
               <p className="font-semibold text-green-800">Leis Municipais — Curitiba</p>
-              <p className="text-green-700 text-xs">Curitiba city-level incentive programs for community, environmental, and social projects in Paraná.</p>
+              <p className="text-green-700 text-xs">Curitiba city-level incentive programs for community, environmental, and social projects in Paraná. Rules vary by program and are not recorded here.</p>
             </div>
           </div>
         </CardContent>
@@ -236,5 +243,25 @@ function TrendingUp({ className }: { className?: string }) {
       <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
       <polyline points="16 7 22 7 22 13" />
     </svg>
+  );
+}
+
+function LawCard({ title, intro, claim }: { title: string; intro: string; claim?: RegistryEntry }) {
+  const verified = claim?.evaluation.usable;
+  return (
+    <div className="space-y-1" data-testid={claim ? `law-${claim.key}` : undefined}>
+      <p className="font-semibold text-green-800">{title}</p>
+      <p className="text-green-700 text-xs">{intro}</p>
+      {claim ? (
+        <p className="text-xs">
+          <span className="font-medium text-green-900">Company limit: {claim.current.value}</span>{" "}
+          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${verified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+            {verified ? "Verified" : "Not verified, do not quote"}
+          </span>
+        </p>
+      ) : (
+        <p className="text-xs text-amber-700">Deduction limit not recorded. Add it in the claims registry.</p>
+      )}
+    </div>
   );
 }

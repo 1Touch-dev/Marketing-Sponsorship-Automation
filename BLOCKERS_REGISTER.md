@@ -141,13 +141,24 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T8-10 | Behaviour | James | Sponsor pages read the registry when opened, so a claim that expires after a proposal was approved quietly disappears from the link already sent. The approval step records what was shown at the time. | Decide if an expired figure should instead be flagged to the proposal owner. | Open |
 | T8-11 | Test gap | Abhishek | The "second person must verify" rule was tested live with two real logins (a sales rep who recorded figures and an approver who verified them). The case of one person holding both permissions (an admin verifying their own version) is covered by unit tests only. T6-08 is still open for contracts. | Test the admin self-verify case once a second admin account exists. | Cleared except admin case |
 
+### Task 9: club-facts and incentive-page content (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T9-01 | **Content** | James | **Seven proposed corrections and three law claims are in the registry as unreviewed, with no owner**, so sponsors still see no club figures. Two corrections matter: national titles is **1** (1985), not 2, because the 1990 Série A was won by Corinthians; and home matches is **19** league games, not "38+" (38 is the number of league rounds). | Take ownership, check the sources on `/claims`, and verify (or correct) each. | Open |
+| T9-02 | **Content** | James | **The incentive-law figures could not be checked against the official statute text from here** (the government site refused the connection). The sports-law claim (1% of tax owed for companies, 6% for individuals) comes from a compilation that says the incentive ran 2007 to 2015, and the law has since been extended; the Rouanet claim (4% for companies) rests on a legal article. The old template said "up to 100% of the amount invested", which is wrong. | Confirm the current validity window and the limits against the official text before verifying. | Open |
+| T9-03 | **Content** | James / the club | Average attendance and follower figures were **not** proposed because sources conflict (2025 averages of about 19.5k and 22k appear for different divisions). | The club's own figure and the period it covers. | Open |
+| T9-04 | Decision | James | Stadium capacity: official 40,502, but press reports a safe operating limit near 38,000. | Decide which figure sponsors are quoted. | Open |
+| T9-05 | Tech debt | Abhishek | Unsourced wording remains outside the registry: the `market_context` text in the Coritiba prompt (broadcast partners, competitions), the "IR Dedutível" labels in the proposal wizard, and a placeholder in the social-project form that mentions a 1% limit. | Move each into claims, or drop the figure. | Open |
+| T9-06 | Yash | Yash | `/coritiba-intelligence` and `/lei-de-incentivo` are functional but unstyled. | Restyle. | Open |
+| T9-07 | Tech debt | Abhishek | The page and API for the old `coritiba_metrics` table are retired (T8-08), but the table and its duplicate rows still exist. | Delete the table's rows, with your OK. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 9 Club-facts content correction | Needs the actual correct facts and a named owner per claim; the registry (Task 8) is ready to hold them (T8-01, T8-02). | James / the club |
 | 10, 11 Company stages, multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
 | 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |
 | 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |

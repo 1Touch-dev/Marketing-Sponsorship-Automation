@@ -4,6 +4,7 @@ import { evaluateClaim, daysUntil, type ClaimVersionFacts, type ReviewFact } fro
 import { toSponsorClaims, verifiedClaimsPromptBlock, sourcesFootnote, displayValue } from "../lib/claims/sponsor-claims";
 import { recordReview, validateVersionInput, type RegistryEntry } from "../lib/claims/store";
 import { documentClaimKeys, documentClaimsReport } from "../lib/claims/document-claims";
+import { buildLeiOverview } from "../lib/claims/lei-text";
 import { extractFigures, findUnsourcedFigures } from "../lib/claims/figure-scan";
 import { resolveKpiTemplate } from "../lib/proposals/kpi-templates";
 import { buildClubContext, CORITIBA_CLUB_CONTEXT_INPUT, proposalPrompt } from "../lib/bedrock/prompts";
@@ -283,4 +284,31 @@ test("with no usable claim, every audience figure in the text is flagged", () =>
 
 test("colour codes are not figures", () => {
   assert.deepEqual(extractFigures("Verde Coxa #005742 e código 005742"), []);
+});
+
+// ── incentive-law proposal text ─────────────────────────────────────────────
+
+const lawEntry = (key: string, value: string) => entry(key, value);
+
+test("the incentive-law text states no number unless a verified claim supplies it", () => {
+  const text = buildLeiOverview({});
+  assert.ok(!/\d+\s*%/.test(text), `a percentage slipped in: ${text}`);
+  assert.ok(!text.includes("100%"));
+  assert.match(text, /confirmados com sua equipe fiscal/);
+});
+
+test("a verified law claim is quoted exactly, and an unverified one is not", () => {
+  const verifiedLaw = toSponsorClaims([lawEntry("law.esporte.pj_deduction_cap", "1% do imposto devido (pessoa jurídica)")]).claims;
+  const text = buildLeiOverview(verifiedLaw);
+  assert.match(text, /até 1% do imposto devido \(pessoa jurídica\)/);
+  assert.ok(!text.includes("4%"), "Rouanet limit must not appear without its own verified claim");
+  assert.match(text, /confirmados com sua equipe fiscal/); // Rouanet still unverified
+
+  const unreviewed = toSponsorClaims([entry("law.esporte.pj_deduction_cap", "1% do imposto devido", {}, [])]).claims;
+  assert.ok(!buildLeiOverview(unreviewed).includes("1%"));
+
+  const both = toSponsorClaims([lawEntry("law.esporte.pj_deduction_cap", "1% do imposto devido"), lawEntry("law.rouanet.pj_deduction_cap", "4% do imposto devido")]).claims;
+  const full = buildLeiOverview(both);
+  assert.ok(full.includes("1% do imposto devido") && full.includes("4% do imposto devido"));
+  assert.ok(!full.includes("confirmados com sua equipe fiscal"));
 });
