@@ -99,13 +99,25 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T5-07 | Tech debt | Abhishek | `emails.status = 'sent'` still means "logged in the CRM" for older code paths. | Retire it once the UI reads the derived state. | Open |
 | T5-08 | Security | Abhishek | The callback paths are exempt from the login check and rely on `INTERNAL_API_SECRET` alone. | Rotate it, and move to per-provider signature verification. | Open |
 
+### Task 6: signature and revision proof trail (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T6-01 | Account | James | The real Documenso path (signed PDF download, hash stored, completion record) has never run; today it is covered by simulated callbacks and the manual path (see X-12). | Documenso account, then a real send, sign and sync. | Open |
+| T6-02 | **Decision** | James | **May "Mark as Active" stay allowed without signature evidence?** It is still allowed, but is now recorded as a claim and shown as "Marked active, no signature evidence". | Choose: keep, require evidence first, or expire unverified claims after N days. | Open |
+| T6-03 | Yash | Yash | No screen: stage badge from the proof, evidence timeline, manual-signature upload form, the second-person verify and reject buttons, bundle download. | His UI work. | Open |
+| T6-04 | Decision | James | Who may verify a manual signature (today anyone with approve permission who is not the recorder). | Decide if it needs a specific role or an admin. | Open |
+| T6-05 | **Security** | Abhishek | **Signed documents are stored in the public `proposal-assets` bucket and read through a public URL**, so anyone with the link can read a signed contract. The existing signed PDF does the same. | Move to a private bucket with short-lived signed URLs. | Open |
+| T6-06 | Tech debt | Abhishek | "Mark as Active" on a proposal that has no contract record leaves no proof trail (evidence belongs to a contract). | Require a contract record, or create one automatically. | Open |
+| T6-07 | Tech debt | Abhishek | Revisions frozen between migration 0052 and 0055 have no stored title and show "cannot recompute". None exist in the database now. | Nothing needed unless real approvals were made in that window. | Open |
+| T6-08 | Test gap | Abhishek | The second-person case was tested with a claim recorded under another identity, because there is only one test login. | Test with two real users once a second account exists. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 6 Signature and revision proof trail | Needs a real Documenso account for the completion certificate and signed PDF; the signed-PDF download path has never run. | James (X-12) |
 | 7 Canonical metrics | None expected. Needs agreed metric definitions from James. | James |
 | 8, 9 Claim registry and club-facts content | Needs real, current source material and a named content owner; the 9th needs the actual correct facts. | James / the club |
 | 10, 11 Company stages, multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |

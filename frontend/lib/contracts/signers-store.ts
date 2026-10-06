@@ -1,4 +1,5 @@
 import { isMissingMigration } from "../proposals/revision-store";
+import { recordEvidenceSafe } from "./evidence-store";
 import { advanceSignerStatus, deriveSignatureState, type EnvelopeStatus, type SignatureView, type SignerStatus } from "./signature-state";
 
 type Sb = any;
@@ -64,6 +65,7 @@ export async function applySignerEvent(sb: Sb, tenantId: string, contractId: str
       .from("contract_signers")
       .update({ status: next, last_event_at: at, ...(next !== current ? stamps : {}), ...(ev.provider_recipient_id ? { provider_recipient_id: ev.provider_recipient_id } : {}) })
       .eq("id", (existing as { id: string }).id);
+    if (!error && next !== current) await recordSignerEvidence(sb, tenantId, contractId, email, next, at, ev.reason);
     return error ? { ok: false, skipped: "error", error: error.message } : { ok: true, status: next };
   }
   const { error } = await sb.from("contract_signers").insert({
@@ -79,7 +81,30 @@ export async function applySignerEvent(sb: Sb, tenantId: string, contractId: str
     provider_recipient_id: ev.provider_recipient_id ?? null,
     ...stamps,
   });
+  if (!error && next !== "pending") await recordSignerEvidence(sb, tenantId, contractId, email, next, at, ev.reason);
   return error ? { ok: false, skipped: "error", error: error.message } : { ok: true, status: next };
+}
+
+const SIGNER_EVIDENCE: Partial<Record<SignerStatus, "signer_sent" | "signer_opened" | "signer_signed" | "signer_declined">> = {
+  sent: "signer_sent",
+  opened: "signer_opened",
+  signed: "signer_signed",
+  declined: "signer_declined",
+};
+
+/** Each real change in a signer's progress is kept as evidence, once, even if the provider repeats it. */
+async function recordSignerEvidence(sb: Sb, tenantId: string, contractId: string, email: string, status: SignerStatus, at: string, reason?: string | null) {
+  const type = SIGNER_EVIDENCE[status];
+  if (!type) return;
+  await recordEvidenceSafe(sb, tenantId, contractId, {
+    evidence_type: type,
+    source: "provider",
+    signer_email: email,
+    provider: "documenso",
+    provider_event_id: `${email}:${status}`,
+    occurred_at: at,
+    detail: reason ? { reason } : {},
+  });
 }
 
 export async function loadSignatureView(sb: Sb, tenantId: string, contractId: string): Promise<{ signers: SignerRow[]; view: SignatureView; envelope: EnvelopeStatus } | null> {
@@ -108,6 +133,7 @@ export async function settleContractSignature(sb: Sb, tenantId: string, contract
 
   if (loaded.view.state === "completed" && loaded.signers.length > 0) {
     await sb.from("contracts").update({ signature_status: "completed", signature_completed_at: new Date().toISOString() }).eq("id", contractId).eq("tenant_id", tenantId);
+    await recordEvidenceSafe(sb, tenantId, contractId, { evidence_type: "envelope_completed", source: "provider", provider: "documenso", provider_event_id: "envelope_completed" });
     return { changedTo: "completed" };
   }
   if (loaded.view.state === "declined" && current !== "rejected") {

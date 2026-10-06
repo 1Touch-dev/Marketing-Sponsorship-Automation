@@ -6,6 +6,7 @@ import { generateFulfillmentTasks } from "@/lib/proposals/fulfillment-tasks";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
 import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 import { appendAllocationTasks, createContractAllocations } from "@/lib/allocations/store";
+import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -88,6 +89,19 @@ export async function POST(req: NextRequest) {
     try {
       const recorded = await createContractAllocations(sb, auth.user.tenant_id, data.id, body.proposal_id);
       if (recorded.ok) await appendAllocationTasks(sb, auth.user.tenant_id, body.proposal_id, data.id);
+
+      // First piece of the proof trail: exactly which frozen terms this contract is bound to.
+      if (recorded.ok && recorded.revisionId) {
+        const { data: rev } = await sb.from("proposal_revisions").select("checksum").eq("id", recorded.revisionId).maybeSingle();
+        await recordEvidenceSafe(sb, auth.user.tenant_id, data.id, {
+          evidence_type: "revision_bound",
+          source: "platform",
+          revision_id: recorded.revisionId,
+          revision_checksum: (rev as { checksum?: string } | null)?.checksum ?? null,
+          actor_user_id: auth.user.id,
+          actor_email: auth.user.email,
+        });
+      }
     } catch (err) {
       console.error("[contracts] allocation record failed", err);
     }

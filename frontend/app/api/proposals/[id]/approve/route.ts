@@ -11,6 +11,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
 import { approveRevision } from "@/lib/proposals/revision-store";
 import { guardActivationTerms } from "@/lib/proposals/approval-guard";
+import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
 
 export const runtime = "nodejs";
 
@@ -89,6 +90,27 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
         },
         { status: 409 },
       );
+    }
+
+    // "Mark as active" says the deal is signed. Record that as a claim by this
+    // person, never as proof: only signature evidence (the provider's record, or
+    // a second person verifying a signed document) turns it into proof.
+    const { data: linked } = await sb
+      .from("contracts")
+      .select("id")
+      .eq("proposal_id", parsed.data.proposal_id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (linked) {
+      await recordEvidenceSafe(sb, auth.user.tenant_id, (linked as { id: string }).id, {
+        evidence_type: "activation_claimed",
+        source: "manual",
+        actor_user_id: auth.user.id,
+        actor_email: auth.user.email,
+        detail: { comments: parsed.data.comments ?? null },
+      });
     }
   } else {
     await leaveActiveContractUnits(sb, auth.user.tenant_id, parsed.data.proposal_id, newStatus);

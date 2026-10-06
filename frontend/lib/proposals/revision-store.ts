@@ -96,22 +96,29 @@ export async function freezeRevision(
 
   const nextNumber = ((latest as { revision_number: number } | null)?.revision_number ?? 0) + 1;
   const total = quoteTotal(snapshot.lines);
-  const { data: inserted, error: insErr } = await sb
+  const row = {
+    tenant_id: tenantId,
+    proposal_id: proposalId,
+    revision_number: nextNumber,
+    content: snapshot.content,
+    lines: snapshot.lines,
+    total_brl: total,
+    currency: "BRL",
+    checksum,
+    reason: opts.reason,
+    created_by: opts.userId ?? null,
+  };
+  // The title is part of the checksum, so it is stored with the revision to let
+  // anyone recompute and re-verify it. Before migration 0055 the column does not
+  // exist; freezing must keep working, so retry without it.
+  let { data: inserted, error: insErr } = await sb
     .from("proposal_revisions")
-    .insert({
-      tenant_id: tenantId,
-      proposal_id: proposalId,
-      revision_number: nextNumber,
-      content: snapshot.content,
-      lines: snapshot.lines,
-      total_brl: total,
-      currency: "BRL",
-      checksum,
-      reason: opts.reason,
-      created_by: opts.userId ?? null,
-    })
+    .insert({ ...row, title: snapshot.title })
     .select("id, revision_number, checksum, total_brl")
     .single();
+  if (insErr && isMissingMigration(insErr) && /title/i.test(insErr.message ?? "")) {
+    ({ data: inserted, error: insErr } = await sb.from("proposal_revisions").insert(row).select("id, revision_number, checksum, total_brl").single());
+  }
   if (insErr || !inserted) {
     return isMissingMigration(insErr) ? { ok: false, skipped: "migration_missing" } : { ok: false, skipped: "error", error: insErr?.message };
   }

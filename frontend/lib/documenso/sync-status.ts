@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { getEnvelopeStatus, downloadSignedPdf } from "./client";
 import { applySignerEvent } from "@/lib/contracts/signers-store";
+import { recordEvidenceSafe, sha256Hex } from "@/lib/contracts/evidence-store";
 import { signerEventFromRecipient } from "@/lib/contracts/signature-state";
 
 const DOCUMENSO_TO_LOCAL: Record<string, string> = {
@@ -59,10 +60,29 @@ export async function syncContractSignatureStatus(
       if (!uploadError) {
         const { data: publicUrl } = bucket.getPublicUrl(path);
         updates.signed_pdf_url = publicUrl?.publicUrl ?? null;
+        // Keep the signed document's hash with the evidence, so the stored file
+        // can be re-checked later and any change to it shows.
+        await recordEvidenceSafe(sb, String((contract as { tenant_id: string }).tenant_id), contract.id, {
+          evidence_type: "signed_document",
+          source: "provider",
+          provider: "documenso",
+          provider_event_id: `signed_document:${contract.documenso_envelope_id}`,
+          document_sha256: sha256Hex(signedPdf),
+          document_path: path,
+          document_url: (updates.signed_pdf_url as string) ?? null,
+        });
       }
     } catch {
       // Non-fatal — retryable by polling/re-syncing again later.
     }
+
+    await recordEvidenceSafe(sb, String((contract as { tenant_id: string }).tenant_id), contract.id, {
+      evidence_type: "envelope_completed",
+      source: "provider",
+      provider: "documenso",
+      provider_event_id: "envelope_completed",
+      occurred_at: (updates.signature_completed_at as string) ?? undefined,
+    });
 
     await recordAudit({
       entity_type: "contract",
