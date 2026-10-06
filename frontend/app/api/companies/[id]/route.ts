@@ -4,6 +4,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { extractDomainFromWebsite } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { loadStage, recordQualification } from "@/lib/accounts/store";
+import { QUALIFYING_PIPELINE_STAGES } from "@/lib/accounts/stage";
 
 export const runtime = "nodejs";
 
@@ -57,6 +59,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // A person moving a card into a "real opportunity" column is a human decision, so it is
+  // recorded as a qualification (once). Moving it back does not undo it: revoke explicitly.
+  if (typeof updates.pipeline_stage === "string" && (QUALIFYING_PIPELINE_STAGES as readonly string[]).includes(updates.pipeline_stage)) {
+    const stage = await loadStage(sb, auth.user.tenant_id, params.id);
+    if (stage.ok && stage.value.stage !== "qualified") {
+      await recordQualification(sb, auth.user.tenant_id, params.id, {
+        decision: "qualified",
+        reason: `Moved to "${updates.pipeline_stage}" in the pipeline by ${auth.user.email}`,
+        actorEmail: auth.user.email,
+        actorUserId: auth.user.id,
+      });
+    }
+  }
 
   await recordAudit({
     entity_type: "company",

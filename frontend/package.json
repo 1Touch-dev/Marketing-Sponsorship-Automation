@@ -16,6 +16,7 @@
     "test:proof": "tsx --test tests/contract-proof.test.ts",
     "test:metrics": "tsx --test tests/metrics.test.ts",
     "test:claims": "tsx --test tests/claims.test.ts",
+    "test:accounts": "tsx --test tests/accounts.test.ts",
     "test:jersey-pipeline": "tsx --test tests/jersey-placement-prompts.test.ts tests/openai-renderer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

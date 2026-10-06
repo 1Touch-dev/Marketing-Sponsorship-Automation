@@ -13,6 +13,8 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit/log";
+import { loadCompanyIndex, existingEntity } from "@/lib/accounts/store";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 
 export const runtime = "nodejs";
 
@@ -52,9 +54,12 @@ export async function POST(req: Request) {
   const { company_name, contact_name, contact_email, contact_phone, message, niche } = parsed.data;
   const sb = supabaseAdmin();
 
-  const { data, error } = await sb
-    .from("companies")
-    .insert({
+  // An anonymous visitor must not overwrite or learn about an existing account, so an
+  // existing match is never edited or revealed: the new row is still created and is
+  // marked as a duplicate of it, for a person to review. The visitor sees the same response.
+  const { existing } = existingEntity({ company_name }, await loadCompanyIndex(sb, CORITIBA_TENANT_ID));
+
+  const leadRow = {
       company_name,
       contact_name: contact_name ?? null,
       contact_email,
@@ -63,11 +68,14 @@ export async function POST(req: Request) {
       pipeline_stage: "contact_lead",
       discovery_method: `landing_page:${niche}`,
       tags: [`landing:${niche}`],
-    })
-    .select("id")
-    .single();
+  };
+  let { data, error } = await sb.from("companies").insert((existing ? { ...leadRow, duplicate_of_id: existing.id } : leadRow) as never).select("id").single();
+  if (error && existing) {
+    // Registry columns not applied yet: save the lead without the marker rather than lose it.
+    ({ data, error } = await sb.from("companies").insert(leadRow).select("id").single());
+  }
 
-  if (error) return NextResponse.json({ error: "Could not save your submission — please try again." }, { status: 500 });
+  if (error || !data) return NextResponse.json({ error: "Could not save your submission — please try again." }, { status: 500 });
 
   await recordAudit({
     entity_type: "company",

@@ -153,13 +153,27 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T9-06 | Yash | Yash | `/coritiba-intelligence` and `/lei-de-incentivo` are functional but unstyled. | Restyle. | Open |
 | T9-07 | Tech debt | Abhishek | The page and API for the old `coritiba_metrics` table are retired (T8-08), but the table and its duplicate rows still exist. | Delete the table's rows, with your OK. | Open |
 
+### Task 10: three account stages and company structure (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T10-01 | **Decision** | James | **64 companies were marked "qualified" automatically** (labelled "grandfathered"): any company that already had a proposal, a contract or an advanced pipeline stage. The other 476 are directory entries, and none is "researched" yet. | Confirm that rule, or tell us which of the 64 are not real opportunities (they can be revoked one by one). | Open |
+| T10-02 | **Decision** | James | Dragging a card to an advanced pipeline column records a human qualification, but dragging it back does **not** revoke it. | Decide: leave it explicit (revoke with a reason), or revoke automatically. | Open |
+| T10-03 | **Data** | James | Duplicate review found **4 same-entity groups** (Mosaic and Tigre are real duplicates; two more are old test records) and **23 related groups** (for example Siemens / Siemens Energy, BASF / BASF Agro, WEG and its units). Nothing was merged or changed. | Someone links parents, marks duplicates, and (with your OK) removes the old test records (Banco Itaú Test, Athletico Partner, E2E ...). | Open |
+| T10-04 | Known limit | Abhishek | No company has a **CNPJ** yet, so the strongest signal (same legal entity) is unused. Name matching also misses relatives that share no first word, for example "Volvo CE" and "Volvo do Brasil", or "Sicredi Central PR/SP/RJ" and "Sicredi PR/SP/RJ". There is also no **merge tool**: records are only marked, because merging has to move proposals, contacts and emails. | A source for CNPJs; build merge when a person actually needs it. | Open |
+| T10-05 | Tech debt | Abhishek | The research agent's tools still save uncited blobs in `full_intelligence` (28 companies), not research records, so those accounts count as directory entries. | Write cited research records from the agent tools as part of Task 12 (research brief). | Open |
+| T10-06 | Test gap | Abhishek | The two agent creation paths (competitor discovery, product discovery) were **not run live** because they call the AI and Apify; their duplicate lookup is covered by unit tests only. | Run them once AI spend is back on. | Open |
+| T10-07 | Yash | Yash | No screens: stage badge and filter (the Pipeline board still lists all 540 companies), a qualify button with a reason, a research form with citations, the duplicate-review screen, the parent/subsidiary tree. | Design and wire; every action has an API route. | Open |
+| T10-08 | Tech debt | Abhishek | Existing drift: `status` and `pipeline_stage` disagree on 9 companies, and the pipeline's own "Qualified" column shares a name with the new "qualified" account stage. | Retire one of the two stage fields. | Open |
+| T10-09 | Known limit | Abhishek | The public lead form always writes to the Coritiba tenant, and a matching lead is only marked as a duplicate, never merged. | Tenant routing for public forms (Phase 4). | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 10, 11 Company stages, multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
+| 11 Multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
 | 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |
 | 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |
 | 15–17 Project types, obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |

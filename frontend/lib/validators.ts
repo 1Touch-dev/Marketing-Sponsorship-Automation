@@ -14,6 +14,12 @@ export const companyCreateSchema = z.object({
   contact_name: z.string().max(200).optional().nullable(),
   contact_email: z.string().email().optional().or(z.literal("")).nullable(),
   contact_phone: z.string().max(50).optional().nullable(),
+  /** Task 10 — structure. cnpj has 14 digits (punctuation allowed); a parent makes this a subsidiary, never a duplicate. */
+  cnpj: z.string().max(30).optional().nullable(),
+  parent_company_id: z.string().uuid().optional().nullable(),
+  relationship_to_parent: z.enum(["subsidiary", "division", "operation", "brand", "branch"]).optional().nullable(),
+  /** Set to create anyway after being told a likely duplicate exists. */
+  confirm_distinct: z.boolean().optional(),
 });
 export type CompanyCreateInput = z.infer<typeof companyCreateSchema>;
 

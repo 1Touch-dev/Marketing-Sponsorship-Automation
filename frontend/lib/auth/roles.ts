@@ -70,6 +70,10 @@ const PERMISSIONS = {
   edit_claim:        ["admin", "sales_rep"] as UserRole[],
   review_claim:      ["admin", "approver"] as UserRole[],
 
+  // Deciding that an account is a real sales opportunity. Only a signed-in
+  // person can; agents research, they never qualify.
+  qualify_company:   ["admin", "sales_rep"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],
