@@ -23,11 +23,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   failed: { label: "Failed", color: "text-red-600 bg-red-50 dark:bg-red-900/30", icon: XCircle },
 };
 
-export function AssetLibraryClient({ assets, proposals, companies, campaigns }: {
+export function AssetLibraryClient({ assets, proposals, companies, campaigns, loadError = null }: {
   assets: Asset[];
   proposals: Array<{ id: string; title: string }>;
   companies: Array<{ id: string; company_name: string }>;
   campaigns: Array<{ id: string; title: string; company_id: string | null }>;
+  loadError?: string | null;
 }) {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -60,21 +61,37 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
   async function bulkAction(action: "approved" | "archived" | "rejected") {
     setBulkUpdating(true);
     try {
-      await Promise.all(selected.map(id =>
+      const results = await Promise.all(selected.map(id =>
         fetch("/api/assets", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status: action }) })
       ));
+      if (results.some((res) => !res.ok)) {
+        toast({ variant: "destructive", title: "Could not update these assets" });
+        return;
+      }
       toast({ variant: "success", title: `${selected.length} assets ${action}` });
       clearSelection();
       setTimeout(() => window.location.reload(), 800);
+    } catch {
+      toast({ variant: "destructive", title: "Could not update these assets" });
     } finally { setBulkUpdating(false); }
   }
 
   async function updateAsset(id: string, updates: Record<string, unknown>) {
     setUpdating(id);
     try {
-      await fetch("/api/assets", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...updates }) });
+      const res = await fetch("/api/assets", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...updates }) });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+        toast({
+          variant: "destructive",
+          title: typeof body.error === "string" ? body.error : "Could not update this asset",
+        });
+        return;
+      }
       toast({ variant: "success", title: "Updated" });
       setTimeout(() => window.location.reload(), 800);
+    } catch {
+      toast({ variant: "destructive", title: "Could not update this asset" });
     } finally { setUpdating(null); }
   }
 
@@ -254,7 +271,12 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns }: 
         })}
       </div>
 
-      {filtered.length === 0 && (
+      {loadError ? (
+        <div className="text-center py-16">
+          <p className="text-sm text-destructive">Couldn&apos;t load assets</p>
+          <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+        </div>
+      ) : filtered.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <ImageIcon className="h-12 w-12 mx-auto mb-3 opacity-20" aria-hidden="true" />
           <p className="text-sm">No assets found.</p>

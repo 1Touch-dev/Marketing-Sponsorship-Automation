@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Star, User } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 
 type Profile = { id: string; full_name: string; title: string | null; email: string; phone: string | null; linkedin_url: string | null; html_signature: string | null; is_default: boolean };
 
-export function SenderProfilesClient({ initialProfiles }: { initialProfiles: Profile[] }) {
+export function SenderProfilesClient({
+  initialProfiles,
+  loadError = null,
+}: {
+  initialProfiles: Profile[];
+  loadError?: string | null;
+}) {
   const [profiles, setProfiles] = useState(initialProfiles);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,7 +44,9 @@ export function SenderProfilesClient({ initialProfiles }: { initialProfiles: Pro
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="space-y-2">
-        {profiles.length === 0 && !showForm && (
+        {loadError ? (
+          <EmptyState title="Couldn't load sender identities" description={loadError} />
+        ) : profiles.length === 0 && !showForm && (
           <div className="rounded-xl border bg-card p-8 text-center">
             <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">No sender profiles yet. Add team members who send outreach emails.</p>

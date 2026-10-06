@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
 import { Users, Plus, Pencil, Trash2, Star, StarOff, X, Mail, Phone, CheckCircle2 } from "lucide-react";
+import { EmptyState } from "@/components/shared/empty-state";
 
 type Member = Record<string, unknown>;
 
@@ -123,7 +124,13 @@ function MemberForm({
   );
 }
 
-export function TeamMembersManager({ initialMembers }: { initialMembers: Member[] }) {
+export function TeamMembersManager({
+  initialMembers,
+  loadError = null,
+}: {
+  initialMembers: Member[];
+  loadError?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [members, setMembers] = useState<Member[]>(initialMembers);
@@ -219,7 +226,9 @@ export function TeamMembersManager({ initialMembers }: { initialMembers: Member[
 
       {/* List */}
       <div className="space-y-3">
-        {members.length === 0 && (
+        {loadError ? (
+          <EmptyState title="Couldn't load teammates" description={loadError} />
+        ) : members.length === 0 && (
           <div className="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center">
             <Users className="h-8 w-8 text-slate-300 mx-auto mb-3" />
             <p className="text-sm text-slate-500">No team members yet.</p>

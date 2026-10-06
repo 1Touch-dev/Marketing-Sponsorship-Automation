@@ -52,7 +52,7 @@ export default async function AssetsPage() {
         }
       />
 
-      {/* Stats bar */}
+      {!jobsError && (
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
           { label: "Total Assets", value: (jobs ?? []).length, color: "bg-slate-500" },
@@ -70,12 +70,14 @@ export default async function AssetsPage() {
           </div>
         ))}
       </div>
+      )}
 
       <AssetLibraryClient
-        assets={(jobs ?? []) as unknown as Asset[]}
+        assets={jobsError ? [] : (jobs ?? []) as unknown as Asset[]}
         proposals={(proposals ?? []) as Array<{ id: string; title: string }>}
         companies={(companies ?? []) as Array<{ id: string; company_name: string }>}
         campaigns={(campaigns ?? []) as Array<{ id: string; title: string; company_id: string | null }>}
+        loadError={jobsError?.message ?? null}
       />
     </>
   );
