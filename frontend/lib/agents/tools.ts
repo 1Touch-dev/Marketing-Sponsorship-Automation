@@ -4,6 +4,8 @@
  * All tools are non-throwing — they return { success, data, error } objects.
  */
 
+import { loadOutreachContext, stampEmail } from "@/lib/playbooks/store";
+import { checkPlaybook } from "@/lib/playbooks/definitions";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { searchDomain } from "@/lib/intelligence/hunter";
 import { enrichCompanyApollo } from "@/lib/intelligence/apollo";
@@ -328,6 +330,13 @@ export async function toolGenerateOutreachEmail(input: {
     const company = (proposal as unknown as { companies: Record<string, unknown> | null }).companies;
     if (!company) return { success: false, data: {}, summary: "Company not found on proposal" };
 
+    // An agent may only pitch an account a person has qualified. Checked before any AI call.
+    const outreachCtx = await loadOutreachContext(sb, tenantId, String(company.id));
+    if (outreachCtx) {
+      const verdict = checkPlaybook({ playbook: "pitch", stage: outreachCtx.stage, firstTouch: outreachCtx.firstTouch, hasApprovedProposal: true, actor: { kind: "agent", name: "outreach-agent" } });
+      if (!verdict.allowed) return { success: false, data: { blocked: true }, summary: `Not drafting a pitch: ${verdict.reason}` };
+    }
+
     const content = proposal.content as Record<string, string> | null;
     const summary =
       content?.executive_summary || content?.campaign_rationale || proposal.title;
@@ -351,7 +360,7 @@ export async function toolGenerateOutreachEmail(input: {
     let emailOutput: { subject: string; body_text: string; body_html?: string | null } | null = null;
     let templateMeta: Record<string, unknown> = {};
 
-    const emailTemplate = await loadDefaultEmailTemplate();
+    const emailTemplate = await loadDefaultEmailTemplate(tenantId);
     if (emailTemplate) {
       const templated = await generateEmailWithTemplate({
         template: emailTemplate,
@@ -427,6 +436,7 @@ export async function toolGenerateOutreachEmail(input: {
     if (!emailRow) {
       return { success: false, data: {}, summary: "Failed to save email to database" };
     }
+    if (outreachCtx) await stampEmail(sb, tenantId, emailRow.id as string, { companyId: outreachCtx.company.id, playbook: "pitch" });
 
     const preview = emailOutput.body_text.slice(0, 150).replace(/\n/g, " ") + "…";
 

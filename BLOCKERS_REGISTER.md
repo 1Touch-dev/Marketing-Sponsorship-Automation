@@ -8,13 +8,13 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 106** (counted from the tables below; refresh after each task)
+**Open items right now: 114** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 52 |
-| James | 34 |
-| Yash | 13 |
+| Abhishek | 55 |
+| James | 38 |
+| Yash | 14 |
 | Yash / James | 3 |
 | James / the club | 3 |
 | James / Yash | 1 |
@@ -22,16 +22,16 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | Type | Open |
 |---|---|
 | Tech debt | 25 |
-| Decision | 22 |
-| Yash | 11 |
-| Test gap | 9 |
-| Account | 8 |
+| Decision | 24 |
+| Yash | 12 |
+| Test gap | 10 |
+| Account | 9 |
 | Deploy | 7 |
+| Data | 6 |
 | Content | 6 |
 | Security | 5 |
-| Data | 5 |
-| Known limit | 4 |
-| Behaviour | 3 |
+| Known limit | 5 |
+| Behaviour | 4 |
 | Removed | 1 |
 
 Use this to plan the final sweep: James and Yash items need their input, Abhishek items can be done in one pass.
@@ -221,6 +221,19 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T12-07 | Known limit | Abhishek | The brief shapes the prompt, but nothing checks that the generated text kept the "unverified" items out of its claims. The unsourced-figure scan (Task 8) only catches numbers. | A check for unverified claims in generated text, with the evaluation gates (Task 30). | Open |
 | T12-08 | Deploy | Abhishek | **Every copy of the app needs the new Anthropic key.** The test copy of the app on this box still had the old, disabled key and failed with "organization disabled" until I synced it. Yash's dev setup or any other server copied before 5 Oct may have the same problem. | Check the key in each environment. | Open |
 
+### Task 13: relationship-first playbooks (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T13-01 | **Decision** | James | The default first contact with an account **nobody has qualified is a conversation**, even when a proposal is ready. A person can still choose a pitch (it is recorded). | Confirm this default. | Open |
+| T13-02 | **Decision** | James | I added an **introduction** playbook (introduce a club programme) beside conversation and invitation; the task document names only the first two. | Keep it, or drop it. | Open |
+| T13-03 | Yash | Yash | No screens: a playbook picker on the company page, the detail field for an invitation or introduction, and the playbook plus override note on the approval card. The Approvals list shows "—" for the company on relationship emails, because it reads the company through the proposal; `emails.company_id` now exists to read instead. | Design and wire; both routes are ready. | Open |
+| T13-04 | Behaviour | James | Follow-up emails and the email sequences and warm-up templates (including "Pitch relacional") are not covered by playbooks. A sequence's first step can still be a pitch to an unqualified account. | Decide whether sequences should follow the same first-touch rule. | Open |
+| T13-05 | Known limit | Abhishek | "First touch" means no email to the company has been marked sent. Sending only logs to the CRM today (X-10), so the flag is only as true as that. | Real sending (X-10). | Open |
+| T13-06 | Data | James | 15 outbound emails (May to August, test recipients) have **no proposal and no company**, and 7 of them sit in the approval queue. | Delete them, with your OK. | Open |
+| T13-07 | Account | Abhishek | **Other tenants have no email templates and no default sender**, so they get generic text until set up. All 17 templates belong to Coritiba. | A tenant onboarding step for templates and the sender. | Open |
+| T13-08 | Test gap | Abhishek | The introduction playbook and the "first touch flips after a real send" case were not run live (the second needs real sending). Both are unit tested. | Run both once sending works. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
@@ -258,3 +271,6 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | Agents able to create sales deals on their own | 7 Oct (Tasks 10, 11): qualification and opportunities need a person or one named rule, enforced in the database |
 | Second-person rule tested with only one login | 6 Oct (Task 8, T8-11): tested live with two real logins |
 | Agents writing a pitch for a sponsor nobody has spoken to | 7 Oct (Task 12): generation is refused until a person has written a brief, before any AI call is made |
+| Email signed with another club's team member | 7 Oct (Task 13): the default sender lookup is now scoped to the tenant; verified on real data |
+| Another club's pitch built from Coritiba's email templates (and any template loadable by id across tenants) | 7 Oct (Task 13): all three template lookups are scoped to the tenant; verified on real data |
+| An agent pitching an account no person has qualified | 7 Oct (Task 13): refused before any AI call; allowed once a person qualifies it |

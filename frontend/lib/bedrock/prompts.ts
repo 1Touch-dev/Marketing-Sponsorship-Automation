@@ -1,5 +1,5 @@
 /**
- * Centralised prompt templates — v5.2.0
+ * Centralised prompt templates — v5.3.0
  *
  * PROMPT_VERSION is bumped whenever a prompt changes so that
  * campaigns / proposals / emails can record which prompt generated them.
@@ -20,11 +20,16 @@
  *  - Task 8: club figures (followers, attendance...) are no longer written into
  *    the club context. The model may state only the VERIFIED CLUB FIGURES block
  *    built from the claims registry (lib/claims); with none, it stays qualitative.
+ *
+ * v5.3.0:
+ *  - Task 12: proposalPrompt accepts the buyer brief block (lib/briefs).
+ *  - Task 13: relationship-first emails (lib/playbooks) are a separate prompt, with
+ *    no proposal, link or price; version recorded on those emails too.
  */
 
 import { verifiedClaimsPromptBlock } from "../claims/sponsor-claims";
 
-export const PROMPT_VERSION = "v5.2.0" as const;
+export const PROMPT_VERSION = "v5.3.0" as const;
 
 /** Phase 2 — tone control per email flow. */
 export type EmailTone = "warm" | "formal" | "urgent";

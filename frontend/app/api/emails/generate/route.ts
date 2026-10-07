@@ -1,3 +1,5 @@
+import { loadOutreachContext, stampEmail } from "@/lib/playbooks/store";
+import { checkPlaybook } from "@/lib/playbooks/definitions";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
     content?.campaign_rationale ||
     proposal.title;
 
-  const { senderName, senderTitle } = await resolveDefaultSender(sb);
+  const { senderName, senderTitle } = await resolveDefaultSender(sb, auth.user.tenant_id);
   const companyName = String(company.company_name ?? "");
   const contactName = parsed.data.contact_name?.trim() || "Prezado(a)";
   const proposalLink = proposal.share_token
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
 
   const flowType = parsed.data.flow_type ?? "intro";
 
-  const emailTemplate = await loadEmailTemplateForFlow(flowType, parsed.data.template_id);
+  const emailTemplate = await loadEmailTemplateForFlow(auth.user.tenant_id, flowType, parsed.data.template_id);
   if (emailTemplate) {
     const templated = await generateEmailWithTemplate({
       template: emailTemplate,
@@ -234,6 +236,16 @@ export async function POST(req: Request) {
   if (insErr || !row) {
     if (eventId) await failWorkflow(eventId, insErr?.message ?? "Insert failed");
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
+  }
+
+  // Record that this was a pitch, and why, when a person chose it as the first contact
+  // with an account nobody has qualified (the default would have been a conversation).
+  {
+    const oc = await loadOutreachContext(sb, auth.user.tenant_id, String(company.id));
+    if (oc) {
+      const chk = checkPlaybook({ playbook: "pitch", stage: oc.stage, firstTouch: oc.firstTouch, hasApprovedProposal: true, actor: { kind: "human", email: auth.user.email } });
+      await stampEmail(sb, auth.user.tenant_id, row.id, { companyId: oc.company.id, playbook: "pitch", note: chk.note ?? null });
+    }
   }
 
   // Inject tracking pixel and wrap links now that we have the email ID
