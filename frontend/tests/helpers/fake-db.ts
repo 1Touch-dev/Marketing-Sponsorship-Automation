@@ -16,6 +16,8 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
       eq: (col: string, v: any) => { filters.push((r) => absent(r, col) || r[col] === v); return c; },
       in: (col: string, vs: any[]) => { filters.push((r) => absent(r, col) || vs.includes(r[col])); return c; },
       is: (col: string, v: any) => { filters.push((r) => (r[col] ?? null) === v); return c; },
+      gte: (col: string, v: any) => { filters.push((r) => absent(r, col) || r[col] >= v); return c; },
+      lte: (col: string, v: any) => { filters.push((r) => absent(r, col) || r[col] <= v); return c; },
       or: (expr: string) => { const parts = expr.split(",").map((p) => p.split(".")); filters.push((r) => parts.some(([col, , v]) => r[col] === v)); return c; },
       order: () => c, limit: (m: number) => { max = m; return c; },
       maybeSingle: async () => (gone ? { data: null, error: gone } : { data: rows()[0] ?? null, error: null }),

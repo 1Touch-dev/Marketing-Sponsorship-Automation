@@ -29,6 +29,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
 import { carryAllocationsToRenewal } from "@/lib/allocations/store";
+import { renewalBasis } from "@/lib/recap/store";
 import type { ProposalContent } from "@/types/database";
 
 const CRITICAL_DAYS = 15;
@@ -133,12 +134,27 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
       continue;
     }
 
+    // The renewal case comes from the reconciled recap, never from general enthusiasm: no proven delivery,
+    // no AI call. Where recaps are not set up yet the old behaviour stands.
+    const basis = await renewalBasis(sb, state.tenantId, contract.id);
+    if (basis.ok && basis.value.recommendation.tier === "insufficient_evidence") {
+      skipped.push({ contractId: contract.id, reason: `No proven delivery to build a renewal on (${basis.value.recommendation.reasons.join("; ")}). Record delivery and proof first, or write the renewal by hand.` });
+      continue;
+    }
+    if (!basis.ok && basis.status !== 503) {
+      skipped.push({ contractId: contract.id, reason: `The delivery recap could not be built: ${basis.error}` });
+      continue;
+    }
+    const recapNote = basis.ok
+      ? `Frame the proposal around continuity, using ONLY the delivery record below; do not describe results it does not contain.\n${basis.value.promptBlock}`
+      : "Frame the proposal around continuity and the results already delivered, not a first-time pitch.";
+
     const valueNote = contract.total_value_brl
       ? `The prior contract was worth R$ ${Number(contract.total_value_brl).toLocaleString("pt-BR")}.`
       : "The prior contract's value is not on file — do not invent a figure.";
     const campaignCtx = {
       title: `Renovação — ${company.company_name}`,
-      summary: `This is a RENEWAL of an existing sponsorship (deal type: ${contract.deal_type ?? "sponsorship"}), expiring ${contract.end_date}. ${valueNote} Frame the proposal around continuity and the results already delivered, not a first-time pitch.`,
+      summary: `This is a RENEWAL of an existing sponsorship (deal type: ${contract.deal_type ?? "sponsorship"}), expiring ${contract.end_date}. ${valueNote} ${recapNote}`,
       activation: null,
       cta: "Confirmar renovação antes do vencimento do contrato atual.",
     };
@@ -187,7 +203,7 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
           cta: campaignCtx.cta,
           generated_by: "renewal-agent",
           status: "draft",
-          raw_output: { renewal_of_contract_id: contract.id },
+          raw_output: { renewal_of_contract_id: contract.id, ...(basis.ok ? { recap_tier: basis.value.recommendation.tier, recap_checksum: basis.value.checksum } : {}) },
         })
         .select("id")
         .single();

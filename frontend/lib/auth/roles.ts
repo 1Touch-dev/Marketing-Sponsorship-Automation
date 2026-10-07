@@ -88,6 +88,7 @@ const PERMISSIONS = {
   manage_obligations: ["admin", "sales_rep"] as UserRole[],
   manage_value_lines: ["admin", "sales_rep"] as UserRole[],
   manage_finance:    ["admin"] as UserRole[],
+  issue_recap:       ["admin", "approver"] as UserRole[],
 
   // System
   manage_users:      ["admin"] as UserRole[],

@@ -8,27 +8,27 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 152** (counted from the tables below; refresh after each task)
+**Open items right now: 159** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 66 |
-| James | 58 |
-| Yash | 19 |
+| Abhishek | 68 |
+| James | 62 |
+| Yash | 20 |
 | Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 43 |
+| Decision | 46 |
 | Tech debt | 27 |
-| Yash | 17 |
+| Yash | 18 |
 | Test gap | 11 |
 | Account | 9 |
-| Known limit | 13 |
+| Known limit | 15 |
 | Deploy | 7 |
-| Data | 9 |
+| Data | 10 |
 | Content | 6 |
 | Security | 5 |
 | Behaviour | 4 |
@@ -301,13 +301,26 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T18-08 | Data | James | **No money is recorded anywhere yet.** The two real active contracts have no total value and no lines, and the one real barter wishlist item is not linked to anything. The platform shows zero, not an estimate. | Give the instalments and barter terms of the real contracts, with your OK to enter them. | Open |
 | T18-09 | Known limit | Abhishek | **BRL only** (no currency conversion). Lines are entered by hand, not generated from a proposal's package price. Receiving barter does not mark the wishlist item as obtained. There are **no refunds or credit notes**: a line can be voided only before anything is received. | Extend when a second currency, instalment plans or refunds are needed. | Open |
 
+
+### Task 19: sponsor recap reconciliation (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T19-01 | **Decision** | James | **What makes a recap "complete"?** As built: after the contract ends, nothing overdue and nothing marked delivered without proof. Other gaps (not yet accepted, reach not recorded, signature not proven, no money recorded) are listed but do not stop a recap being called complete. | Confirm, or say which of those gaps should also hold it back. | Open |
+| T19-02 | **Decision** | James | **How strong a renewal case needs to be before an agent drafts one.** As built: a strong case is 90% or more of commitments delivered with proof, no blocking gap and at least one measured result; a supported case is 50% or more; below that **the renewal agent writes nothing and makes no AI call**. A person can still write the renewal by hand. | Confirm the thresholds, or allow a draft anyway with a warning. | Open |
+| T19-03 | **Decision** | James | Who may **issue** a recap: an admin or an approver. Issuing records an immutable numbered version with its gaps and the issuer's written acknowledgement; **it does not send anything** to the sponsor. | Confirm who issues, and whether issuing should also notify the sponsor (needs the portal, Task 21, or the email provider, X-10). | Open |
+| T19-04 | Yash | Yash | No screens: the recap per contract (the funnel from sold to accepted, the gap list with what fixes each, measured and modeled in visibly separate panels), an issue dialog asking for the acknowledgement, and the list of issued versions. A sponsor-facing recap needs the portal (Task 21). All have API routes. | Design and wire. | Open |
+| T19-05 | Data | James | **No match or reach is recorded at all** (0 matches, 0 reach rows), so every real recap would say it has no outcome data. Reach counts only with a stated source. | Name who records reach per match, and the source to cite (analytics export, broadcaster report). | Open |
+| T19-06 | Known limit | Abhishek | Delivery is yes or no: **partial delivery** (18 of 25 home matches) is not tracked. Measured results are reach only; leads, sales and engagement are not. Reach is attributed to a contract by its date range, not to individual items. | Add counted delivery and other result types when James names them. | Open |
+| T19-07 | Known limit | Abhishek | The monthly **Reporting Agent** (sponsor report emails from reach) is unchanged: it does not yet carry the recap's gaps. Estimates inside a proposal's own text are checked by the claims scanner (Task 8), not listed in the recap; only strategy reach estimates are. | Feed the recap into the report emails when the email provider exists. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
+| 20 Company statuses | Reads tasks 11, 16 and 19 (all built); needs Yash's company page to show them. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
 | 22 Task source of truth | Blocked on X-13. | Yash |
 | 23, 25 Identity and approver recovery | Needs user-lifecycle data (who leaves, when). | James |
@@ -342,6 +355,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
 | A signed commitment ended as a loose, unowned, undated checklist inside the proposal | 7 Oct (Task 16): every sold item and onboarding step becomes an owned, dated obligation linked to its allocation, with proof recorded and a project that finishes on proof |
 | Delivery projects created by hand, and completed on a ticked box | 7 Oct (Task 16): created by the handoff; completion needs proof (T15-05 and T15-06 cleared) |
+| A sponsor told about results nobody measured; a renewal pitched on enthusiasm, not on proven delivery | 7 Oct (Task 19): measured results need a stated source and stay apart from modeled estimates (enforced in the database); every missing proof is a named gap; a renewal is drafted only from the reconciled recap, and with no proven delivery no AI call is made |
 | Barter value able to read as revenue, and a draft deal able to be counted as money; no split of a contract's one number | 7 Oct (Task 18): cash, barter and savings kept apart and never summed; drafts and proposals refused as revenue in the database; a proposed line becomes contracted as the same row (the rules James has not chosen are settings with conservative defaults, see T18-01 to T18-06) |
 | A date moved with one silent field update: no record, no view of what depended on it | 7 Oct (Task 17): every move is a recorded, reasoned, attributed change with the downstream work and owners it affected; a conflicting move is refused unless acknowledged (T15-07 and T16-09 cleared) |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
