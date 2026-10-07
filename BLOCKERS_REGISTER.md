@@ -8,25 +8,25 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 124** (counted from the tables below; refresh after each task)
+**Open items right now: 132** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 59 |
-| James | 42 |
-| Yash | 15 |
-| Yash / James | 4 |
+| Abhishek | 63 |
+| James | 44 |
+| Yash | 16 |
+| Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 27 |
+| Decision | 30 |
 | Tech debt | 26 |
-| Yash | 13 |
+| Yash | 14 |
 | Test gap | 11 |
 | Account | 9 |
-| Known limit | 8 |
+| Known limit | 12 |
 | Deploy | 7 |
 | Data | 7 |
 | Content | 6 |
@@ -249,13 +249,27 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T14-09 | Known limit | Abhishek | Authorization applies to the **person an email is signed as**, not to the user who clicks send, and platform users are not linked to team members. All emails go out from one Gmail address (none uses a sender profile). | Link users to team members when the real provider and sender addresses exist. | Open |
 | T14-10 | Data | James | None of the 22 contacts has a role or a verified address, and 4 team members are test records. | Fill in roles; delete the test members and the other test data with your OK. | Open |
 
+
+### Task 15: commercial vs delivery projects (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T15-01 | **Decision** | James | Starting a delivery project on a contract whose signature is only claimed (no evidence recorded, see T6-02) is **allowed with a warning**. It could instead be refused until the signature is proven. | Choose: warn (current) or refuse. | Open |
+| T15-02 | **Decision** | James | Completion rules as built. Sales project: the deal must be won, lost or closed, and the outcome written (10+ characters). Delivery project: contract active, completed or expired, every delivery task done, and the period over (or a written reason for ending early). | Confirm, or change what counts as finished. | Open |
+| T15-03 | Yash | Yash | No screens: project list and detail per type, the required fields per type (from `/api/projects/types`), the start / pause / resume / complete / cancel buttons with the reason boxes, and the blocker list that explains why a project cannot be completed. All have API routes. | Design and wire. | Open |
+| T15-04 | **Decision** | Yash / James | Each project can carry a pointer to an outside task system (system name and id, unique). Nothing reads or writes that system yet. | Settle X-13 (which system runs day-to-day tasks); then sync. | Open |
+| T15-05 | Known limit | Abhishek | **Delivery completion reads the task list stored inside the proposal** until obligations replace it. | Task 16 (contract-to-obligation handoff). | Open |
+| T15-06 | Known limit | Abhishek | **Nothing creates delivery projects automatically.** A person creates each one. | Task 16. | Open |
+| T15-07 | Known limit | Abhishek | A project's type, links and dates cannot be changed. A wrong date means cancelling and creating another; the owner and next action can be edited. | Task 17 adds a recorded date change. | Open |
+| T15-08 | Known limit | Abhishek | An active contract with no proposal behind it (T11-03) has no task list, so its delivery project can only complete when the period ends. | Task 16 obligations; or link the contract to its proposal. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 15–17 Project types, obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |
+| 16–17 Obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |
 | 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
 | 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
@@ -288,5 +302,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | Email signed with another club's team member | 7 Oct (Task 13): the default sender lookup is now scoped to the tenant; verified on real data |
 | Another club's pitch built from Coritiba's email templates (and any template loadable by id across tenants) | 7 Oct (Task 13): all three template lookups are scoped to the tenant; verified on real data |
 | An agent pitching an account no person has qualified | 7 Oct (Task 13): refused before any AI call; allowed once a person qualifies it |
+| No way to tell a sales project from a delivery project, or to see what finishes each | 7 Oct (Task 15): two project types with their own required fields and completion checks, enforced in the database; status derived from an append-only event history |
+| A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |

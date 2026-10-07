@@ -83,6 +83,9 @@ const PERMISSIONS = {
   suppress_contact:  ["admin", "sales_rep", "approver"] as UserRole[],
   lift_suppression:  ["admin"] as UserRole[],
 
+  // Commercial and delivery projects (Task 15).
+  manage_projects:   ["admin", "sales_rep"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],
