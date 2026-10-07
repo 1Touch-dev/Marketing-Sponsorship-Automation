@@ -1,3 +1,4 @@
+import { attachNewProposal } from "@/lib/opportunities/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
@@ -221,6 +222,14 @@ export async function POST(req: Request) {
     const { data: proposal, error } = await sb.from("proposals").insert(proposalRow as never).select("id").single();
 
     if (error) throw new Error(error.message);
+
+    // Put the proposal under an opportunity of this company (a person's proposal opens one if needed).
+    if (proposal?.id) {
+      await attachNewProposal(sb, auth.user.tenant_id, body.company_id, proposal.id, {
+        proposalType: body.proposal_type,
+        actor: { kind: "human", email: auth.user.email, userId: auth.user.id },
+      });
+    }
 
     // Save individual inventory line items if selected
     if (inventoryLines.length > 0 && proposal?.id) {

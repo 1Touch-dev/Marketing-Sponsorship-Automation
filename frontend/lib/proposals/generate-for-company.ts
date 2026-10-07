@@ -3,6 +3,8 @@
  * Uses enrichment + intelligence already stored on the company record.
  */
 
+import { attachNewProposal } from "@/lib/opportunities/store";
+import type { Actor } from "@/lib/opportunities/model";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
@@ -83,7 +85,9 @@ function buildIntelligenceContext(intel: Record<string, unknown>): string {
  * Creates a fresh AI proposal tailored to one company. Saved as under_review for human approval.
  */
 export async function generatePersonalizedProposalForCompany(
-  companyId: string
+  companyId: string,
+  /** Who asked for this proposal. An agent never opens an opportunity; a person's request does. */
+  actor: Actor = { kind: "agent", name: "bedrock-claude-agent" },
 ): Promise<GeneratedProposal> {
   const sb = supabaseAdmin();
   const env = serverEnv();
@@ -240,6 +244,8 @@ export async function generatePersonalizedProposalForCompany(
     content: proposalContent as unknown as ProposalContent,
     content_md: contentMd,
   });
+
+  await attachNewProposal(sb, tenantId, companyId, proposal.id, { actor });
 
   await recordAudit({
     action: "proposal.agent_generated",

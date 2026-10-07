@@ -167,13 +167,24 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T10-08 | Tech debt | Abhishek | Existing drift: `status` and `pipeline_stage` disagree on 9 companies, and the pipeline's own "Qualified" column shares a name with the new "qualified" account stage. | Retire one of the two stage fields. | Open |
 | T10-09 | Known limit | Abhishek | The public lead form always writes to the Coritiba tenant, and a matching lead is only marked as a duplicate, never merged. | Tenant routing for public forms (Phase 4). | Open |
 
+### Task 11: multiple opportunities per account (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T11-01 | **Decision** | James | **How were the 138 existing proposals grouped?** One opportunity per company and kind: 73 opportunities (62 cash, 5 barter, 3 incentive, 3 hybrid), 8 companies with more than one. Ten proposals for one company could really be one deal or several. | Confirm the rule, or say how to split (for example by Pipedrive deal). Proposals can be moved one by one in the meantime. | Open |
+| T11-02 | **Decision** | Yash / James | Pipedrive still creates **one deal per proposal** (42 deals for 138 proposals). Opportunities have a deal-id column, left empty. | Decide with X-14 whether Pipedrive should get one deal per opportunity. | Open |
+| T11-03 | **Data** | James | **One of the two active contracts has no proposal and no company**, so it belongs to no opportunity and cannot be linked. Related to T6-06 and T7-04. | Attach it to its company and proposal, or void it. | Open |
+| T11-04 | Yash | Yash | No screens: an opportunities list on the company page, an "open opportunity" button, moving a proposal, close and reopen, and a list of proposals with no opportunity. The Pipeline board is still one card per company (all 540). | Design and wire; every action has an API route. | Open |
+| T11-05 | Behaviour | James | A proposal an **agent** generates with no open opportunity stays unattached (it never opens a deal). None exist today, but a review list is needed once agents run in volume. | Decide who reviews unattached proposals. | Open |
+| T11-06 | Decision | James | Proposal types for creators, grants and exhibitor packages (nil, grant/ESG, exhibitor) currently map to kind "other". | Say whether they need kinds of their own. | Open |
+| T11-07 | Test gap | Abhishek | The AI proposal routes (wizard, generate, generate-for-company, renewal agent) were not run live because they call the AI. The attach code they use was run against the real database through the library, and each route is unit-tested at the call site. | Run one generation per route when AI spend is back on. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 11 Multiple opportunities | Interacts with the CRM direction (X-14); Pipedrive deals are the current canonical opportunity. | Yash / James |
 | 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |
 | 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |
 | 15–17 Project types, obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |

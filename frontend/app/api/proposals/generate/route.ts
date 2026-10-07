@@ -1,3 +1,4 @@
+import { attachNewProposal } from "@/lib/opportunities/store";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -284,6 +285,11 @@ export async function POST(req: Request) {
     version: 1,
     content: proposalContent as unknown as ProposalContent,
     content_md: contentMd,
+  });
+
+  await attachNewProposal(sb, auth.user.tenant_id, company.id, proposal.id, {
+    proposalType: (proposal as { proposal_type?: string | null }).proposal_type,
+    actor: { kind: "human", email: auth.user.email, userId: auth.user.id },
   });
 
   if (intelligence && company.id) {

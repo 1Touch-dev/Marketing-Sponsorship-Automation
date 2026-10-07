@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await generatePersonalizedProposalForCompany(parsed.data.company_id);
+    const result = await generatePersonalizedProposalForCompany(parsed.data.company_id, { kind: "human", email: auth.user.email, userId: auth.user.id });
     return NextResponse.json({ data: result });
   } catch (err) {
     return NextResponse.json(

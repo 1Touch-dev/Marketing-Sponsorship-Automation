@@ -20,6 +20,7 @@
  * are separate, self-contained LangGraph graphs that don't risk touching
  * the production-critical generation path.
  */
+import { attachNewProposal } from "@/lib/opportunities/store";
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
@@ -223,6 +224,12 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
       } catch (err) {
         console.error("[renewal-agent] carrying allocations failed", err);
       }
+
+      // A signed contract's renewal is the one rule that opens an opportunity without a person.
+      await attachNewProposal(sb, state.tenantId, company.id, proposal.id, {
+        actor: { kind: "rule", name: "renewal_of_signed_contract" },
+        renewsContractId: contract.id,
+      });
 
       drafted.push({
         contractId: contract.id,

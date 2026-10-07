@@ -2,6 +2,7 @@ import {
   DEFINITIONS, LIVE_STATUSES, OPEN_PIPELINE_STATUSES, PROPOSAL_STAGES, contractedValue, percent, pipelineRange,
   type MetricId, type MetricUnit, type MetricValue, type MetricsSnapshot,
 } from "./definitions";
+import { loadOpportunities } from "../opportunities/store";
 
 type Sb = any;
 
@@ -89,6 +90,16 @@ export async function loadMetrics(sb: Sb, tenantId: string): Promise<MetricsSnap
   add(counted("emails_clicked", clicked));
   const openRate = markedSent.n !== null && opened.n !== null ? percent(opened.n, markedSent.n) : null;
   add(metric("email_open_rate", "percent", openRate, { numerator: opened.n ?? 0, denominator: markedSent.n ?? 0 }));
+
+  // ── Opportunities: status derived from each opportunity's proposals, contract and events
+  const opps = await loadOpportunities(sb, tenantId);
+  const oppNote = opps.ok ? [] : [`Could not be computed: ${opps.error}`];
+  const oppRows = opps.ok ? opps.value : null;
+  add(metric("opportunities_open", "count", oppRows ? oppRows.filter((o) => o.status === "open").length : null, { caveats: oppNote }));
+  add(metric("opportunities_won", "count", oppRows ? oppRows.filter((o) => o.status === "won").length : null, { caveats: oppNote }));
+  const parallel = new Map<string, number>();
+  for (const o of oppRows ?? []) if (o.status === "open" || o.status === "draft") parallel.set(o.company_id, (parallel.get(o.company_id) ?? 0) + 1);
+  add(metric("accounts_with_parallel_opportunities", "count", oppRows ? Array.from(parallel.values()).filter((n) => n >= 2).length : null, { caveats: oppNote }));
 
   // ── Win rate: decided proposals only
   const won = out.proposals_won.value;

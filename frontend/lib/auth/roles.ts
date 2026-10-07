@@ -74,6 +74,9 @@ const PERMISSIONS = {
   // person can; agents research, they never qualify.
   qualify_company:   ["admin", "sales_rep"] as UserRole[],
 
+  // Opening, closing and reopening an account-level opportunity (Task 11).
+  create_opportunity: ["admin", "sales_rep"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],

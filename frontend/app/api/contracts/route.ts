@@ -59,6 +59,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // The contract belongs to the same opportunity as its proposal.
+  if (body.proposal_id) {
+    const { data: prop } = await sb.from("proposals").select("opportunity_id").eq("id", body.proposal_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
+    const oppId = (prop as { opportunity_id?: string | null } | null)?.opportunity_id;
+    if (oppId) await sb.from("contracts").update({ opportunity_id: oppId } as never).eq("id", data.id);
+  }
+
   // Update proposal status to active_contract, and auto-generate the
   // fulfillment checklist (Task 10) — only if one doesn't already exist,
   // so re-signing/renewing a contract on the same proposal doesn't wipe
