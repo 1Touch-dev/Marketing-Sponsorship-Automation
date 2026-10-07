@@ -8,30 +8,30 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 98** (counted from the tables below; refresh after each task)
+**Open items right now: 106** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 48 |
-| James | 31 |
-| Yash | 12 |
+| Abhishek | 52 |
+| James | 34 |
+| Yash | 13 |
 | Yash / James | 3 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Tech debt | 24 |
-| Decision | 19 |
-| Yash | 10 |
+| Tech debt | 25 |
+| Decision | 22 |
+| Yash | 11 |
 | Test gap | 9 |
 | Account | 8 |
-| Deploy | 6 |
+| Deploy | 7 |
 | Content | 6 |
 | Security | 5 |
 | Data | 5 |
-| Known limit | 3 |
-| Behaviour | 2 |
+| Known limit | 4 |
+| Behaviour | 3 |
 | Removed | 1 |
 
 Use this to plan the final sweep: James and Yash items need their input, Abhishek items can be done in one pass.
@@ -208,13 +208,25 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T11-06 | Decision | James | Proposal types for creators, grants and exhibitor packages (nil, grant/ESG, exhibitor) currently map to kind "other". | Say whether they need kinds of their own. | Open |
 | T11-07 | Test gap | Abhishek | The AI proposal routes (wizard, generate, generate-for-company, renewal agent) were not run live because they call the AI. The attach code they use was run against the real database through the library, and each route is unit-tested at the call site. | Run one generation per route when AI spend is back on. | Open |
 
+### Task 12: buyer brief and discovery gate (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T12-01 | **Decision** | James | A brief counts for **90 days**, then proposal generation is blocked until a fresh one is written. | Confirm 90 days, or choose another period. | Open |
+| T12-02 | **Decision** | James | **Renewals are exempt from the gate**, because they rest on a signed contract. | Confirm, or require a brief for renewals too. | Open |
+| T12-03 | **Decision** | James | A **quick brief** (objective, period, point of contact, next action) unlocks generation; the research part (why this sponsor, why this package, cited evidence) is optional. | Say whether some proposal types (national brands, Lei de Incentivo, large deals) must have a full brief. | Open |
+| T12-04 | Behaviour | Abhishek | Briefs belong to a **company**, not to an opportunity. A barter deal and a cash deal for the same company reuse one brief although their objectives may differ. The brief table already has an opportunity column, unused. | Link a brief to the opportunity it was written for, once screens exist. | Open |
+| T12-05 | Yash | Yash | The brief form is a separate page (`/companies/[id]/brief`); the wizard only shows the refusal in a toast. Still to design: a brief step inside the wizard, gate status on the company page, and the brief level (quick or full) on the proposal and approval card. The brief id is stored on every proposal. | Design and wire. | Open |
+| T12-06 | Tech debt | Abhishek | The gate covers the AI generation routes. Proposals made another way (from a template, or duplicated) are not gated. | Decide whether those need a brief too. | Open |
+| T12-07 | Known limit | Abhishek | The brief shapes the prompt, but nothing checks that the generated text kept the "unverified" items out of its claims. The unsourced-figure scan (Task 8) only catches numbers. | A check for unverified claims in generated text, with the evaluation gates (Task 30). | Open |
+| T12-08 | Deploy | Abhishek | **Every copy of the app needs the new Anthropic key.** The test copy of the app on this box still had the old, disabled key and failed with "organization disabled" until I synced it. Yash's dev setup or any other server copied before 5 Oct may have the same problem. | Check the key in each environment. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 12 Research brief and discovery gate | Spends AI; needs a decision on what the gate must contain before generation. | James |
 | 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |
 | 15–17 Project types, obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |
 | 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
@@ -245,3 +257,4 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | Duplicate agent-created companies from a loose name lookup | 7 Oct (Task 10): one structure-aware check on every creation path |
 | Agents able to create sales deals on their own | 7 Oct (Tasks 10, 11): qualification and opportunities need a person or one named rule, enforced in the database |
 | Second-person rule tested with only one login | 6 Oct (Task 8, T8-11): tested live with two real logins |
+| Agents writing a pitch for a sponsor nobody has spoken to | 7 Oct (Task 12): generation is refused until a person has written a brief, before any AI call is made |

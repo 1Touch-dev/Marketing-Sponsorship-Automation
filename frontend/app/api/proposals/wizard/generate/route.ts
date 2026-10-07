@@ -1,3 +1,4 @@
+import { checkDiscoveryGate, briefPromptBlock, linkBrief } from "@/lib/briefs/store";
 import { attachNewProposal } from "@/lib/opportunities/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -49,6 +50,10 @@ export async function POST(req: Request) {
     // Load company
     const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+
+    // Discovery gate: a person must have written down what the buyer wants before anything is generated.
+    const gate = await checkDiscoveryGate(sb, auth.user.tenant_id, company.id, company.company_name);
+    if (!gate.ok) return NextResponse.json({ error: gate.message, code: "discovery_brief_required", missing: gate.missing }, { status: 409 });
 
     // Reject sold-out inventory before spending anything on generation
     if (inventoryLines.length > 0) {
@@ -172,6 +177,7 @@ export async function POST(req: Request) {
       strategy_variant: strategyVariant,
       tenant,
       verifiedClaims: await loadVerifiedClaimsBlock(sb, auth.user.tenant_id),
+      buyerBrief: gate.brief ? briefPromptBlock(gate.brief) : undefined,
     });
 
     const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext + grantEsgContext + exhibitorContext;
@@ -222,6 +228,7 @@ export async function POST(req: Request) {
     const { data: proposal, error } = await sb.from("proposals").insert(proposalRow as never).select("id").single();
 
     if (error) throw new Error(error.message);
+    if (proposal?.id) await linkBrief(sb, auth.user.tenant_id, proposal.id, gate.briefId);
 
     // Put the proposal under an opportunity of this company (a person's proposal opens one if needed).
     if (proposal?.id) {

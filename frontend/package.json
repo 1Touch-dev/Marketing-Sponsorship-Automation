@@ -18,6 +18,7 @@
     "test:claims": "tsx --test tests/claims.test.ts",
     "test:accounts": "tsx --test tests/accounts.test.ts",
     "test:opportunities": "tsx --test tests/opportunities.test.ts",
+    "test:briefs": "tsx --test tests/briefs.test.ts",
     "test:jersey-pipeline": "tsx --test tests/jersey-placement-prompts.test.ts tests/openai-renderer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

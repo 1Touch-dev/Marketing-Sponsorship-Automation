@@ -325,6 +325,8 @@ export function proposalPrompt(args: {
   /** Task 8 — the only club figures the model may state (lib/claims). When a
    *  caller passes nothing, the prompt says no verified figures are available. */
   verifiedClaims?: string;
+  /** Task 12 — the buyer brief block (lib/briefs). Shapes the pitch; never sets prices. */
+  buyerBrief?: string;
 }) {
   const strategyNote = args.strategy_variant
     ? `\nFocus this proposal on the "${args.strategy_variant}" strategic direction.`
@@ -367,6 +369,7 @@ export function proposalPrompt(args: {
       args.campaign.summary ? `Campaign concept: ${args.campaign.summary}` : null,
       args.campaign.activation ? `Activation approach: ${args.campaign.activation}` : null,
       strategyNote,
+      args.buyerBrief ? `\n${args.buyerBrief}\n` : null,
       "",
       `Write a FULL, high-quality ${club} sponsorship proposal for this company.`,
       "Be SPECIFIC to this company's industry and market context.",

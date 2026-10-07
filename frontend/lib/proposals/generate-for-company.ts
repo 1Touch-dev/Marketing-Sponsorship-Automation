@@ -3,6 +3,7 @@
  * Uses enrichment + intelligence already stored on the company record.
  */
 
+import { checkDiscoveryGate, briefPromptBlock, linkBrief, DiscoveryGateError } from "@/lib/briefs/store";
 import { attachNewProposal } from "@/lib/opportunities/store";
 import type { Actor } from "@/lib/opportunities/model";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
@@ -111,6 +112,11 @@ export async function generatePersonalizedProposalForCompany(
   const tenant = await resolveClubContext(tenantId);
   const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
+  // Discovery gate. This function is also what the outreach agent calls, so an agent
+  // cannot write a pitch for a sponsor nobody has spoken to. Checked before any AI call.
+  const gate = await checkDiscoveryGate(sb, tenantId, companyId, company.company_name);
+  if (!gate.ok) throw new DiscoveryGateError(gate.message ?? "A buyer brief is needed before a proposal can be generated.", gate.missing);
+
   const intel = (company.full_intelligence as Record<string, unknown>) ?? {};
   const intelBlock = buildIntelligenceContext(intel);
 
@@ -161,6 +167,7 @@ export async function generatePersonalizedProposalForCompany(
     },
     tenant,
     verifiedClaims: await loadVerifiedClaimsBlock(sb, tenantId),
+    buyerBrief: gate.brief ? briefPromptBlock(gate.brief) : undefined,
   });
 
   // When real intelligence exists, push for specificity grounded in it. When
@@ -245,6 +252,7 @@ export async function generatePersonalizedProposalForCompany(
     content_md: contentMd,
   });
 
+  await linkBrief(sb, tenantId, proposal.id, gate.briefId);
   await attachNewProposal(sb, tenantId, companyId, proposal.id, { actor });
 
   await recordAudit({

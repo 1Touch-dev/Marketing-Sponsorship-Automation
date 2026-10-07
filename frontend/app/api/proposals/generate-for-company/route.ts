@@ -1,3 +1,4 @@
+import { DiscoveryGateError } from "@/lib/briefs/store";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate-for-company";
@@ -45,6 +46,9 @@ export async function POST(req: Request) {
     const result = await generatePersonalizedProposalForCompany(parsed.data.company_id, { kind: "human", email: auth.user.email, userId: auth.user.id });
     return NextResponse.json({ data: result });
   } catch (err) {
+    if (err instanceof DiscoveryGateError) {
+      return NextResponse.json({ error: err.message, code: err.code, missing: err.missing }, { status: err.status });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Proposal generation failed" },
       { status: 500 },
