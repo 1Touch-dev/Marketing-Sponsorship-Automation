@@ -24,6 +24,7 @@
     "test:projects": "tsx --test tests/projects.test.ts",
     "test:obligations": "tsx --test tests/obligations.test.ts",
     "test:schedule": "tsx --test tests/schedule.test.ts",
+    "test:finance": "tsx --test tests/finance.test.ts",
     "test:jersey-pipeline": "tsx --test tests/jersey-placement-prompts.test.ts tests/openai-renderer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

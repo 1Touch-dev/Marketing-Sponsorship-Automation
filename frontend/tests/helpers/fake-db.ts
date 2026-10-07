@@ -28,9 +28,12 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
         const i: any = { select: () => i, single: async () => ({ data: list[0], error: gone }), then: (res: any) => res({ data: list, error: gone }) };
         return i;
       },
-      upsert: (input: any[], o: { onConflict: string; ignoreDuplicates: boolean }) => {
+      upsert: (inputRaw: any, o: { onConflict: string; ignoreDuplicates?: boolean }) => {
+        const input = Array.isArray(inputRaw) ? inputRaw : [inputRaw];
         const keys = o.onConflict.split(",");
-        const fresh = input.filter((r) => !(tables[table] ?? []).some((x) => keys.every((k) => x[k] === r[k]))).map((r) => ({ id: `${table}-${++n}`, created_at: new Date().toISOString(), project_id: null, ...r }));
+        const same = (x: any, r: any) => keys.every((k) => x[k] === r[k]);
+        if (!o.ignoreDuplicates && !gone) for (const r of input) { const hit = (tables[table] ?? []).find((x) => same(x, r)); if (hit) Object.assign(hit, r); }
+        const fresh = input.filter((r) => !(tables[table] ?? []).some((x) => same(x, r))).map((r) => ({ id: `${table}-${++n}`, created_at: new Date().toISOString(), project_id: null, ...r }));
         calls.push(...fresh.map((row) => ({ op: "insert", table, row })));
         if (!gone) (tables[table] ??= []).push(...fresh);
         const u: any = { select: () => u, then: (res: any) => res({ data: fresh, error: gone }) };
@@ -42,7 +45,7 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
           is: (col: string, v: any) => { filters.push((r) => (r[col] ?? null) === v); return u; },
           select: () => u,
           maybeSingle: async () => { const hit = rows()[0]; if (hit) Object.assign(hit, patch); calls.push({ op: "update", table, row: patch }); return { data: hit ?? null, error: gone }; },
-          then: (res: any) => { for (const r of rows()) Object.assign(r, patch); calls.push({ op: "update", table, row: patch }); res({ error: gone }); },
+          then: (res: any) => { const hit = rows(); for (const r of hit) Object.assign(r, patch); calls.push({ op: "update", table, row: patch }); res({ data: hit, error: gone }); },
         };
         return u;
       },

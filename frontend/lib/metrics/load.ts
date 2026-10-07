@@ -3,6 +3,7 @@ import {
   type MetricId, type MetricUnit, type MetricValue, type MetricsSnapshot,
 } from "./definitions";
 import { loadOpportunities } from "../opportunities/store";
+import { loadSummary } from "../finance/store";
 
 type Sb = any;
 
@@ -79,8 +80,23 @@ export async function loadMetrics(sb: Sb, tenantId: string): Promise<MetricsSnap
   const value = contractedValue(active);
   add(metric("contracted_value_brl", "brl", contractRows ? value.total : null, {
     extra: { contracts: value.contracts, with_value: value.withValue, without_value: value.withoutValue },
-    caveats: [...contractsError, ...(value.withoutValue > 0 ? [`${value.withoutValue} of ${value.contracts} active contracts have no value recorded.`] : [])],
+    caveats: [...contractsError, ...(value.withoutValue > 0 ? [`${value.withoutValue} of ${value.contracts} active contracts have no value recorded.`] : []), "A contract's value can include barter goods as well as money; for money alone see cash recognised."],
   }));
+
+  // ── Cash, barter and savings: three separate measures, never summed
+  const fin = await loadSummary(sb, tenantId);
+  if (fin.ok) {
+    const f = fin.value;
+    const rule = `Cash is recognised at the "${f.settings.recognition_stage}" stage${f.settings_are_default ? " (default: no person has set the rule yet)" : ""}.`;
+    add(metric("cash_recognized_brl", "brl", f.cash.recognized, { extra: { proposed: f.cash.proposed, contracted: f.cash.committed, invoiced: f.cash.invoiced + f.cash.settled, settled: f.cash.settled }, caveats: [rule, ...(f.gaps.active_contracts_without_lines.length > 0 ? [`${f.gaps.active_contracts_without_lines.length} active contracts have no value lines, so their money is not counted.`] : [])] }));
+    add(metric("barter_proposed_brl", "brl", f.barter.proposed, { extra: { contracted: f.barter.committed, received: f.barter.settled }, caveats: [`Valued at the ${f.settings.barter_valuation_basis.replace(/_/g, " ")}.`, ...(f.barter.unvalued_lines.length > 0 ? [`${f.barter.unvalued_lines.length} barter lines have no value on that basis and are left out.`] : [])] }));
+    add(metric("savings_realized_brl", "brl", f.savings.realized, { extra: { pending: f.savings.pending, lines: f.savings.lines_realized }, caveats: f.savings.unvalued_lines.length > 0 ? [`${f.savings.unvalued_lines.length} received barter lines have no club reference value, so no saving is counted for them.`] : [] }));
+  } else {
+    const why = [fin.status === 503 ? "Not set up yet (migration 0066)." : `Could not be computed: ${fin.error}`];
+    add(metric("cash_recognized_brl", "brl", null, { caveats: why }));
+    add(metric("barter_proposed_brl", "brl", null, { caveats: why }));
+    add(metric("savings_realized_brl", "brl", null, { caveats: why }));
+  }
 
   // ── Emails: "sent" means logged in the CRM
   const logged = "Logged in the CRM only: this platform does not email recipients yet.";

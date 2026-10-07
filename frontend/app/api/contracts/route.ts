@@ -8,6 +8,7 @@ import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 import { appendAllocationTasks, createContractAllocations } from "@/lib/allocations/store";
 import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
 import { handoffContract, type HandoffReport } from "@/lib/obligations/store";
+import { linkProposalLines } from "@/lib/finance/store";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest) {
     // delivery tasks. Never blocks contract creation: the contract exists.
     try {
       const recorded = await createContractAllocations(sb, auth.user.tenant_id, data.id, body.proposal_id);
+
+      // The proposal's cash and barter lines become this contract's: the same rows, so nothing is counted twice.
+      await linkProposalLines(sb, auth.user.tenant_id, body.proposal_id, data.id, data.company_id ?? body.company_id ?? null);
 
       const result = await handoffContract(sb, auth.user.tenant_id, data.id, { email: auth.user.email });
       if (result.ok) handoff = { ok: true, report: result.value };

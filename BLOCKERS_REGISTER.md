@@ -8,27 +8,27 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 143** (counted from the tables below; refresh after each task)
+**Open items right now: 152** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 65 |
-| James | 51 |
-| Yash | 18 |
+| Abhishek | 66 |
+| James | 58 |
+| Yash | 19 |
 | Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 37 |
+| Decision | 43 |
 | Tech debt | 27 |
-| Yash | 16 |
+| Yash | 17 |
 | Test gap | 11 |
 | Account | 9 |
-| Known limit | 12 |
+| Known limit | 13 |
 | Deploy | 7 |
-| Data | 8 |
+| Data | 9 |
 | Content | 6 |
 | Security | 5 |
 | Behaviour | 4 |
@@ -286,13 +286,27 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T17-05 | Known limit | Abhishek | **A contract's own start and end dates are not covered.** Changing them does not move any obligation or project; dates move only through an obligation or a project. A sold item still has no date of its own (T16-02), so match-day or calendar-driven dates are not modelled. | Decide how contract date changes should ripple; add item-level dates with the T16-02 answer. | Open |
 | T17-06 | Known limit | Abhishek | Dependencies are "finish to start" only, link obligations of **one contract**, and do not connect a project to an obligation or one contract to another. | Extend if James's team needs cross-contract or start-to-start links. | Open |
 
+
+### Task 18: cash, barter and savings accounting (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T18-01 | **Decision** | James | **When does cash count as revenue?** The rule is a setting; until a person sets it the safe default is **only once received**. The other choices are when the contract is in force, or when invoiced. A draft or lapsed deal never counts under any of them. | Choose: contracted, invoiced or received (`PATCH /api/finance/settings`, admin). | Open |
+| T18-02 | **Decision** | James | **How is barter valued?** At the **agreed value** with the sponsor (default), or at the **club reference value** (what the club would otherwise pay). Barter received without a reference value is left out under the second choice and listed. | Choose the basis, and say where the reference value comes from (a quote, the wishlist price, finance). | Open |
+| T18-03 | **Decision** | James | Does a contract's **total value include barter goods**? The default says yes, so the "Contracted value" and "Total revenue" cards on the dashboard and reports can include goods as well as money. The cash split exists now; those cards have not been switched. | Confirm what the total means; then those cards can read cash recognised instead. | Open |
+| T18-04 | **Decision** | James | **Tax treatment of barter.** Nothing is calculated: the settings hold a free-text note only. | Give the rule (tax, invoicing of goods, whether barter is taxed at the agreed or reference value), or point the club's accountant to it. | Open |
+| T18-05 | **Decision** | James | Money from the **incentive law** (3 incentive-type deals exist) is recorded as ordinary cash. | Say whether it needs its own line type and its own recognition rule. | Open |
+| T18-06 | **Decision** | James | Only an **admin** can record an invoice, a receipt or a void, and one person can do it alone. | Say who should record receipts, and whether a second person must confirm them. | Open |
+| T18-07 | Yash | Yash | No screens: a finance summary page, cash and barter lines on the proposal and contract pages with their invoiced, received and voided history, the accounting settings form, and the reconciliation and gap lists. The dashboard and reports "revenue" cards still read contracted value. All have API routes. | Design and wire; switch the revenue cards when T18-03 is settled. | Open |
+| T18-08 | Data | James | **No money is recorded anywhere yet.** The two real active contracts have no total value and no lines, and the one real barter wishlist item is not linked to anything. The platform shows zero, not an estimate. | Give the instalments and barter terms of the real contracts, with your OK to enter them. | Open |
+| T18-09 | Known limit | Abhishek | **BRL only** (no currency conversion). Lines are entered by hand, not generated from a proposal's package price. Receiving barter does not mark the wishlist item as obtained. There are **no refunds or credit notes**: a line can be voided only before anything is received. | Extend when a second currency, instalment plans or refunds are needed. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
 | 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
 | 22 Task source of truth | Blocked on X-13. | Yash |
@@ -328,6 +342,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
 | A signed commitment ended as a loose, unowned, undated checklist inside the proposal | 7 Oct (Task 16): every sold item and onboarding step becomes an owned, dated obligation linked to its allocation, with proof recorded and a project that finishes on proof |
 | Delivery projects created by hand, and completed on a ticked box | 7 Oct (Task 16): created by the handoff; completion needs proof (T15-05 and T15-06 cleared) |
+| Barter value able to read as revenue, and a draft deal able to be counted as money; no split of a contract's one number | 7 Oct (Task 18): cash, barter and savings kept apart and never summed; drafts and proposals refused as revenue in the database; a proposed line becomes contracted as the same row (the rules James has not chosen are settings with conservative defaults, see T18-01 to T18-06) |
 | A date moved with one silent field update: no record, no view of what depended on it | 7 Oct (Task 17): every move is a recorded, reasoned, attributed change with the downstream work and owners it affected; a conflicting move is refused unless acknowledged (T15-07 and T16-09 cleared) |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |
