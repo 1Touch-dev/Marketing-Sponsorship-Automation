@@ -85,6 +85,7 @@ const PERMISSIONS = {
 
   // Commercial and delivery projects (Task 15).
   manage_projects:   ["admin", "sales_rep"] as UserRole[],
+  manage_obligations: ["admin", "sales_rep"] as UserRole[],
 
   // System
   manage_users:      ["admin"] as UserRole[],

@@ -8,27 +8,27 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 132** (counted from the tables below; refresh after each task)
+**Open items right now: 139** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 63 |
-| James | 44 |
-| Yash | 16 |
+| Abhishek | 65 |
+| James | 48 |
+| Yash | 17 |
 | Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 30 |
-| Tech debt | 26 |
-| Yash | 14 |
+| Decision | 34 |
+| Tech debt | 27 |
+| Yash | 15 |
 | Test gap | 11 |
 | Account | 9 |
 | Known limit | 12 |
 | Deploy | 7 |
-| Data | 7 |
+| Data | 8 |
 | Content | 6 |
 | Security | 5 |
 | Behaviour | 4 |
@@ -258,10 +258,23 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T15-02 | **Decision** | James | Completion rules as built. Sales project: the deal must be won, lost or closed, and the outcome written (10+ characters). Delivery project: contract active, completed or expired, every delivery task done, and the period over (or a written reason for ending early). | Confirm, or change what counts as finished. | Open |
 | T15-03 | Yash | Yash | No screens: project list and detail per type, the required fields per type (from `/api/projects/types`), the start / pause / resume / complete / cancel buttons with the reason boxes, and the blocker list that explains why a project cannot be completed. All have API routes. | Design and wire. | Open |
 | T15-04 | **Decision** | Yash / James | Each project can carry a pointer to an outside task system (system name and id, unique). Nothing reads or writes that system yet. | Settle X-13 (which system runs day-to-day tasks); then sync. | Open |
-| T15-05 | Known limit | Abhishek | **Delivery completion reads the task list stored inside the proposal** until obligations replace it. | Task 16 (contract-to-obligation handoff). | Open |
-| T15-06 | Known limit | Abhishek | **Nothing creates delivery projects automatically.** A person creates each one. | Task 16. | Open |
 | T15-07 | Known limit | Abhishek | A project's type, links and dates cannot be changed. A wrong date means cancelling and creating another; the owner and next action can be edited. | Task 17 adds a recorded date change. | Open |
-| T15-08 | Known limit | Abhishek | An active contract with no proposal behind it (T11-03) has no task list, so its delivery project can only complete when the period ends. | Task 16 obligations; or link the contract to its proposal. | Open |
+| T15-08 | Known limit | Abhishek | An active contract with no proposal behind it (T11-03) has no task list, so its delivery project can only complete when the period ends. | Link the contract to its proposal, or give it obligations (see T16-06). | Open |
+
+
+### Task 16: contract-to-obligation handoff (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T16-01 | **Decision** | James | The handoff runs when a contract is created and active, **not when its signature is proven**. If the signature is only claimed it goes ahead and warns (same choice as T15-01). It could instead wait for proof. | Choose: warn (current) or hold the handoff until the signature is proven. | Open |
+| T16-02 | **Decision** | James | Due-date rules as built: the four onboarding steps fall due **7 or 14 days after the contract starts**, and every sold item is due **on the contract end date**, because an allocation has no dates of its own. | Confirm, or give a schedule per item (for example by match or by month) so deliverables are dated individually. | Open |
+| T16-03 | **Decision** | James | Default owner: the opportunity's owner, else the person who triggers the handoff, else an active admin. Anyone can be reassigned afterwards. | Name a delivery manager if one person should own delivery work by default. | Open |
+| T16-04 | **Decision** | James | **Acceptance** needs a person other than the one who recorded the delivery (the database enforces it). A delivered item with proof counts as finished for the project; acceptance is not required for that. A one-person team cannot accept its own work. | Confirm both rules, and whether sponsor acceptance (portal, Task 21) should replace the internal one. | Open |
+| T16-05 | Yash | Yash | No screens: obligations by owner and due date, one obligation with its history and a proof form, the "contracts with no obligations" gap list, and a "run handoff" button. All have API routes. The proposal page and portal still show the old checklist, now rebuilt from obligations. | Design and wire. | Open |
+| T16-06 | Data | Abhishek | The **two real active contracts have no obligations**. One has no company (T11-03) so it cannot be handed off; the other has a proposal with 9 old tasks (1 done) and no recorded allocations. Nothing was converted automatically. | With your OK, link the first to a company and run the handoff on both. | Open |
+| T16-07 | Known limit | Abhishek | Proof is a web link, a file link or a written statement. Links are **not checked to be reachable**, a statement is only a person's word (shown as "stated", not "attached"), and proof is not stored in the contract's signature ledger. | Add file upload and link checks with the proof screens (Task 19). | Open |
+| T16-08 | Tech debt | Abhishek | The old checklist generator (Task 10) stays as a fallback for installs where migration 0064 is missing, and the checklist inside the proposal is overwritten from obligations after every change. | Remove the fallback once every environment has 0064. | Open |
+| T16-09 | Known limit | Abhishek | An obligation's dates, quantity and wording cannot change; the only ways out are waiving it with a reason or reopening it. | Task 17 adds a recorded date change. | Open |
 
 ---
 
@@ -269,7 +282,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 16–17 Obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |
+| 17 Dependencies and date-change impact | Depends on the project substrate decision (X-13). | Yash |
 | 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
 | 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
@@ -304,5 +317,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | An agent pitching an account no person has qualified | 7 Oct (Task 13): refused before any AI call; allowed once a person qualifies it |
 | No way to tell a sales project from a delivery project, or to see what finishes each | 7 Oct (Task 15): two project types with their own required fields and completion checks, enforced in the database; status derived from an append-only event history |
 | A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
+| A signed commitment ended as a loose, unowned, undated checklist inside the proposal | 7 Oct (Task 16): every sold item and onboarding step becomes an owned, dated obligation linked to its allocation, with proof recorded and a project that finishes on proof |
+| Delivery projects created by hand, and completed on a ticked box | 7 Oct (Task 16): created by the handoff; completion needs proof (T15-05 and T15-06 cleared) |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |

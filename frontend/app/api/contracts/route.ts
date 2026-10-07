@@ -7,6 +7,7 @@ import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory
 import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 import { appendAllocationTasks, createContractAllocations } from "@/lib/allocations/store";
 import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
+import { handoffContract, type HandoffReport } from "@/lib/obligations/store";
 import type { ProposalContent } from "@/types/database";
 
 export async function GET() {
@@ -66,10 +67,10 @@ export async function POST(req: NextRequest) {
     if (oppId) await sb.from("contracts").update({ opportunity_id: oppId } as never).eq("id", data.id);
   }
 
-  // Update proposal status to active_contract, and auto-generate the
-  // fulfillment checklist (Task 10) — only if one doesn't already exist,
-  // so re-signing/renewing a contract on the same proposal doesn't wipe
-  // out progress on an existing checklist.
+  // Update proposal status to active_contract, then hand the contract's commitments to
+  // delivery as owned, dated obligations (Task 16). Only where obligations are not set up
+  // yet does the old checklist (Task 10) still get generated, so nothing is left untracked.
+  let handoff: { ok: true; report: HandoffReport } | { ok: false; error: string } | null = null;
   if (body.proposal_id) {
     const { data: proposalRow } = await sb
       .from("proposals")
@@ -80,10 +81,6 @@ export async function POST(req: NextRequest) {
 
     const content = (proposalRow?.content as ProposalContent) ?? {};
     const updates: Record<string, unknown> = { status: "active_contract" };
-    if (!content.fulfillment_tasks || content.fulfillment_tasks.length === 0) {
-      const tasks = generateFulfillmentTasks(content.deliverables ?? []);
-      updates.content = { ...content, fulfillment_tasks: tasks };
-    }
 
     await sb
       .from("proposals")
@@ -95,7 +92,16 @@ export async function POST(req: NextRequest) {
     // delivery tasks. Never blocks contract creation: the contract exists.
     try {
       const recorded = await createContractAllocations(sb, auth.user.tenant_id, data.id, body.proposal_id);
-      if (recorded.ok) await appendAllocationTasks(sb, auth.user.tenant_id, body.proposal_id, data.id);
+
+      const result = await handoffContract(sb, auth.user.tenant_id, data.id, { email: auth.user.email });
+      if (result.ok) handoff = { ok: true, report: result.value };
+      else if (result.status === 503) {
+        // Migration 0064 is not applied: keep the old checklist going.
+        if (!content.fulfillment_tasks || content.fulfillment_tasks.length === 0) {
+          await sb.from("proposals").update({ content: { ...content, fulfillment_tasks: generateFulfillmentTasks(content.deliverables ?? []) } }).eq("id", body.proposal_id).eq("tenant_id", auth.user.tenant_id);
+        }
+        if (recorded.ok) await appendAllocationTasks(sb, auth.user.tenant_id, body.proposal_id, data.id);
+      } else handoff = { ok: false, error: result.error };
 
       // First piece of the proof trail: exactly which frozen terms this contract is bound to.
       if (recorded.ok && recorded.revisionId) {
@@ -122,5 +128,5 @@ export async function POST(req: NextRequest) {
     metadata: { proposal_id: body.proposal_id, value: body.total_value_brl },
   });
 
-  return NextResponse.json(data, { status: 201 });
+  return NextResponse.json({ ...data, handoff }, { status: 201 });
 }

@@ -22,6 +22,7 @@
     "test:playbooks": "tsx --test tests/playbooks.test.ts",
     "test:contacts": "tsx --test tests/contacts.test.ts",
     "test:projects": "tsx --test tests/projects.test.ts",
+    "test:obligations": "tsx --test tests/obligations.test.ts",
     "test:jersey-pipeline": "tsx --test tests/jersey-placement-prompts.test.ts tests/openai-renderer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

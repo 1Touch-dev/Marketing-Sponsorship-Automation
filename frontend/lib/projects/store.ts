@@ -2,6 +2,7 @@ import { isMissingMigration } from "../proposals/revision-store";
 import type { WriteResult } from "../accounts/store";
 import { loadOpportunities } from "../opportunities/store";
 import { loadProof } from "../contracts/evidence-store";
+import { contractObligationFacts } from "../obligations/facts";
 import {
   TYPE_DEFINITIONS, allowedActions, completionCheck, deriveStatus, eventFor, isTerminal, validateProjectInput,
   type Completion, type EventRow, type ProjectAction, type ProjectInput, type ProjectStatus, type ProjectType,
@@ -123,7 +124,10 @@ export async function loadFacts(sb: Sb, tenantId: string, p: ProjectRow): Promis
     const { data: c } = await sb.from("contracts").select("status, proposal_id").eq("id", p.contract_id).eq("tenant_id", tenantId).maybeSingle();
     facts.contractStatus = c?.status ?? null;
     const proposalId = p.proposal_id ?? c?.proposal_id ?? null;
-    if (proposalId) {
+    // Obligations are the record of what must be delivered; the proposal's old checklist is only a fallback.
+    const obligations = await contractObligationFacts(sb, tenantId, p.contract_id);
+    if (obligations) facts.openTasks = obligations.unproven;
+    else if (proposalId) {
       const { data: prop } = await sb.from("proposals").select("content").eq("id", proposalId).eq("tenant_id", tenantId).maybeSingle();
       const tasks = ((prop?.content as { fulfillment_tasks?: Array<{ status: string }> } | null)?.fulfillment_tasks) ?? [];
       facts.openTasks = tasks.filter((t) => t.status !== "done").length;
