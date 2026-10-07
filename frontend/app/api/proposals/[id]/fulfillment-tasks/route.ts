@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { getObligation, recordEvent } from "@/lib/obligations/store";
 import type { ProposalContent } from "@/types/database";
+import { refreshForObligation } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
       auth.user.email);
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
     await recordAudit({ entity_type: "proposal", entity_id: ctx.params.id, action: status === "done" ? "fulfillment_task.completed" : "fulfillment_task.reopened", metadata: { task_id: taskId, title: o.title, obligation: true } });
+    await refreshForObligation(sb, auth.user.tenant_id, taskId, "checklist.toggled");
     return NextResponse.json({ task: { id: taskId, title: o.title, status } });
   }
 

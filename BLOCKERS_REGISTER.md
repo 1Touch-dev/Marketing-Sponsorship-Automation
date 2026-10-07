@@ -8,25 +8,25 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 159** (counted from the tables below; refresh after each task)
+**Open items right now: 165** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 68 |
-| James | 62 |
-| Yash | 20 |
+| Abhishek | 70 |
+| James | 65 |
+| Yash | 21 |
 | Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 46 |
-| Tech debt | 27 |
-| Yash | 18 |
+| Decision | 49 |
+| Tech debt | 28 |
+| Yash | 19 |
 | Test gap | 11 |
 | Account | 9 |
-| Known limit | 15 |
+| Known limit | 16 |
 | Deploy | 7 |
 | Data | 10 |
 | Content | 6 |
@@ -314,13 +314,24 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T19-06 | Known limit | Abhishek | Delivery is yes or no: **partial delivery** (18 of 25 home matches) is not tracked. Measured results are reach only; leads, sales and engagement are not. Reach is attributed to a contract by its date range, not to individual items. | Add counted delivery and other result types when James names them. | Open |
 | T19-07 | Known limit | Abhishek | The monthly **Reporting Agent** (sponsor report emails from reach) is unchanged: it does not yet carry the recap's gaps. Estimates inside a proposal's own text are checked by the claims scanner (Task 8), not listed in the recap; only strategy reach estimates are. | Feed the recap into the report emails when the email provider exists. | Open |
 
+
+### Task 20: company page statuses (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T20-01 | **Decision** | James | **What each status means.** A company takes the **least advanced** status of its contracts in force. *Promised*: a contract is in force but nothing is scheduled. *Scheduled*: owned, dated obligations exist and some are undelivered. *Delivered*: everything due is marked delivered. *Evidence accepted*: everything due is delivered with proof a second person accepted. Waived items are set aside. | Confirm the meanings, or change what counts as "delivered" or "accepted". | Open |
+| T20-02 | **Decision** | James | **What counts as "at risk".** Eight named reasons, ranked: overdue work, delivery without proof, an ended contract not proven, a renewal with under half proven, work never scheduled, dates in conflict, a project on hold, and an **unproven signature**. The last is low severity but counts, so every contract without signature evidence (both real ones) shows its account at risk. | Confirm the list, or drop the signature from "at risk". | Open |
+| T20-03 | **Decision** | James | **Nobody is told** when a company becomes at risk. It is visible and recorded, but no Slack or email message is sent. | Say who should be notified, and how. | Open |
+| T20-04 | Yash | Yash | No screens: a status chip with its definition on the company page, the risk list with what fixes each, the contracts behind it, the history with "since", a status and risk filter on the companies list, and the opportunities shown beside the delivery status. All have API routes. | Design and wire. | Open |
+| T20-05 | Tech debt | Abhishek | The status is always correct when read, but its **history is only written when something changes it** (an action) or when the refresh endpoint is called. **No daily job calls it**, so a status that changes only because a date passed is logged late. Each delivery and proof step also writes its own row, which makes the log detailed rather than short. | Schedule the refresh daily (needs the scheduler set up); decide whether to collapse bursts. | Open |
+| T20-06 | Known limit | Abhishek | The delivery status is about delivery only. The relationship stage (Task 10) and the opportunities (Task 11) stay separate fields, and a company with opportunities but no contract in force reads "no commitments". The status is not synced to Pipedrive. | Decide with X-14 whether any of it should be written to the CRM. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 20 Company statuses | Reads tasks 11, 16 and 19 (all built); needs Yash's company page to show them. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
 | 22 Task source of truth | Blocked on X-13. | Yash |
 | 23, 25 Identity and approver recovery | Needs user-lifecycle data (who leaves, when). | James |
@@ -355,6 +366,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
 | A signed commitment ended as a loose, unowned, undated checklist inside the proposal | 7 Oct (Task 16): every sold item and onboarding step becomes an owned, dated obligation linked to its allocation, with proof recorded and a project that finishes on proof |
 | Delivery projects created by hand, and completed on a ticked box | 7 Oct (Task 16): created by the handoff; completion needs proof (T15-05 and T15-06 cleared) |
+| Company status inferred from scattered fields, with nothing saying why an account is in trouble | 7 Oct (Task 20): one derived status per company (promised, scheduled, delivered, evidence accepted) plus an at-risk flag that always carries named, ranked reasons and what fixes each; every change is logged with what caused it |
 | A sponsor told about results nobody measured; a renewal pitched on enthusiasm, not on proven delivery | 7 Oct (Task 19): measured results need a stated source and stay apart from modeled estimates (enforced in the database); every missing proof is a named gap; a renewal is drafted only from the reconciled recap, and with no proven delivery no AI call is made |
 | Barter value able to read as revenue, and a draft deal able to be counted as money; no split of a contract's one number | 7 Oct (Task 18): cash, barter and savings kept apart and never summed; drafts and proposals refused as revenue in the database; a proposed line becomes contracted as the same row (the rules James has not chosen are settings with conservative defaults, see T18-01 to T18-06) |
 | A date moved with one silent field update: no record, no view of what depended on it | 7 Oct (Task 17): every move is a recorded, reasoned, attributed change with the downstream work and owners it affected; a conflicting move is refused unless acknowledged (T15-07 and T16-09 cleared) |

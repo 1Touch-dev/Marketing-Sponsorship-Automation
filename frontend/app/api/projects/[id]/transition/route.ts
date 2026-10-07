@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { transition } from "@/lib/projects/store";
+import { refreshForProject } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -28,5 +29,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const res = await transition(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, { action: d.action, reason: d.reason, outcomeNote: d.outcome_note, earlyReason: d.early_reason, actorEmail: auth.user.email });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
   await recordAudit({ entity_type: "project", entity_id: ctx.params.id, action: `project.${d.action}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { reason: d.reason ?? d.early_reason ?? null, actor_user_id: auth.user.id } });
+  await refreshForProject(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, `project.${d.action}`);
   return NextResponse.json({ status: res.value.status });
 }

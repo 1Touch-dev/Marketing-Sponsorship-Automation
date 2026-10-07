@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordEvent } from "@/lib/obligations/store";
+import { refreshForObligation } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -30,5 +31,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const res = await recordEvent(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, { action: d.action, note: d.note, reason: d.reason, evidenceKind: d.evidence_kind, evidenceRef: d.evidence_ref }, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
   await recordAudit({ entity_type: "obligation", entity_id: ctx.params.id, action: `obligation.${d.action}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { evidence_kind: d.evidence_kind ?? null, reason: d.reason ?? null, actor_user_id: auth.user.id } });
+  await refreshForObligation(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, `obligation.${d.action}`);
   return NextResponse.json({ status: res.value.status });
 }

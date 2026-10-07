@@ -10,6 +10,7 @@ import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
 import { handoffContract, type HandoffReport } from "@/lib/obligations/store";
 import { linkProposalLines } from "@/lib/finance/store";
 import type { ProposalContent } from "@/types/database";
+import { refreshForContract } from "@/lib/company-status/store";
 
 export async function GET() {
   const tenantId = await resolveTenantId();
@@ -132,5 +133,6 @@ export async function POST(req: NextRequest) {
     metadata: { proposal_id: body.proposal_id, value: body.total_value_brl },
   });
 
+  await refreshForContract(sb, auth.user.tenant_id, data.id, "contract.created");
   return NextResponse.json({ ...data, handoff }, { status: 201 });
 }

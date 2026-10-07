@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { issueRecap } from "@/lib/recap/store";
+import { refreshForContract } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -26,5 +27,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     entity_type: "contract", entity_id: ctx.params.id, action: "recap.issued", actor_email: auth.user.email, tenant_id: auth.user.tenant_id,
     metadata: { version: issued.version, status: issued.status, gaps: issued.gap_count, blocking: issued.blocking_gap_count, checksum: issued.checksum, actor_user_id: auth.user.id },
   });
+  await refreshForContract(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, "recap.issued");
   return NextResponse.json(issued, { status: 201 });
 }

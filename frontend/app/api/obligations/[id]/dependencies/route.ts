@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { addDependency } from "@/lib/schedule/store";
+import { refreshForObligation } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -19,5 +20,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const res = await addDependency(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, parsed.data.predecessor_id, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
   await recordAudit({ entity_type: "obligation", entity_id: ctx.params.id, action: "obligation.dependency_added", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { predecessor_id: parsed.data.predecessor_id, actor_user_id: auth.user.id } });
+  await refreshForObligation(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, "obligation.dependency_added");
   return NextResponse.json({ id: res.value.id, warnings: res.value.warnings }, { status: 201 });
 }

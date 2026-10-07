@@ -4,6 +4,7 @@ import {
 } from "./definitions";
 import { loadOpportunities } from "../opportunities/store";
 import { loadSummary } from "../finance/store";
+import { loadCompanyStatuses } from "../company-status/store";
 
 type Sb = any;
 
@@ -82,6 +83,20 @@ export async function loadMetrics(sb: Sb, tenantId: string): Promise<MetricsSnap
     extra: { contracts: value.contracts, with_value: value.withValue, without_value: value.withoutValue },
     caveats: [...contractsError, ...(value.withoutValue > 0 ? [`${value.withoutValue} of ${value.contracts} active contracts have no value recorded.`] : []), "A contract's value can include barter goods as well as money; for money alone see cash recognised."],
   }));
+
+  // ── Delivery status of accounts with commitments
+  const accounts = await loadCompanyStatuses(sb, tenantId);
+  if (accounts.ok) {
+    const by: Record<string, number> = { promised: 0, scheduled: 0, delivered: 0, evidence_accepted: 0 };
+    for (const a of accounts.value) if (a.delivery_status in by) by[a.delivery_status]++;
+    const inDelivery = accounts.value.filter((a) => a.delivery_status !== "no_commitments");
+    add(metric("accounts_in_delivery", "count", inDelivery.length, { extra: by }));
+    const risky = inDelivery.filter((a) => a.at_risk);
+    add(metric("accounts_at_risk", "count", risky.length, { extra: { high: risky.filter((a) => a.risks.some((r) => r.severity === "high")).length, medium_or_low_only: risky.filter((a) => !a.risks.some((r) => r.severity === "high")).length } }));
+  } else {
+    add(metric("accounts_in_delivery", "count", null, { caveats: [`Could not be computed: ${accounts.error}`] }));
+    add(metric("accounts_at_risk", "count", null, { caveats: [`Could not be computed: ${accounts.error}`] }));
+  }
 
   // ── Cash, barter and savings: three separate measures, never summed
   const fin = await loadSummary(sb, tenantId);

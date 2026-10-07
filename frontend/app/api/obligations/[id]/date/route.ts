@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { moveObligation } from "@/lib/schedule/store";
+import { refreshForObligation } from "@/lib/company-status/store";
 
 export const runtime = "nodejs";
 
@@ -32,5 +33,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     entity_type: "obligation", entity_id: ctx.params.id, action: "obligation.date_moved", actor_email: auth.user.email, tenant_id: auth.user.tenant_id,
     metadata: { to: d.new_due_date, reason: d.reason, cascaded: res.value.cascaded, owners: res.value.impact.owners, actor_user_id: auth.user.id },
   });
+  await refreshForObligation(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, "obligation.date_moved");
   return NextResponse.json({ change_id: res.value.change_id, cascaded: res.value.cascaded, impact: res.value.impact });
 }
