@@ -159,10 +159,27 @@ test("stamping an email never throws, before or after the migration", async () =
 
 test("the default sender is looked up for one tenant only, so another club's team member never signs the email", async () => {
   const filters: Array<[string, unknown]> = [];
-  const sb: any = { from: () => { const c: any = { select: () => c, eq: (k: string, v: unknown) => { filters.push([k, v]); return c; }, limit: () => c, maybeSingle: async () => ({ data: { full_name: "Ana Club A", title: "Gerente" }, error: null }) }; return c; } };
-  const r = await resolveDefaultSender(sb, "tenant-a");
+  const make = (authRows: Array<{ decision: string; created_at: string }>) => ({
+    from: (table: string) => {
+      const c: any = {
+        select: () => c, eq: (k: string, v: unknown) => { if (table === "team_members") filters.push([k, v]); return c; }, limit: () => c,
+        maybeSingle: async () => ({ data: { id: "m1", full_name: "Ana Club A", title: "Gerente" }, error: null }),
+        then: (res: any) => res({ data: authRows, error: null }),
+      };
+      return c;
+    },
+  }) as any;
+
+  const signed = await resolveDefaultSender(make([{ decision: "granted", created_at: "2026-10-01" }]), "tenant-a");
   assert.deepEqual(filters.find(([k]) => k === "tenant_id"), ["tenant_id", "tenant-a"]);
-  assert.deepEqual(r, { senderName: "Ana Club A", senderTitle: "Gerente" });
+  assert.deepEqual(signed, { senderName: "Ana Club A", senderTitle: "Gerente", memberId: "m1" });
+
+  // Task 14: the email is only signed as a person while that person is an authorized sender.
+  const revoked = await resolveDefaultSender(make([{ decision: "granted", created_at: "2026-10-01" }, { decision: "revoked", created_at: "2026-10-02" }]), "tenant-a");
+  assert.deepEqual(revoked, { senderName: "Departamento Comercial", senderTitle: "", memberId: null });
+  const never = await resolveDefaultSender(make([]), "tenant-a");
+  assert.equal(never.memberId, null);
+
   const none = await resolveDefaultSender({ from: () => { throw new Error("db down"); } } as any, "tenant-a");
-  assert.deepEqual(none, { senderName: "Departamento Comercial", senderTitle: "" });
+  assert.deepEqual(none, { senderName: "Departamento Comercial", senderTitle: "", memberId: null });
 });

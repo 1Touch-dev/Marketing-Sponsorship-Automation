@@ -4,6 +4,7 @@
  * All tools are non-throwing — they return { success, data, error } objects.
  */
 
+import { checkRecipient, checkSend, stampSigner } from "@/lib/contacts/store";
 import { loadOutreachContext, stampEmail } from "@/lib/playbooks/store";
 import { checkPlaybook } from "@/lib/playbooks/definitions";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -18,6 +19,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import {
   loadDefaultEmailTemplate,
   generateEmailWithTemplate,
+  resolveDefaultSender,
   type EmailTemplateVariables,
 } from "@/lib/email/template-engine";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
@@ -34,39 +36,6 @@ export type ToolResult = {
   data: Record<string, unknown>;
   summary: string;
 };
-
-// ── Helper: resolve sender from team_members DB ───────────────────────────────
-async function getDefaultSenderName(sb: ReturnType<typeof supabaseAdmin>, tenantId: string): Promise<string> {
-  try {
-    const { data } = await sb
-      .from("team_members")
-      .select("full_name")
-      .eq("tenant_id", tenantId as never)
-      .eq("default_sender", true as never)
-      .eq("active", true as never)
-      .limit(1)
-      .maybeSingle();
-    return (data as { full_name: string } | null)?.full_name ?? process.env.SENDER_NAME ?? "Departamento Comercial";
-  } catch {
-    return process.env.SENDER_NAME ?? "Departamento Comercial";
-  }
-}
-
-async function getDefaultSenderTitle(sb: ReturnType<typeof supabaseAdmin>, tenantId: string): Promise<string | null> {
-  try {
-    const { data } = await sb
-      .from("team_members")
-      .select("title")
-      .eq("tenant_id", tenantId as never)
-      .eq("default_sender", true as never)
-      .eq("active", true as never)
-      .limit(1)
-      .maybeSingle();
-    return (data as { title: string | null } | null)?.title ?? process.env.SENDER_TITLE ?? null;
-  } catch {
-    return process.env.SENDER_TITLE ?? null;
-  }
-}
 
 // ── Tool 1: Enrich Contacts (Hunter.io + Apollo.io) ─────────────────────────
 
@@ -341,8 +310,11 @@ export async function toolGenerateOutreachEmail(input: {
     const summary =
       content?.executive_summary || content?.campaign_rationale || proposal.title;
 
-    const senderName = await getDefaultSenderName(sb, tenantId);
-    const senderTitle = await getDefaultSenderTitle(sb, tenantId);
+    // Do-not-contact and dead addresses are refused before any AI call.
+    const rc = await checkRecipient(sb, tenantId, { email: input.recipient_email, companyId: String(company.id) });
+    if (!rc.allowed) return { success: false, data: { blocked: true }, summary: `Not drafting an email: ${rc.blocks[0].message}` };
+
+    const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, tenantId);
     const proposalLink = proposal.share_token
       ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
       : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}`;
@@ -437,6 +409,7 @@ export async function toolGenerateOutreachEmail(input: {
       return { success: false, data: {}, summary: "Failed to save email to database" };
     }
     if (outreachCtx) await stampEmail(sb, tenantId, emailRow.id as string, { companyId: outreachCtx.company.id, playbook: "pitch" });
+    await stampSigner(sb, tenantId, emailRow.id as string, signerId);
 
     const preview = emailOutput.body_text.slice(0, 150).replace(/\n/g, " ") + "…";
 
@@ -474,6 +447,15 @@ export async function toolSendEmail(input: {
   const pre = await loadDelivery(sb, null, input.email_id);
   if (pre && !pre.view.canSend && pre.view.state !== "crm_activity_recorded") {
     return { success: false, data: { sent: false }, summary: `Not sending: ${pre.view.blockedReason}` };
+  }
+
+  // Do-not-contact, dead addresses and revoked signers: refused before anything is claimed or sent.
+  {
+    const { data: row } = await sb.from("emails").select("recipient, company_id, proposal_id, sender_member_id, tenant_id").eq("id", input.email_id).maybeSingle();
+    if (row) {
+      const standing = await checkSend(sb, (row as { tenant_id: string }).tenant_id, row as { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null });
+      if (!standing.allowed) return { success: false, data: { sent: false, blocked: true }, summary: `Not sending: ${standing.blocks[0].message}` };
+    }
   }
 
   // Infrastructure-enforced send gate: atomically claim the email by flipping

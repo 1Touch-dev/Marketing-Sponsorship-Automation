@@ -1,3 +1,4 @@
+import { senderAuthorization } from "@/lib/contacts/store";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { validateAiOutput, emailOutputSchema, type EmailOutput } from "@/lib/ai/schemas";
@@ -323,21 +324,25 @@ export function injectNewsletterFooter(html: string, recipientEmail: string, app
 export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>, tenantId: string) {
   let senderName = "Departamento Comercial";
   let senderTitle = "";
+  let memberId: string | null = null;
   try {
     const { data: sender, error } = await sb
       .from("team_members")
-      .select("full_name, title")
+      .select("id, full_name, title")
       .eq("tenant_id", tenantId)
       .eq("default_sender", true)
       .eq("active", true)
       .limit(1)
       .maybeSingle();
-    if (!error && sender) {
+    // An email is only signed as a named person while that person is an authorized sender;
+    // otherwise it goes out as the generic "Departamento Comercial".
+    if (!error && sender && (await senderAuthorization(sb, tenantId, sender.id as string)).authorized) {
       senderName = sender.full_name ?? senderName;
       senderTitle = sender.title ?? "";
+      memberId = sender.id as string;
     }
   } catch {
     /* non-fatal */
   }
-  return { senderName, senderTitle };
+  return { senderName, senderTitle, memberId };
 }

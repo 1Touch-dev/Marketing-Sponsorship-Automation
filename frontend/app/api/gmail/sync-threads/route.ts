@@ -1,3 +1,5 @@
+import { recordSuppression } from "@/lib/contacts/store";
+import { detectOptOut, emailFromHeader } from "@/lib/contacts/model";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { gmailClientFromTokens, listThreadMessages, extractMessageBody } from "@/lib/gmail/client";
@@ -160,6 +162,12 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (inserted?.id && bodyText) {
+          // "Please remove me" is not the same as "not interested": it puts the address on the do-not-contact list.
+          const optOut = detectOptOut(bodyText);
+          const replier = emailFromHeader(from);
+          if (optOut.optOut && replier) {
+            await recordSuppression(sb, tenantId, { email: replier, decision: "suppressed", reasonCode: "asked_to_stop", note: `Replied: "${optOut.matched}"`, actor: { kind: "system", name: "reply-sync" }, source: "reply_opt_out" });
+          }
           const result = await classifyReply({ subject: subjectHeader, bodyText });
           await sb
             .from("emails")

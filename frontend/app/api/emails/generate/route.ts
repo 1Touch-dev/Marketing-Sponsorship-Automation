@@ -1,3 +1,4 @@
+import { checkRecipient, stampSigner } from "@/lib/contacts/store";
 import { loadOutreachContext, stampEmail } from "@/lib/playbooks/store";
 import { checkPlaybook } from "@/lib/playbooks/definitions";
 import { NextResponse } from "next/server";
@@ -70,7 +71,11 @@ export async function POST(req: Request) {
     content?.campaign_rationale ||
     proposal.title;
 
-  const { senderName, senderTitle } = await resolveDefaultSender(sb, auth.user.tenant_id);
+  // Do-not-contact and dead addresses are refused before any AI call.
+  const standing = await checkRecipient(sb, auth.user.tenant_id, { email: parsed.data.recipient, companyId: (proposal as { company_id?: string | null }).company_id ?? null });
+  if (!standing.allowed) return NextResponse.json({ error: standing.blocks[0].message, code: "recipient_blocked", blocks: standing.blocks }, { status: 409 });
+
+  const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, auth.user.tenant_id);
   const companyName = String(company.company_name ?? "");
   const contactName = parsed.data.contact_name?.trim() || "Prezado(a)";
   const proposalLink = proposal.share_token
@@ -237,6 +242,8 @@ export async function POST(req: Request) {
     if (eventId) await failWorkflow(eventId, insErr?.message ?? "Insert failed");
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
   }
+
+  await stampSigner(sb, auth.user.tenant_id, row.id, signerId);
 
   // Record that this was a pitch, and why, when a person chose it as the first contact
   // with an account nobody has qualified (the default would have been a conversation).

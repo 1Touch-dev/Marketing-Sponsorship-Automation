@@ -1,3 +1,4 @@
+import { recordChannelCheck } from "@/lib/contacts/store";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -80,6 +81,13 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       actor_email: auth.user?.email ?? null,
       detail: { via: "reconciliation" },
     });
+  }
+
+  if (!result.duplicate && body.event_type === "bounced") {
+    const { data: bounced } = await sb.from("emails").select("recipient").eq("id", ctx.params.id).eq("tenant_id", current.tenantId).maybeSingle();
+    if (bounced?.recipient) {
+      await recordChannelCheck(sb, current.tenantId, { channel: "email", value: bounced.recipient as string, outcome: "bounced", method: "delivery_event", checkedBy: body.provider ?? "provider", note: `Bounce reported for email ${ctx.params.id}` });
+    }
   }
 
   if (!result.duplicate) {

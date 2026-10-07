@@ -8,29 +8,29 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 114** (counted from the tables below; refresh after each task)
+**Open items right now: 124** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 55 |
-| James | 38 |
-| Yash | 14 |
-| Yash / James | 3 |
+| Abhishek | 59 |
+| James | 42 |
+| Yash | 15 |
+| Yash / James | 4 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Tech debt | 25 |
-| Decision | 24 |
-| Yash | 12 |
-| Test gap | 10 |
+| Decision | 27 |
+| Tech debt | 26 |
+| Yash | 13 |
+| Test gap | 11 |
 | Account | 9 |
+| Known limit | 8 |
 | Deploy | 7 |
-| Data | 6 |
+| Data | 7 |
 | Content | 6 |
 | Security | 5 |
-| Known limit | 5 |
 | Behaviour | 4 |
 | Removed | 1 |
 
@@ -234,13 +234,27 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T13-07 | Account | Abhishek | **Other tenants have no email templates and no default sender**, so they get generic text until set up. All 17 templates belong to Coritiba. | A tenant onboarding step for templates and the sender. | Open |
 | T13-08 | Test gap | Abhishek | The introduction playbook and the "first touch flips after a real send" case were not run live (the second needs real sending). Both are unit tested. | Run both once sending works. | Open |
 
+### Task 14: contact standing, do-not-contact and authorized senders (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T14-01 | **Decision** | James | **Contract signature requests and the sponsor-portal login link are not blocked by do-not-contact**, because they are transactional (a signer or a client who asked for access). Outreach, pitches, follow-up sends, the newsletter and agent sends are. | Confirm that split. | Open |
+| T14-02 | **Decision** | James | A reply that says "stop emailing me" or "remove me" **puts the address on the list automatically** (logged as the reply sync). Declining a pitch does not. | Confirm, or have it propose the suppression for a person to confirm. | Open |
+| T14-03 | **Decision** | James | Only the **current default sender** (Murilo) was authorized when the migration ran. The five other team members, including four test records, are not; until an admin authorizes someone, emails go out signed as "Departamento Comercial". | Say who else should be an authorized sender. | Open |
+| T14-04 | Yash | Yash | No screens: a role timeline and "who is the decision-maker" on the company page, channel badges with a verify button, the do-not-contact list with an add and a lift form, the sender authorization admin page, the skipped list after a newsletter, and "signed as" on the email. All have API routes. | Design and wire. | Open |
+| T14-05 | Known limit | Yash / James | The list is enforced on **this platform's** sends. It is not synced to Pipedrive or Twenty, and mail sent outside the platform is not covered. | Decide with X-14 which system owns suppression. | Open |
+| T14-06 | Known limit | Abhishek | Opt-out detection is **phrase-based** (Portuguese and English): an unusual phrasing or another language is missed. There is also no complaint (spam report) event, so complaints cannot suppress anyone until a real email provider reports them. | A real provider (X-10); review missed cases. | Open |
+| T14-07 | Test gap | Abhishek | The reply-sync hook was not run live because it needs Gmail. Its detection and the suppression it writes were run against the database. | Run once Gmail is connected to a test inbox. | Open |
+| T14-08 | Tech debt | Abhishek | The **follow-up draft route** does not check the recipient (its send is gated, so nothing reaches a suppressed person). The email sequence runner calls the generate endpoint over HTTP with no credentials, so it cannot work as written; it has no enrollments. | Add the check to follow-up drafting; fix or retire the runner. | Open |
+| T14-09 | Known limit | Abhishek | Authorization applies to the **person an email is signed as**, not to the user who clicks send, and platform users are not linked to team members. All emails go out from one Gmail address (none uses a sender profile). | Link users to team members when the real provider and sender addresses exist. | Open |
+| T14-10 | Data | James | None of the 22 contacts has a role or a verified address, and 4 team members are test records. | Fill in roles; delete the test members and the other test data with your OK. | Open |
+
 ---
 
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 14 Contact roles and suppression | Needs a source of truth for do-not-contact (CRM vs here). | Yash / James |
 | 15–17 Project types, obligations, dependencies | Depends on the project substrate decision (X-13). | Yash |
 | 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
 | 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
@@ -274,3 +288,5 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | Email signed with another club's team member | 7 Oct (Task 13): the default sender lookup is now scoped to the tenant; verified on real data |
 | Another club's pitch built from Coritiba's email templates (and any template loadable by id across tenants) | 7 Oct (Task 13): all three template lookups are scoped to the tenant; verified on real data |
 | An agent pitching an account no person has qualified | 7 Oct (Task 13): refused before any AI call; allowed once a person qualifies it |
+| Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
+| A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |

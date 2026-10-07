@@ -1,3 +1,4 @@
+import { checkSend } from "@/lib/contacts/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
@@ -160,6 +161,14 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       { error: `Email must be approved before sending (current status: "${email.status}"). Approve it first.` },
       { status: 409 },
     );
+  }
+
+  // Do-not-contact, dead addresses and revoked signers: refused before anything is claimed or sent.
+  if (mode === "send") {
+    const standing = await checkSend(sb, auth.user.tenant_id, email as { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null });
+    if (!standing.allowed) {
+      return NextResponse.json({ error: standing.blocks[0].message, code: standing.blocks[0].code, blocks: standing.blocks }, { status: 409 });
+    }
   }
 
   // Pre-send validation: block if [Nome] or {{variable}} placeholders are unresolved

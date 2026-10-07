@@ -77,6 +77,12 @@ const PERMISSIONS = {
   // Opening, closing and reopening an account-level opportunity (Task 11).
   create_opportunity: ["admin", "sales_rep"] as UserRole[],
 
+  // Contact standing (Task 14): roles and channel checks are everyday upkeep; anyone who sells,
+  // or approves, may put someone on the do-not-contact list, but only an admin can take them off.
+  manage_contacts:   ["admin", "sales_rep"] as UserRole[],
+  suppress_contact:  ["admin", "sales_rep", "approver"] as UserRole[],
+  lift_suppression:  ["admin"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],

@@ -1,3 +1,4 @@
+import { filterRecipients } from "@/lib/contacts/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { z } from "zod";
@@ -60,8 +61,13 @@ export async function POST(req: Request) {
     resolvedEmails = [...new Set([...resolvedEmails, ...contactEmails])];
   }
 
+  // Leave out anyone on the do-not-contact list, at a suppressed company, or with a dead address.
+  const filtered = await filterRecipients(sb, auth.user.tenant_id, resolvedEmails);
+  const skippedRecipients = filtered.skipped;
+  resolvedEmails = filtered.allowed;
+
   if (resolvedEmails.length === 0) {
-    return NextResponse.json({ error: "No recipients resolved" }, { status: 400 });
+    return NextResponse.json({ error: "No recipients left to contact", skipped: skippedRecipients }, { status: 400 });
   }
 
   // Save newsletter record
@@ -104,6 +110,7 @@ export async function POST(req: Request) {
     success: true,
     newsletter,
     recipient_count: resolvedEmails.length,
+    skipped: skippedRecipients,
     // Truthful on purpose: this saves the newsletter; no email provider is connected, so nothing was emailed.
     message: `Newsletter saved for ${resolvedEmails.length} recipients. No email was sent: this platform has no email provider connected yet.`,
   });

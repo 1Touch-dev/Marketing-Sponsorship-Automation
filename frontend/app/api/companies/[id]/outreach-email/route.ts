@@ -1,3 +1,4 @@
+import { checkRecipient, stampSigner } from "@/lib/contacts/store";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/server";
@@ -59,11 +60,15 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const c = await loadOutreachContext(sb, auth.user.tenant_id, ctx.params.id);
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
+  // Do-not-contact and dead addresses are refused before any AI call.
+  const standing = await checkRecipient(sb, auth.user.tenant_id, { email: body.recipient, companyId: c.company.id });
+  if (!standing.allowed) return NextResponse.json({ error: standing.blocks[0].message, code: "recipient_blocked", blocks: standing.blocks }, { status: 409 });
+
   const check = checkPlaybook({ playbook, stage: c.stage, firstTouch: c.firstTouch, hasApprovedProposal: c.hasApprovedProposal, detail: body.detail, actor: { kind: "human", email: auth.user.email } });
   if (!check.allowed) return NextResponse.json({ error: check.reason, code: "playbook_not_allowed" }, { status: 400 });
 
   const tenant = await resolveClubContext(auth.user.tenant_id);
-  const { senderName, senderTitle } = await resolveDefaultSender(sb, auth.user.tenant_id);
+  const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, auth.user.tenant_id);
   const briefs = await listBriefs(sb, auth.user.tenant_id, c.company.id);
   const latest = briefs.ok ? briefs.value[0] : null;
   const prompt = relationshipEmailPrompt({
@@ -121,6 +126,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: isMissingMigration(error) ? "Outreach playbooks are not set up yet (migration 0061)." : error?.message ?? "Insert failed" }, { status: isMissingMigration(error) ? 503 : 500 });
   }
 
+  await stampSigner(sb, auth.user.tenant_id, row.id, signerId);
   await recordAudit({ entity_type: "email", entity_id: row.id, action: "email.relationship_drafted", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { company_id: c.company.id, playbook, first_touch: c.firstTouch, actor_user_id: auth.user.id } });
   return NextResponse.json({ email_id: row.id, playbook, subject: row.subject, preview: row.body_text.slice(0, 200), recommended: c.recommendation }, { status: 201 });
 }
