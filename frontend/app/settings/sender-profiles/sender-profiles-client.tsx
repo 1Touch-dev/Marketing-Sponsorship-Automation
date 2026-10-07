@@ -45,7 +45,7 @@ export function SenderProfilesClient({
     <div className="space-y-4 max-w-2xl">
       <div className="space-y-2">
         {loadError ? (
-          <EmptyState title="Couldn't load sender identities" description={loadError} />
+          <EmptyState role="alert" title="Couldn't load sender identities" description={loadError} />
         ) : profiles.length === 0 && !showForm && (
           <div className="rounded-xl border bg-card p-8 text-center">
             <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />

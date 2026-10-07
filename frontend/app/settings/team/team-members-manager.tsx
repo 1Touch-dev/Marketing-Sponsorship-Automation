@@ -227,7 +227,7 @@ export function TeamMembersManager({
       {/* List */}
       <div className="space-y-3">
         {loadError ? (
-          <EmptyState title="Couldn't load teammates" description={loadError} />
+          <EmptyState role="alert" title="Couldn't load teammates" description={loadError} />
         ) : members.length === 0 && (
           <div className="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center">
             <Users className="h-8 w-8 text-slate-300 mx-auto mb-3" />

@@ -455,7 +455,7 @@ export default async function DashboardPage() {
 
       <section className="mb-6 rounded-xl border bg-card">
         {d.workListError ? (
-          <p className="px-4 py-3 text-sm text-destructive">Couldn&apos;t load what&apos;s waiting</p>
+          <p role="alert" className="px-4 py-3 text-sm text-destructive">Couldn&apos;t load what&apos;s waiting</p>
         ) : workItems.length === 0 ? (
           <p className="px-4 py-3 text-sm text-muted-foreground">Nothing waiting</p>
         ) : (

@@ -26,13 +26,14 @@ export default async function UsersPage() {
         <h2 className="text-sm font-semibold mb-3">Role Permissions</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
+            <caption className="text-left text-sm font-medium pb-2 sr-only">Role permissions</caption>
             <thead>
               <tr className="border-b text-muted-foreground">
-                <th className="text-left py-1.5 pr-4 font-medium w-48">Permission</th>
-                <th className="text-center py-1.5 px-3 font-medium">Admin</th>
-                <th className="text-center py-1.5 px-3 font-medium">Sales Rep</th>
-                <th className="text-center py-1.5 px-3 font-medium">Approver</th>
-                <th className="text-center py-1.5 px-3 font-medium">Viewer</th>
+                <th scope="col" className="text-left py-1.5 pr-4 font-medium w-48">Permission</th>
+                <th scope="col" className="text-center py-1.5 px-3 font-medium">Admin</th>
+                <th scope="col" className="text-center py-1.5 px-3 font-medium">Sales Rep</th>
+                <th scope="col" className="text-center py-1.5 px-3 font-medium">Approver</th>
+                <th scope="col" className="text-center py-1.5 px-3 font-medium">Viewer</th>
               </tr>
             </thead>
             <tbody className="divide-y">

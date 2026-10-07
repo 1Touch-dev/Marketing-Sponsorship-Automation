@@ -377,7 +377,7 @@ export default async function CompanyDetailPage({
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {campaignsError ? (
-                    <p className="text-sm text-destructive">Couldn&apos;t load campaigns</p>
+                    <p role="alert" className="text-sm text-destructive">Couldn&apos;t load campaigns</p>
                   ) : campaigns && campaigns.length > 0 ? campaigns.map((c) => (
                     <Link key={c.id} href={`/campaigns/${c.id}`} title={c.title || "Untitled"} className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-muted transition-colors">
                       <span className="text-sm truncate min-w-0">{c.title || "Untitled"}</span>

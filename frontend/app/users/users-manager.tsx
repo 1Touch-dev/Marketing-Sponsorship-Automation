@@ -120,21 +120,22 @@ export default function UsersManager({
 
       <div className="rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
+          <caption className="text-left text-sm font-medium px-4 py-2">Login accounts</caption>
           <thead className="bg-muted/40 border-b">
             <tr>
-              <th className="text-left py-2.5 px-4 font-medium text-muted-foreground">Name</th>
-              <th className="text-left py-2.5 px-4 font-medium text-muted-foreground">Email</th>
-              <th className="text-left py-2.5 px-4 font-medium text-muted-foreground">Role</th>
-              <th className="text-left py-2.5 px-4 font-medium text-muted-foreground">Status</th>
-              <th className="text-left py-2.5 px-4 font-medium text-muted-foreground">Last seen</th>
-              <th className="py-2.5 px-4" />
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Name</th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Email</th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Role</th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Status</th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Last seen</th>
+              <th scope="col" className="py-2.5 px-4"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loadError ? (
               <tr>
                 <td colSpan={6} className="p-4">
-                  <EmptyState title="Couldn't load login accounts" description={loadError} />
+                  <EmptyState role="alert" title="Couldn't load login accounts" description={loadError} />
                 </td>
               </tr>
             ) : users.length === 0 ? (

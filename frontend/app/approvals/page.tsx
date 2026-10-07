@@ -192,6 +192,7 @@ export default async function ApprovalsPage({
 
   const listContent = queueLoadError ? (
     <EmptyState
+      role="alert"
       title="Couldn't load the approval queue"
       description={queueLoadError}
       action={<Link href="/approvals" className="text-sm font-medium underline">Try again</Link>}

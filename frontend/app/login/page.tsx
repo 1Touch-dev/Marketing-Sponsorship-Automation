@@ -65,17 +65,18 @@ export default function LoginPage() {
           </p>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-900/40 border border-red-500/40 text-red-300 text-sm">
+            <div role="alert" className="mb-4 p-3 rounded-lg bg-red-900/40 border border-red-500/40 text-red-300 text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-green-200 mb-1.5">
+              <label htmlFor="login-email" className="block text-sm font-medium text-green-200 mb-1.5">
                 Email
               </label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -87,11 +88,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-green-200 mb-1.5">
+              <label htmlFor="login-password" className="block text-sm font-medium text-green-200 mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPw ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -104,7 +106,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition"
-                  tabIndex={-1}
+                  aria-label={showPw ? "Hide password" : "Show password"}
                 >
                   {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

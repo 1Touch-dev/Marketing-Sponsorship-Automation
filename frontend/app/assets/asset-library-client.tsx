@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { Search, Filter, Archive, CheckCircle, XCircle, Clock, ImageIcon, Loader2, Tag, Link2, Megaphone } from "lucide-react";
@@ -39,6 +39,8 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns, lo
   const [updating, setUpdating] = useState<string | null>(null);
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [preview, setPreview] = useState<Asset | null>(null);
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const previewCloseRef = useRef<HTMLButtonElement | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const filtered = useMemo(() => {
@@ -50,6 +52,39 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns, lo
       return matchesSearch && matchesStatus && matchesCompany && matchesCampaign;
     });
   }, [assets, search, filterStatus, filterCompany, filterCampaign]);
+
+  function openPreview(asset: Asset, trigger: HTMLButtonElement) {
+    previewTriggerRef.current = trigger;
+    setPreview(asset);
+  }
+
+  function closePreview() {
+    setPreview(null);
+    const trigger = previewTriggerRef.current;
+    previewTriggerRef.current = null;
+    requestAnimationFrame(() => trigger?.focus());
+  }
+
+  useEffect(() => {
+    if (!preview) return;
+    previewCloseRef.current?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        previewCloseRef.current?.focus();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setPreview(null);
+        const trigger = previewTriggerRef.current;
+        previewTriggerRef.current = null;
+        requestAnimationFrame(() => trigger?.focus());
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [preview]);
 
   function toggleSelect(id: string) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -203,7 +238,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns, lo
             <div key={asset.id} className={`rounded-xl border bg-card overflow-hidden group hover:shadow-md transition-all ${isSelected ? "ring-2 ring-primary border-primary" : ""}`}>
               {/* Preview — the image is a button; the checkbox stays a separate control. */}
               <div className="aspect-video bg-muted relative overflow-hidden">
-                <button type="button" className="absolute inset-0 cursor-pointer" onClick={() => setPreview(asset)} aria-label={`Preview ${asset.prompt?.slice(0, 80) || "asset"}`}>
+                <button type="button" className="absolute inset-0 cursor-pointer" onClick={(event) => openPreview(asset, event.currentTarget)} aria-label={`Preview ${asset.prompt?.slice(0, 80) || "asset"}`}>
                   {imgUrl ? (
                     <img src={imgUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
@@ -272,7 +307,7 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns, lo
       </div>
 
       {loadError ? (
-        <div className="text-center py-16">
+        <div role="alert" className="text-center py-16">
           <p className="text-sm text-destructive">Couldn&apos;t load assets</p>
           <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
         </div>
@@ -288,14 +323,20 @@ export function AssetLibraryClient({ assets, proposals, companies, campaigns, lo
 
       {/* Preview modal */}
       {preview && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={preview.prompt?.slice(0, 80) || "Asset preview"}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={closePreview}
+        >
           <div className="bg-card rounded-2xl overflow-hidden max-w-2xl w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-            {resolveJobImageUrl(preview) ? <img src={resolveJobImageUrl(preview)!} alt={preview.prompt?.slice(0,80) ?? "Preview"} className="w-full" /> : <div className="aspect-video bg-muted flex items-center justify-center"><ImageIcon className="h-16 w-16 opacity-20" aria-hidden="true" /></div>}
+            {resolveJobImageUrl(preview) ? <img src={resolveJobImageUrl(preview)!} alt="" className="w-full" /> : <div className="aspect-video bg-muted flex items-center justify-center"><ImageIcon className="h-16 w-16 opacity-20" aria-hidden="true" /></div>}
             <div className="p-4 space-y-2">
               <p className="text-sm">{preview.prompt}</p>
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span className="capitalize">{preview.job_type?.replace(/_/g, " ")}</span>
-                <Button size="sm" variant="outline" onClick={() => setPreview(null)}>Close</Button>
+                <Button ref={previewCloseRef} size="sm" variant="outline" onClick={closePreview}>Close</Button>
               </div>
             </div>
           </div>

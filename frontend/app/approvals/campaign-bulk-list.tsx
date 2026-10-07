@@ -167,7 +167,7 @@ export function CampaignBulkList({ campaigns }: { campaigns: CampaignBulkRow[] }
             </Link>
           </div>
           {errors[c.id] && (
-            <p className="px-4 pb-3 text-xs text-destructive">{errors[c.id]}</p>
+            <p role="alert" className="px-4 pb-3 text-xs text-destructive">{errors[c.id]}</p>
           )}
         </div>
       ))}

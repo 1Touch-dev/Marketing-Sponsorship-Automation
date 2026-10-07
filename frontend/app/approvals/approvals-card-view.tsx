@@ -540,7 +540,7 @@ export function ApprovalsCardView({ items }: Props) {
             )}
 
             {actionError && (
-              <p className="px-6 pb-2 text-center text-sm text-destructive">{actionError}</p>
+              <p role="alert" className="px-6 pb-2 text-center text-sm text-destructive">{actionError}</p>
             )}
 
             <CardFooter className="flex justify-center gap-3 pt-4 pb-6">
