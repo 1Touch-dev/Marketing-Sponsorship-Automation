@@ -7,6 +7,35 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Owner:** who can clear it. James = client side, Yash = colleague, Abhishek = us.
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
+
+**Open items right now: 98** (counted from the tables below; refresh after each task)
+
+| Owner | Open |
+|---|---|
+| Abhishek | 48 |
+| James | 31 |
+| Yash | 12 |
+| Yash / James | 3 |
+| James / the club | 3 |
+| James / Yash | 1 |
+
+| Type | Open |
+|---|---|
+| Tech debt | 24 |
+| Decision | 19 |
+| Yash | 10 |
+| Test gap | 9 |
+| Account | 8 |
+| Deploy | 6 |
+| Content | 6 |
+| Security | 5 |
+| Data | 5 |
+| Known limit | 3 |
+| Behaviour | 2 |
+| Removed | 1 |
+
+Use this to plan the final sweep: James and Yash items need their input, Abhishek items can be done in one pass.
+
 ---
 
 ## A. Cross-cutting (affect several tasks)
@@ -136,7 +165,7 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | T8-05 | **Data** | James | The public sponsor page's WhatsApp button points at `5541999999999`, an obvious placeholder. Not changed in this task. | The club's real number. | Open |
 | T8-06 | Decision | James | Free-text figures can still appear in AI-written or hand-edited proposal text (a live proposal says "mais de 1 milhão de telespectadores por partida"). Approval now lists these as unsourced figures, but does not block. | Decide: warn only, or block approval while unsourced figures remain. | Open |
 | T8-07 | Yash | Yash | `/claims` is a working but unstyled review screen. Still to design: unsourced-figure list on the approval card (`GET /api/proposals/[id]/claims`), expiry reminders, a notice on the deck when figures are withheld. | Design and wire. | Open |
-| T8-08 | Tech debt | Abhishek | The old `/coritiba-intelligence` page and `POST /api/coritiba-metrics` still edit the old table, which no longer feeds any sponsor-facing page or prompt. Two places to edit the same fact. | Point that page at the registry, and (with your OK) delete the duplicate seed rows. | Open |
+| T8-08 | Tech debt | Abhishek | **Partly cleared in Task 9:** the `/coritiba-intelligence` page now reads the registry and the old form and write API are gone. What remains is the old `coritiba_metrics` table and its duplicate rows (tracked as T9-07). | Delete the table's rows, with your OK. | Open (see T9-07) |
 | T8-09 | Tech debt | Abhishek | Other tenants' `club_facts.follower_count` and `typical_attendance` no longer reach prompts, decks or KPI cards. They have to be entered as claims. The Coritiba prompt text still carries unsourced broadcast and competition wording in `market_context`. | Tenant onboarding step that creates claims; move `market_context` figures into claims. | Open |
 | T8-10 | Behaviour | James | Sponsor pages read the registry when opened, so a claim that expires after a proposal was approved quietly disappears from the link already sent. The approval step records what was shown at the time. | Decide if an expired figure should instead be flagged to the proposal owner. | Open |
 | T8-11 | Test gap | Abhishek | The "second person must verify" rule was tested live with two real logins (a sales rep who recorded figures and an approver who verified them). The case of one person holding both permissions (an admin verifying their own version) is covered by unit tests only. T6-08 is still open for contracts. | Test the admin self-verify case once a second admin account exists. | Cleared except admin case |
@@ -210,3 +239,9 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 | Middleware blocked provider callbacks | 6 Oct: allowlisted, with route-level checks |
 | Status route let an active contract leave without releasing units | 5 Oct (Task 3) |
 | Proposal text editable while still "approved" | 5 Oct (Task 3) |
+| Hardcoded club figures with no source on the deck, KPI cards and landing page | 6 Oct (Task 8): now read from the claims registry; unverified figures are not shown |
+| Invented "Próximas Partidas" fixtures on the sponsor landing page | 6 Oct (Task 8): removed |
+| "Up to 100% of the amount invested" in the incentive-law proposal text | 7 Oct (Task 9): text built from verified claims, no number without one |
+| Duplicate agent-created companies from a loose name lookup | 7 Oct (Task 10): one structure-aware check on every creation path |
+| Agents able to create sales deals on their own | 7 Oct (Tasks 10, 11): qualification and opportunities need a person or one named rule, enforced in the database |
+| Second-person rule tested with only one login | 6 Oct (Task 8, T8-11): tested live with two real logins |
