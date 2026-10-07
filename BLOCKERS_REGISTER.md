@@ -8,22 +8,22 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 139** (counted from the tables below; refresh after each task)
+**Open items right now: 143** (counted from the tables below; refresh after each task)
 
 | Owner | Open |
 |---|---|
 | Abhishek | 65 |
-| James | 48 |
-| Yash | 17 |
+| James | 51 |
+| Yash | 18 |
 | Yash / James | 5 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 34 |
+| Decision | 37 |
 | Tech debt | 27 |
-| Yash | 15 |
+| Yash | 16 |
 | Test gap | 11 |
 | Account | 9 |
 | Known limit | 12 |
@@ -258,7 +258,6 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T15-02 | **Decision** | James | Completion rules as built. Sales project: the deal must be won, lost or closed, and the outcome written (10+ characters). Delivery project: contract active, completed or expired, every delivery task done, and the period over (or a written reason for ending early). | Confirm, or change what counts as finished. | Open |
 | T15-03 | Yash | Yash | No screens: project list and detail per type, the required fields per type (from `/api/projects/types`), the start / pause / resume / complete / cancel buttons with the reason boxes, and the blocker list that explains why a project cannot be completed. All have API routes. | Design and wire. | Open |
 | T15-04 | **Decision** | Yash / James | Each project can carry a pointer to an outside task system (system name and id, unique). Nothing reads or writes that system yet. | Settle X-13 (which system runs day-to-day tasks); then sync. | Open |
-| T15-07 | Known limit | Abhishek | A project's type, links and dates cannot be changed. A wrong date means cancelling and creating another; the owner and next action can be edited. | Task 17 adds a recorded date change. | Open |
 | T15-08 | Known limit | Abhishek | An active contract with no proposal behind it (T11-03) has no task list, so its delivery project can only complete when the period ends. | Link the contract to its proposal, or give it obligations (see T16-06). | Open |
 
 
@@ -274,7 +273,18 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | T16-06 | Data | Abhishek | The **two real active contracts have no obligations**. One has no company (T11-03) so it cannot be handed off; the other has a proposal with 9 old tasks (1 done) and no recorded allocations. Nothing was converted automatically. | With your OK, link the first to a company and run the handoff on both. | Open |
 | T16-07 | Known limit | Abhishek | Proof is a web link, a file link or a written statement. Links are **not checked to be reachable**, a statement is only a person's word (shown as "stated", not "attached"), and proof is not stored in the contract's signature ledger. | Add file upload and link checks with the proof screens (Task 19). | Open |
 | T16-08 | Tech debt | Abhishek | The old checklist generator (Task 10) stays as a fallback for installs where migration 0064 is missing, and the checklist inside the proposal is overwritten from obligations after every change. | Remove the fallback once every environment has 0064. | Open |
-| T16-09 | Known limit | Abhishek | An obligation's dates, quantity and wording cannot change; the only ways out are waiving it with a reason or reopening it. | Task 17 adds a recorded date change. | Open |
+
+
+### Task 17: dependencies and date-change impact (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T17-01 | **Decision** | James | The handoff sets a **default order of work**: billing and kickoff wait on the signed contract, the season calendar waits on kickoff, and every sold item waits on the calendar. A person can add or end any dependency afterwards. | Confirm the default, or give the real order your delivery team follows. | Open |
+| T17-02 | **Decision** | James | When a date moves, the downstream work and its owners are **shown and recorded**, but **nobody is notified**. No Slack or email message is sent. | Say who should be told when a date moves, and how (Slack channel, email to the owner, or the owner's task list only). | Open |
+| T17-03 | **Decision** | James | A move past the contract end or the delivery period needs only the mover's acknowledgement and a reason. It does not need a second person, and it does not change the contract. | Decide whether such a move needs approval or a contract amendment. | Open |
+| T17-04 | Yash | Yash | No screens: an impact preview before a date is moved (work that waits, owners, conflicts, a cascade choice), the dependency list with add and end, a date history on each obligation and project, and a "moved" badge. All have API routes. | Design and wire. | Open |
+| T17-05 | Known limit | Abhishek | **A contract's own start and end dates are not covered.** Changing them does not move any obligation or project; dates move only through an obligation or a project. A sold item still has no date of its own (T16-02), so match-day or calendar-driven dates are not modelled. | Decide how contract date changes should ripple; add item-level dates with the T16-02 answer. | Open |
+| T17-06 | Known limit | Abhishek | Dependencies are "finish to start" only, link obligations of **one contract**, and do not connect a project to an obligation or one contract to another. | Extend if James's team needs cross-contract or start-to-start links. | Open |
 
 ---
 
@@ -282,7 +292,6 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 
 | Task | Likely blocker | Owner |
 |---|---|---|
-| 17 Dependencies and date-change impact | Depends on the project substrate decision (X-13). | Yash |
 | 18 Cash, barter, savings accounting | Needs James's rules: barter valuation, tax treatment, revenue recognition. | James |
 | 19, 20 Recap and company statuses | Needs real delivery evidence; Yash's proof screens. | Yash |
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
@@ -319,5 +328,6 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A deleted proposal could be blocked by a project pointing at it | 7 Oct (Task 15): caught in testing, guard fixed and re-verified |
 | A signed commitment ended as a loose, unowned, undated checklist inside the proposal | 7 Oct (Task 16): every sold item and onboarding step becomes an owned, dated obligation linked to its allocation, with proof recorded and a project that finishes on proof |
 | Delivery projects created by hand, and completed on a ticked box | 7 Oct (Task 16): created by the handoff; completion needs proof (T15-05 and T15-06 cleared) |
+| A date moved with one silent field update: no record, no view of what depended on it | 7 Oct (Task 17): every move is a recorded, reasoned, attributed change with the downstream work and owners it affected; a conflicting move is refused unless acknowledged (T15-07 and T16-09 cleared) |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |

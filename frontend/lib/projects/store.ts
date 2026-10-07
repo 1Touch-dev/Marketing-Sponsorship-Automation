@@ -3,6 +3,7 @@ import type { WriteResult } from "../accounts/store";
 import { loadOpportunities } from "../opportunities/store";
 import { loadProof } from "../contracts/evidence-store";
 import { contractObligationFacts } from "../obligations/facts";
+import { dateInForce, loadDateChanges, type DateChangeRow } from "../schedule/dates";
 import {
   TYPE_DEFINITIONS, allowedActions, completionCheck, deriveStatus, eventFor, isTerminal, validateProjectInput,
   type Completion, type EventRow, type ProjectAction, type ProjectInput, type ProjectStatus, type ProjectType,
@@ -21,7 +22,14 @@ export interface ProjectRow {
   created_at: string; updated_at: string;
 }
 
-export interface ProjectSummary extends ProjectRow { status: ProjectStatus; actions: string[] }
+export interface ProjectSummary extends ProjectRow { status: ProjectStatus; actions: string[]; dates_moved: boolean }
+
+/** The project with the dates in force: each of its three dates is the original or the newest recorded move. */
+function withDatesInForce(r: ProjectRow, changes: DateChangeRow[]): { row: ProjectRow; moved: boolean } {
+  const pick = (v: string | null, field: string) => (v ? dateInForce(v, changes, r.id, field) : v);
+  const row = { ...r, period_start: pick(r.period_start, "period_start"), period_end: pick(r.period_end, "period_end"), target_date: pick(r.target_date, "target_date") };
+  return { row, moved: row.period_start !== r.period_start || row.period_end !== r.period_end || row.target_date !== r.target_date };
+}
 
 const COLUMNS = "id, tenant_id, project_type, title, description, company_id, opportunity_id, proposal_id, contract_id, owner_email, created_by, objective, target_date, next_action, period_start, period_end, external_system, external_id, created_at, updated_at";
 const chunks = <T,>(xs: T[], n = 100) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
@@ -38,9 +46,11 @@ export async function listProjects(sb: Sb, tenantId: string, f: { type?: string 
     const { data: ev } = await sb.from("project_events").select("project_id, event_type, created_at").in("project_id", part);
     events.push(...(ev ?? []));
   }
-  const out = rows.map((r) => {
+  const changes = await loadDateChanges(sb, tenantId, "project", rows.map((r) => r.id));
+  const out = rows.map((r0) => {
+    const { row: r, moved } = withDatesInForce(r0, changes);
     const status = deriveStatus(events.filter((e) => e.project_id === r.id));
-    return { ...r, status, actions: allowedActions(status) as string[] };
+    return { ...r, status, actions: allowedActions(status) as string[], dates_moved: moved };
   });
   return { ok: true, value: f.status ? out.filter((p) => p.status === f.status) : out };
 }
@@ -145,6 +155,7 @@ export interface ProjectView extends ProjectSummary {
   completion: Completion;
   definition: (typeof TYPE_DEFINITIONS)[ProjectType];
   history: Array<{ event_type: string; reason: string | null; outcome_note: string | null; actor_email: string; created_at: string }>;
+  date_history: Array<{ field: string; old_value: string; new_value: string; reason: string; changed_by: string; created_at: string }>;
 }
 
 export async function getProject(sb: Sb, tenantId: string, id: string): Promise<WriteResult<ProjectView>> {
@@ -153,9 +164,17 @@ export async function getProject(sb: Sb, tenantId: string, id: string): Promise<
   if (!p) return { ok: false, status: 404, error: "Project not found" };
   const { data: ev } = await sb.from("project_events").select("event_type, reason, outcome_note, actor_email, created_at").eq("project_id", id).order("created_at", { ascending: false });
   const status = deriveStatus((ev ?? []) as EventRow[]);
-  const facts = await loadFacts(sb, tenantId, p as ProjectRow);
-  const completion = completionCheck({ type: p.project_type, today: todayStr(), opportunityStatus: facts.opportunityStatus, contractStatus: facts.contractStatus, periodEnd: p.period_end, openTasks: facts.openTasks ?? 0 });
-  return { ok: true, value: { ...(p as ProjectRow), status, actions: allowedActions(status) as string[], facts, completion, definition: TYPE_DEFINITIONS[p.project_type as ProjectType], history: ev ?? [] } };
+  const changes = await loadDateChanges(sb, tenantId, "project", [id]);
+  const { row, moved } = withDatesInForce(p as ProjectRow, changes);
+  const facts = await loadFacts(sb, tenantId, row);
+  const completion = completionCheck({ type: row.project_type, today: todayStr(), opportunityStatus: facts.opportunityStatus, contractStatus: facts.contractStatus, periodEnd: row.period_end, openTasks: facts.openTasks ?? 0 });
+  return {
+    ok: true,
+    value: {
+      ...row, status, actions: allowedActions(status) as string[], dates_moved: moved, facts, completion, definition: TYPE_DEFINITIONS[row.project_type as ProjectType], history: ev ?? [],
+      date_history: [...changes].reverse().map((c) => ({ field: c.field, old_value: c.old_value, new_value: c.new_value, reason: c.reason, changed_by: c.changed_by, created_at: c.created_at })),
+    },
+  };
 }
 
 export async function transition(

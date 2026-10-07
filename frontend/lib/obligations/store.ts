@@ -5,6 +5,8 @@ import { allocationTaskTitle } from "../allocations/model";
 import { createProject, listProjects } from "../projects/store";
 import { isTerminal } from "../projects/model";
 import { loadProof } from "../contracts/evidence-store";
+import { dateInForce, loadDateChanges, type DateChangeRow } from "../schedule/dates";
+import { ensureDefaultDependencies, loadEdges } from "../schedule/dependencies";
 import {
   allowedActions, deriveStatus, eventFor, evidenceStrength, isProven, legacyProjection, matchingLegacyDone, planObligations, resolveOwner, timing, validateEvent,
   type EventInput, type EventRow, type LegacyTask, type ObligationAction, type ObligationStatus, type OwnerChoice,
@@ -28,6 +30,10 @@ const COLUMNS = "id, tenant_id, contract_id, company_id, project_id, allocation_
 type EventFull = EventRow & { obligation_id: string; evidence_kind: string | null; evidence_ref: string | null; note: string | null; reason: string | null; actor_email: string };
 
 export interface ObligationSummary extends ObligationRow {
+  /** the date in force: due_date above is the original, which never changes */
+  due_date: string;
+  original_due_date: string;
+  moved: boolean;
   status: ObligationStatus;
   timing: ReturnType<typeof timing>;
   actions: string[];
@@ -43,13 +49,14 @@ async function loadEvents(sb: Sb, ids: string[]): Promise<EventFull[]> {
   return out;
 }
 
-function summarise(rows: ObligationRow[], events: EventFull[], today: string): ObligationSummary[] {
+function summarise(rows: ObligationRow[], events: EventFull[], today: string, changes: DateChangeRow[] = []): ObligationSummary[] {
   return rows.map((r) => {
+    const due = dateInForce(r.due_date, changes, r.id, "due_date");
     const mine = events.filter((e) => e.obligation_id === r.id);
     const status = deriveStatus(mine);
     const lastEvidence = [...mine].reverse().find((e) => e.event_type === "evidenced");
     const sinceReopen = status === "evidenced" || status === "accepted" ? evidenceStrength(lastEvidence?.evidence_kind) : "none";
-    return { ...r, status, timing: timing(r.due_date, status, today), actions: allowedActions(status) as string[], proof: sinceReopen };
+    return { ...r, due_date: due, original_due_date: r.due_date, moved: due !== r.due_date, status, timing: timing(due, status, today), actions: allowedActions(status) as string[], proof: sinceReopen };
   });
 }
 
@@ -64,7 +71,8 @@ export async function listObligations(sb: Sb, tenantId: string, f: ObligationFil
   const { data, error } = await q;
   if (error) return fail(error);
   const rows = (data ?? []) as ObligationRow[];
-  let out = summarise(rows, await loadEvents(sb, rows.map((r) => r.id)), todayStr());
+  const ids = rows.map((r) => r.id);
+  let out = summarise(rows, await loadEvents(sb, ids), todayStr(), await loadDateChanges(sb, tenantId, "obligation", ids));
   if (f.status) out = out.filter((o) => o.status === f.status);
   if (f.timing) out = out.filter((o) => o.timing === f.timing);
   return { ok: true, value: out };
@@ -81,6 +89,7 @@ export interface HandoffReport {
   project_id: string | null;
   project_created: boolean;
   marked_delivered_from_checklist: number;
+  dependencies_created: number;
   warnings: string[];
 }
 
@@ -189,12 +198,15 @@ export async function handoffContract(sb: Sb, tenantId: string, contractId: stri
   } else warnings.push(`The delivery project was not created: ${projects.error}`);
   if (projectId) await sb.from("obligations").update({ project_id: projectId }).eq("contract_id", contractId).is("project_id", null);
 
+  // The usual order of onboarding work, so a date that slips shows what waits on it.
+  const deps = await ensureDefaultDependencies(sb, tenantId, contractId, actor.email);
+
   await syncChecklist(sb, tenantId, contract.proposal_id);
 
   const all = await sb.from("obligations").select("id", { count: "exact", head: true }).eq("contract_id", contractId);
   return {
     ok: true,
-    value: { contract_id: contractId, created: created.length, already_existed: haveKeys.size, total: all.count ?? haveKeys.size + created.length, owner, project_id: projectId, project_created: projectCreated, marked_delivered_from_checklist: carried, warnings },
+    value: { contract_id: contractId, created: created.length, already_existed: haveKeys.size, total: all.count ?? haveKeys.size + created.length, owner, project_id: projectId, project_created: projectCreated, marked_delivered_from_checklist: carried, dependencies_created: deps.created, warnings },
   };
 }
 
@@ -228,14 +240,31 @@ export async function syncChecklist(sb: Sb, tenantId: string, proposalId: string
 export interface ObligationView extends ObligationSummary {
   history: Array<{ event_type: string; evidence_kind: string | null; evidence_ref: string | null; note: string | null; reason: string | null; actor_email: string; created_at: string }>;
   contract: { id: string; contract_number: string | null; status: string; signature: { stage: string; label: string; verified: boolean } | null } | null;
+  /** what this waits on and what waits on it, with the dates in force and who owns each */
+  dependencies: { waiting_on: DependencyLink[]; blocks: DependencyLink[] };
+  date_history: Array<{ old_value: string; new_value: string; reason: string; changed_by: string; created_at: string; automatic: boolean }>;
 }
+
+export interface DependencyLink { dependency_id: string; id: string; title: string; owner_email: string; due_date: string; status: ObligationStatus }
 
 export async function getObligation(sb: Sb, tenantId: string, id: string): Promise<WriteResult<ObligationView>> {
   const { data, error } = await sb.from("obligations").select(COLUMNS).eq("id", id).eq("tenant_id", tenantId).maybeSingle();
   if (error) return fail(error);
   if (!data) return { ok: false, status: 404, error: "Obligation not found" };
   const events = await loadEvents(sb, [id]);
-  const [summary] = summarise([data as ObligationRow], events, todayStr());
+  const changes = await loadDateChanges(sb, tenantId, "obligation", [id]);
+  const [summary] = summarise([data as ObligationRow], events, todayStr(), changes);
+  const edges = await loadEdges(sb, tenantId, { obligationId: id });
+  const otherIds = [...new Set(edges.map((e) => (e.obligation_id === id ? e.predecessor_id : e.obligation_id)))];
+  const others = otherIds.length > 0 ? await listObligations(sb, tenantId, { contractId: data.contract_id }) : null;
+  const link = (e: { id: string }, otherId: string): DependencyLink | null => {
+    const o = others?.ok ? others.value.find((x) => x.id === otherId) : null;
+    return o ? { dependency_id: e.id, id: o.id, title: o.title, owner_email: o.owner_email, due_date: o.due_date, status: o.status } : null;
+  };
+  const dependencies = {
+    waiting_on: edges.filter((e) => e.obligation_id === id).map((e) => link(e, e.predecessor_id)).filter((x): x is DependencyLink => !!x),
+    blocks: edges.filter((e) => e.predecessor_id === id).map((e) => link(e, e.obligation_id)).filter((x): x is DependencyLink => !!x),
+  };
   const { data: c } = await sb.from("contracts").select("id, contract_number, status").eq("id", data.contract_id).eq("tenant_id", tenantId).maybeSingle();
   let signature: { stage: string; label: string; verified: boolean } | null = null;
   try {
@@ -244,7 +273,9 @@ export async function getObligation(sb: Sb, tenantId: string, id: string): Promi
   } catch { /* optional */ }
   return {
     ok: true,
-    value: { ...summary, history: [...events].reverse().map(({ obligation_id: _o, ...e }) => e), contract: c ? { id: c.id, contract_number: c.contract_number, status: c.status, signature } : null },
+    value: { ...summary, history: [...events].reverse().map(({ obligation_id: _o, ...e }) => e), contract: c ? { id: c.id, contract_number: c.contract_number, status: c.status, signature } : null,
+      dependencies,
+      date_history: [...changes].reverse().map((c) => ({ old_value: c.old_value, new_value: c.new_value, reason: c.reason, changed_by: c.changed_by, created_at: c.created_at, automatic: !!c.parent_change_id })) },
   };
 }
 
