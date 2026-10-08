@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireInternalAuth } from "@/lib/internal-auth";
+import { declareDeletes } from "@/lib/records/tombstones";
+import { internalActor } from "@/lib/identity/actor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,11 +26,13 @@ export async function POST(req: Request) {
   if (action === "archive_test_companies") {
     const testNames = ["Test Corp","Test Sponsor","TEST_DIAG","Good Company","Bad Website",
       "Valid URL Co","Bad URL Co","No Protocol Co","Empty URL Co","ValidUrlFix Co","EmptyUrlFix Co","Positivo Tecnologia Test"];
-    const { data: toDelete } = await sb.from("companies").select("id,company_name").in("status",["closed"]);
+    const { data: toDelete } = await sb.from("companies").select("id,company_name,tenant_id").in("status",["closed"]);
     const ids = ((toDelete ?? []) as Array<Record<string,string>>)
       .filter(c => testNames.some(t => c.company_name?.toLowerCase().includes(t.toLowerCase())))
       .map(c => c.id);
     if (ids.length > 0) {
+      const tenantOf = new Map(((toDelete ?? []) as Array<Record<string,string>>).map(c => [c.id, c.tenant_id]));
+      await declareDeletes(sb, "companies", ids.map(id => ({ id, tenant_id: tenantOf.get(id)! })), internalActor(req), "Internal cleanup: archive test companies");
       await sb.from("proposals").delete().in("company_id", ids);
       await sb.from("campaigns").delete().in("company_id", ids);
       await sb.from("companies").delete().in("id", ids);
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   if (action === "deduplicate_companies") {
-    const { data: companies } = await sb.from("companies").select("id,company_name,created_at").order("created_at",{ascending:false});
+    const { data: companies } = await sb.from("companies").select("id,company_name,created_at,tenant_id").order("created_at",{ascending:false});
     const seen: Record<string,boolean> = {};
     const toDelete: string[] = [];
     for (const c of (companies ?? []) as Array<Record<string,string>>) {
@@ -46,6 +50,8 @@ export async function POST(req: Request) {
       else seen[key] = true;
     }
     if (toDelete.length > 0) {
+      const tenantOf = new Map(((companies ?? []) as Array<Record<string,string>>).map(c => [c.id, c.tenant_id]));
+      await declareDeletes(sb, "companies", toDelete.map(id => ({ id, tenant_id: tenantOf.get(id)! })), internalActor(req), "Internal cleanup: remove duplicate companies by name");
       await sb.from("campaigns").delete().in("company_id", toDelete);
       await sb.from("proposals").delete().in("company_id", toDelete);
       await sb.from("companies").delete().in("id", toDelete);

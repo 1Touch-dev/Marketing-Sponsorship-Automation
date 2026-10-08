@@ -4,6 +4,7 @@ import { getEnvelopeStatus, downloadSignedPdf } from "./client";
 import { applySignerEvent } from "@/lib/contracts/signers-store";
 import { recordEvidenceSafe, sha256Hex } from "@/lib/contracts/evidence-store";
 import { signerEventFromRecipient } from "@/lib/contracts/signature-state";
+import { serviceActor } from "@/lib/identity/actor";
 
 const DOCUMENSO_TO_LOCAL: Record<string, string> = {
   DRAFT: "draft",
@@ -85,6 +86,7 @@ export async function syncContractSignatureStatus(
     });
 
     await recordAudit({
+      actor: serviceActor("documenso-sync"),
       entity_type: "contract",
       entity_id: contract.id,
       action: "contract.signature_completed",

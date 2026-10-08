@@ -22,13 +22,15 @@ import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_RETRIES = 2;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -168,7 +170,7 @@ export async function POST(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "email",
       action: "email.generate_failed",
       metadata: { proposal_id: proposal.id, error: lastError },
@@ -272,7 +274,7 @@ export async function POST(req: Request) {
   }
 
   if (eventId) await completeWorkflow(eventId, { email_id: row.id });
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: row.id,
     action: "email.generated",
@@ -281,3 +283,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: row, attempts: attempt });
 }
+
+export const POST = idempotent("emails.generate", postHandler);

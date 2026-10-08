@@ -11,6 +11,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -128,7 +129,7 @@ Return JSON ONLY:
       if (m) aiData = JSON.parse(m[0]);
     } catch { /* */ }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "intelligence.goods_search",
       entity_type: "system",
       entity_id: "system",

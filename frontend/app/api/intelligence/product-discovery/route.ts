@@ -27,6 +27,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import type { ClubContextInput } from "@/lib/bedrock/prompts";
 import { loadCompanyIndex, existingEntity, recordAgentResearch } from "@/lib/accounts/store";
 import { registrableDomain } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
       savedCount = await saveSellersAsCompanies(product, allSellers, auth.user.tenant_id);
     }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "intelligence.product_discovery",
       entity_type: "system",
       entity_id: "system",

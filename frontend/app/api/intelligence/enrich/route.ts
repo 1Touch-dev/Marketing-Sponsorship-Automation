@@ -230,7 +230,7 @@ export async function POST(req: Request) {
       .eq("id", company_id)
       .eq("tenant_id", auth.user.tenant_id);
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "company.enrichment_run",
       entity_type: "company",
       entity_id: company_id,
@@ -316,6 +316,7 @@ export async function GET(req: Request) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 import type { DomainResolutionResult } from "@/lib/intelligence/domain-resolution";
+import { userActor } from "@/lib/identity/actor";
 
 type EnrichmentResult = {
   hunter: Awaited<ReturnType<typeof searchDomain>> | null;

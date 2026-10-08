@@ -11,6 +11,9 @@ import { handoffContract, type HandoffReport } from "@/lib/obligations/store";
 import { linkProposalLines } from "@/lib/finance/store";
 import type { ProposalContent } from "@/types/database";
 import { refreshForContract } from "@/lib/company-status/store";
+import { userActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { idempotent } from "@/lib/idempotency";
 
 export async function GET() {
   const tenantId = await resolveTenantId();
@@ -24,7 +27,7 @@ export async function GET() {
   return NextResponse.json(data ?? []);
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const auth = await requirePermission("edit_proposal");
   if ("error" in auth) return auth.error;
 
@@ -125,7 +128,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await sb.from("audit_logs").insert({
+  await recordAudit({
+    actor: userActor(auth.user),
     tenant_id: auth.user.tenant_id,
     action: "contract.created",
     entity_type: "contract",
@@ -136,3 +140,5 @@ export async function POST(req: NextRequest) {
   await refreshForContract(sb, auth.user.tenant_id, data.id, "contract.created");
   return NextResponse.json({ ...data, handoff }, { status: 201 });
 }
+
+export const POST = idempotent("contracts.create", postHandler);

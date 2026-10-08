@@ -6,6 +6,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { createProject, listProjects } from "@/lib/projects/store";
 import { PROJECT_TYPES } from "@/lib/projects/model";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +40,7 @@ const schema = z.object({
 });
 
 /** Open a commercial or a delivery project. Each type has its own required fields; what is missing is listed in the refusal. */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("manage_projects");
   if ("error" in auth) return auth.error;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
@@ -46,6 +48,8 @@ export async function POST(req: Request) {
 
   const res = await createProject(supabaseAdmin(), auth.user.tenant_id, parsed.data, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
-  await recordAudit({ entity_type: "project", entity_id: res.value.id, action: "project.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { type: parsed.data.type, company_id: parsed.data.company_id, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "project", entity_id: res.value.id, action: "project.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { type: parsed.data.type, company_id: parsed.data.company_id, actor_user_id: auth.user.id } });
   return NextResponse.json({ project_id: res.value.id, warnings: res.value.warnings }, { status: 201 });
 }
+
+export const POST = idempotent("projects.create", postHandler);

@@ -17,6 +17,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { logger } from "@/lib/monitoring/logger";
 import type { ProposalContent } from "@/types/database";
+import { userActor } from "@/lib/identity/actor";
+import { agentActor, personActor, serviceActor } from "@/lib/identity/actor";
 
 export type GeneratedProposal = {
   proposal_id: string;
@@ -256,6 +258,7 @@ export async function generatePersonalizedProposalForCompany(
   await attachNewProposal(sb, tenantId, companyId, proposal.id, { actor });
 
   await recordAudit({
+    actor: actor.kind === "agent" ? agentActor(actor.name ?? "proposal-agent") : actor.kind === "rule" ? serviceActor(actor.name) : (personActor({ id: actor.userId, email: actor.email }) ?? serviceActor("proposal-generator")),
     action: "proposal.agent_generated",
     entity_type: "proposal",
     entity_id: proposal.id,

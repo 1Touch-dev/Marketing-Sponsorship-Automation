@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { externalActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { logFingerprint } from "@/lib/identity/privacy";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -20,12 +23,14 @@ export async function GET(req: NextRequest) {
   const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
   // Log unsubscribe
-  await sb.from("audit_logs").insert({
+  // The address is a person's data and the log is permanent, so only a fingerprint of it is written here.
+  await recordAudit({
+    actor: externalActor("newsletter recipient", `recipient:${logFingerprint(email)}`),
     tenant_id: tenantId,
     action: "newsletter.unsubscribed",
     entity_type: "contact",
-    entity_id: email,
-    metadata: { email, token, timestamp: new Date().toISOString() },
+    entity_id: null,
+    metadata: { email_fingerprint: logFingerprint(email), timestamp: new Date().toISOString() },
   });
 
   return new NextResponse(`

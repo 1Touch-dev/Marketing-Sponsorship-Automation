@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { assignRole, endRole } from "@/lib/contacts/store";
 import { CONTACT_ROLES } from "@/lib/contacts/model";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     : await endRole(sb, auth.user.tenant_id, ctx.params.id, d.role_id, { endedOn: d.ended_on, reason: d.reason, by: auth.user.email });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "contact", entity_id: ctx.params.id, action: d.action === "assign" ? "contact.role_assigned" : "contact.role_ended", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { ...(d.action === "assign" ? { role: d.role } : { role_id: d.role_id }), actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "contact", entity_id: ctx.params.id, action: d.action === "assign" ? "contact.role_assigned" : "contact.role_ended", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { ...(d.action === "assign" ? { role: d.role } : { role_id: d.role_id }), actor_user_id: auth.user.id } });
   return NextResponse.json({ role_id: res.value.id }, { status: 201 });
 }

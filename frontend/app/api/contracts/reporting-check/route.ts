@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { runReportingAgent } from "@/lib/agents/langgraph/reporting-agent";
 import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { auditAgentOutputs } from "@/lib/agents/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,7 +19,8 @@ export async function POST() {
 
   const report = await runReportingAgent(auth.user.tenant_id);
 
-  await recordAudit({
+  await auditAgentOutputs("reporting-agent", auth.user, report.drafted.map((d) => ({ entity_type: "email", entity_id: d.emailId, action: "agent.report.drafted", metadata: { contract_id: d.contractId, matches_covered: d.matchesCovered } })));
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "contract",
     action: "contract.reporting_check_run",
     metadata: { drafted_count: report.drafted.length, skipped_count: report.skipped.length },

@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { renderUrlToPdf } from "@/lib/proposals/pdf-export";
 import { randomBytes } from "crypto";
 import { gateCookieName, signGateToken } from "@/lib/proposals/access-gate";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -58,7 +59,7 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
   try {
     const pdf = await renderUrlToPdf(internalUrl, { cookies });
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "proposal",
       entity_id: proposal.id,
       action: "proposal.pdf_exported",

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordReview } from "@/lib/claims/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "claim", entity_id: ctx.params.id, action: `claim.${parsed.data.decision}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { version_id: parsed.data.version_id, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "claim", entity_id: ctx.params.id, action: `claim.${parsed.data.decision}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { version_id: parsed.data.version_id, actor_user_id: auth.user.id } });
   return NextResponse.json({ review_id: res.value.reviewId }, { status: 201 });
 }

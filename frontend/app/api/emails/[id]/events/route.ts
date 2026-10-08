@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { loadDelivery, recordMessageEvent, SOURCE_EVENT_TYPES } from "@/lib/messaging/store";
+import { userOrService } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -91,7 +92,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   }
 
   if (!result.duplicate) {
-    await recordAudit({
+    await recordAudit({ actor: userOrService(auth.user, req, body.provider ? `${body.provider} delivery events` : null),
       entity_type: "email",
       entity_id: ctx.params.id,
       action: `email.delivery.${body.event_type}`,

@@ -6,6 +6,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { createClaim, loadRegistry } from "@/lib/claims/store";
 import { SOURCE_KINDS } from "@/lib/claims/status";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +63,7 @@ const createSchema = z.object({
   ...versionFields,
 });
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("edit_claim");
   if ("error" in auth) return auth.error;
 
@@ -72,6 +74,8 @@ export async function POST(req: Request) {
   const res = await createClaim(supabaseAdmin(), auth.user.tenant_id, { key, category, label, version, createdByEmail: auth.user.email });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "claim", entity_id: res.value.claimId, action: "claim.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { key, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "claim", entity_id: res.value.claimId, action: "claim.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { key, actor_user_id: auth.user.id } });
   return NextResponse.json({ claim_id: res.value.claimId, version_id: res.value.versionId }, { status: 201 });
 }
+
+export const POST = idempotent("claims.create", postHandler);

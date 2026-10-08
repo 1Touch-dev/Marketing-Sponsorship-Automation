@@ -7,6 +7,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { approveRevision } from "@/lib/proposals/revision-store";
 import { invalidateIfDrifted } from "@/lib/proposals/approval-guard";
+import { userActor } from "@/lib/identity/actor";
+import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 
 export const runtime = "nodejs";
 
@@ -94,7 +96,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     edit_reason: parsed.data.edit_reason ?? "Manual edit",
   });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: saved.id,
     action: "proposal.edited",
@@ -111,13 +113,13 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   return NextResponse.json({ data: result, approval_invalidated: result !== saved });
 }
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("delete_proposal");
   if ("error" in auth) return auth.error;
 
-  const sb = supabaseAdmin();
-  const { error } = await sb.from("proposals").delete().eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await recordAudit({ entity_type: "proposal", entity_id: ctx.params.id, action: "proposal.deleted" });
+  const opts = await readDeleteOptions(req);
+  const res = await deleteRecord(supabaseAdmin(), { table: "proposals", id: ctx.params.id, tenantId: auth.user.tenant_id, actor: userActor(auth.user), ...opts });
+  if (!res.ok) return NextResponse.json({ error: res.error, blockers: res.blockers ?? [] }, { status: res.status });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "proposal", entity_id: ctx.params.id, action: "proposal.deleted", metadata: { reason: opts.reason, dependents: res.dependents } });
   return NextResponse.json({ ok: true });
 }

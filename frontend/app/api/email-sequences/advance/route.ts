@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userOrService } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
     });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userOrService(auth.user, req),
     entity_type: "email_sequence",
     entity_id: body.enrollment_id ?? "batch",
     action: "email_sequence.advanced",

@@ -48,6 +48,9 @@ export type AgentResult = {
   domain?: string;
   email_id?: string;
   email_subject?: string;
+  /** The send plan awaiting a person's approval (migration 0070). */
+  action_id?: string;
+  action_state?: string;
   email_preview?: string;
   recipient?: string;
   pipedrive_activity_id?: number | null;
@@ -78,6 +81,8 @@ export type SSEEvent =
       email_preview: string;
       recipient: string;
       recipient_name: string;
+      /** The plan a person is approving: present once agent governance is set up. */
+      action_id?: string | null;
     }
   | { type: "done"; run_id: string; summary: string; result: AgentResult }
   | { type: "error"; message: string; run_id?: string };

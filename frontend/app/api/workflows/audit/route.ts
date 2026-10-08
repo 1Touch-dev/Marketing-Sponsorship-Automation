@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { recordAudit } from "@/lib/audit/log";
 import { serverEnv } from "@/lib/env";
+import { serviceActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload", issues: parsed.error.issues }, { status: 400 });
   }
 
+  // The caller holds the webhook secret, so it is recorded as the workflow service. Any person it names is
+  // only a claim and is kept as "on behalf of", never as the actor.
   await recordAudit({
+    actor: serviceActor("n8n-workflow", { onBehalfOf: parsed.data.actor_email ?? null }),
     entity_type: parsed.data.entity_type,
     entity_id: parsed.data.entity_id ?? undefined,
     action: parsed.data.action,

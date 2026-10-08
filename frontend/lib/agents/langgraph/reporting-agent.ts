@@ -26,6 +26,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import { getProposalRoiData } from "@/lib/proposals/roi";
 import { guardColumns } from "@/lib/db/column-guard";
 import { serverEnv } from "@/lib/env";
+import { authorizeAgent } from "@/lib/agents/governance";
 
 type ActiveContract = {
   id: string;
@@ -106,6 +107,13 @@ async function draftReports(state: typeof ReportingState.State): Promise<Partial
     const company = (proposal as unknown as { companies: { company_name: string; contact_email: string | null } | null }).companies;
     if (!company?.contact_email) {
       skipped.push({ contractId: contract.id, reason: "No contact email on file for this company" });
+      continue;
+    }
+
+    // The agent works only on companies it is assigned.
+    const authority = await authorizeAgent(sb, state.tenantId, "reporting-agent", { companyId: contract.company_id, effects: ["draft_report_email"] });
+    if (!authority.ok) {
+      skipped.push({ contractId: contract.id, reason: authority.error });
       continue;
     }
 

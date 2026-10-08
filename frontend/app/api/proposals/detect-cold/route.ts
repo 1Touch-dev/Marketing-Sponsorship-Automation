@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { notifyGoneColdNudge } from "@/lib/slack/notify";
+import { userOrService } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -115,7 +116,7 @@ export async function POST(req: Request) {
       });
       const generated = await res.json();
       if (!res.ok) throw new Error(generated.error ?? "generate failed");
-      await recordAudit({
+      await recordAudit({ actor: userOrService(auth.user, req),
         entity_type: "proposal",
         entity_id: proposal.id,
         action: "proposal.gone_cold_detected",

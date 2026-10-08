@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -156,7 +157,7 @@ Be specific and actionable. Format as clean text with headers.`
   // Save to campaign
   await sb.from("campaigns").update({ activation_brief: brief } as never).eq("id", id).eq("tenant_id", auth.user.tenant_id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "campaign",
     entity_id: id,
     action: "campaign.activation_brief_generated",

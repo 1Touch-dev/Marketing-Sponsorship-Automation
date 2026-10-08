@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { listCurrentSuppressions, recordSuppression } from "@/lib/contacts/store";
 import { SUPPRESSION_REASONS } from "@/lib/contacts/model";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
   if (!res.value.already) {
-    await recordAudit({ entity_type: d.company_id ? "company" : "contact", entity_id: d.company_id ?? null, action: d.decision === "suppressed" ? "contact.suppressed" : "contact.suppression_lifted", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { email: d.email ?? null, reason_code: d.reason_code, actor_user_id: auth.user.id } });
+    await recordAudit({ actor: userActor(auth.user), entity_type: d.company_id ? "company" : "contact", entity_id: d.company_id ?? null, action: d.decision === "suppressed" ? "contact.suppressed" : "contact.suppression_lifted", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { email: d.email ?? null, reason_code: d.reason_code, actor_user_id: auth.user.id } });
   }
   return NextResponse.json({ suppression_id: res.value.id, already_suppressed: res.value.already }, { status: res.value.already ? 200 : 201 });
 }

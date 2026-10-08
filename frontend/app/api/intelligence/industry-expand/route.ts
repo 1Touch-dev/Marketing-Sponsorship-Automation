@@ -13,6 +13,7 @@ import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import type { ClubContextInput } from "@/lib/bedrock/prompts";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
       }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
     }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "intelligence.industry_expand",
       entity_type: company_id ? "company" : "system",
       entity_id: company_id ?? "system",

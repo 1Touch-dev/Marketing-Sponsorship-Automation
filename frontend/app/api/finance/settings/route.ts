@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { loadSettings, saveSettings } from "@/lib/finance/store";
 import { BARTER_BASES, CONTRACT_COVERS, RECOGNITION_STAGES } from "@/lib/finance/model";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +34,6 @@ export async function PATCH(req: Request) {
 
   const res = await saveSettings(supabaseAdmin(), auth.user.tenant_id, parsed.data, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
-  await recordAudit({ entity_type: "accounting_settings", action: "accounting.settings_changed", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { ...parsed.data, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "accounting_settings", action: "accounting.settings_changed", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { ...parsed.data, actor_user_id: auth.user.id } });
   return NextResponse.json(res.value);
 }

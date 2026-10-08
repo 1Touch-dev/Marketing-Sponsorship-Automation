@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { toolGenerateOutreachEmail } from "@/lib/agents/tools";
 import type { AgentResult, AgentStep, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
+import { planEmailSend } from "@/lib/actions/broker";
+import { emailForAuthUser } from "@/lib/identity/lookup";
 
 export type ResumeAfterProposalResult = {
   success: boolean;
@@ -131,6 +133,20 @@ export async function resumeAgentAfterProposalApproval(
     recipient_name: (emailResult.data.recipient_name as string) ?? undefined,
   };
 
+  // The send is a plan in front of a person, not a button that runs: make the plan now so the approver sees exactly
+  // what will happen. Before the governance tables exist this is skipped and approval works as it always has.
+  const planned = await planEmailSend(sb, {
+    tenantId: String(run.tenant_id), emailId: updatedResult.email_id!, onBehalfOf: await emailForAuthUser(sb, run.created_by as string | null), runId,
+  });
+  if (!planned.ok) {
+    await sb.from("agent_runs" as "companies").update({ status: "failed", error: planned.error, result: updatedResult, steps, updated_at: new Date().toISOString() } as unknown as Record<string, unknown>).eq("id", runId);
+    return { success: false, agentResult: updatedResult, steps, error: planned.error };
+  }
+  if (!planned.legacy) {
+    updatedResult.action_id = planned.actionId;
+    updatedResult.action_state = planned.state ?? undefined;
+  }
+
   await sb
     .from("agent_runs" as "companies")
     .update({
@@ -149,6 +165,7 @@ export async function resumeAgentAfterProposalApproval(
     email_preview: updatedResult.email_preview ?? "",
     recipient: updatedResult.recipient ?? "",
     recipient_name: updatedResult.recipient_name ?? "",
+    action_id: updatedResult.action_id ?? null,
   });
 
   logger.info("Agent resumed after proposal approval — email draft ready", { runId, proposalId });

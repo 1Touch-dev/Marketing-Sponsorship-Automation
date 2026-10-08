@@ -7,6 +7,7 @@ import type { CampaignSceneType } from "@/lib/media/image-prompts";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 300;
 export type SceneType = CampaignSceneType;
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
       if (!jobErr && job) jobId = (job as { id: string }).id;
     }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "campaign_creative.generated",
       entity_type: "image_generation_job",
       entity_id: jobId ?? "standalone",

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { currentActor } from "@/lib/identity/current";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
     /* pre-migration */
   }
 
-  await recordAudit({
+  await recordAudit({ actor: await currentActor("template viewer"),
     entity_type: "proposal_template",
     entity_id: ctx.params.id,
     action: "proposal_template.applied",
@@ -49,7 +50,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     .eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: await currentActor("template viewer"),
     entity_type: "proposal_template",
     entity_id: ctx.params.id,
     action: "proposal_template.deleted",

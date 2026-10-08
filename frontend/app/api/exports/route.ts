@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { currentActor } from "@/lib/identity/current";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
 
     // Log the export event
     await recordAudit({
+      actor: await currentActor("export request"),
       action: `proposal.export_${export_type}`,
       entity_type: "proposal",
       entity_id: proposal_id,

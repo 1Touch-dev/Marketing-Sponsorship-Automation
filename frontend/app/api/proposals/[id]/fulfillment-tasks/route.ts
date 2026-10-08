@@ -5,6 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { getObligation, recordEvent } from "@/lib/obligations/store";
 import type { ProposalContent } from "@/types/database";
 import { refreshForObligation } from "@/lib/company-status/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -42,7 +43,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
       status === "done" ? { action: "deliver", note: "Ticked in the proposal checklist. No proof attached yet." } : { action: "reopen", reason: "Unticked in the proposal checklist" },
       auth.user.email);
     if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
-    await recordAudit({ entity_type: "proposal", entity_id: ctx.params.id, action: status === "done" ? "fulfillment_task.completed" : "fulfillment_task.reopened", metadata: { task_id: taskId, title: o.title, obligation: true } });
+    await recordAudit({ actor: userActor(auth.user), entity_type: "proposal", entity_id: ctx.params.id, action: status === "done" ? "fulfillment_task.completed" : "fulfillment_task.reopened", metadata: { task_id: taskId, title: o.title, obligation: true } });
     await refreshForObligation(sb, auth.user.tenant_id, taskId, "checklist.toggled");
     return NextResponse.json({ task: { id: taskId, title: o.title, status } });
   }
@@ -55,7 +56,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   tasks[idx] = { ...tasks[idx], status, completed_at: status === "done" ? new Date().toISOString() : null };
   await sb.from("proposals").update({ content: { ...content, fulfillment_tasks: tasks } }).eq("id", ctx.params.id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: ctx.params.id,
     action: status === "done" ? "fulfillment_task.completed" : "fulfillment_task.reopened",

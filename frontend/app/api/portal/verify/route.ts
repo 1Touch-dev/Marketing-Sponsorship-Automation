@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyMagicLinkToken, createSessionToken, PORTAL_COOKIE, SESSION_TTL_MS } from "@/lib/portal/session";
 import { recordAudit } from "@/lib/audit/log";
+import { externalActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
   });
 
   await recordAudit({
+    actor: externalActor(`sponsor portal: ${payload.email}`, `portal:${payload.email}`),
     entity_type: "portal_access",
     entity_id: payload.companyId,
     action: "portal.login",

@@ -7,6 +7,7 @@ import { sendForSignature } from "@/lib/documenso/client";
 import { gateCookieName, signGateToken } from "@/lib/proposals/access-gate";
 import { randomBytes } from "crypto";
 import { applySignerEvent } from "@/lib/contracts/signers-store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -106,7 +107,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       email: contact.email, name: contact.full_name || null, role: "signer", required: true, status: "sent",
     }).catch(() => undefined);
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "contract",
       entity_id: contract.id,
       action: "contract.sent_for_signature",

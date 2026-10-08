@@ -17,6 +17,9 @@ import {
 import { proposalContentSchema } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 import { z } from "zod";
+import { idempotent } from "@/lib/idempotency";
+import { gateBatch } from "@/lib/batch/gate";
+import { checkDailySpendCap } from "@/lib/monitoring/spend-guard";
 
 export const runtime = "nodejs";
 /**
@@ -139,7 +142,7 @@ async function batchMap<T, R>(items: T[], batchSize: number, fn: (item: T) => Pr
   return results;
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_campaign");
   if ("error" in auth) return auth.error;
 
@@ -178,6 +181,13 @@ export async function POST(req: Request) {
   if (!companies || companies.length === 0) {
     return NextResponse.json({ error: `No active companies found in industry: ${industry}` }, { status: 404 });
   }
+
+  // A bulk job is accepted only inside the review-size limit and the cost ceiling, before the first paid call.
+  const gate = await gateBatch(supabaseAdmin(), auth.user.tenant_id, auth.user.email, {
+    kind: "campaign_generation", items: companies.length,
+    dailyCheck: async () => { const d = await checkDailySpendCap(); return { todaySpendUsd: d.todaySpendUsd, capUsd: d.capUsd }; },
+  });
+  if (!gate.ok) return NextResponse.json({ error: gate.error, estimated_cost_usd: gate.decision?.estimatedUsd ?? null, max_items: gate.decision?.maxItems ?? null, ceiling_usd: gate.decision?.ceilingUsd ?? null }, { status: gate.status });
 
   // Generate all companies in parallel batches of 3 to speed up without overwhelming Bedrock
   const tenant = await resolveClubContext(auth.user.tenant_id);
@@ -269,3 +279,5 @@ export async function POST(req: Request) {
     failed: companies.length - successCount,
   });
 }
+
+export const POST = idempotent("campaigns.bulk", postHandler);

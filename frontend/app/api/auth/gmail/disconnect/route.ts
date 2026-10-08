@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { serverEnv } from "@/lib/env";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -69,6 +70,7 @@ export async function POST() {
   }
 
   await recordAudit({
+    actor: userActor(auth.user),
     entity_type: "user",
     action: "gmail.disconnected",
     actor_email: senderEmail,

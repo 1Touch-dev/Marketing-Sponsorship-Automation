@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordChannelCheck } from "@/lib/contacts/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   const res = await recordChannelCheck(sb, auth.user.tenant_id, { contactId: contact.id, channel: parsed.data.channel, value, outcome: parsed.data.outcome, method: "person", checkedBy: auth.user.email, note: parsed.data.note });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
-  await recordAudit({ entity_type: "contact", entity_id: contact.id, action: `contact.channel_${parsed.data.outcome}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { channel: parsed.data.channel, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "contact", entity_id: contact.id, action: `contact.channel_${parsed.data.outcome}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { channel: parsed.data.channel, actor_user_id: auth.user.id } });
   return NextResponse.json({ check_id: res.value.id }, { status: 201 });
 }

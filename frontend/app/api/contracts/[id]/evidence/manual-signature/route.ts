@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { EVIDENCE_BUCKET, recordEvidence, sha256Hex } from "@/lib/contracts/evidence-store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -65,6 +66,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: r.error ?? "Could not record the claim", migration_needed: r.skipped === "migration_missing" || undefined }, { status: r.skipped === "migration_missing" ? 503 : 500 });
   }
 
-  await recordAudit({ entity_type: "contract", entity_id: ctx.params.id, action: "contract.manual_signature_claimed", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { document_sha256: sha, signers, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "contract", entity_id: ctx.params.id, action: "contract.manual_signature_claimed", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { document_sha256: sha, signers, actor_user_id: auth.user.id } });
   return NextResponse.json({ evidence_id: r.id, document_sha256: sha, note: "Recorded as a claim. A different person must verify the signed document before it counts as proof." }, { status: 201 });
 }

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email_template",
     entity_id: (data as { id: string }).id,
     action: "email_template.created",

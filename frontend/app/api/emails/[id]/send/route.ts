@@ -11,6 +11,8 @@ import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/g
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { serverEnv } from "@/lib/env";
 import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
+import { userActor, type Actor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -28,6 +30,7 @@ export const maxDuration = 30;
  * approval-gate-bypass tracking.
  */
 async function sendTestCopy(
+  actor: Actor,
   sb: ReturnType<typeof supabaseAdmin>,
   tenantId: string,
   email: Record<string, unknown>,
@@ -72,7 +75,7 @@ async function sendTestCopy(
     if (!draft.id) throw new Error("Gmail did not return a draft id");
     await sendGmailDraft(gmail, draft.id);
 
-    await recordAudit({
+    await recordAudit({ actor,
       entity_type: "email",
       entity_id: String(email.id),
       action: "email.test_sent",
@@ -98,7 +101,7 @@ async function sendTestCopy(
  * Uses Pipedrive Activities API (type: "email") instead of Gmail.
  * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
  */
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("send_proposal");
   if ("error" in auth) return auth.error;
 
@@ -126,7 +129,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     if (!body.test_recipient) {
       return NextResponse.json({ error: "test_recipient is required" }, { status: 400 });
     }
-    return sendTestCopy(sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
+    return sendTestCopy(userActor(auth.user), sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
   }
 
   if (email.status === "sent") {
@@ -314,7 +317,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   }
   const deliveryAfter = await loadDelivery(sb, auth.user.tenant_id, email.id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: email.id,
     action: mode === "send" ? "email.sent" : "email.draft_created",
@@ -332,3 +335,5 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     delivery: deliveryAfter?.view ?? null,
   });
 }
+
+export const POST = idempotent("emails.send", postHandler);

@@ -14,6 +14,7 @@ import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 300;
 
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
       if (!jobErr && job) jobId = (job as unknown as { id: string }).id;
     }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "stadium_mockup.generated",
       entity_type: "image_generation_job",
       entity_id: jobId ?? "standalone",

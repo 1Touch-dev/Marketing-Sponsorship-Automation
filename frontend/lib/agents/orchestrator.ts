@@ -21,6 +21,10 @@ import type { AgentMode, AgentResult, AgentStep, SSEEvent } from "@/lib/agents/t
 import { logger } from "@/lib/monitoring/logger";
 import { notifyApprovalNeeded } from "@/lib/slack/notify";
 import { serverEnv } from "@/lib/env";
+import { recordAudit } from "@/lib/audit/log";
+import { agentActor } from "@/lib/identity/actor";
+import { planEmailSend } from "@/lib/actions/broker";
+import { emailForAuthUser } from "@/lib/identity/lookup";
 
 export type SSEEmitter = (event: SSEEvent) => void;
 
@@ -54,6 +58,8 @@ export type OrchestratorInput = {
    */
   auto_approve?: boolean;
   batch_id?: string | null;
+  /** The version of the Outreach Agent that was live when the run started (from its assignment). */
+  agent_version?: number | null;
 };
 
 export async function runAgentOrchestrator(
@@ -66,6 +72,10 @@ export async function runAgentOrchestrator(
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
   const steps: AgentStep[] = [];
+  // Every tool the agent runs is written to the audit log as the agent, naming the person it ran for.
+  const agent = agentActor("outreach-agent", { onBehalfOf: input.created_by, runId: input.run_id, version: input.agent_version ?? null });
+  const { data: runCompany } = await sb.from("companies").select("tenant_id").eq("id", input.company_id).maybeSingle();
+  const runTenant = (runCompany as { tenant_id?: string } | null)?.tenant_id ?? null;
 
   const persistSteps = async (extraStatus?: { status?: string; result?: AgentResult; error?: string }) => {
     try {
@@ -203,9 +213,19 @@ export async function runAgentOrchestrator(
                 summary: "Skipped: supervised mode — waiting for user approval",
               };
             } else {
-              toolResult = await toolSendEmail(toolInput as { email_id: string });
-              if (toolResult.data.pipedrive_activity_id) {
-                agentResult.pipedrive_activity_id = toolResult.data.pipedrive_activity_id as number;
+              // An agent never sends on its own: it makes a plan that a person with standing approves. Before the
+              // governance tables exist (migration 0070) it sends directly, as it always did.
+              const planned = await planEmailSend(sb, {
+                tenantId: runTenant ?? "", emailId: (toolInput as { email_id: string }).email_id, onBehalfOf: await emailForAuthUser(sb, input.created_by), runId: input.run_id,
+              });
+              if (planned.ok && planned.legacy) {
+                toolResult = await toolSendEmail(toolInput as { email_id: string });
+                if (toolResult.data.pipedrive_activity_id) agentResult.pipedrive_activity_id = toolResult.data.pipedrive_activity_id as number;
+              } else if (planned.ok) {
+                agentResult.action_id = planned.actionId;
+                toolResult = { success: true, data: { planned: true, action_id: planned.actionId, state: planned.state }, summary: "Send planned: it runs only after a person approves this exact plan." };
+              } else {
+                toolResult = { success: false, data: { sent: false, action_id: planned.actionId ?? null }, summary: planned.error };
               }
             }
             break;
@@ -235,6 +255,15 @@ export async function runAgentOrchestrator(
       };
       steps.push(step);
       await persistSteps();
+      await recordAudit({
+        actor: agent,
+        tenant_id: runTenant,
+        request_id: input.run_id,
+        entity_type: "company",
+        entity_id: input.company_id,
+        action: `agent.tool.${toolCall.name}`,
+        metadata: { run_id: input.run_id, step: stepCounter, status: stepStatus, mode: input.mode, summary: toolResult.summary?.slice(0, 300) ?? null },
+      });
 
       emit({
         type: "step",

@@ -6,6 +6,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { createOpportunity, loadOpportunities } from "@/lib/opportunities/store";
 import { OPPORTUNITY_KINDS } from "@/lib/opportunities/model";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +27,7 @@ const schema = z.object({
 });
 
 /** A person opens an opportunity. This also records the human decision that the account is a real sales opportunity. */
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("create_opportunity");
   if ("error" in auth) return auth.error;
 
@@ -40,6 +42,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "company", entity_id: ctx.params.id, action: "opportunity.opened", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { opportunity_id: res.value.id, kind: parsed.data.kind, account_qualified: res.value.qualifiedAccount, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "company", entity_id: ctx.params.id, action: "opportunity.opened", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { opportunity_id: res.value.id, kind: parsed.data.kind, account_qualified: res.value.qualifiedAccount, actor_user_id: auth.user.id } });
   return NextResponse.json({ opportunity_id: res.value.id, account_qualified: res.value.qualifiedAccount }, { status: 201 });
 }
+
+export const POST = idempotent("opportunities.create", postHandler);

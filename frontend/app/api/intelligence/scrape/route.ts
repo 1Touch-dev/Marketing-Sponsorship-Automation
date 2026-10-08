@@ -6,6 +6,7 @@ import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import type { ClubContextInput } from "@/lib/bedrock/prompts";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 90;
 
@@ -139,7 +140,7 @@ export async function POST(req: Request) {
       business_type: autoLabels.business_type ?? (company as Record<string,string>).business_type,
     }).eq("id", company_id).eq("tenant_id", auth.user.tenant_id);
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "company.intelligence_scraped",
       entity_type: "company",
       entity_id: company_id,

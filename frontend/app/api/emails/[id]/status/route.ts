@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordMessageEventSafe } from "@/lib/messaging/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: ctx.params.id,
     action: status === "approved" ? "email.approved" : "email.rejected",

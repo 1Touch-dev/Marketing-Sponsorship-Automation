@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/pipedrive/sync";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { externalActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { logFingerprint } from "@/lib/identity/privacy";
 
 /**
  * POST /api/proposals/[id]/track-view
@@ -58,12 +61,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .maybeSingle();
   const tenantId = proposalTenant?.tenant_id ?? CORITIBA_TENANT_ID;
 
-  await sb.from("audit_logs").insert({
+  // The share token works as a password for the proposal, so the log keeps a fingerprint of it, not the token.
+  await recordAudit({
+    actor: externalActor("proposal viewer", `share:${logFingerprint(token)}`),
     tenant_id: tenantId,
     action: "proposal.view",
     entity_type: "proposal",
     entity_id: params.id,
-    metadata: { token, variant, user_agent: req.headers.get("user-agent"), timestamp: new Date().toISOString() },
+    metadata: { token_fingerprint: logFingerprint(token), variant, user_agent: req.headers.get("user-agent"), timestamp: new Date().toISOString() },
   });
 
   // Per-visitor identified engagement (2026-09-17) — if this browser has

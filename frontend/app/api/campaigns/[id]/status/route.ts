@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "campaign",
     entity_id: ctx.params.id,
     action: status === "approved" ? "campaign.approved" : "campaign.rejected",

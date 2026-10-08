@@ -5,6 +5,8 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { createLine, listLines } from "@/lib/finance/store";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +32,7 @@ const schema = z.object({
 });
 
 /** Record a promised amount: a cash instalment, or barter goods or services. It hangs on a proposal (proposed) or a contract. */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("manage_value_lines");
   if ("error" in auth) return auth.error;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
   const { company_id, ...input } = parsed.data;
   const res = await createLine(supabaseAdmin(), auth.user.tenant_id, company_id, input, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
-  await recordAudit({ entity_type: "value_line", entity_id: res.value.id, action: "value_line.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { kind: input.kind, amount_brl: input.amount_brl, company_id, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "value_line", entity_id: res.value.id, action: "value_line.created", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { kind: input.kind, amount_brl: input.amount_brl, company_id, actor_user_id: auth.user.id } });
   return NextResponse.json({ id: res.value.id, warnings: res.value.warnings }, { status: 201 });
 }
+
+export const POST = idempotent("value-lines.create", postHandler);

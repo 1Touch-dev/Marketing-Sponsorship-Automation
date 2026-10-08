@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { getCurrentPlatformUser } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { applySignerEvent, loadSignatureView, settleContractSignature } from "@/lib/contracts/signers-store";
+import { serviceActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const r = await applySignerEvent(sb, tenantId, ctx.params.id, parsed.data);
   if (!r.ok) return NextResponse.json({ error: r.error ?? "Could not record signer event", migration_needed: r.skipped === "migration_missing" || undefined }, { status: r.skipped === "migration_missing" ? 503 : 500 });
 
+  const provider = serviceActor("signature-provider");
   await recordAudit({
+    actor: provider,
     entity_type: "contract",
     entity_id: ctx.params.id,
     action: `contract.signer.${parsed.data.status}`,
@@ -61,7 +64,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
   const settled = await settleContractSignature(sb, tenantId, ctx.params.id);
   if (settled.changedTo === "completed") {
-    await recordAudit({ entity_type: "contract", entity_id: ctx.params.id, action: "contract.signature_completed", tenant_id: tenantId, metadata: { via: "all_required_signers_signed" } });
+    await recordAudit({ actor: provider, entity_type: "contract", entity_id: ctx.params.id, action: "contract.signature_completed", tenant_id: tenantId, metadata: { via: "all_required_signers_signed" } });
   }
   const after = await loadSignatureView(sb, tenantId, ctx.params.id);
   return NextResponse.json({ signer_status: r.status, signature: after?.view, contract_signature_status: settled.changedTo });

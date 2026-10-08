@@ -12,11 +12,13 @@ import { runAgentOrchestrator } from "@/lib/agents/orchestrator";
 import type { AgentMode, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { idempotent } from "@/lib/idempotency";
+import { authorizeAgent } from "@/lib/agents/governance";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
   // agent_runs.created_by references auth.users(id), not platform_users.id
@@ -50,6 +52,10 @@ export async function POST(req: Request) {
   if (!domain) {
     return new Response(JSON.stringify({ error: "Company has no website/domain configured" }), { status: 400 });
   }
+
+  // The agent acts only where it has been assigned: refused here, before any run exists or any spend happens.
+  const authority = await authorizeAgent(sb, auth.user.tenant_id, "outreach-agent", { companyId: company_id, effects: ["enrich_contacts", "scrape_intelligence", "generate_proposal", "draft_email", "send_email"] });
+  if (!authority.ok) return new Response(JSON.stringify({ error: authority.error }), { status: authority.status, headers: { "content-type": "application/json" } });
 
   // Rate limit: 1 active run per company at a time
   const { data: activeRun } = await sb
@@ -113,6 +119,7 @@ export async function POST(req: Request) {
             domain,
             mode: agentMode,
             created_by: user.id,
+            agent_version: authority.authority.version,
           },
           emit
         );
@@ -151,3 +158,5 @@ function extractDomain(website: string): string {
     return website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
   }
 }
+
+export const POST = idempotent("agents.outreach.start", postHandler);

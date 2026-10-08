@@ -14,6 +14,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { buildPlaceholderConfig, type PlaceholderConfig } from "@/lib/presentations/placeholder-parser";
 import { convertPptxToHtml } from "@/lib/presentations/pptx-to-html";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -147,7 +148,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal_template",
     entity_id: (data as { id: string }).id,
     action: templateId ? "proposal_template.html_replaced" : "proposal_template.html_uploaded",

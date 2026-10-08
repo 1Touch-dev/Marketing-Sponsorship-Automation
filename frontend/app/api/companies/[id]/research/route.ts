@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordResearch } from "@/lib/accounts/store";
 import { RECOMMENDATIONS } from "@/lib/accounts/research";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const res = await recordResearch(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, { ...parsed.data, kind: "human", by: auth.user.email });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "company", entity_id: ctx.params.id, action: "company.research_recorded", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { research_id: res.value.id, recommendation: parsed.data.recommendation, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "company", entity_id: ctx.params.id, action: "company.research_recorded", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { research_id: res.value.id, recommendation: parsed.data.recommendation, actor_user_id: auth.user.id } });
   return NextResponse.json({ research_id: res.value.id }, { status: 201 });
 }

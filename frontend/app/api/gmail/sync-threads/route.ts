@@ -9,6 +9,7 @@ import { decryptSecret } from "@/lib/security/secret-crypto";
 import { classifyReply } from "@/lib/emails/reply-classifier";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userOrService } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -117,7 +118,7 @@ export async function POST(req: Request) {
           .update({ status: "replied", replied_at: new Date().toISOString() })
           .eq("id", row.id)
           .eq("tenant_id", tenantId);
-        await recordAudit({
+        await recordAudit({ actor: userOrService(auth.user, req),
           entity_type: "email",
           entity_id: row.id,
           action: "email.reply_detected",

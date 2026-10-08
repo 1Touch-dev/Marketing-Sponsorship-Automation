@@ -39,6 +39,8 @@ import {
 import type { ProposalContent } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -97,7 +99,7 @@ async function runGeneration(system: string, user: string, maxTokens = 2000): Pr
  *
  * Failures in secondary pipelines are non-fatal — columns become null.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -316,7 +318,7 @@ export async function POST(req: Request) {
     });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.generated",
@@ -338,3 +340,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: proposal, attempts: attempt });
 }
+
+export const POST = idempotent("proposals.generate", postHandler);

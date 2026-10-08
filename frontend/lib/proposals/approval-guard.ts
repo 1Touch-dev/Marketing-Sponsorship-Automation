@@ -1,5 +1,6 @@
 import { recordAudit } from "@/lib/audit/log";
 import { approveRevision, checkProposalDrift } from "./revision-store";
+import { personActor, serviceActor } from "@/lib/identity/actor";
 
 type Sb = any;
 
@@ -52,6 +53,7 @@ export async function invalidateIfDrifted(
     .eq("tenant_id", tenantId);
 
   await recordAudit({
+    actor: personActor({ id: actor.id, email: actor.email }) ?? serviceActor("approval-guard"),
     entity_type: "proposal",
     entity_id: proposalId,
     action: "proposal.approval_invalidated",

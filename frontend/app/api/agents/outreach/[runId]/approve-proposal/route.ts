@@ -7,11 +7,13 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resumeAgentAfterProposalApproval } from "@/lib/agents/resume";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { idempotent } from "@/lib/idempotency";
+import { hasOpenBlock } from "@/lib/approvals/recovery";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
-export async function POST(
+async function postHandler(
   _req: Request,
   ctx: { params: { runId: string } }
 ) {
@@ -19,6 +21,8 @@ export async function POST(
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
+  const blocked = await hasOpenBlock(sb, "agent_run", ctx.params.runId);
+  if (blocked) return NextResponse.json({ error: `This run's approval is blocked: ${blocked.reason} An administrator has to reassign or cancel it first.`, block_id: blocked.id }, { status: 409 });
   const { data: run } = await sb
     .from("agent_runs" as "companies")
     .select("*")
@@ -55,3 +59,5 @@ export async function POST(
     steps: resume.steps,
   });
 }
+
+export const POST = idempotent("agents.outreach.approve-proposal", postHandler);

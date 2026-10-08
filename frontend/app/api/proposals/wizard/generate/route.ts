@@ -10,10 +10,12 @@ import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, 
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { soldOutLines, type InventoryLike } from "@/lib/inventory/availability";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const maxDuration = 90;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -262,7 +264,7 @@ export async function POST(req: Request) {
       status: "completed",
     } as never, { onConflict: "session_key" });
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "proposal.wizard_generated",
       entity_type: "proposal",
       entity_id: proposal.id,
@@ -281,3 +283,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Generation failed" }, { status: 500 });
   }
 }
+
+export const POST = idempotent("proposals.wizard-generate", postHandler);

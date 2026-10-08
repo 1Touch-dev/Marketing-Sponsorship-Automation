@@ -5,6 +5,7 @@ import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { loadCompanyIndex, existingEntity } from "@/lib/accounts/store";
 import { registrableDomain, type CompanyKey } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -214,7 +215,7 @@ export async function POST(req: Request) {
     }
 
     // Audit log for the bulk import (entity_id must be null or UUID — use null for bulk)
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "company",
       entity_id: null,
       action: "company.bulk_import",

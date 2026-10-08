@@ -13,6 +13,7 @@ import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory
 import { approveRevision } from "@/lib/proposals/revision-store";
 import { guardActivationTerms } from "@/lib/proposals/approval-guard";
 import { recordEvidenceSafe } from "@/lib/contracts/evidence-store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -157,7 +158,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     claimsReport = await buildProposalClaimsReport(sb, auth.user.tenant_id, proposal as { content?: unknown; strategy_variants?: unknown });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: parsed.data.proposal_id,
     action: `proposal.${parsed.data.decision}`,

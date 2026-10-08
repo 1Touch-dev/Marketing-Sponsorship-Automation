@@ -15,6 +15,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit/log";
 import { loadCompanyIndex, existingEntity } from "@/lib/accounts/store";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { externalActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -78,6 +79,7 @@ export async function POST(req: Request) {
   if (error || !data) return NextResponse.json({ error: "Could not save your submission — please try again." }, { status: 500 });
 
   await recordAudit({
+    actor: externalActor("lead form"),
     entity_type: "company",
     entity_id: data.id,
     action: "company.lead_captured",

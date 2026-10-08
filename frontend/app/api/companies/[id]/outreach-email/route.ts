@@ -19,6 +19,8 @@ import { checkPlaybook, RELATIONSHIP_PLAYBOOKS } from "@/lib/playbooks/definitio
 import { relationshipEmailPrompt } from "@/lib/playbooks/prompt";
 import { relationshipEmailViolations } from "@/lib/playbooks/guard";
 import { isMissingMigration } from "@/lib/proposals/revision-store";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,7 +39,7 @@ const schema = z.object({
  * price: the model's output is checked for both and refused if it slips. The
  * draft goes to the approval queue like any other email; nothing is sent here.
  */
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -127,6 +129,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   }
 
   await stampSigner(sb, auth.user.tenant_id, row.id, signerId);
-  await recordAudit({ entity_type: "email", entity_id: row.id, action: "email.relationship_drafted", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { company_id: c.company.id, playbook, first_touch: c.firstTouch, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "email", entity_id: row.id, action: "email.relationship_drafted", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { company_id: c.company.id, playbook, first_touch: c.firstTouch, actor_user_id: auth.user.id } });
   return NextResponse.json({ email_id: row.id, playbook, subject: row.subject, preview: row.body_text.slice(0, 200), recommended: c.recommendation }, { status: 201 });
 }
+
+export const POST = idempotent("outreach-email.generate", postHandler);

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/auth/roles";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { scanApprovals } from "@/lib/approvals/recovery";
 
 export const runtime = "nodejs";
 
@@ -40,6 +43,9 @@ export async function PATCH(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "platform_user", entity_id: id, action: "user.updated", metadata: { changed: Object.keys(update).filter((k) => k !== "updated_at"), role: body.role ?? null, is_active: body.is_active ?? null } });
+  // Someone who was a reviewer may no longer be one: find what is now waiting on them, so it is not left to sit.
+  if (body.role !== undefined || body.is_active === false) await scanApprovals(sb, auth.user.tenant_id);
   return NextResponse.json({ user: data });
 }
 
@@ -60,5 +66,7 @@ export async function DELETE(
     .eq("tenant_id" as "id", auth.user.tenant_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "platform_user", entity_id: id, action: "user.deactivated", metadata: {} });
+  await scanApprovals(sb, auth.user.tenant_id);
   return NextResponse.json({ success: true });
 }

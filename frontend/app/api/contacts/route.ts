@@ -4,6 +4,7 @@ import { z } from "zod";
 import { extractDomainFromEmail } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
   return NextResponse.json(data ?? []);
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("edit_company");
   if ("error" in auth) return auth.error;
 
@@ -140,3 +141,5 @@ async function triggerContactDrivenEnrichment(
     ).catch(() => {});
   }
 }
+
+export const POST = idempotent("contacts.create", postHandler);

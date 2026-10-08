@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -89,7 +90,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     await sb.from("companies").update({ logo_url: url }).eq("id", companyId);
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: id,
     action: "proposal.asset_uploaded",
@@ -169,7 +170,7 @@ export async function DELETE(req: Request, ctx: { params: { id: string } }) {
     }
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: id,
     action: "proposal.asset_deleted",

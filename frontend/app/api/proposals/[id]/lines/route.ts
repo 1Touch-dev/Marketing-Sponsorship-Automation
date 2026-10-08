@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { approveRevision } from "@/lib/proposals/revision-store";
 import { invalidateIfDrifted } from "@/lib/proposals/approval-guard";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -61,7 +62,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!line) return NextResponse.json({ error: "Line not found on this proposal" }, { status: 404 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: ctx.params.id,
     action: "proposal.line_terms_changed",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { gateCookieName, signGateToken } from "@/lib/proposals/access-gate";
+import { externalActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
       return NextResponse.json({ error: "Nome e aceite do NDA são obrigatórios." }, { status: 400 });
     }
     await recordAudit({
+      actor: externalActor(`proposal viewer: ${String(body.nda_name).slice(0, 60)}`, `share:${gate.id}:${String(body.nda_name).slice(0, 60)}`),
       entity_type: "proposal",
       entity_id: gate.id,
       action: "proposal.nda_accepted",

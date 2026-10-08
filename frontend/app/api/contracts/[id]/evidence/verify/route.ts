@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { loadProof, recordEvidence } from "@/lib/contracts/evidence-store";
 import { canVerifyClaim } from "@/lib/contracts/proof";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -63,7 +64,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
   if (!r.ok) return NextResponse.json({ error: r.error ?? "Could not record", migration_needed: r.skipped === "migration_missing" || undefined }, { status: r.skipped === "migration_missing" ? 503 : 500 });
 
-  await recordAudit({ entity_type: "contract", entity_id: ctx.params.id, action: decision === "verify" ? "contract.manual_signature_verified" : "contract.manual_signature_rejected", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { claim_id, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "contract", entity_id: ctx.params.id, action: decision === "verify" ? "contract.manual_signature_verified" : "contract.manual_signature_rejected", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { claim_id, actor_user_id: auth.user.id } });
   const after = await loadProof(sb, auth.user.tenant_id, ctx.params.id);
   return NextResponse.json({ recorded: decision, proof: after?.proof });
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 
 export const runtime = "nodejs";
 
@@ -38,7 +40,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "match",
     entity_id: id,
     action: "match.updated",
@@ -48,16 +50,15 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   return NextResponse.json({ data });
 }
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+export async function DELETE(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("manage_matches");
   if ("error" in auth) return auth.error;
 
-  const sb = supabaseAdmin();
   const { id } = ctx.params;
 
-  const { error } = await sb.from("matches").delete().eq("id", id).eq("tenant_id", auth.user.tenant_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const res = await deleteRecord(supabaseAdmin(), { table: "matches", id, tenantId: auth.user.tenant_id, actor: userActor(auth.user), ...(await readDeleteOptions(req)) });
+  if (!res.ok) return NextResponse.json({ error: res.error, blockers: res.blockers ?? [] }, { status: res.status });
 
-  await recordAudit({ entity_type: "match", entity_id: id, action: "match.deleted", metadata: {} });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "match", entity_id: id, action: "match.deleted", metadata: {} });
   return NextResponse.json({ deleted: true });
 }

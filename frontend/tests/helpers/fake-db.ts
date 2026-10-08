@@ -1,6 +1,6 @@
 // An in-memory stand-in for the Supabase client that applies eq / in / is / or filters, for store tests.
 export type Tables = Record<string, any[]>;
-export function db(tables: Tables, opts: { missing?: string[] } = {}) {
+export function db(tables: Tables, opts: { missing?: string[]; unique?: Record<string, string[]>; rpc?: Record<string, (args: any) => { data: any; error: any }> } = {}) {
   let n = 0;
   const calls: Array<{ op: string; table: string; row?: any }> = [];
   const from = (table: string) => {
@@ -26,6 +26,12 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
       then: (res: any) => res(result()),
       insert: (input: any) => {
         const list = (Array.isArray(input) ? input : [input]).map((r) => ({ id: `${table}-${++n}`, created_at: new Date().toISOString(), ...r }));
+        const uq = opts.unique?.[table];
+        if (uq && list.some((r) => (tables[table] ?? []).some((x) => uq.every((k) => x[k] === r[k])))) {
+          const dup = { code: "23505", message: `duplicate key value violates unique constraint on ${table}` };
+          const e: any = { select: () => e, single: async () => ({ data: null, error: dup }), then: (res: any) => res({ data: null, error: dup }) };
+          return e;
+        }
         calls.push(...list.map((row) => ({ op: "insert", table, row })));
         if (!gone) (tables[table] ??= []).push(...list);
         const i: any = { select: () => i, single: async () => ({ data: list[0], error: gone }), then: (res: any) => res({ data: list, error: gone }) };
@@ -42,6 +48,20 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
         const u: any = { select: () => u, then: (res: any) => res({ data: fresh, error: gone }) };
         return u;
       },
+      delete: () => {
+        const d: any = {
+          eq: (col: string, v: any) => { filters.push((r) => absent(r, col) || r[col] === v); return d; },
+          in: (col: string, vs: any[]) => { filters.push((r) => absent(r, col) || vs.includes(r[col])); return d; },
+          is: (col: string, v: any) => { filters.push((r) => (r[col] ?? null) === v); return d; },
+          then: (res: any) => {
+            const gone = rows();
+            tables[table] = (tables[table] ?? []).filter((r) => !gone.includes(r));
+            calls.push({ op: "delete", table });
+            res({ error: null });
+          },
+        };
+        return d;
+      },
       update: (patch: any) => {
         const u: any = {
           eq: (col: string, v: any) => { filters.push((r) => absent(r, col) || r[col] === v); return u; },
@@ -55,6 +75,11 @@ export function db(tables: Tables, opts: { missing?: string[] } = {}) {
     };
     return c;
   };
-  return { from, calls, tables };
+  const rpc = async (name: string, args: unknown) => {
+    calls.push({ op: "rpc", table: name, row: args });
+    const h = opts.rpc?.[name];
+    return h ? h(args) : { data: {}, error: null };
+  };
+  return { from, rpc, calls, tables };
 }
 

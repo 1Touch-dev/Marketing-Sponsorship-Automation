@@ -5,6 +5,7 @@ import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,7 +14,7 @@ const schema = z.object({
   company_id: z.string().uuid(),
 });
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -55,3 +56,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = idempotent("proposals.generate-for-company", postHandler);

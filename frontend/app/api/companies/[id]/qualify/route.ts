@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { loadStage, recordQualification } from "@/lib/accounts/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   });
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "company", entity_id: ctx.params.id, action: `company.${parsed.data.decision}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { qualification_id: res.value.id, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "company", entity_id: ctx.params.id, action: `company.${parsed.data.decision}`, actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { qualification_id: res.value.id, actor_user_id: auth.user.id } });
   const stage = await loadStage(sb, auth.user.tenant_id, ctx.params.id);
   return NextResponse.json({ qualification_id: res.value.id, stage: stage.ok ? stage.value.stage : null }, { status: 201 });
 }

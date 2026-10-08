@@ -31,6 +31,7 @@ import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from 
 import { carryAllocationsToRenewal } from "@/lib/allocations/store";
 import { renewalBasis } from "@/lib/recap/store";
 import type { ProposalContent } from "@/types/database";
+import { authorizeAgent } from "@/lib/agents/governance";
 
 const CRITICAL_DAYS = 15;
 const WARNING_DAYS = 30;
@@ -107,6 +108,13 @@ async function draftRenewals(state: typeof RenewalState.State): Promise<Partial<
 
     if (!contract.company_id) {
       skipped.push({ contractId: contract.id, reason: "No company linked to this contract" });
+      continue;
+    }
+
+    // The agent works only on companies it is assigned.
+    const authority = await authorizeAgent(sb, state.tenantId, "renewal-agent", { companyId: contract.company_id, effects: ["draft_renewal"] });
+    if (!authority.ok) {
+      skipped.push({ contractId: contract.id, reason: authority.error });
       continue;
     }
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { externalActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { logFingerprint } from "@/lib/identity/privacy";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = await req.json();
@@ -16,19 +19,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq("id", params.id)
     .maybeSingle();
 
-  await sb.from("audit_logs").insert({
-    tenant_id: proposal?.tenant_id ?? CORITIBA_TENANT_ID,
+  const tenantId = proposal?.tenant_id ?? CORITIBA_TENANT_ID;
+  const details = { contact_name: body.name, contact_email: body.email, contact_phone: body.phone, company: body.company, message: body.message, lgpd_consent: body.lgpdConsent };
+  // A lead's details are personal data, so they are kept in a table they can be erased from, and the
+  // permanent audit log holds only a reference. Before migration 0069 the table does not exist, and the
+  // details are then kept in the log as before so that no submission is lost.
+  const stored = await sb.from("proposal_interests" as "companies").insert({ tenant_id: tenantId, proposal_id: params.id, ...details } as never).select("id").single();
+  const interestId = (stored.data as { id?: string } | null)?.id ?? null;
+  await recordAudit({
+    actor: externalActor(`proposal viewer: ${String(body.name ?? "unnamed").slice(0, 60)}`, `lead:${logFingerprint(body.email) ?? "anonymous"}`),
+    tenant_id: tenantId,
     action: "proposal.interest_submitted",
     entity_type: "proposal",
     entity_id: params.id,
-    metadata: {
-      contact_name: body.name,
-      contact_email: body.email,
-      contact_phone: body.phone,
-      company: body.company,
-      message: body.message,
-      lgpd_consent: body.lgpdConsent,
-    },
+    metadata: interestId ? { interest_id: interestId, lgpd_consent: body.lgpdConsent } : details,
   });
 
   // Per-visitor identified engagement (2026-09-17) — this is the moment an

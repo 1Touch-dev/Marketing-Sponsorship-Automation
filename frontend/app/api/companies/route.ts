@@ -9,6 +9,8 @@ import { getCurrentTenant } from "@/lib/tenants/current";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { loadCompanyIndex } from "@/lib/accounts/store";
 import { creationDecision, findCandidates, normalizeCnpj, registrableDomain } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -49,7 +51,7 @@ export async function GET(req: Request) {
   return NextResponse.json(stageById.size > 0 ? rows.map((r) => ({ ...r, account_stage: stageById.get(r.id) ?? "directory" })) : rows);
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_company");
   if ("error" in auth) return auth.error;
 
@@ -111,7 +113,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",
     entity_id: data.id,
     action: "company.created",
@@ -162,3 +164,5 @@ export async function POST(req: Request) {
     { status: 201 },
   );
 }
+
+export const POST = idempotent("companies.create", postHandler);

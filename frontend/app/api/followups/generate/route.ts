@@ -11,6 +11,7 @@ import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "followup",
       action: "followup.generate_failed",
       metadata: { parent_email_id: typedEmail.id, error: lastError },
@@ -187,7 +188,7 @@ export async function POST(req: Request) {
   }
 
   if (eventId) await completeWorkflow(eventId, { followup_id: followup?.id, draft_email_id: draft.id });
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "followup",
     entity_id: followup?.id,
     action: "followup.suggested",

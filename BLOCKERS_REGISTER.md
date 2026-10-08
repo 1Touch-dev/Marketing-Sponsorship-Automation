@@ -8,30 +8,30 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 165** (counted from the tables below; refresh after each task)
+**Open items right now: 195** (counted from the tables below; refresh after each task. The 8 Oct recount found the earlier figure was one too high: it was 164.)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 70 |
-| James | 65 |
-| Yash | 21 |
-| Yash / James | 5 |
+| Abhishek | 87 |
+| James | 70 |
+| Yash | 27 |
+| Yash / James | 7 |
 | James / the club | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 49 |
-| Tech debt | 28 |
-| Yash | 19 |
-| Test gap | 11 |
+| Decision | 56 |
+| Tech debt | 33 |
+| Yash | 25 |
+| Test gap | 12 |
 | Account | 9 |
-| Known limit | 16 |
+| Known limit | 24 |
 | Deploy | 7 |
 | Data | 10 |
 | Content | 6 |
-| Security | 5 |
-| Behaviour | 4 |
+| Security | 7 |
+| Behaviour | 5 |
 | Removed | 1 |
 
 Use this to plan the final sweep: James and Yash items need their input, Abhishek items can be done in one pass.
@@ -328,15 +328,92 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 
 ---
 
+### Task 23: effective identity and an immutable audit trail (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T23-01 | Known limit | Abhishek | **1,241 earlier audit entries have no recorded actor.** They are kept, numbered and chained, and marked `legacy`; who did them cannot be recovered. Every entry since 8 Oct names its actor (person, approver, agent with its version, service, or outside party). | Nothing to do; the share of attributed entries is visible at `/api/audit/attribution`. | Open |
+| T23-02 | **Decision** | James | **Immutable log versus erasure on request (LGPD).** The audit log can no longer be edited or deleted, by design. Lead details were moved out of it into an erasable table (`proposal_interests`), and tokens, links and IPs were replaced by fingerprints. Entries still hold people's emails (as actors, and as the subject of some events). Whether that is acceptable, or entries must be pseudonymised on request, is a policy choice. | Decide the retention and erasure rule; if erasure is needed, we add a controlled pseudonymise step that is itself logged. | Open |
+| T23-03 | **Security** | Abhishek | **The unsubscribe route does not unsubscribe.** `/api/newsletter/unsubscribe` only writes a log line: it ignores its token, does not add the address to the suppression list, and used an invalid id in its audit entry. Found while checking what is audited; not changed in this task. | Make it verify the token and add a suppression (Task 14's list), with a test. | Open |
+| T23-04 | **Security** | Abhishek | **The chain is tamper-evident, not tamper-proof.** Anyone who owns the database can disable the triggers and rewrite the log and its hashes together. Verification (`/api/audit/verify`) catches changes made without doing that. | Decide whether to export a daily head hash somewhere the database owner cannot reach. | Open |
+| T23-05 | Tech debt | Abhishek | The chain is verified only when someone calls `/api/audit/verify`. Nothing checks it on a schedule or alerts. | Schedule it with the other jobs (see T20-05, T25-01). | Open |
+| T23-06 | Yash | Yash | No screens for who did what: the audit page does not show the actor kind or the agent version, there is no 'chain intact' indicator, and no coverage view. All three have API routes. | Design and wire. | Open |
+| T23-07 | Known limit | Abhishek | **Audit entries written by routes that passed a `performed_by` were silently lost before 8 Oct**: that column points at the old `users` table, so every such write failed its foreign key and the failure was only logged. Fixed in the writer. The lost entries (email status changes, campaign status changes, enrichment) cannot be reconstructed. | Nothing to do. | Open |
+
+---
+
+### Task 24: tombstones, idempotency and stable external references (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T24-01 | **Decision** | James | **Deleted records keep a full copy, including personal data, with no expiry.** A tombstone is what makes a delete undoable, so it holds contacts' names and emails too, and tombstones cannot be deleted. There is no erasure path and no retention period. | Decide how long a deletion can be undone (for example 90 days), and whether an erasure request must also purge tombstones; we then add a logged purge. | Open |
+| T24-02 | Yash | Yash | **Delete buttons must send a reason.** Deleting a record that work depends on (a company with a contract in force, obligations or recaps) now returns 409 until the call sends `confirm=true` and a reason of 10+ characters. Existing delete buttons do not, so they will show an error for those records. There is also no screen to list deleted records or undo one. | Add the confirmation dialog (it should list the `blockers` and `dependents` the 409 returns) and a deleted-records page with Undo. | Open |
+| T24-03 | Known limit | Abhishek | An undo is refused as a whole, and changes nothing, when it cannot be exact: a record with one of the same IDs exists again, or something it needs was deleted separately. A link that someone has set since the delete is left alone. | Nothing to do; the refusal says why. | Open |
+| T24-04 | Known limit | Abhishek | Tombstones cover the 16 core tables and everything they cascade into (about 30 more). A direct delete in some other table, for example one `emails` row, leaves no snapshot. A delete that would unlink more than 5,000 records is refused rather than made impossible to undo. | Add tables to the list if they become deletable from the screens. | Open |
+| T24-05 | Tech debt | Abhishek | Idempotency keys cover 28 create/approve POST routes. Keys last 24 hours and the purge function is not scheduled. Clients must send the `Idempotency-Key` header; none do yet. | Schedule the purge; have the screens send a key on create and approve buttons (double-click protection). | Open |
+| T24-06 | Yash | Yash | The screens do not send an `Idempotency-Key`, so a double-click still creates two records (the company duplicate check catches only companies). | Generate a key per button press. | Open |
+| T24-07 | **Decision** | Yash / James | **Who owns which field when a CRM and the platform both edit a record.** The ownership registry and the stable ID links (`external_refs`) exist, and nothing uses them yet: the Pipedrive sync does not read or write them. | Decide field ownership per system with X-13/X-14, then wire the sync. | Open |
+| T24-08 | Known limit | Abhishek | Replaying an idempotent request returns the stored answer with its JSON keys in a different order. Same content. | Nothing to do. | Open |
+
+---
+
+### Task 25: approver recovery (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T25-01 | Tech debt | Abhishek | **No schedule.** A blocked approval is found when a user is deactivated or their role changes, and when someone calls `/api/approvals/recovery/scan`. An approval that simply waits past its 2-day review deadline is found only when that scan is run. The same is true of the stuck-action sweep (T28-02). | Schedule both daily with the scheduler (the same job as T20-05). | Open |
+| T25-02 | **Decision** | James | **Nobody is told when an approval is blocked**, and the 2-day deadline is a default. If no active administrator exists, the scan reports that it cannot escalate and nothing else happens. | Say who is told, how (Slack, email) and the review deadline. | Open |
+| T25-03 | Yash | Yash | No screen for blocked approvals (who they were waiting for, why, who to reassign to). | Design and wire to `/api/approvals/blocked`. | Open |
+
+---
+
+### Tasks 26 and 27: agent definitions, versions, assignments and plans (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T26-01 | **Decision** | James | **Six agents are 'grandfathered' with authority over every company** in the first tenant, so nothing changed on day one. Their authority is now written down and can be narrowed or revoked. | Decide which agents should be limited to some companies or campaigns. | Open |
+| T26-02 | Behaviour | Abhishek | **A new tenant starts with no agents, and every agent is refused there until installed.** `POST /api/agent-registry/install-standard` installs the six (optionally assigned workspace-wide). Tenant creation does not call it yet. | Call it from tenant onboarding. | Open |
+| T26-03 | Known limit | Abhishek | **Promoting a new agent version cancels every plan still waiting for approval under the old one** (they fail at approval with the reason). Intended, but an administrator should know. | Show a warning on the promote screen. | Open |
+| T26-04 | Known limit | Abhishek | Promotion 'evidence' is free text. It is required and recorded, but nothing checks it. Task 30's evaluation gates are meant to make it checkable. | Link promotion to a passing evaluation run in Task 30. | Open |
+| T26-05 | Tech debt | Abhishek | **Only sending an email is a planned, approved action.** Other effects (paid enrichment, research, drafting, CRM notes) are authorised by assignment and scope, and limited by cost, but have no plan or approval step. | Decide if enrichment or CRM writes also need approval. | Open |
+| T26-06 | Yash | Yash | No screens for the agent registry, versions, assignments, or the plan an approver reads before approving (what it will do, to whom, at what cost, what stops it). All have API routes. | Design and wire. | Open |
+
+---
+
+### Task 28: durable action state (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T28-01 | Test gap | Yash / James | **No real email provider (X-10).** 'Provider accepted' is today: the email is marked sent and logged to the CRM, and the recipient is not emailed by the platform. A send that is marked sent but whose CRM write fails is recorded as unknown, not as success. With no Pipedrive key on this box every live send ended there. The fully successful path is covered by the database tests, not by a live run. | Provide the provider and a Pipedrive key, then run one live send. | Open |
+| T28-02 | Tech debt | Abhishek | The sweeper that marks a stuck 'executing' action as unknown runs only when called (`/api/agent-actions/sweep`). | Schedule it (see T25-01). | Open |
+| T28-03 | **Decision** | Abhishek | **LangGraph.js is not wired in yet.** The durable state machine lives in Postgres and does not depend on any agent framework, as agreed. The existing agents still run on their current orchestrator; moving them onto LangGraph graphs that use this state is not done. | Decide whether to port the agents now or after Tasks 30 and 31. | Open |
+
+---
+
+### Task 29: batch review limits and cost ceiling (done)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T29-01 | **Decision** | James | **Default limits are a guess:** 10 items per batch and US$5 per batch. The cost per item (outreach $0.25, campaign $0.15, proposal $0.15, image $0.20) are estimates, not measured. | Choose the limits; we calibrate the estimates from the spend ledger. | Open |
+| T29-02 | Known limit | Abhishek | The ceiling is checked before a batch starts; it does not stop a batch that costs more than estimated while running. The daily spend cap still does that. Applied to the outreach batch and campaign bulk routes; other bulk paths (imports, image jobs) are not gated. | Gate the others if they become heavy. | Open |
+| T29-03 | Yash | Yash | No preview screen showing the estimate and limits before launching a batch. | Wire to `/api/batch/limits` and the refusal fields. | Open |
+
+---
+
+### Housekeeping found on 8 Oct
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| T23-08 | Tech debt | Abhishek | `tests/openai-renderer.test.ts` expects an `input_fidelity` field that `gpt-image-2` deliberately does not get (commit 6a86a01). The `jersey-pipeline` suite has failed since then. Not related to these tasks. | Update the test to the current behaviour. | Open |
+
+---
+
 ## C. Anticipated for tasks not started (to be confirmed when we reach them)
 
 | Task | Likely blocker | Owner |
 |---|---|---|
 | 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
 | 22 Task source of truth | Blocked on X-13. | Yash |
-| 23, 25 Identity and approver recovery | Needs user-lifecycle data (who leaves, when). | James |
-| 26–28 Agent governance | Decide whether to adopt LangGraph or Temporal. Task 28 needs a real provider (X-10). | Abhishek |
-| 29 Batch cost ceiling | Pairs with Yash's preview screen. | Yash |
 | 30 Evaluation gates | Needs fixtures from real commercial edge cases and a budget. | Abhishek / James |
 | 31 Langfuse write-up | None. | Abhishek |
 
@@ -370,5 +447,14 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A sponsor told about results nobody measured; a renewal pitched on enthusiasm, not on proven delivery | 7 Oct (Task 19): measured results need a stated source and stay apart from modeled estimates (enforced in the database); every missing proof is a named gap; a renewal is drafted only from the reconciled recap, and with no proven delivery no AI call is made |
 | Barter value able to read as revenue, and a draft deal able to be counted as money; no split of a contract's one number | 7 Oct (Task 18): cash, barter and savings kept apart and never summed; drafts and proposals refused as revenue in the database; a proposed line becomes contracted as the same row (the rules James has not chosen are settings with conservative defaults, see T18-01 to T18-06) |
 | A date moved with one silent field update: no record, no view of what depended on it | 7 Oct (Task 17): every move is a recorded, reasoned, attributed change with the downstream work and owners it affected; a conflicting move is refused unless acknowledged (T15-07 and T16-09 cleared) |
+| Any signed-in user could write any audit entry, for any tenant | 8 Oct (Task 23): the insert policy was removed; verified live that a signed-in administrator's forged insert is refused, for their own tenant and another |
+| Credentials and personal data in the audit log (sign-in links, share tokens, email IPs, lead details) | 8 Oct (Task 23): moved or fingerprinted before the log was sealed; verified on the 1,241 real rows |
+| Audit entries that named no one, or could be edited or deleted | 8 Oct (Task 23): every entry names its actor; edits, deletes and truncation are refused; the chain verifies on all 1,241 earlier rows and every new one |
+| User role changes, deactivation and removal were not audited, and `/api/audit` was open to any signed-in user | 8 Oct (Task 23): audited, and the log is limited to people who may view audit |
+| Deleting a company silently detached its in-force contracts, emails and threads, and cascaded into about 30 tables with no copy | 8 Oct (Task 24, found in the live test): every cascaded row is kept, what was unlinked is recorded, and an undo restored the real company, contract, obligations, events (same timestamps and actors), project, proposal, research and email links, identical to before the delete |
+| A retried request did the work twice | 8 Oct (Task 24): same key, same answer; a different request under a used key is refused |
+| Anyone with an agent run could send, with no record of what was approved | 8 Oct (Tasks 26–28): sending is a sealed plan that a person with standing approves; the approver's standing is rechecked when it runs; a plan cannot be edited; a send of unknown outcome is never repeated |
+| An approval stuck on someone who left | 8 Oct (Task 25): blocked with a reason and an escalation, recoverable by an administrator |
+| A bulk job with no limit on size or cost | 8 Oct (Task 29): refused before anything starts, and recorded; verified that nothing was spent |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |

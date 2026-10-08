@@ -26,6 +26,8 @@ import { runRenewalAgent } from "@/lib/agents/langgraph/renewal-agent";
 import { runReportingAgent } from "@/lib/agents/langgraph/reporting-agent";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { auditAgentOutputs } from "@/lib/agents/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -78,7 +80,10 @@ export async function POST() {
     generatedAt: new Date().toISOString(),
   };
 
-  await recordAudit({
+  await auditAgentOutputs("renewal-agent", auth.user, renewal.drafted.map((d) => ({ entity_type: "proposal", entity_id: d.proposalId, action: "agent.renewal.drafted", metadata: { contract_id: d.contractId, severity: d.severity } })));
+  await auditAgentOutputs("reporting-agent", auth.user, reporting.drafted.map((d) => ({ entity_type: "email", entity_id: d.emailId, action: "agent.report.drafted", metadata: { contract_id: d.contractId, matches_covered: d.matchesCovered } })));
+  await auditAgentOutputs("pipeline-hygiene-agent", auth.user, [{ entity_type: "pipeline", action: "agent.hygiene.flagged", metadata: { stale_count: hygiene.staleCompanies.length } }]);
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "agents",
     action: "team2.run_all",
     metadata: summary,

@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { moveObligation } from "@/lib/schedule/store";
 import { refreshForObligation } from "@/lib/company-status/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const d = parsed.data;
   const res = await moveObligation(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, { newDue: d.new_due_date, reason: d.reason, cascade: d.cascade, acknowledge: d.acknowledge }, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error, impact: res.impact ?? null, conflicts: res.conflicts ?? [] }, { status: res.status });
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "obligation", entity_id: ctx.params.id, action: "obligation.date_moved", actor_email: auth.user.email, tenant_id: auth.user.tenant_id,
     metadata: { to: d.new_due_date, reason: d.reason, cascaded: res.value.cascaded, owners: res.value.impact.owners, actor_user_id: auth.user.id },
   });

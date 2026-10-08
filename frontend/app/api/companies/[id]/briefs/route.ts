@@ -5,6 +5,8 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { checkDiscoveryGate, listBriefs, saveBrief } from "@/lib/briefs/store";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,7 +52,7 @@ const schema = z.object({
 });
 
 /** A person writes a brief. A quick brief is enough to unlock proposal generation; a full brief adds cited research. */
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -60,6 +62,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const res = await saveBrief(supabaseAdmin(), auth.user.tenant_id, ctx.params.id, parsed.data, auth.user.email);
   if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  await recordAudit({ entity_type: "company", entity_id: ctx.params.id, action: "company.brief_written", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { brief_id: res.value.id, level: parsed.data.level, actor_user_id: auth.user.id } });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "company", entity_id: ctx.params.id, action: "company.brief_written", actor_email: auth.user.email, tenant_id: auth.user.tenant_id, metadata: { brief_id: res.value.id, level: parsed.data.level, actor_user_id: auth.user.id } });
   return NextResponse.json({ brief_id: res.value.id }, { status: 201 });
 }
+
+export const POST = idempotent("briefs.create", postHandler);

@@ -4,6 +4,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 90;
 
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
 
     if (error) throw new Error(error.message);
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "image_job.created",
       entity_type: "image_generation_job",
       entity_id: (job as Record<string, string>).id,
@@ -464,7 +465,7 @@ export async function PATCH(req: Request) {
           .eq("id", j.mockup_id as string);
       }
 
-      await recordAudit({
+      await recordAudit({ actor: userActor(auth.user),
         action: "image_job.generated",
         entity_type: "image_generation_job",
         entity_id: body.job_id,
