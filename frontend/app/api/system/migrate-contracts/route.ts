@@ -54,7 +54,9 @@ END $$;
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authErr = requireInternalAuth(req);
+  if (authErr) return authErr;
   const sb = supabaseAdmin();
   const { error } = await sb.from("contracts").select("id").limit(1);
   return NextResponse.json({

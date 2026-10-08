@@ -19,6 +19,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { serviceActor } from "@/lib/identity/actor";
 
 function dailyCapUsd(): number {
   const raw = process.env.DAILY_SPEND_CAP_USD;
@@ -170,6 +171,7 @@ export async function generateWeeklyValidationReport(
  * history without needing a dedicated table. */
 export async function recordWeeklyValidationReport(report: WeeklyValidationReport): Promise<void> {
   await recordAudit({
+      actor: serviceActor("weekly-validation"),
     entity_type: "system",
     action: "validation.weekly_report",
     tenant_id: report.tenant_id,

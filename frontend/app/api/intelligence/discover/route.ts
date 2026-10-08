@@ -14,6 +14,7 @@ import { logger } from "@/lib/monitoring/logger";
 import type { CompetitorDiscoveryResult } from "@/lib/intelligence/competitor-engine";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor, type Actor } from "@/lib/identity/actor";
 
 export const maxDuration = 90;
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       const jobId = await enqueueJob("intelligence_scrape", { company_id, action: "competitor_discovery" });
 
       // Fire async (no await)
-      void runDiscoveryAndPersist(company as CompanyRow, null, auth.user.tenant_id);
+      void runDiscoveryAndPersist(userActor(auth.user), company as CompanyRow, null, auth.user.tenant_id);
 
       return NextResponse.json({
         success: true,
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     // Foreground mode — run now
-    const result = await runDiscoveryAndPersist(company as CompanyRow, null, auth.user.tenant_id);
+    const result = await runDiscoveryAndPersist(userActor(auth.user), company as CompanyRow, null, auth.user.tenant_id);
 
     logger.info("Competitor discovery API completed", {
       company_id,
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null, tenantId: string): Promise<CompetitorDiscoveryResult> {
+async function runDiscoveryAndPersist(actor: Actor, company: CompanyRow, jobId: string | null, tenantId: string): Promise<CompetitorDiscoveryResult> {
   try {
     const tenant = await resolveClubContext(tenantId);
     const result = await discoverCompetitors({
@@ -114,7 +115,7 @@ async function runDiscoveryAndPersist(company: CompanyRow, jobId: string | null,
       intelligence_updated_at: new Date().toISOString(),
     }).eq("id", company.id).eq("tenant_id", tenantId);
 
-    await recordAudit({
+    await recordAudit({ actor,
       action: "company.competitor_discovery_completed",
       entity_type: "company",
       entity_id: company.id,

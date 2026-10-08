@@ -19,6 +19,10 @@ import { runAgentOrchestrator } from "@/lib/agents/orchestrator";
 import type { AgentMode, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { idempotent } from "@/lib/idempotency";
+import { authorizeAgent } from "@/lib/agents/governance";
+import { gateBatch } from "@/lib/batch/gate";
+import { checkDailySpendCap } from "@/lib/monitoring/spend-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -41,7 +45,7 @@ function extractDomain(website: string): string {
   }
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
   // agent_batch_runs.created_by references auth.users(id), not
@@ -79,10 +83,30 @@ export async function POST(req: Request) {
     .eq("tenant_id", auth.user.tenant_id)
     .in("id", company_ids);
 
-  const validCompanies = (companies ?? []).filter((c) => extractDomain(c.website ?? ""));
-  if (validCompanies.length === 0) {
+  const withDomain = (companies ?? []).filter((c) => extractDomain(c.website ?? ""));
+  if (withDomain.length === 0) {
     return NextResponse.json({ error: "None of the selected companies have a usable website/domain" }, { status: 400 });
   }
+
+  // The agent works only on companies (or this campaign) it has been assigned.
+  const covered: typeof withDomain = [];
+  let agentVersion: number | null = null;
+  let notAssigned = 0;
+  for (const c of withDomain) {
+    const a = await authorizeAgent(sb, auth.user.tenant_id, "outreach-agent", { companyId: c.id, campaignId: campaign_id, effects: ["enrich_contacts", "scrape_intelligence", "generate_proposal", "draft_email"] });
+    if (a.ok) { covered.push(c); agentVersion = a.authority.version; } else if (a.status >= 500) return NextResponse.json({ error: a.error }, { status: a.status }); else notAssigned++;
+  }
+  if (covered.length === 0) {
+    return NextResponse.json({ error: "The Outreach Agent is not assigned to any of these companies or to this campaign. An administrator can assign it.", not_assigned: notAssigned }, { status: 403 });
+  }
+
+  // A batch is accepted only inside the review-size limit and the cost ceiling, before anything costs money.
+  const gate = await gateBatch(sb, auth.user.tenant_id, auth.user.email, {
+    kind: "outreach_run", items: covered.length,
+    dailyCheck: async () => { const d = await checkDailySpendCap(); return { todaySpendUsd: d.todaySpendUsd, capUsd: d.capUsd }; },
+  });
+  if (!gate.ok) return NextResponse.json({ error: gate.error, estimated_cost_usd: gate.decision?.estimatedUsd ?? null, max_items: gate.decision?.maxItems ?? null, ceiling_usd: gate.decision?.ceilingUsd ?? null }, { status: gate.status });
+  const validCompanies = covered;
 
   const batchMode: AgentMode = mode ?? "auto";
 
@@ -109,7 +133,7 @@ export async function POST(req: Request) {
 
   // Fire-and-forget: process the queue with bounded concurrency. The client
   // polls GET /api/agents/outreach/batch/[batchId] for progress.
-  void processBatch(batchId, campaign_id, validCompanies, batchMode, user.id, auth.user.tenant_id).catch((err) => {
+  void processBatch(batchId, campaign_id, validCompanies, batchMode, user.id, auth.user.tenant_id, agentVersion).catch((err) => {
     logger.apiError("/api/agents/outreach/batch", err instanceof Error ? err : new Error(String(err)));
   });
 
@@ -118,6 +142,9 @@ export async function POST(req: Request) {
     campaign_id,
     total: validCompanies.length,
     skipped: company_ids.length - validCompanies.length,
+    not_assigned: notAssigned,
+    estimated_cost_usd: gate.decision.estimatedUsd,
+    batch_decision_id: gate.decisionId,
     mode: batchMode,
   });
 }
@@ -128,7 +155,8 @@ async function processBatch(
   companies: Array<{ id: string; company_name: string; website: string | null }>,
   mode: AgentMode,
   userId: string,
-  tenantId: string
+  tenantId: string,
+  agentVersion: number | null = null
 ) {
   const sb = supabaseAdmin();
   let running = 0;
@@ -214,6 +242,7 @@ async function processBatch(
           created_by: userId,
           auto_approve: mode === "auto",
           batch_id: batchId,
+          agent_version: agentVersion,
         },
         noop
       );
@@ -255,3 +284,5 @@ async function processBatch(
 
   logger.info("Agent batch run completed", { batchId, campaignId, doneCount, failedCount, total: companies.length });
 }
+
+export const POST = idempotent("agents.outreach.batch", postHandler);

@@ -4,6 +4,10 @@ import { recordAudit } from "@/lib/audit/log";
 import { extractDomainFromWebsite } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { loadStage, recordQualification } from "@/lib/accounts/store";
+import { QUALIFYING_PIPELINE_STAGES } from "@/lib/accounts/stage";
+import { userActor } from "@/lib/identity/actor";
+import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 
 export const runtime = "nodejs";
 
@@ -58,7 +62,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  // A person moving a card into a "real opportunity" column is a human decision, so it is
+  // recorded as a qualification (once). Moving it back does not undo it: revoke explicitly.
+  if (typeof updates.pipeline_stage === "string" && (QUALIFYING_PIPELINE_STAGES as readonly string[]).includes(updates.pipeline_stage)) {
+    const stage = await loadStage(sb, auth.user.tenant_id, params.id);
+    if (stage.ok && stage.value.stage !== "qualified") {
+      await recordQualification(sb, auth.user.tenant_id, params.id, {
+        decision: "qualified",
+        reason: `Moved to "${updates.pipeline_stage}" in the pipeline by ${auth.user.email}`,
+        actorEmail: auth.user.email,
+        actorUserId: auth.user.id,
+      });
+    }
+  }
+
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",
     entity_id: params.id,
     action: "company.updated",
@@ -88,21 +106,26 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ data, re_enriching: "website" in updates });
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+/**
+ * DELETE /api/companies/[id]?reason=...&confirm=true
+ * The delete is kept as a tombstone and can be undone. A company with contracts in force, delivery work, cash lines
+ * or issued recaps is refused until the caller confirms and says why.
+ */
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const auth = await requirePermission("delete_company");
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
+  const opts = await readDeleteOptions(req);
+  const res = await deleteRecord(sb, { table: "companies", id: params.id, tenantId: auth.user.tenant_id, actor: userActor(auth.user), ...opts });
+  if (!res.ok) return NextResponse.json({ error: res.error, blockers: res.blockers ?? [], dependents: res.dependents ?? {} }, { status: res.status });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",
     entity_id: params.id,
     action: "company.deleted",
-    metadata: {},
+    metadata: { reason: opts.reason, dependents: res.dependents, confirmed: opts.confirm },
   });
 
-  const { error } = await sb.from("companies").delete().eq("id", params.id).eq("tenant_id", auth.user.tenant_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, dependents: res.dependents });
 }

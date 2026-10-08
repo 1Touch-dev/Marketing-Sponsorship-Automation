@@ -10,6 +10,7 @@ import { ProposalPackageSwitcher, type LandingPackage } from "./proposal-package
 import { IntelligencePanel } from "./intelligence-panel";
 import { ProposalLandingVisuals } from "./proposal-landing-visuals";
 import { resolveKpiTemplate } from "@/lib/proposals/kpi-templates";
+import { displayValue, type SponsorClaimMap } from "@/lib/claims/sponsor-claims";
 import type { ProposalImageAsset } from "@/lib/proposals/proposal-images";
 import { resolveVideoEmbed } from "@/lib/proposals/video-embed";
 import {
@@ -63,6 +64,8 @@ interface ProposalLandingPageProps {
     stadiumName?: string;
     city?: string;
     state?: string;
+    /** Claims the registry allows a sponsor to see (lib/claims). Absent means none. */
+    claims?: SponsorClaimMap;
   };
 }
 
@@ -308,11 +311,12 @@ export function ProposalLandingPage({
   const strategyVariants = (proposal.strategy_variants ?? []) as SV[];
   const pricingTiers = (proposal.pricing_tiers ?? []) as PricingTier[];
   const documentBundle = proposal.content?.document_bundle ?? [];
-  const kpi = resolveKpiTemplate(kpiTemplateId ?? content?.kpi_template_id, {
-    isCoritiba: tenant.isCoritiba,
-    clubName: tenant.clubName,
-    stadium_name: tenant.stadiumName,
-  });
+  const claims: SponsorClaimMap = tenant.claims ?? {};
+  const kpi = resolveKpiTemplate(
+    kpiTemplateId ?? content?.kpi_template_id,
+    { clubName: tenant.clubName, stadium_name: tenant.stadiumName },
+    claims,
+  );
 
   const statusColor =
     proposal.status === "approved" ? "bg-emerald-500 text-white" :
@@ -501,43 +505,52 @@ export function ProposalLandingPage({
                 );
               })}
             </div>
-            {/* Regional/broadcast positioning — Coritiba's own verified facts
-                (Curitiba's HDI, its specific 2026 competitions and broadcast
-                partners) aren't in the tenant schema, so only shown for the
-                real Coritiba tenant rather than fabricated for any other. */}
-            {tenant.isCoritiba && (
-              <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500 mb-1">Curitiba — IDH</div>
-                  <div className="text-sm font-bold text-slate-900">0,823</div>
-                  <div className="text-xs text-slate-400">Maior IDH do Sul do Brasil</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500 mb-1">Competições 2026</div>
-                  <div className="text-xs font-semibold text-slate-800">Série A + Copa do Brasil + Campeonato Paranaense</div>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3">
-                  <div className="text-xs font-semibold text-slate-500 mb-1">Transmissão</div>
-                  <div className="text-xs font-semibold text-slate-800">Globo, SporTV, Paramount+</div>
-                </div>
+            {kpi.sourcesNote && (
+              <p className="mt-3 text-[10px] text-slate-400" data-testid="kpi-sources">{kpi.sourcesNote}</p>
+            )}
+            {/* Regional/broadcast positioning — each item shows only if its
+                claim is usable in the registry (verified, sourced, in date). */}
+            {(claims["city.idh"] || claims["club.competitions_season"] || claims["club.broadcast_partners"]) && (
+              <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3" data-testid="regional-claims">
+                {claims["city.idh"] && (
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="text-xs font-semibold text-slate-500 mb-1">IDH</div>
+                    <div className="text-sm font-bold text-slate-900">{displayValue(claims["city.idh"])}</div>
+                  </div>
+                )}
+                {claims["club.competitions_season"] && (
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="text-xs font-semibold text-slate-500 mb-1">Competições</div>
+                    <div className="text-xs font-semibold text-slate-800">{displayValue(claims["club.competitions_season"])}</div>
+                  </div>
+                )}
+                {claims["club.broadcast_partners"] && (
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <div className="text-xs font-semibold text-slate-500 mb-1">Transmissão</div>
+                    <div className="text-xs font-semibold text-slate-800">{displayValue(claims["club.broadcast_partners"])}</div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Past Partners Bar */}
-          <div className="mt-5 pt-4 border-t border-slate-100">
-            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
-              Marcas que confiam no {tenant.clubName}
+          {/* Partner brands — a claim about real relationships, so it shows only
+              when the registry holds a verified, sourced, in-date list. */}
+          {claims["club.partner_brands"] && (
+            <div className="mt-5 pt-4 border-t border-slate-100" data-testid="partner-brands">
+              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+                Marcas que confiam no {tenant.clubName}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium mr-1">Alguns de nossos parceiros:</span>
+                {claims["club.partner_brands"].value.split(",").map((b) => b.trim()).filter(Boolean).map((brand) => (
+                  <span key={brand} className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    {brand}
+                  </span>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-500 font-medium mr-1">Alguns de nossos parceiros:</span>
-              {["Heineken", "Ambev", "Banco Itaú", "Toyota", "Red Bull", "Claro", "TIM"].map((brand) => (
-                <span key={brand} className="inline-flex items-center rounded-md bg-slate-100 border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                  {brand}
-                </span>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Personalized video intro (Task 8) — a sponsor-specific welcome
@@ -769,80 +782,10 @@ export function ProposalLandingPage({
           </Section>
         )}
 
-        {/* Upcoming Matches — the specific opponents/attendance below are
-            Coritiba's own illustrative examples, not real fixtures pulled
-            from any data source, so only shown for the real Coritiba tenant
-            rather than presented as real fixtures for a club they don't
-            apply to. */}
-        {tenant.isCoritiba && (
-        <Section id="upcoming-matches" title="Próximas Partidas" badge="Ativação no Estádio"
-          subtitle={`Oportunidades de ativação ao vivo no ${tenant.stadiumName ?? "estádio"} — seu logo diante de milhares de torcedores`}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[
-              {
-                opponent: "Atlético-PR",
-                competition: "Campeonato Brasileiro",
-                date: "Próxima rodada",
-                venue: "Couto Pereira",
-                attendance: "~35.000",
-                tvViewers: "~2,4 mi",
-                type: "home",
-              },
-              {
-                opponent: "Fluminense",
-                competition: "Copa do Brasil",
-                date: "Em breve",
-                venue: "Couto Pereira",
-                attendance: "~40.000",
-                tvViewers: "~1,9 mi",
-                type: "home",
-              },
-              {
-                opponent: "Athletico-PR",
-                competition: "Clássico Estadual",
-                date: "A definir",
-                venue: "Couto Pereira",
-                attendance: "~42.000",
-                tvViewers: "~950 mil",
-                type: "home",
-              },
-            ].map((match, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 flex flex-col gap-2 hover:border-green-300 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wide">{match.competition}</span>
-                  <span className="text-[10px] text-slate-400">{match.date}</span>
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <div className="text-xs text-slate-500">{tenant.clubName}</div>
-                  <div className="text-xs font-bold text-slate-700 px-2">vs</div>
-                  <div className="text-xs font-semibold text-slate-900">{match.opponent}</div>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-500 border-t border-slate-100 pt-2 mt-1">
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {match.venue}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-3 w-3 shrink-0" />
-                    {match.attendance}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-600 bg-slate-50 rounded-lg px-2 py-1.5">
-                  <Tv2 className="h-3.5 w-3.5 shrink-0 text-green-700" />
-                  <span>
-                    <span className="font-semibold text-slate-800">{match.tvViewers}</span>
-                    {" "}
-                    telespectadores TV (média, ambas torcidas)
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-slate-400 mt-3 text-center">
-            Calendário atualizado a cada rodada. Ativações de patrocínio confirmadas com 2 semanas de antecedência.
-          </p>
-        </Section>
-        )}
+        {/* "Próximas Partidas" used to be here with invented opponents, attendance
+            and TV audiences, and a line saying the calendar was updated every
+            round. None of it came from a data source, so it is removed until it
+            can be driven by real fixtures (see BLOCKERS_REGISTER.md T8-09). */}
 
         {/* Data-room-style document bundle (Task 9) */}
         {documentBundle.length > 0 && (

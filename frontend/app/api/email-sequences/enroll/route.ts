@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       .eq("tenant_id", auth.user.tenant_id);
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email_sequence",
     entity_id: body.sequence_id,
     action: "email_sequence.enrolled",

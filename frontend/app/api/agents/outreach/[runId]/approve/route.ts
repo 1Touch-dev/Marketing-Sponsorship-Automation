@@ -8,11 +8,17 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { toolSendEmail } from "@/lib/agents/tools";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { idempotent } from "@/lib/idempotency";
+import { approveAndSend, planEmailSend } from "@/lib/actions/broker";
+import { emailForAuthUser } from "@/lib/identity/lookup";
+import type { ToolResult } from "@/lib/agents/tools";
+import { hasOpenBlock } from "@/lib/approvals/recovery";
+import { finishOutreachGraph } from "@/lib/agents/langgraph/outreach-runner";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-export async function POST(
+async function postHandler(
   _req: Request,
   ctx: { params: { runId: string } }
 ) {
@@ -20,6 +26,9 @@ export async function POST(
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
+
+  const blocked = await hasOpenBlock(sb, "agent_run", ctx.params.runId);
+  if (blocked) return NextResponse.json({ error: `This run's approval is blocked: ${blocked.reason} An administrator has to reassign or cancel it first.`, block_id: blocked.id }, { status: 409 });
 
   // Infrastructure-enforced approval gate: atomically claim the run by
   // flipping it out of "paused_for_approval" into a transient "sending"
@@ -64,7 +73,11 @@ export async function POST(
   // Send the email — toolSendEmail has its own independent atomic claim on
   // the emails table, so this is safe even if something else (e.g. the
   // manual /api/emails/[id]/send route) targets the same email concurrently.
-  const sendResult = await toolSendEmail({ email_id: emailId });
+  // With governance in place the send is the plan a person is approving: their standing, the plan's identity and the
+  // agent's authority are rechecked by the database just before it runs, and an unknown outcome is never repeated.
+  const sendResult = await sendThroughBroker(sb, {
+    tenantId: auth.user.tenant_id, emailId, approver: auth.user, runId: ctx.params.runId, createdBy: (run.created_by as string | null) ?? null,
+  });
 
   // Update the run with final result
   const updatedResult = {
@@ -96,10 +109,25 @@ export async function POST(
     .eq("id", ctx.params.runId)
     .eq("tenant_id", auth.user.tenant_id);
 
+  // The send plan was decided: let the run's graph finish (nothing happens for a run that never had one).
+  await finishOutreachGraph(ctx.params.runId, sendResult.success ? "sent" : "failed").catch(() => undefined);
+
   return NextResponse.json({
     success: sendResult.success,
     summary: sendResult.summary,
     pipedrive_activity_id: sendResult.data.pipedrive_activity_id ?? null,
     email_id: emailId,
   });
+}
+
+export const POST = idempotent("agents.outreach.approve", postHandler);
+
+/** Plans the send if it is not planned yet, has the approver approve it, and runs it; the old direct send before migration 0070. */
+async function sendThroughBroker(sb: ReturnType<typeof supabaseAdmin>, i: { tenantId: string; emailId: string; approver: Parameters<typeof approveAndSend>[1]["approver"]; runId: string; createdBy: string | null }): Promise<ToolResult> {
+  const planned = await planEmailSend(sb, { tenantId: i.tenantId, emailId: i.emailId, onBehalfOf: await emailForAuthUser(sb, i.createdBy), runId: i.runId });
+  if (planned.ok && planned.legacy) return toolSendEmail({ email_id: i.emailId });
+  if (!planned.ok) return { success: false, data: { sent: false, action_id: planned.actionId ?? null, state: planned.state ?? null }, summary: planned.error };
+  const out = await approveAndSend(sb, { tenantId: i.tenantId, actionId: planned.actionId, approver: i.approver, send: () => toolSendEmail({ email_id: i.emailId }) });
+  if (out.ok) return { success: true, data: { ...out.data, action_id: planned.actionId, state: out.state }, summary: out.summary };
+  return { success: false, data: { sent: false, action_id: planned.actionId, state: out.state ?? null }, summary: out.error };
 }

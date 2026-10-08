@@ -64,6 +64,37 @@ const PERMISSIONS = {
   generate_images:   ["admin", "sales_rep"] as UserRole[],
   manage_mockups:    ["admin", "sales_rep"] as UserRole[],
 
+  // Claims registry (figures shown in sponsor-facing documents, lib/claims).
+  // Anyone who sells can propose a figure; only an approver or admin verifies
+  // one, and nothing is shown to a sponsor until it is verified.
+  edit_claim:        ["admin", "sales_rep"] as UserRole[],
+  review_claim:      ["admin", "approver"] as UserRole[],
+
+  // Deciding that an account is a real sales opportunity. Only a signed-in
+  // person can; agents research, they never qualify.
+  qualify_company:   ["admin", "sales_rep"] as UserRole[],
+
+  // Opening, closing and reopening an account-level opportunity (Task 11).
+  create_opportunity: ["admin", "sales_rep"] as UserRole[],
+
+  // Contact standing (Task 14): roles and channel checks are everyday upkeep; anyone who sells,
+  // or approves, may put someone on the do-not-contact list, but only an admin can take them off.
+  manage_contacts:   ["admin", "sales_rep"] as UserRole[],
+  suppress_contact:  ["admin", "sales_rep", "approver"] as UserRole[],
+  lift_suppression:  ["admin"] as UserRole[],
+
+  // Commercial and delivery projects (Task 15).
+  manage_projects:   ["admin", "sales_rep"] as UserRole[],
+  manage_obligations: ["admin", "sales_rep"] as UserRole[],
+  manage_value_lines: ["admin", "sales_rep"] as UserRole[],
+  manage_finance:    ["admin"] as UserRole[],
+  issue_recap:       ["admin", "approver"] as UserRole[],
+  refresh_company_status: ["admin", "sales_rep"] as UserRole[],
+  restore_records:   ["admin"] as UserRole[],
+  manage_agents:     ["admin"] as UserRole[],
+  manage_portal_access: ["admin"] as UserRole[],
+  manage_batch_limits: ["admin"] as UserRole[],
+
   // System
   manage_users:      ["admin"] as UserRole[],
   manage_integrations: ["admin"] as UserRole[],

@@ -40,6 +40,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "brand-assets": "Brand Assets",
   "lei-de-incentivo": "Lei de Incentivo",
   "coritiba-intelligence": "Coritiba Intel",
+  claims: "Claims registry",
   "contacts": "Contacts",
 };
 

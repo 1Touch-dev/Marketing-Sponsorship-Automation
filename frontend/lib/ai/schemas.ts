@@ -291,6 +291,7 @@ export type EmailOutput = z.infer<typeof emailOutputSchema>;
 // v3.1.0: silent=true suppresses audit log for minor/expected coercion failures
 // ---------------------------------------------------------------------------
 import { recordAudit } from "@/lib/audit/log";
+import { serviceActor } from "@/lib/identity/actor";
 
 export interface ValidationResult<T> {
   ok: boolean;
@@ -324,6 +325,7 @@ export function validateAiOutput<T>(
   // Only log audit entry for hard failures (not silent mode)
   if (!context.silent) {
     void recordAudit({
+      actor: serviceActor("ai-output-validator"),
       entity_type: context.entity_type ?? workflowName,
       entity_id: context.entity_id ?? null,
       action: `ai.validation_failed:${workflowName}`,

@@ -1,14 +1,14 @@
 /**
  * Configurable KPI sets for proposal landing pages (James: standardize per proposal type).
  *
- * Phase 4 — these specific figures (stadium capacity, metro population, IDH,
- * broadcast partners) are Coritiba's own verified facts, not present in the
- * tenant schema (`tenants.club_facts` only has founded_year, stadium_name,
- * follower_count, typical_attendance). `resolveKpiTemplate` therefore only
- * returns these exact templates for the real Coritiba tenant; any other
- * tenant gets a minimal template built only from whatever facts are actually
- * configured, per the platform's claim-grounding rule.
+ * Task 8 — these templates no longer carry figures. Each stat names a claim
+ * in the claims registry (lib/claims) and takes its value, source and date
+ * from there. A stat whose claim is not usable (unverified, unsourced,
+ * expired, disputed...) is left out rather than shown, so a stale or
+ * unsupported figure cannot reach a sponsor through a template.
  */
+
+import { displayValue, sourcesFootnote, type SponsorClaim, type SponsorClaimMap } from "../claims/sponsor-claims";
 
 export type KpiMetric = {
   icon: "users" | "globe" | "mappin" | "shield" | "tv" | "trophy";
@@ -22,108 +22,131 @@ export type KpiTemplate = {
   description: string;
   heroStats: Array<{ label: string; value: string; sub: string }>;
   metrics: KpiMetric[];
+  /** "Fontes: ..." line for the figures actually shown; empty when there are none. */
+  sourcesNote: string;
 };
 
 export type KpiTenantFacts = {
-  isCoritiba: boolean;
+  /** Unused since Task 8: templates apply to any tenant that has registered the claims. */
+  isCoritiba?: boolean;
   clubName: string;
   founded_year?: number;
   stadium_name?: string;
-  follower_count?: string;
-  typical_attendance?: string;
 };
 
-const BASE_HERO = {
-  founded: "1909",
-  stadium: "Estádio Couto Pereira",
-  city: "Curitiba",
-  broadcasts: "Globo, SporTV, Paramount+",
-};
+type HeroSkeleton = { label: string; claim: string; sub: string };
+type MetricSkeleton = { icon: KpiMetric["icon"]; claim: string; label: string };
+type Skeleton = { id: string; label: string; description: string; hero: HeroSkeleton[]; metrics: MetricSkeleton[] };
 
-export const KPI_TEMPLATES: Record<string, KpiTemplate> = {
+/** `{stadium}` / `{clubName}` in a sub-line are replaced with the tenant's own names. */
+export const KPI_TEMPLATES: Record<string, Skeleton> = {
   sponsorship_standard: {
     id: "sponsorship_standard",
     label: "Patrocínio padrão",
     description: "Reach, stadium, digital, members",
-    heroStats: [
-      { label: "Fundado em", value: BASE_HERO.founded, sub: `${BASE_HERO.stadium} · ${BASE_HERO.city}` },
-      { label: "Sócios + Seguidores", value: "1,5M+", sub: "38.000+ sócios torcedores" },
-      { label: "Transmissão", value: "3 torneios", sub: BASE_HERO.broadcasts },
-      { label: "Couto Pereira", value: "40.502", sub: "torcedores por partida" },
+    hero: [
+      { label: "Fundado em", claim: "club.founded_year", sub: "{stadium}" },
+      { label: "Seguidores", claim: "club.social_followers_total", sub: "Redes oficiais" },
+      { label: "Transmissão", claim: "club.broadcast_partners", sub: "Parceiros de transmissão" },
+      { label: "Estádio", claim: "club.stadium_capacity", sub: "capacidade · {stadium}" },
     ],
     metrics: [
-      { icon: "users", value: "25.000–36.000", label: "Média Público/Jogo" },
-      { icon: "globe", value: "1,5M+", label: "Seguidores Digitais" },
-      { icon: "mappin", value: "3,7M hab.", label: "Metro Curitiba" },
-      { icon: "shield", value: "38.000+", label: "Sócios Torcedores" },
+      { icon: "users", claim: "club.avg_attendance", label: "Média Público/Jogo" },
+      { icon: "globe", claim: "club.social_followers_total", label: "Seguidores Digitais" },
+      { icon: "mappin", claim: "city.metro_population", label: "Região Metropolitana" },
+      { icon: "shield", claim: "club.members", label: "Sócios Torcedores" },
     ],
   },
   awareness: {
     id: "awareness",
     label: "Awareness / mídia",
     description: "TV, digital, broadcast emphasis",
-    heroStats: [
-      { label: "Transmissão", value: "Nacional", sub: BASE_HERO.broadcasts },
-      { label: "Sócios + Seguidores", value: "1,5M+", sub: "Alcance digital Coxa" },
-      { label: "Couto Pereira", value: "40.502", sub: "capacidade" },
-      { label: "Fundado em", value: BASE_HERO.founded, sub: BASE_HERO.stadium },
+    hero: [
+      { label: "Transmissão", claim: "club.broadcast_partners", sub: "Parceiros de transmissão" },
+      { label: "Seguidores", claim: "club.social_followers_total", sub: "Alcance digital" },
+      { label: "Estádio", claim: "club.stadium_capacity", sub: "capacidade" },
+      { label: "Fundado em", claim: "club.founded_year", sub: "{stadium}" },
     ],
     metrics: [
-      { icon: "tv", value: "Globo + SporTV", label: "TV aberta e fechada" },
-      { icon: "users", value: "25.000–36.000", label: "Público ao vivo/jogo" },
-      { icon: "globe", value: "1,5M+", label: "Redes sociais" },
-      { icon: "trophy", value: "Série A 2026", label: "Competição principal" },
+      { icon: "tv", claim: "club.broadcast_partners", label: "TV aberta e fechada" },
+      { icon: "users", claim: "club.avg_attendance", label: "Público ao vivo/jogo" },
+      { icon: "globe", claim: "club.social_followers_total", label: "Redes sociais" },
+      { icon: "trophy", claim: "club.competitions_season", label: "Competições" },
     ],
   },
   regional: {
     id: "regional",
     label: "Regional Paraná",
     description: "Curitiba metro & IDH",
-    heroStats: [
-      { label: "Metro Curitiba", value: "3,7M hab.", sub: "8ª maior do Brasil" },
-      { label: "IDH Curitiba", value: "0,823", sub: "Maior IDH do Sul" },
-      { label: "Couto Pereira", value: "40.502", sub: BASE_HERO.stadium },
-      { label: "Fundado em", value: BASE_HERO.founded, sub: "Coritiba FC" },
+    hero: [
+      { label: "Região metropolitana", claim: "city.metro_population", sub: "População" },
+      { label: "IDH", claim: "city.idh", sub: "Índice de Desenvolvimento Humano" },
+      { label: "Estádio", claim: "club.stadium_capacity", sub: "{stadium}" },
+      { label: "Fundado em", claim: "club.founded_year", sub: "{clubName}" },
     ],
     metrics: [
-      { icon: "mappin", value: "3,7M hab.", label: "Metro Curitiba" },
-      { icon: "users", value: "25.000–36.000", label: "Público médio" },
-      { icon: "shield", value: "38.000+", label: "Sócios" },
-      { icon: "globe", value: "1,5M+", label: "Digital" },
+      { icon: "mappin", claim: "city.metro_population", label: "Região Metropolitana" },
+      { icon: "users", claim: "club.avg_attendance", label: "Público médio" },
+      { icon: "shield", claim: "club.members", label: "Sócios" },
+      { icon: "globe", claim: "club.social_followers_total", label: "Digital" },
     ],
   },
 };
 
-/** Minimal, honest KPI template for a tenant that isn't Coritiba — only
- *  surfaces stats that are actually configured on that tenant's club_facts,
- *  never Coritiba's specific real-world numbers. */
+/** Minimal template for a tenant with no usable claim: identity facts only (founding
+ *  year, stadium), never an audience figure. Used so the page is never blank. */
 function buildGenericTemplate(tenant: KpiTenantFacts): KpiTemplate {
   const heroStats: Array<{ label: string; value: string; sub: string }> = [];
   if (tenant.founded_year) {
     heroStats.push({ label: "Fundado em", value: String(tenant.founded_year), sub: tenant.stadium_name ?? tenant.clubName });
   }
-  if (tenant.follower_count) {
-    heroStats.push({ label: "Seguidores", value: tenant.follower_count, sub: "Alcance digital" });
-  }
-  if (tenant.typical_attendance) {
-    heroStats.push({ label: tenant.stadium_name ?? "Estádio", value: tenant.typical_attendance, sub: "público médio por partida" });
-  }
-
-  const metrics: KpiMetric[] = [];
-  if (tenant.typical_attendance) metrics.push({ icon: "users", value: tenant.typical_attendance, label: "Público médio/jogo" });
-  if (tenant.follower_count) metrics.push({ icon: "globe", value: tenant.follower_count, label: "Seguidores digitais" });
-
   return {
     id: "generic",
     label: "Padrão",
-    description: "Built from this club's configured facts",
+    description: "Identity facts only; no verified figures available",
     heroStats,
-    metrics,
+    metrics: [],
+    sourcesNote: "",
   };
 }
 
-export function resolveKpiTemplate(templateId?: string | null, tenant?: KpiTenantFacts): KpiTemplate {
-  if (tenant && !tenant.isCoritiba) return buildGenericTemplate(tenant);
-  if (templateId && KPI_TEMPLATES[templateId]) return KPI_TEMPLATES[templateId];
-  return KPI_TEMPLATES.sponsorship_standard;
+export function resolveKpiTemplate(
+  templateId: string | null | undefined,
+  tenant: KpiTenantFacts,
+  claims: SponsorClaimMap = {},
+): KpiTemplate {
+  const skeleton = (templateId && KPI_TEMPLATES[templateId]) || KPI_TEMPLATES.sponsorship_standard;
+  const subFor = (sub: string) =>
+    sub.replace("{stadium}", tenant.stadium_name ?? tenant.clubName).replace("{clubName}", tenant.clubName);
+
+  const used = new Map<string, SponsorClaim>();
+  const heroStats = skeleton.hero.flatMap((h) => {
+    const c = claims[h.claim];
+    if (!c) return [];
+    used.set(c.key, c);
+    return [{ label: h.label, value: displayValue(c), sub: subFor(h.sub) }];
+  });
+  const metrics = skeleton.metrics.flatMap((m): KpiMetric[] => {
+    const c = claims[m.claim];
+    if (!c) return [];
+    used.set(c.key, c);
+    return [{ icon: m.icon, value: displayValue(c), label: m.label }];
+  });
+
+  if (heroStats.length === 0 && metrics.length === 0) return buildGenericTemplate(tenant);
+
+  return {
+    id: skeleton.id,
+    label: skeleton.label,
+    description: skeleton.description,
+    heroStats,
+    metrics,
+    sourcesNote: sourcesFootnote(Array.from(used.values())),
+  };
+}
+
+/** Every claim key a KPI template can show; tells an approver which figures a document relies on. */
+export function kpiClaimKeys(templateId?: string | null): string[] {
+  const skeleton = (templateId && KPI_TEMPLATES[templateId]) || KPI_TEMPLATES.sponsorship_standard;
+  return Array.from(new Set([...skeleton.hero.map((h) => h.claim), ...skeleton.metrics.map((m) => m.claim)]));
 }

@@ -73,6 +73,7 @@ export const NAV_MODULES: NavModule[] = [
       { href: "/inventory", labelKey: "Inventory" },
       { href: "/barter", labelKey: "Barter / Procurement" },
       { href: "/coritiba-intelligence", labelKey: "Coritiba Intel" },
+      { href: "/claims", labelKey: "Claims registry" },
       { href: "/lei-de-incentivo", labelKey: "Lei de Incentivo" },
       { href: "/product-discovery", labelKey: "Product Discovery" },
     ],

@@ -5,6 +5,7 @@ import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 import type { ProposalContent } from "@/types/database";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
     edit_reason: `Duplicated from proposal ${source.id}`,
   });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: copy.id,
     action: "proposal.duplicated",

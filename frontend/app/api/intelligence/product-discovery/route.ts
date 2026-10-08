@@ -25,6 +25,9 @@ import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import type { ClubContextInput } from "@/lib/bedrock/prompts";
+import { loadCompanyIndex, existingEntity, recordAgentResearch } from "@/lib/accounts/store";
+import { registrableDomain } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -129,7 +132,7 @@ export async function POST(req: Request) {
       savedCount = await saveSellersAsCompanies(product, allSellers, auth.user.tenant_id);
     }
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "intelligence.product_discovery",
       entity_type: "system",
       entity_id: "system",
@@ -229,13 +232,11 @@ Return JSON ONLY:
 async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller[], tenantId: string): Promise<number> {
   const sb = supabaseAdmin();
   let saved = 0;
+  // Same-entity lookup on structure, not a loose substring match (which errored when
+  // several rows contained the name, was read as "not found", and created a duplicate).
+  const index = await loadCompanyIndex(sb, tenantId);
   for (const s of sellers.slice(0, 30)) {
-    const { data: existing } = await sb
-      .from("companies")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .ilike("company_name", `%${s.name.slice(0, 30)}%`)
-      .maybeSingle();
+    const { existing } = existingEntity({ company_name: s.name, website: s.domain ?? null, domain: registrableDomain(s.domain) }, index);
     if (existing) continue;
 
     const { data: created } = await (sb as ReturnType<typeof supabaseAdmin>)
@@ -267,6 +268,17 @@ async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller
       .single();
     if (created) {
       saved += 1;
+      index.push({ id: created.id, company_name: s.name, website: s.domain ?? null, domain: registrableDomain(s.domain) });
+      // A real search hit is a citation, but only a thin one: it is kept as evidence with
+      // "needs more research", so the account stays a directory entry until someone concludes.
+      if (s.source === "apify_search" && s.domain) {
+        await recordAgentResearch(sb, tenantId, created.id, "product-discovery", {
+          summary: `Found in web search results for "${product}" (${s.tier} tier) as a ${s.role}.`,
+          recommendation: "needs_more_research",
+          evidence: [{ claim: `Appears in search results for "${product}"`, source_name: "Google search via Apify", source_url: `https://${s.domain}`, retrieved_at: new Date().toISOString(), confidence: "low" }],
+          unverified: ["Whether it really sells or makes this product", "Sponsorship fit and budget", "The right decision maker"],
+        });
+      }
       // Fire-and-forget logo scrape — auto-discovered companies should already
       // have a logo ready by the time someone opens the sponsor page (James: E).
       if (s.domain) {

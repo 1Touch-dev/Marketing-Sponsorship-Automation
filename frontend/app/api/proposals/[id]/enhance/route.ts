@@ -23,6 +23,7 @@ import {
 import { recordAudit } from "@/lib/audit/log";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -171,7 +172,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.enhanced",

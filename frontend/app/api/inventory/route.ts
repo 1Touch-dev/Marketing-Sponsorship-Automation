@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ data });
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("manage_inventory");
   if ("error" in auth) return auth.error;
 
@@ -63,12 +65,12 @@ export async function POST(req: Request) {
       .select("*")
       .single();
     if (e2) return NextResponse.json({ error: e2.message, migration_needed: true }, { status: 500 });
-    await recordAudit({ entity_type: "inventory", entity_id: null, action: "inventory.created", metadata: { name: body.name, category: body.category, type: body.inventory_type } });
+    await recordAudit({ actor: userActor(auth.user), entity_type: "inventory", entity_id: null, action: "inventory.created", metadata: { name: body.name, category: body.category, type: body.inventory_type } });
     return NextResponse.json({ data: d2, warning: "Some new fields not saved — run migration 0017" }, { status: 201 });
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "inventory",
     entity_id: null,
     action: "inventory.created",
@@ -77,3 +79,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export const POST = idempotent("inventory.create", postHandler);

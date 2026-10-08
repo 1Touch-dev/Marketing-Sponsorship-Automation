@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -51,7 +52,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "warmup_sequence",
     entity_id: id,
     action: "warmup_sequence.updated",
@@ -72,6 +73,6 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
   const { error } = await sb.from("warmup_sequences").update({ active: false } as never).eq("id", id).eq("tenant_id", auth.user.tenant_id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({ entity_type: "warmup_sequence", entity_id: id, action: "warmup_sequence.deleted", metadata: {} });
+  await recordAudit({ actor: userActor(auth.user), entity_type: "warmup_sequence", entity_id: id, action: "warmup_sequence.deleted", metadata: {} });
   return NextResponse.json({ deleted: true });
 }

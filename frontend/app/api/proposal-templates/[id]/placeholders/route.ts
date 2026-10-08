@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import type { PlaceholderConfig } from "@/lib/presentations/placeholder-parser";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,7 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal_template",
     entity_id: ctx.params.id,
     action: "proposal_template.placeholders_updated",

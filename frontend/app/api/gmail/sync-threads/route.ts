@@ -1,3 +1,5 @@
+import { recordSuppression } from "@/lib/contacts/store";
+import { detectOptOut, emailFromHeader } from "@/lib/contacts/model";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { gmailClientFromTokens, listThreadMessages, extractMessageBody } from "@/lib/gmail/client";
@@ -7,6 +9,7 @@ import { decryptSecret } from "@/lib/security/secret-crypto";
 import { classifyReply } from "@/lib/emails/reply-classifier";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userOrService } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -115,7 +118,7 @@ export async function POST(req: Request) {
           .update({ status: "replied", replied_at: new Date().toISOString() })
           .eq("id", row.id)
           .eq("tenant_id", tenantId);
-        await recordAudit({
+        await recordAudit({ actor: userOrService(auth.user, req),
           entity_type: "email",
           entity_id: row.id,
           action: "email.reply_detected",
@@ -160,6 +163,12 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (inserted?.id && bodyText) {
+          // "Please remove me" is not the same as "not interested": it puts the address on the do-not-contact list.
+          const optOut = detectOptOut(bodyText);
+          const replier = emailFromHeader(from);
+          if (optOut.optOut && replier) {
+            await recordSuppression(sb, tenantId, { email: replier, decision: "suppressed", reasonCode: "asked_to_stop", note: `Replied: "${optOut.matched}"`, actor: { kind: "system", name: "reply-sync" }, source: "reply_opt_out" });
+          }
           const result = await classifyReply({ subject: subjectHeader, bodyText });
           await sb
             .from("emails")

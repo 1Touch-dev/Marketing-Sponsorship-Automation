@@ -3,6 +3,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { runRenewalAgent } from "@/lib/agents/langgraph/renewal-agent";
 import { sendSlackNotification } from "@/lib/slack/notify";
 import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { auditAgentOutputs } from "@/lib/agents/audit";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,6 +20,7 @@ export async function POST() {
 
   const report = await runRenewalAgent(auth.user.tenant_id);
 
+  await auditAgentOutputs("renewal-agent", auth.user, report.drafted.map((d) => ({ entity_type: "proposal", entity_id: d.proposalId, action: "agent.renewal.drafted", metadata: { contract_id: d.contractId, severity: d.severity } })));
   const critical = report.drafted.filter((d) => d.severity === "critical");
   if (critical.length > 0) {
     await sendSlackNotification(
@@ -25,7 +28,7 @@ export async function POST() {
     );
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "contract",
     action: "contract.renewal_check_run",
     metadata: { drafted_count: report.drafted.length, skipped_count: report.skipped.length },

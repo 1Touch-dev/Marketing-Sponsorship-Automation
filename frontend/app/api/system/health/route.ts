@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/auth/server-permission";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getEnvSummary } from "@/lib/env-validation";
 import { getQueueStats } from "@/lib/jobs/queue";
@@ -6,6 +7,9 @@ import { getQueueStats } from "@/lib/jobs/queue";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // The whole deployment's configuration and counts: administrators only (a staff session is also required by the middleware).
+  const auth = await requirePermission("manage_integrations");
+  if ("error" in auth) return auth.error;
   const startTime = Date.now();
 
   // Env validation

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
   const skipped = results.filter((r) => r.status === "skipped").length;
   const failed = results.filter((r) => r.status === "failed").length;
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",
     entity_id: null,
     action: "company.bulk_logo_fetch",

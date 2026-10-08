@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requirePermission("edit_proposal");
@@ -41,7 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .eq("tenant_id", auth.user.tenant_id);
 
   // Log to audit
-  await sb.from("audit_logs").insert({
+  await recordAudit({
+    actor: userActor(auth.user),
     tenant_id: auth.user.tenant_id,
     action: "proposal.version_saved",
     entity_type: "proposal",

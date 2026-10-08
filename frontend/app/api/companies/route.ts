@@ -7,6 +7,10 @@ import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { getCurrentTenant } from "@/lib/tenants/current";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { loadCompanyIndex } from "@/lib/accounts/store";
+import { creationDecision, findCandidates, normalizeCnpj, registrableDomain } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -34,10 +38,20 @@ export async function GET(req: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // Add each company's derived stage (directory / researched / qualified). Before
+  // migration 0058 the view does not exist and the field is simply absent.
+  const rows = data ?? [];
+  const ids = rows.map((r) => r.id);
+  const stageById = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data: stages } = await (sb as any).from("company_account_stage").select("company_id, stage").in("company_id", ids.slice(i, i + 100));
+    for (const st of (stages ?? []) as Array<{ company_id: string; stage: string }>) stageById.set(st.company_id, st.stage);
+  }
+  return NextResponse.json(stageById.size > 0 ? rows.map((r) => ({ ...r, account_stage: stageById.get(r.id) ?? "directory" })) : rows);
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_company");
   if ("error" in auth) return auth.error;
 
@@ -48,10 +62,38 @@ export async function POST(req: Request) {
   }
 
   const sb = supabaseAdmin();
+
+  // A likely duplicate stops here unless the person says it is a different company.
+  // A related company (a parent, a subsidiary) does not stop anything: it is a separate account.
+  if (parsed.data.cnpj && !normalizeCnpj(parsed.data.cnpj)) {
+    return NextResponse.json({ error: "cnpj must have 14 digits" }, { status: 400 });
+  }
+  const index = await loadCompanyIndex(sb, auth.user.tenant_id);
+  const candidates = findCandidates(
+    { id: "(new)", company_name: parsed.data.company_name, website: parsed.data.website || null, domain: registrableDomain(parsed.data.website), cnpj: parsed.data.cnpj ?? null },
+    index.filter((c) => !c.duplicate_of_id),
+  );
+  if (creationDecision(candidates) === "block" && !parsed.data.confirm_distinct) {
+    return NextResponse.json(
+      {
+        error: "A company that looks like this one already exists. Open it instead, or confirm this is a different company.",
+        code: "possible_duplicate",
+        candidates: candidates.filter((c) => c.verdict.kind === "same_entity").map((c) => ({ id: c.company.id, company_name: c.company.company_name, ...c.verdict })),
+      },
+      { status: 409 },
+    );
+  }
+  if (parsed.data.parent_company_id) {
+    if (!parsed.data.relationship_to_parent) return NextResponse.json({ error: "relationship_to_parent is required with a parent" }, { status: 400 });
+    if (!index.some((c) => c.id === parsed.data.parent_company_id)) return NextResponse.json({ error: "Parent company not found" }, { status: 404 });
+  }
+
   const { data, error } = await sb
     .from("companies")
     .insert({
       tenant_id: auth.user.tenant_id,
+      ...(parsed.data.cnpj ? { cnpj: normalizeCnpj(parsed.data.cnpj) } : {}),
+      ...(parsed.data.parent_company_id ? { parent_company_id: parsed.data.parent_company_id, relationship_to_parent: parsed.data.relationship_to_parent } : {}),
       company_name: parsed.data.company_name,
       industry: parsed.data.industry ?? null,
       website: parsed.data.website || null,
@@ -71,7 +113,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",
     entity_id: data.id,
     action: "company.created",
@@ -113,5 +155,14 @@ export async function POST(req: Request) {
     },
   }).catch(err => console.error("[CRM] company sync failed", err));
 
-  return NextResponse.json({ data, discovery_triggered: true }, { status: 201 });
+  return NextResponse.json(
+    {
+      data,
+      discovery_triggered: true,
+      related_candidates: candidates.filter((c) => c.verdict.kind === "related").map((c) => ({ id: c.company.id, company_name: c.company.company_name, ...c.verdict })),
+    },
+    { status: 201 },
+  );
 }
+
+export const POST = idempotent("companies.create", postHandler);

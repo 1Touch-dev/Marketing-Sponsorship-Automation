@@ -7,3 +7,4 @@
 # scripts/run-backup-cron.sh log output — may contain row-count/error
 # details from real backup runs, not meant for git.
 logs/
+.eval-spend.json

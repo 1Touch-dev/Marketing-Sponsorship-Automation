@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -27,7 +29,13 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  if (status === "approved") {
+    await recordMessageEventSafe(sb, auth.user.tenant_id, ctx.params.id, {
+      event_type: "content_approved", source: "platform", actor_user_id: auth.user.id, actor_email: auth.user.email,
+    });
+  }
+
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: ctx.params.id,
     action: status === "approved" ? "email.approved" : "email.rejected",

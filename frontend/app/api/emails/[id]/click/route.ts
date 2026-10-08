@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
+import { externalActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { logFingerprint } from "@/lib/identity/privacy";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const { searchParams } = new URL(req.url);
@@ -20,7 +24,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const tenantId = await resolveTenantId();
 
     // Log click event — fire and forget
-    void sb.from("audit_logs").insert({
+    void recordAudit({
+      actor: externalActor("email recipient", `email:${params.id}`),
       tenant_id: tenantId,
       action: "email.clicked",
       entity_type: "email",
@@ -28,9 +33,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       metadata: {
         url: targetUrl,
         user_agent: ua,
-        ip: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "",
+        ip_fingerprint: logFingerprint(req.headers.get("x-forwarded-for")?.split(",")[0]),
         timestamp: new Date().toISOString(),
       },
+    });
+
+    void recordMessageEventSafe(sb, tenantId, params.id, {
+      event_type: "clicked", source: "platform", detail: { via: "tracked_link", url: targetUrl },
     });
 
     // Update clicked_at on email (only first click) — fire and forget

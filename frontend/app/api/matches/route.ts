@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
  * POST /api/matches — create a match.
  * Body: { match_date, opponent, competition?, home_away?, notes? }
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("manage_matches");
   if ("error" in auth) return auth.error;
 
@@ -79,7 +81,7 @@ export async function POST(req: Request) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "match",
     entity_id: (data as { id: string }).id,
     action: "match.created",
@@ -88,3 +90,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export const POST = idempotent("matches.create", postHandler);

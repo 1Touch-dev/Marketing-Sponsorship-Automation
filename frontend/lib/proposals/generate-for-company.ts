@@ -3,6 +3,10 @@
  * Uses enrichment + intelligence already stored on the company record.
  */
 
+import { checkDiscoveryGate, briefPromptBlock, linkBrief, DiscoveryGateError } from "@/lib/briefs/store";
+import { attachNewProposal } from "@/lib/opportunities/store";
+import type { Actor } from "@/lib/opportunities/model";
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { proposalPrompt, PROMPT_VERSION } from "@/lib/bedrock/prompts";
@@ -13,6 +17,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
 import { logger } from "@/lib/monitoring/logger";
 import type { ProposalContent } from "@/types/database";
+import { userActor } from "@/lib/identity/actor";
+import { agentActor, personActor, serviceActor } from "@/lib/identity/actor";
 
 export type GeneratedProposal = {
   proposal_id: string;
@@ -82,7 +88,9 @@ function buildIntelligenceContext(intel: Record<string, unknown>): string {
  * Creates a fresh AI proposal tailored to one company. Saved as under_review for human approval.
  */
 export async function generatePersonalizedProposalForCompany(
-  companyId: string
+  companyId: string,
+  /** Who asked for this proposal. An agent never opens an opportunity; a person's request does. */
+  actor: Actor = { kind: "agent", name: "bedrock-claude-agent" },
 ): Promise<GeneratedProposal> {
   const sb = supabaseAdmin();
   const env = serverEnv();
@@ -105,6 +113,11 @@ export async function generatePersonalizedProposalForCompany(
   const tenantId = (company as unknown as { tenant_id: string }).tenant_id;
   const tenant = await resolveClubContext(tenantId);
   const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
+
+  // Discovery gate. This function is also what the outreach agent calls, so an agent
+  // cannot write a pitch for a sponsor nobody has spoken to. Checked before any AI call.
+  const gate = await checkDiscoveryGate(sb, tenantId, companyId, company.company_name);
+  if (!gate.ok) throw new DiscoveryGateError(gate.message ?? "A buyer brief is needed before a proposal can be generated.", gate.missing);
 
   const intel = (company.full_intelligence as Record<string, unknown>) ?? {};
   const intelBlock = buildIntelligenceContext(intel);
@@ -155,6 +168,8 @@ export async function generatePersonalizedProposalForCompany(
       summary: campaignSummary,
     },
     tenant,
+    verifiedClaims: await loadVerifiedClaimsBlock(sb, tenantId),
+    buyerBrief: gate.brief ? briefPromptBlock(gate.brief) : undefined,
   });
 
   // When real intelligence exists, push for specificity grounded in it. When
@@ -239,7 +254,11 @@ export async function generatePersonalizedProposalForCompany(
     content_md: contentMd,
   });
 
+  await linkBrief(sb, tenantId, proposal.id, gate.briefId);
+  await attachNewProposal(sb, tenantId, companyId, proposal.id, { actor });
+
   await recordAudit({
+    actor: actor.kind === "agent" ? agentActor(actor.name ?? "proposal-agent") : actor.kind === "rule" ? serviceActor(actor.name) : (personActor({ id: actor.userId, email: actor.email }) ?? serviceActor("proposal-generator")),
     action: "proposal.agent_generated",
     entity_type: "proposal",
     entity_id: proposal.id,

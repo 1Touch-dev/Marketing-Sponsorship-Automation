@@ -16,13 +16,15 @@ import {
 } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
 const MAX_RETRIES = 3;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_campaign");
   if ("error" in auth) return auth.error;
 
@@ -105,7 +107,7 @@ export async function POST(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "campaign",
       action: "campaign.generate_failed",
       metadata: { company_id: company.id, error: lastError, attempts: attempt },
@@ -144,7 +146,7 @@ export async function POST(req: Request) {
   if (eventId) {
     await completeWorkflow(eventId, { count: inserted?.length ?? 0 });
   }
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "campaign",
     action: "campaigns.generated",
     metadata: { company_id: company.id, count: inserted?.length ?? 0, attempts: attempt },
@@ -152,3 +154,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: inserted, attempts: attempt });
 }
+
+export const POST = idempotent("campaigns.generate", postHandler);

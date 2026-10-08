@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
+import { externalActor } from "@/lib/identity/actor";
+import { recordAudit } from "@/lib/audit/log";
+import { logFingerprint } from "@/lib/identity/privacy";
 
 // 1x1 transparent GIF
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
@@ -17,18 +21,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const tenantId = await resolveTenantId();
 
     try {
-      await sb.from("audit_logs").insert({
+      await recordAudit({
+        actor: externalActor("email recipient", `email:${params.id}`),
         tenant_id: tenantId,
         action: "email.opened",
         entity_type: "email",
         entity_id: params.id,
         metadata: {
           user_agent: ua,
-          ip: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "",
+          ip_fingerprint: logFingerprint(req.headers.get("x-forwarded-for")?.split(",")[0]),
           timestamp: new Date().toISOString(),
         },
       });
     } catch { /* non-fatal */ }
+
+    // The recipient's own mail client fetched the pixel: a fact from outside this platform.
+    await recordMessageEventSafe(sb, tenantId, params.id, {
+      event_type: "opened", source: "platform", detail: { via: "open_pixel", user_agent: ua },
+    });
 
     try {
       await sb.from("emails")

@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,7 +104,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   await sb.from("proposals").update({ intelligence } as Record<string, unknown>).eq("id", proposal.id).eq("tenant_id", auth.user.tenant_id);
   await sb.from("companies").update({ intelligence } as Record<string, unknown>).eq("id", company.id).eq("tenant_id", auth.user.tenant_id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.intelligence_generated",

@@ -1,3 +1,5 @@
+import { loadCompanyIndex, existingEntity } from "@/lib/accounts/store";
+import { registrableDomain } from "@/lib/accounts/dedup";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
@@ -97,15 +99,19 @@ Rules:
 
     // ── Step 2: Save competitors as company records ───────────────────────────
     const savedCompetitorIds: string[] = [];
+    // Same-entity lookup on structure (website, CNPJ, normalized name), not a loose
+    // substring match: that match errored whenever several rows contained the name,
+    // which was read as "not found" and created a duplicate. A subsidiary or sibling
+    // is a separate account and is not treated as the same company.
+    const companyIndex = await loadCompanyIndex(sb, auth.user.tenant_id);
     for (const comp of discoveredCompetitors.slice(0, 8)) {
-      // Check if already exists
-      const { data: existing } = await sb
-        .from("companies")
-        .select("id, company_name")
-        .eq("tenant_id", auth.user.tenant_id)
-        .ilike("company_name", `%${String(comp.name).slice(0, 30)}%`)
-        .maybeSingle();
+      const { existing } = existingEntity(
+        { company_name: String(comp.name), website: (comp.website as string | null) ?? null, domain: registrableDomain((comp.website as string | null) ?? null) },
+        companyIndex,
+      );
 
+      // These companies come from an AI's list of competitors, which is not a
+      // citation, so they are saved as directory entries and no research record is written.
       if (!existing) {
         const { data: newComp } = await (sb as any)
           .from("companies")
@@ -132,7 +138,10 @@ Rules:
           .select("id")
           .single();
 
-        if (newComp?.id) savedCompetitorIds.push(newComp.id as string);
+        if (newComp?.id) {
+          savedCompetitorIds.push(newComp.id as string);
+          companyIndex.push({ id: newComp.id as string, company_name: String(comp.name), website: (comp.website as string | null) ?? null, domain: registrableDomain((comp.website as string | null) ?? null) });
+        }
       } else {
         savedCompetitorIds.push(existing.id as string);
       }

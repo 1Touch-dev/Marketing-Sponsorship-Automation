@@ -1,3 +1,4 @@
+import { checkSend } from "@/lib/contacts/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
@@ -9,6 +10,9 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
 import { decryptSecret } from "@/lib/security/secret-crypto";
 import { serverEnv } from "@/lib/env";
+import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
+import { userActor, type Actor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -26,6 +30,7 @@ export const maxDuration = 30;
  * approval-gate-bypass tracking.
  */
 async function sendTestCopy(
+  actor: Actor,
   sb: ReturnType<typeof supabaseAdmin>,
   tenantId: string,
   email: Record<string, unknown>,
@@ -70,7 +75,7 @@ async function sendTestCopy(
     if (!draft.id) throw new Error("Gmail did not return a draft id");
     await sendGmailDraft(gmail, draft.id);
 
-    await recordAudit({
+    await recordAudit({ actor,
       entity_type: "email",
       entity_id: String(email.id),
       action: "email.test_sent",
@@ -96,7 +101,7 @@ async function sendTestCopy(
  * Uses Pipedrive Activities API (type: "email") instead of Gmail.
  * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
  */
-export async function POST(req: Request, ctx: { params: { id: string } }) {
+async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("send_proposal");
   if ("error" in auth) return auth.error;
 
@@ -124,11 +129,40 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     if (!body.test_recipient) {
       return NextResponse.json({ error: "test_recipient is required" }, { status: 400 });
     }
-    return sendTestCopy(sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
+    return sendTestCopy(userActor(auth.user), sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
   }
 
   if (email.status === "sent") {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
+  }
+
+  // A plan to send this email that was cancelled (for example because the agent run that made it was) is a decision
+  // that was made. Approving or sending by hand must not quietly undo it: a new plan has to be made on purpose.
+  const { data: lastPlan } = await sb
+    .from("agent_actions")
+    .select("id, state")
+    .eq("tenant_id", auth.user.tenant_id)
+    .eq("effect", "send_email")
+    .eq("target_id", email.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if ((lastPlan as { state?: string } | null)?.state === "cancelled") {
+    return NextResponse.json({ error: "The plan to send this email was cancelled, so it cannot be approved or sent from here. Make a new send plan for it if it should still go out.", code: "plan_cancelled" }, { status: 409 });
+  }
+
+  // Nothing is sent again when the recipient may already have the message: a
+  // send whose outcome is unknown (a timeout after the provider may have
+  // accepted it), one a person reported sending, or one a provider already
+  // has. Otherwise the recipient could be contacted twice.
+  if (mode === "send") {
+    const current = await loadDelivery(sb, auth.user.tenant_id, email.id);
+    if (current && !current.view.canSend) {
+      return NextResponse.json(
+        { error: current.view.blockedReason, code: current.view.state, delivery: current.view },
+        { status: 409 },
+      );
+    }
   }
 
   // Infrastructure-enforced approval gate (Phase 3 finding, 2026-09-16) —
@@ -145,6 +179,14 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       { error: `Email must be approved before sending (current status: "${email.status}"). Approve it first.` },
       { status: 409 },
     );
+  }
+
+  // Do-not-contact, dead addresses and revoked signers: refused before anything is claimed or sent.
+  if (mode === "send") {
+    const standing = await checkSend(sb, auth.user.tenant_id, email as { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null });
+    if (!standing.allowed) {
+      return NextResponse.json({ error: standing.blocks[0].message, code: standing.blocks[0].code, blocks: standing.blocks }, { status: 409 });
+    }
   }
 
   // Pre-send validation: block if [Nome] or {{variable}} placeholders are unresolved
@@ -273,7 +315,24 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     await completeWorkflow(eventId, { pipedrive_activity_id: activity_id, mode });
   }
 
-  await recordAudit({
+  // Record what actually happened. Approving is one fact; logging an activity
+  // in the CRM is another. Neither means the recipient has the message.
+  if (mode === "draft") {
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: "content_approved", source: "platform", actor_user_id: auth.user.id, actor_email: auth.user.email,
+    });
+  } else {
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
+      source: "crm",
+      actor_user_id: auth.user.id,
+      actor_email: auth.user.email,
+      detail: { pipedrive_activity_id: activity_id, error: pdError ?? null },
+    });
+  }
+  const deliveryAfter = await loadDelivery(sb, auth.user.tenant_id, email.id);
+
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: email.id,
     action: mode === "send" ? "email.sent" : "email.draft_created",
@@ -288,5 +347,8 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     data: updated,
     pipedrive_activity_id: activity_id,
     pipedrive_warning: pdError ? `Pipedrive log failed: ${pdError}` : null,
+    delivery: deliveryAfter?.view ?? null,
   });
 }
+
+export const POST = idempotent("emails.send", postHandler);

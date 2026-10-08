@@ -4,7 +4,8 @@ import {
   ConverseCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { serverEnv } from "@/lib/env";
-import { checkDailySpendCap, recordSpend, bedrockCallCostUsd } from "@/lib/monitoring/spend-guard";
+import { checkDailySpendCap, recordSpend, bedrockCallCostUsd, reserveInFlightCall } from "@/lib/monitoring/spend-guard";
+import { CallThrottle, ProviderBreaker, callerLabel, callsPerMinuteLimit } from "@/lib/ai/cost-controls";
 import { logger } from "@/lib/monitoring/logger";
 import { notifySpendCapHit } from "@/lib/slack/notify";
 import { traceGeneration } from "@/lib/observability/langfuse";
@@ -17,7 +18,24 @@ import { traceGeneration } from "@/lib/observability/langfuse";
  * covers all of them, present and future, rather than every call site
  * separately.
  */
-async function assertUnderSpendCap(): Promise<void> {
+const callThrottle = new CallThrottle(callsPerMinuteLimit());
+// Bedrock credentials are dead in this deployment; after one failure, go
+// straight to the direct Anthropic API for a while instead of paying a failed
+// round trip (and the AWS SDK's own retries) in front of every call.
+const bedrockBreaker = new ProviderBreaker();
+
+/**
+ * Runs before every Claude call: refuses when the daily cap is reached or the
+ * call rate looks like a runaway loop, and reserves an estimated cost so
+ * parallel calls count against the cap before they finish. Returns the
+ * release function for that reservation.
+ */
+async function guardCall(): Promise<() => void> {
+  if (!callThrottle.tryAcquire()) {
+    throw new Error(
+      `AI call rate limit reached (${callsPerMinuteLimit()} calls per minute) — paused to stop a runaway loop. Try again in a minute, or raise AI_MAX_CALLS_PER_MIN.`
+    );
+  }
   const capCheck = await checkDailySpendCap();
   if (!capCheck.ok) {
     void notifySpendCapHit(capCheck.todaySpendUsd, capCheck.capUsd);
@@ -25,6 +43,7 @@ async function assertUnderSpendCap(): Promise<void> {
       `Daily AI spend cap reached ($${capCheck.todaySpendUsd.toFixed(2)} / $${capCheck.capUsd.toFixed(2)}) — Bedrock calls are paused until tomorrow (UTC) or the cap is raised.`
     );
   }
+  return reserveInFlightCall();
 }
 
 /**
@@ -56,7 +75,12 @@ export interface InvokeClaudeOptions {
 export interface ClaudeResult<T = string> {
   text: string;
   json: T | null;
-  usage: { input_tokens?: number; output_tokens?: number } | null;
+  usage: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  } | null;
   raw: unknown;
 }
 
@@ -171,33 +195,55 @@ async function invokeClaudeViaBedrock<T = unknown>(
 export async function invokeClaude<T = unknown>(
   opts: InvokeClaudeOptions,
 ): Promise<ClaudeResult<T>> {
-  await assertUnderSpendCap();
+  const label = callerLabel(new Error().stack);
+  const release = await guardCall();
 
   let result: ClaudeResult<T>;
   let provider: "aws_bedrock" | "anthropic_direct";
   try {
-    result = await invokeClaudeViaBedrock<T>(opts);
-    provider = "aws_bedrock";
-  } catch (bedrockErr) {
-    if (!serverEnv().ANTHROPIC_API_KEY) throw bedrockErr;
-    logger.warn("[bedrock] invokeClaude failed, falling back to direct Anthropic API", {
-      error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
-    });
-    const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
-    result = await invokeClaudeDirect<T>(opts);
-    provider = "anthropic_direct";
+    const haveFallback = !!serverEnv().ANTHROPIC_API_KEY;
+    if (haveFallback && bedrockBreaker.isOpen()) {
+      const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
+      result = await invokeClaudeDirect<T>(opts);
+      provider = "anthropic_direct";
+    } else {
+      try {
+        result = await invokeClaudeViaBedrock<T>(opts);
+        provider = "aws_bedrock";
+        bedrockBreaker.reset();
+      } catch (bedrockErr) {
+        if (!haveFallback) throw bedrockErr;
+        bedrockBreaker.trip();
+        logger.warn("[bedrock] invokeClaude failed, falling back to direct Anthropic API", {
+          error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
+        });
+        const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
+        result = await invokeClaudeDirect<T>(opts);
+        provider = "anthropic_direct";
+      }
+    }
+  } finally {
+    release();
   }
 
   if (result.usage) {
     await recordSpend({
       category: "bedrock_text",
       provider,
-      amountUsd: bedrockCallCostUsd(result.usage.input_tokens ?? 0, result.usage.output_tokens ?? 0),
+      amountUsd: bedrockCallCostUsd(
+        result.usage.input_tokens ?? 0,
+        result.usage.output_tokens ?? 0,
+        result.usage.cache_read_input_tokens ?? 0,
+        result.usage.cache_creation_input_tokens ?? 0,
+      ),
       entityType: opts.entityType,
       entityId: opts.entityId,
       metadata: {
         input_tokens: result.usage.input_tokens,
         output_tokens: result.usage.output_tokens,
+        cache_read_input_tokens: result.usage.cache_read_input_tokens ?? 0,
+        cache_creation_input_tokens: result.usage.cache_creation_input_tokens ?? 0,
+        label,
         api: provider === "aws_bedrock" ? "invoke_model" : "anthropic_direct_fallback",
       },
     });
@@ -247,7 +293,7 @@ export type ConverseResult = {
   message: ConverseMessage;
   toolCalls: ConverseTool[];
   text: string;
-  usage: { inputTokens: number; outputTokens: number } | null;
+  usage: { inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number } | null;
 };
 
 async function converseWithToolsViaBedrock(opts: {
@@ -318,33 +364,55 @@ export async function converseWithTools(opts: {
   entityType?: string;
   entityId?: string | null;
 }): Promise<ConverseResult> {
-  await assertUnderSpendCap();
+  const label = callerLabel(new Error().stack);
+  const release = await guardCall();
 
   let result: ConverseResult;
   let provider: "aws_bedrock" | "anthropic_direct";
   try {
-    result = await converseWithToolsViaBedrock(opts);
-    provider = "aws_bedrock";
-  } catch (bedrockErr) {
-    if (!serverEnv().ANTHROPIC_API_KEY) throw bedrockErr;
-    logger.warn("[bedrock] converseWithTools failed, falling back to direct Anthropic API", {
-      error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
-    });
-    const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
-    result = await converseWithToolsDirect(opts);
-    provider = "anthropic_direct";
+    const haveFallback = !!serverEnv().ANTHROPIC_API_KEY;
+    if (haveFallback && bedrockBreaker.isOpen()) {
+      const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
+      result = await converseWithToolsDirect(opts);
+      provider = "anthropic_direct";
+    } else {
+      try {
+        result = await converseWithToolsViaBedrock(opts);
+        provider = "aws_bedrock";
+        bedrockBreaker.reset();
+      } catch (bedrockErr) {
+        if (!haveFallback) throw bedrockErr;
+        bedrockBreaker.trip();
+        logger.warn("[bedrock] converseWithTools failed, falling back to direct Anthropic API", {
+          error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
+        });
+        const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
+        result = await converseWithToolsDirect(opts);
+        provider = "anthropic_direct";
+      }
+    }
+  } finally {
+    release();
   }
 
   if (result.usage) {
     await recordSpend({
       category: "bedrock_text",
       provider,
-      amountUsd: bedrockCallCostUsd(result.usage.inputTokens ?? 0, result.usage.outputTokens ?? 0),
+      amountUsd: bedrockCallCostUsd(
+        result.usage.inputTokens ?? 0,
+        result.usage.outputTokens ?? 0,
+        result.usage.cacheReadTokens ?? 0,
+        result.usage.cacheWriteTokens ?? 0,
+      ),
       entityType: opts.entityType,
       entityId: opts.entityId,
       metadata: {
         input_tokens: result.usage.inputTokens,
         output_tokens: result.usage.outputTokens,
+        cache_read_input_tokens: result.usage.cacheReadTokens ?? 0,
+        cache_creation_input_tokens: result.usage.cacheWriteTokens ?? 0,
+        label,
         api: provider === "aws_bedrock" ? "converse" : "anthropic_direct_fallback",
       },
     });

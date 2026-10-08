@@ -5,6 +5,8 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import type { ClubContextInput } from "@/lib/bedrock/prompts";
+import { loadSponsorClaims, displayValue, type SponsorClaimMap } from "@/lib/claims/sponsor-claims";
+import { buildLeiOverview } from "@/lib/claims/lei-text";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,8 @@ export async function GET(req: Request) {
   const tenant = await resolveClubContext(tenantId);
 
   // Return built-in presets + saved library blocks
-  const presets = getBuiltInPresets(tenant);
+  const { claims } = await loadSponsorClaims(sb, tenantId);
+  const presets = getBuiltInPresets(tenant, claims);
 
   let libraryBlocks: LibraryBlock[] = [];
   try {
@@ -95,13 +98,13 @@ Suggest 3 improvements for this section. Return JSON:
 
 type LibraryBlock = { id: string; title: string; content: string; section_type: string; tags?: string[] };
 
-function getBuiltInPresets(tenant: ClubContextInput): Record<string, ProposalPreset> {
+function getBuiltInPresets(tenant: ClubContextInput, claims: SponsorClaimMap): Record<string, ProposalPreset> {
   const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
   const fullName = tenant.club_facts.club_name;
   const localRegion = [tenant.club_facts.city, tenant.club_facts.state].filter(Boolean).join("/") || "sua região";
 
   const aboutClub = tenant.club_facts.founded_year
-    ? `O ${fullName}, fundado em ${tenant.club_facts.founded_year}, é um dos grandes clubes do futebol brasileiro.${tenant.club_facts.follower_count ? ` Com ${tenant.club_facts.follower_count} nas redes sociais` : ""}${tenant.club_facts.stadium_name ? ` e o icônico ${tenant.club_facts.stadium_name}` : ""}, o ${clubName} oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se à sua torcida.`
+    ? `O ${fullName}, fundado em ${tenant.club_facts.founded_year}, é um dos grandes clubes do futebol brasileiro.${claims["club.social_followers_total"] ? ` Com ${displayValue(claims["club.social_followers_total"])} nas redes sociais` : ""}${tenant.club_facts.stadium_name ? ` e o icônico ${tenant.club_facts.stadium_name}` : ""}, o ${clubName} oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se à sua torcida.`
     : `O ${clubName} oferece uma plataforma de visibilidade premium para marcas que desejam conectar-se à sua torcida.`;
 
   return {
@@ -134,7 +137,7 @@ function getBuiltInPresets(tenant: ClubContextInput): Record<string, ProposalPre
       sections: ["executive_summary","lei_overview","esg_alignment","social_impact","fiscal_benefit","project_details","about_coritiba","next_steps"],
       default_content: {
         executive_summary: `Proposta Lei de Incentivo Esportivo — ${clubName} × [EMPRESA]`,
-        lei_overview: "Através da Lei Federal de Incentivo ao Esporte (Lei nº 11.438/2006) e Lei Rouanet, empresas podem destinar parte do IR devido ao patrocínio de projetos esportivos e culturais aprovados, com dedução de até 100% do valor investido.",
+        lei_overview: buildLeiOverview(claims),
       },
     },
     esg_community: {

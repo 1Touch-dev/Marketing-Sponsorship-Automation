@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -31,7 +33,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ data });
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("edit_company");
   if ("error" in auth) return auth.error;
 
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "pipeline",
     entity_id: null,
     action: "pipeline.lead_created",
@@ -59,3 +61,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export const POST = idempotent("pipeline.create", postHandler);

@@ -1,3 +1,6 @@
+import { checkDiscoveryGate, briefPromptBlock, linkBrief } from "@/lib/briefs/store";
+import { attachNewProposal } from "@/lib/opportunities/store";
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { proposalGenerateSchema } from "@/lib/validators";
@@ -36,6 +39,8 @@ import {
 import type { ProposalContent } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -94,7 +99,7 @@ async function runGeneration(system: string, user: string, maxTokens = 2000): Pr
  *
  * Failures in secondary pipelines are non-fatal — columns become null.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -136,6 +141,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Company not found for this campaign" }, { status: 400 });
   }
 
+  // Discovery gate: checked before any AI call, so a missing brief costs nothing.
+  const gate = await checkDiscoveryGate(sb, auth.user.tenant_id, company.id as string, company.company_name);
+  if (!gate.ok) return NextResponse.json({ error: gate.message, code: "discovery_brief_required", missing: gate.missing }, { status: 409 });
+
   const companyCtx = {
     company_name: company.company_name,
     industry: company.industry,
@@ -159,6 +168,7 @@ export async function POST(req: Request) {
   });
 
   const tenant = await resolveClubContext(auth.user.tenant_id);
+  const verifiedClaims = await loadVerifiedClaimsBlock(sb, auth.user.tenant_id);
 
   // ── 1. Main proposal content (with retry) ────────────────────────────────
   let proposalContent: ProposalContentAI | null = null;
@@ -168,7 +178,7 @@ export async function POST(req: Request) {
   for (attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     if (attempt > 1 && eventId) await retryWorkflow(eventId, attempt);
     try {
-      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx, tenant });
+      const pt = proposalPrompt({ company: companyCtx, campaign: campaignCtx, tenant, verifiedClaims, buyerBrief: gate.brief ? briefPromptBlock(gate.brief) : undefined });
       const raw = await runGeneration(pt.system, pt.user, 3000);
       const vr = validateAiOutput(proposalContentSchema, raw, {
         workflow_name: "proposal.generate",
@@ -284,6 +294,12 @@ export async function POST(req: Request) {
     content_md: contentMd,
   });
 
+  await linkBrief(sb, auth.user.tenant_id, proposal.id, gate.briefId);
+  await attachNewProposal(sb, auth.user.tenant_id, company.id, proposal.id, {
+    proposalType: (proposal as { proposal_type?: string | null }).proposal_type,
+    actor: { kind: "human", email: auth.user.email, userId: auth.user.id },
+  });
+
   if (intelligence && company.id) {
     await sb
       .from("companies")
@@ -302,7 +318,7 @@ export async function POST(req: Request) {
     });
   }
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.generated",
@@ -324,3 +340,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: proposal, attempts: attempt });
 }
+
+export const POST = idempotent("proposals.generate", postHandler);

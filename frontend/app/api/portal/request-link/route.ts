@@ -5,6 +5,7 @@ import { resolveAppUrl } from "@/lib/url";
 import { sendPlatformEmail } from "@/lib/gmail/send-platform-email";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { externalActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 
@@ -56,12 +57,14 @@ export async function POST(req: NextRequest) {
   // fails (a real, currently-live constraint on this environment: the
   // connected Gmail refresh token was found stale/invalid_grant earlier
   // today), so the flow stays testable/operable without depending on it.
+  // The link itself is a credential, so it is never written into the (permanent) audit log.
   await recordAudit({
+    actor: externalActor(`sponsor portal: ${email}`, `portal:${email}`),
     entity_type: "portal_access",
     entity_id: contact.company_id,
     action: "portal.magic_link_requested",
     tenant_id: contact.tenant_id,
-    metadata: { email, magic_link: magicLink },
+    metadata: { email, link_valid_minutes: 15 },
   });
 
   try {

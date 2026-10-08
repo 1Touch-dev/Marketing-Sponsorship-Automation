@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { createOrUpdateDeal } from "@/lib/pipedrive/sync";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
+import { approveRevision } from "@/lib/proposals/revision-store";
 
 export const runtime = "nodejs";
 
@@ -24,6 +26,20 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   }
 
   const sb = supabaseAdmin();
+
+  // Leaving active_contract releases the inventory units it held (Task 2);
+  // becoming approved freezes the terms being approved (Task 3).
+  const { data: current } = await sb.from("proposals").select("status").eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
+  if (current && (current as { status: string }).status === "active_contract" && body.status !== "active_contract") {
+    await leaveActiveContractUnits(sb, auth.user.tenant_id, ctx.params.id, body.status);
+  }
+  if (body.status === "approved") {
+    const frozen = await approveRevision(sb, auth.user.tenant_id, ctx.params.id, { reason: "Approved via status change", userId: auth.user.id });
+    if (!frozen.ok && frozen.skipped === "error") {
+      return NextResponse.json({ error: `Could not freeze the approved terms: ${frozen.error ?? "unknown error"}` }, { status: 500 });
+    }
+  }
+
   const { data, error } = await sb
     .from("proposals")
     .update({ status: body.status, updated_at: new Date().toISOString() })

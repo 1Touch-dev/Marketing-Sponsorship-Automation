@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toaster";
+import { effectiveAvailability, resolveRate, resolveUnit } from "@/lib/inventory/availability";
 import {
   Check, ChevronRight, ChevronLeft, Sparkles, Building2,
   Package, Brain, Zap, FileText, Users, Globe, MapPin,
@@ -184,10 +185,12 @@ type DbInventoryItem = {
   inventory_type: string;
   category: string;
   unit_type: string | null;
+  unit?: string | null;
   slot_timing: string | null;
   slot_duration_sec: number | null;
   total_quantity: number | null;
   quantity_sold: number | null;
+  quantity_reserved?: number | null;
   price_min: number | null;
   price_max: number | null;
   price_small: number | null;
@@ -283,12 +286,7 @@ export function ProposalWizard({
   }, [step, proposalType]);
 
   function getPriceForCompany(item: DbInventoryItem): number | null {
-    const size = selectedCompany?.company_size ?? "medium";
-    if (size === "small" && item.price_small) return item.price_small;
-    if (size === "large" && item.price_large) return item.price_large;
-    if (size === "enterprise" && item.price_enterprise) return item.price_enterprise;
-    if (item.price_medium) return item.price_medium;
-    return item.price_min ?? null;
+    return resolveRate(item, selectedCompany?.company_size ?? "medium").amount;
   }
 
   function toggleInventoryLine(item: DbInventoryItem) {
@@ -296,12 +294,16 @@ export function ProposalWizard({
     if (exists) {
       setSelectedInventoryLines(prev => prev.filter(l => l.inventory_id !== item.id));
     } else {
+      if (effectiveAvailability(item).state === "sold_out") {
+        toast({ variant: "destructive", title: `${item.name} is sold out`, description: effectiveAvailability(item).reason });
+        return;
+      }
       const price = getPriceForCompany(item);
       const newLine = {
         inventory_id: item.id,
         name: item.name,
         quantity: 1,
-        scope: item.unit_type ?? "per_season",
+        scope: resolveUnit(item).unit,
         slot_timing: item.slot_timing ?? null,
         price_agreed: price,
       };
@@ -311,14 +313,15 @@ export function ProposalWizard({
         ? dbInventory.filter(i =>
             counterpartCategories.includes(i.category ?? "") &&
             !selectedInventoryLines.find(l => l.inventory_id === i.id) &&
-            i.id !== item.id
+            i.id !== item.id &&
+            effectiveAvailability(i).state !== "sold_out"
           )
         : [];
       const counterpartLines = counterpartItems.map(ci => ({
         inventory_id: ci.id,
         name: ci.name,
         quantity: 1,
-        scope: ci.unit_type ?? "per_season",
+        scope: resolveUnit(ci).unit,
         slot_timing: ci.slot_timing ?? null,
         price_agreed: getPriceForCompany(ci),
       }));
@@ -606,7 +609,7 @@ export function ProposalWizard({
                         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{INVENTORY_CATEGORY_LABEL[cat ?? ""] ?? humanizeCategory(cat)}</div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => items.forEach(item => { if (!selectedInventoryLines.find(l => l.inventory_id === item.id)) toggleInventoryLine(item); })}
+                            onClick={() => items.forEach(item => { if (effectiveAvailability(item).state !== "sold_out" && !selectedInventoryLines.find(l => l.inventory_id === item.id)) toggleInventoryLine(item); })}
                             className="text-xs text-primary hover:underline"
                           >Select all</button>
                           <span className="text-slate-300">|</span>
@@ -620,14 +623,17 @@ export function ProposalWizard({
                         {items.map(item => {
                           const line = selectedInventoryLines.find(l => l.inventory_id === item.id);
                           const isSelected = !!line;
-                          const price = getPriceForCompany(item);
-                          const available = (item.total_quantity ?? 1) - (item.quantity_sold ?? 0);
+                          const rate = resolveRate(item, selectedCompany?.company_size ?? "medium");
+                          const price = rate.amount;
+                          const eff = effectiveAvailability(item);
+                          const soldOut = eff.state === "sold_out";
                           return (
-                            <div key={item.id} className={`rounded-xl border-2 p-3 transition-all ${isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}>
+                            <div key={item.id} className={`rounded-xl border-2 p-3 transition-all ${soldOut ? "opacity-60 border-border bg-muted/40" : isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}>
                               <div className="flex items-start gap-3">
                                 <button
                                   onClick={() => toggleInventoryLine(item)}
-                                  className={`mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary text-white" : "border-slate-300"}`}
+                                  disabled={soldOut && !isSelected}
+                                  className={`mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors disabled:cursor-not-allowed ${isSelected ? "bg-primary border-primary text-white" : "border-slate-300"}`}
                                 >
                                   {isSelected && <Check className="h-3 w-3" />}
                                 </button>
@@ -635,14 +641,22 @@ export function ProposalWizard({
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-sm font-medium">{item.name}</span>
                                     {item.is_exclusive && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Exclusive</span>}
-                                    {available <= 0 && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium">Sold out</span>}
+                                    {soldOut && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-medium" title={eff.reason}>Sold out</span>}
+                                    {eff.state === "limited" && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Limited</span>}
                                   </div>
                                   <div className="flex items-center gap-3 mt-1 flex-wrap text-xs text-muted-foreground">
-                                    {price && <span className="text-emerald-700 font-medium">R${price.toLocaleString("pt-BR")}</span>}
-                                    {item.unit_type && <span className="capitalize">{item.unit_type.replace(/_/g, " ")}</span>}
+                                    {price && <span className="text-emerald-700 font-medium">R${price.toLocaleString("pt-BR")} {rate.unit.label}{rate.unit.assumed ? " (assumed)" : ""}</span>}
+                                    {rate.outsideCatalogRange && (
+                                      <span
+                                        className="bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded"
+                                        title={`Catalog range: R$${(rate.range.min ?? 0).toLocaleString("pt-BR")} – R$${(rate.range.max ?? 0).toLocaleString("pt-BR")}`}
+                                      >
+                                        Price differs from catalog range — confirm
+                                      </span>
+                                    )}
                                     {item.slot_timing && <span className="bg-slate-100 px-1.5 py-0.5 rounded capitalize">{item.slot_timing.replace(/_/g, " ")}</span>}
                                     {item.slot_duration_sec && <span>{item.slot_duration_sec}s slot</span>}
-                                    <span>{available} of {item.total_quantity ?? 1} available</span>
+                                    <span>{eff.remaining} of {eff.total} available</span>
                                   </div>
                                 </div>
                                 {isSelected && (

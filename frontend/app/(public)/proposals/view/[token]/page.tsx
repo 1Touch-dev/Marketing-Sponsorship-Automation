@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getTenantById } from "@/lib/tenants/current";
+import { loadSponsorClaims } from "@/lib/claims/sponsor-claims";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
@@ -20,6 +21,7 @@ import { ScrollProgressBar } from "./scroll-progress-bar";
 import { AccessGateForm } from "./access-gate-form";
 import { cookies } from "next/headers";
 import { gateCookieName, verifyGateToken } from "@/lib/proposals/access-gate";
+import { sponsorContent, sponsorIntelligence, sponsorPricingTiers, sponsorVariants } from "@/lib/portal/safe-view";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,7 @@ export default async function PublicProposalViewPage({
   const tenantId = (proposal as { tenant_id: string }).tenant_id;
   const tenant = await getTenantById(tenantId);
   const isCoritiba = tenantId === CORITIBA_TENANT_ID;
+  const sponsorClaims = await loadSponsorClaims(sb, tenantId);
   const clubName = tenant?.club_facts.short_name ?? tenant?.club_facts.club_name ?? "o clube";
   // Coritiba's known-good asset path — not trusting the DB's crest_url for
   // this tenant since migration 0047 seeded a mismatched extension (.svg,
@@ -172,11 +175,12 @@ export default async function PublicProposalViewPage({
           status: p.status,
           version: p.version,
           created_at: p.created_at,
-          content: p.content as ProposalContent,
-          strategy_variants: p.strategy_variants,
-          pricing_tiers: p.pricing_tiers,
+          // Only what a sponsor may read: the club's internal cost estimates and any other stray keys stay behind.
+          content: sponsorContent(p.content) as ProposalContent,
+          strategy_variants: sponsorVariants(p.strategy_variants) as unknown as StrategyVariant[],
+          pricing_tiers: sponsorPricingTiers(p.pricing_tiers) as unknown as PricingTier[],
           visual_prompts: p.visual_prompts,
-          intelligence: p.intelligence,
+          intelligence: sponsorIntelligence(p.intelligence) as unknown as CompanyIntelligence | null,
           share_token: p.share_token,
         }}
         company={{
@@ -198,6 +202,7 @@ export default async function PublicProposalViewPage({
           stadiumName: tenant?.club_facts.stadium_name,
           city: tenant?.club_facts.city,
           state: tenant?.club_facts.state,
+          claims: sponsorClaims.claims,
         }}
         packages={(packages ?? []).map((p) => ({
           id: p.id,
@@ -214,7 +219,7 @@ export default async function PublicProposalViewPage({
       <FulfillmentSection fulfillment={fulfillment} />
 
       {/* ─── Lead Capture Form — before sticky CTA ─── */}
-      <LeadInterestForm proposalId={p.id} companyName={company?.company_name ?? ""} clubName={clubName} />
+      <LeadInterestForm proposalId={p.id} token={params.token} companyName={company?.company_name ?? ""} clubName={clubName} />
 
       {/* ─── Sponsor CTA strip — fixed at bottom ─── */}
       <div className="print:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#003300] via-[#006B3F] to-[#004d00] backdrop-blur-md border-t border-green-700/50 px-4 py-3.5 flex flex-wrap items-center justify-center gap-3 shadow-[0_-4px_30px_rgba(0,107,63,0.3)]">

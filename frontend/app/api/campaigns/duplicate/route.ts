@@ -4,6 +4,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -14,7 +16,7 @@ const bodySchema = z.object({ campaign_id: z.string().uuid() });
  * Creates a copy of the given campaign (same company, status reset to draft).
  * Campaigns hold AI idea data, not user content, so duplication is lightweight.
  */
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_campaign");
   if ("error" in auth) return auth.error;
 
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
 
   if (insErr || !copy) return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "campaign",
     entity_id: copy.id,
     action: "campaign.duplicated",
@@ -66,3 +68,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: copy }, { status: 201 });
 }
+
+export const POST = idempotent("campaigns.duplicate", postHandler);

@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 
@@ -21,7 +23,7 @@ export async function GET() {
   return NextResponse.json({ data: data ?? [] });
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("manage_integrations");
   if ("error" in auth) return auth.error;
 
@@ -64,7 +66,7 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "team_member",
     entity_id: data.id,
     action: "team_member.created",
@@ -73,3 +75,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data }, { status: 201 });
 }
+
+export const POST = idempotent("team-members.create", postHandler);

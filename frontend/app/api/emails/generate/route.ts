@@ -1,3 +1,6 @@
+import { checkRecipient, stampSigner } from "@/lib/contacts/store";
+import { loadOutreachContext, stampEmail } from "@/lib/playbooks/store";
+import { checkPlaybook } from "@/lib/playbooks/definitions";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { emailGenerateSchema } from "@/lib/validators";
@@ -19,13 +22,15 @@ import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_RETRIES = 2;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -68,7 +73,11 @@ export async function POST(req: Request) {
     content?.campaign_rationale ||
     proposal.title;
 
-  const { senderName, senderTitle } = await resolveDefaultSender(sb);
+  // Do-not-contact and dead addresses are refused before any AI call.
+  const standing = await checkRecipient(sb, auth.user.tenant_id, { email: parsed.data.recipient, companyId: (proposal as { company_id?: string | null }).company_id ?? null });
+  if (!standing.allowed) return NextResponse.json({ error: standing.blocks[0].message, code: "recipient_blocked", blocks: standing.blocks }, { status: 409 });
+
+  const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, auth.user.tenant_id);
   const companyName = String(company.company_name ?? "");
   const contactName = parsed.data.contact_name?.trim() || "Prezado(a)";
   const proposalLink = proposal.share_token
@@ -92,7 +101,7 @@ export async function POST(req: Request) {
 
   const flowType = parsed.data.flow_type ?? "intro";
 
-  const emailTemplate = await loadEmailTemplateForFlow(flowType, parsed.data.template_id);
+  const emailTemplate = await loadEmailTemplateForFlow(auth.user.tenant_id, flowType, parsed.data.template_id);
   if (emailTemplate) {
     const templated = await generateEmailWithTemplate({
       template: emailTemplate,
@@ -161,7 +170,7 @@ export async function POST(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "email",
       action: "email.generate_failed",
       metadata: { proposal_id: proposal.id, error: lastError },
@@ -236,6 +245,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
   }
 
+  await stampSigner(sb, auth.user.tenant_id, row.id, signerId);
+
+  // Record that this was a pitch, and why, when a person chose it as the first contact
+  // with an account nobody has qualified (the default would have been a conversation).
+  {
+    const oc = await loadOutreachContext(sb, auth.user.tenant_id, String(company.id));
+    if (oc) {
+      const chk = checkPlaybook({ playbook: "pitch", stage: oc.stage, firstTouch: oc.firstTouch, hasApprovedProposal: true, actor: { kind: "human", email: auth.user.email } });
+      await stampEmail(sb, auth.user.tenant_id, row.id, { companyId: oc.company.id, playbook: "pitch", note: chk.note ?? null });
+    }
+  }
+
   // Inject tracking pixel and wrap links now that we have the email ID
   const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
   if (appUrl) {
@@ -253,7 +274,7 @@ export async function POST(req: Request) {
   }
 
   if (eventId) await completeWorkflow(eventId, { email_id: row.id });
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "email",
     entity_id: row.id,
     action: "email.generated",
@@ -262,3 +283,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ data: row, attempts: attempt });
 }
+
+export const POST = idempotent("emails.generate", postHandler);

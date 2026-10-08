@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
+import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 
 export const runtime = "nodejs";
 
@@ -31,7 +33,7 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "team_member",
     entity_id: id,
     action: "team_member.updated",
@@ -42,17 +44,16 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: { id: string } }
 ) {
   const auth = await requirePermission("manage_integrations");
   if ("error" in auth) return auth.error;
 
-  const sb = supabaseAdmin();
-  const { error } = await sb.from("team_members").delete().eq("id", ctx.params.id).eq("tenant_id", auth.user.tenant_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const res = await deleteRecord(supabaseAdmin(), { table: "team_members", id: ctx.params.id, tenantId: auth.user.tenant_id, actor: userActor(auth.user), ...(await readDeleteOptions(req)) });
+  if (!res.ok) return NextResponse.json({ error: res.error, blockers: res.blockers ?? [] }, { status: res.status });
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "team_member",
     entity_id: ctx.params.id,
     action: "team_member.deleted",

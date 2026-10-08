@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
+import { effectiveAvailability, resolveUnit, type InventoryLike } from "@/lib/inventory/availability";
 import {
   Plus, X, Pencil, Trash2, DollarSign, Eye,
   Package, Smartphone, ChevronDown, ChevronUp,
@@ -331,16 +332,18 @@ function InventoryRow({
   onEdit: (item: Item) => void;
   onDelete: (id: string) => void;
 }) {
-  const avail = (item.availability as string) || "available";
+  const eff = effectiveAvailability(item as InventoryLike);
+  const avail = eff.state === "sold_out" ? "sold" : eff.state;
   const availStyle = AVAILABILITY_COLORS[avail] || AVAILABILITY_COLORS.available;
+  const unit = resolveUnit(item as InventoryLike);
 
   return (
     <div className="py-3 flex items-start gap-3 group">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium">{item.name as string}</p>
-          <Badge className={`text-xs border ${availStyle} capitalize`} variant="outline">
-            {avail}
+          <Badge className={`text-xs border ${availStyle} capitalize`} variant="outline" title={`${eff.reason} (${eff.remaining} of ${eff.total} remaining)`}>
+            {avail === "sold" ? "sold out" : avail}
           </Badge>
           {!!item.placement_zone && (
             <Badge variant="outline" className="text-xs">{(item.placement_zone as string).replace(/_/g, " ")}</Badge>
@@ -403,7 +406,7 @@ function InventoryRow({
               </p>
             </div>
           )}
-          {!!item.unit && <p className="text-xs text-muted-foreground">{item.unit as string}</p>}
+          <p className="text-xs text-muted-foreground">{unit.label}{unit.assumed ? " (assumed)" : ""}</p>
         </div>
         <div className="flex gap-1 transition-opacity">
           <button

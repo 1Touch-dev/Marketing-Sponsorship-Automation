@@ -3,6 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { loadCompanyIndex, existingEntity } from "@/lib/accounts/store";
+import { registrableDomain, type CompanyKey } from "@/lib/accounts/dedup";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -115,16 +118,9 @@ export async function POST(req: Request) {
 
     const sb = supabaseAdmin();
 
-    // Fetch existing company names for duplicate detection
-    const { data: existing } = await sb
-      .from("companies")
-      .select("company_name")
-      .eq("tenant_id", auth.user.tenant_id)
-      .limit(5000);
-
-    const existingNames = new Set(
-      (existing ?? []).map((e) => e.company_name.toLowerCase().trim()),
-    );
+    // Duplicates are judged on structure (CNPJ, website, then name), not just
+    // the typed name, and rows earlier in the same file count too.
+    const index: CompanyKey[] = await loadCompanyIndex(sb, auth.user.tenant_id);
 
     const results: ImportResult[] = [];
     let created = 0;
@@ -160,12 +156,13 @@ export async function POST(req: Request) {
       }
 
       // Duplicate check
-      if (existingNames.has(row.company_name.toLowerCase().trim())) {
+      const { existing } = existingEntity({ company_name: row.company_name, website: row.website ?? null, domain: registrableDomain(row.website) }, index);
+      if (existing) {
         results.push({
           row: rowNum,
           company_name: row.company_name,
           status: "duplicate",
-          message: "Company already exists",
+          message: `Looks like "${existing.company_name}", which already exists`,
         });
         duplicates++;
         continue;
@@ -198,7 +195,7 @@ export async function POST(req: Request) {
         });
         errors++;
       } else {
-        existingNames.add(row.company_name.toLowerCase().trim()); // prevent intra-batch duplicates
+        index.push({ id: inserted.id, company_name: row.company_name, website, domain: registrableDomain(website) }); // prevent intra-batch duplicates
         results.push({
           row: rowNum,
           company_name: row.company_name,
@@ -218,7 +215,7 @@ export async function POST(req: Request) {
     }
 
     // Audit log for the bulk import (entity_id must be null or UUID — use null for bulk)
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "company",
       entity_id: null,
       action: "company.bulk_import",

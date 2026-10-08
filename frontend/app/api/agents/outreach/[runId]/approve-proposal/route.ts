@@ -7,11 +7,13 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resumeAgentAfterProposalApproval } from "@/lib/agents/resume";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { idempotent } from "@/lib/idempotency";
+import { hasOpenBlock } from "@/lib/approvals/recovery";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
-export async function POST(
+async function postHandler(
   _req: Request,
   ctx: { params: { runId: string } }
 ) {
@@ -19,6 +21,8 @@ export async function POST(
   if ("error" in auth) return auth.error;
 
   const sb = supabaseAdmin();
+  const blocked = await hasOpenBlock(sb, "agent_run", ctx.params.runId);
+  if (blocked) return NextResponse.json({ error: `This run's approval is blocked: ${blocked.reason} An administrator has to reassign or cancel it first.`, block_id: blocked.id }, { status: 409 });
   const { data: run } = await sb
     .from("agent_runs" as "companies")
     .select("*")
@@ -38,7 +42,9 @@ export async function POST(
   const resume = await resumeAgentAfterProposalApproval(ctx.params.runId);
 
   if (!resume.success) {
-    return NextResponse.json({ error: resume.error ?? "Failed to resume agent" }, { status: 500 });
+    // being second to answer, or answering the wrong question, is a conflict with the run's state, not a server fault
+    const conflict = resume.refused === true || /already carrying|already finished|already in progress|not waiting for|cancelled|ended on a refusal/i.test(resume.error ?? "");
+    return NextResponse.json({ error: resume.error ?? "Failed to resume agent" }, { status: conflict ? 409 : 500 });
   }
 
   return NextResponse.json({
@@ -55,3 +61,5 @@ export async function POST(
     steps: resume.steps,
   });
 }
+
+export const POST = idempotent("agents.outreach.approve-proposal", postHandler);

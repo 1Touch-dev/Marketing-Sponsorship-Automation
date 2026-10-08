@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { resolveAppUrl } from "@/lib/url";
 import { encryptSecret } from "@/lib/security/secret-crypto";
+import { currentActor } from "@/lib/identity/current";
 
 export const runtime = "nodejs";
 
@@ -134,6 +135,7 @@ export async function GET(req: Request) {
   );
 
   await recordAudit({
+    actor: await currentActor(`Google account ${emailAddress}`),
     entity_type: "user",
     action: "gmail.connected",
     actor_email: emailAddress,

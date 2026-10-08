@@ -6,6 +6,7 @@ import { executionBriefSchema, normalizeExecutionBrief, validateAiOutput } from 
 import type { StrategyVariant } from "@/lib/ai/schemas";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 60;
 
@@ -131,7 +132,7 @@ Return JSON:
     const updatedContent = { ...existingContent, execution_brief: result.data };
     await sb.from("proposals").update({ content: updatedContent }).eq("id", id);
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       entity_type: "proposal",
       entity_id: id,
       action: "execution_brief.generated",

@@ -18,6 +18,7 @@ import { generateImage, getPrediction, estimateCost, JERSEY_TRIGGER_WORD } from 
 import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 120;
 
@@ -105,6 +106,7 @@ export async function POST(req: Request) {
     });
 
     await recordAudit({
+      actor: userActor(auth.user),
       action: "replicate.image_generated",
       entity_type: "image_generation_job",
       entity_id: predictionId,

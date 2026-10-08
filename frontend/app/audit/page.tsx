@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { getCurrentPlatformUser } from "@/lib/auth/server-permission";
+import { can } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,16 @@ export default async function AuditPage({
 }: {
   searchParams: { q?: string; entity_type?: string; action?: string };
 }) {
+  // The log names people and what they did: only roles with the view_audit permission may read it.
+  const viewer = await getCurrentPlatformUser();
+  if (!viewer || !can(viewer.role, "view_audit")) {
+    return (
+      <div className="p-6">
+        <PageHeader title="Audit log" description="Restricted" />
+        <EmptyState title="You do not have access to the audit log" description="Ask an administrator if you need it." />
+      </div>
+    );
+  }
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
   let query = sb

@@ -1,15 +1,21 @@
+import { checkDiscoveryGate, briefPromptBlock, linkBrief } from "@/lib/briefs/store";
+import { attachNewProposal } from "@/lib/opportunities/store";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { soldOutLines, type InventoryLike } from "@/lib/inventory/availability";
+import { userActor } from "@/lib/identity/actor";
+import { idempotent } from "@/lib/idempotency";
 
 export const maxDuration = 90;
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   const auth = await requirePermission("create_proposal");
   if ("error" in auth) return auth.error;
 
@@ -46,6 +52,33 @@ export async function POST(req: Request) {
     // Load company
     const { data: company } = await sb.from("companies").select("*").eq("id", body.company_id).eq("tenant_id", auth.user.tenant_id).maybeSingle();
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+
+    // Discovery gate: a person must have written down what the buyer wants before anything is generated.
+    const gate = await checkDiscoveryGate(sb, auth.user.tenant_id, company.id, company.company_name);
+    if (!gate.ok) return NextResponse.json({ error: gate.message, code: "discovery_brief_required", missing: gate.missing }, { status: 409 });
+
+    // Reject sold-out inventory before spending anything on generation
+    if (inventoryLines.length > 0) {
+      const { data: invRows } = await (sb as any)
+        .from("inventory_items")
+        .select("id, name, availability, total_quantity, quantity_sold, quantity_reserved")
+        .eq("tenant_id", auth.user.tenant_id)
+        .in("id", inventoryLines.map((l) => l.inventory_id));
+      const conflicts = soldOutLines(
+        inventoryLines,
+        new Map(((invRows ?? []) as Array<InventoryLike & { id: string }>).map((r) => [r.id, r])),
+      );
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Some selected inventory is no longer available: ${conflicts.map((c) => `${c.name} (${c.reason})`).join("; ")}`,
+            code: "inventory_unavailable",
+            conflicts,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     // Load company intelligence + differentiators
     const co = company as Record<string, unknown>;
@@ -145,6 +178,8 @@ export async function POST(req: Request) {
       campaign: campaign ? { title: campaign.title, summary: campaign.summary } : { title: `${company.company_name} × ${clubName} Partnership` },
       strategy_variant: strategyVariant,
       tenant,
+      verifiedClaims: await loadVerifiedClaimsBlock(sb, auth.user.tenant_id),
+      buyerBrief: gate.brief ? briefPromptBlock(gate.brief) : undefined,
     });
 
     const enhancedUser = user + componentContext + strategyContext + typeContext + briefContext + inventoryContext + diffContext + barterContext + nilContext + grantEsgContext + exhibitorContext;
@@ -195,6 +230,15 @@ export async function POST(req: Request) {
     const { data: proposal, error } = await sb.from("proposals").insert(proposalRow as never).select("id").single();
 
     if (error) throw new Error(error.message);
+    if (proposal?.id) await linkBrief(sb, auth.user.tenant_id, proposal.id, gate.briefId);
+
+    // Put the proposal under an opportunity of this company (a person's proposal opens one if needed).
+    if (proposal?.id) {
+      await attachNewProposal(sb, auth.user.tenant_id, body.company_id, proposal.id, {
+        proposalType: body.proposal_type,
+        actor: { kind: "human", email: auth.user.email, userId: auth.user.id },
+      });
+    }
 
     // Save individual inventory line items if selected
     if (inventoryLines.length > 0 && proposal?.id) {
@@ -220,7 +264,7 @@ export async function POST(req: Request) {
       status: "completed",
     } as never, { onConflict: "session_key" });
 
-    await recordAudit({
+    await recordAudit({ actor: userActor(auth.user),
       action: "proposal.wizard_generated",
       entity_type: "proposal",
       entity_id: proposal.id,
@@ -239,3 +283,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Generation failed" }, { status: 500 });
   }
 }
+
+export const POST = idempotent("proposals.wizard-generate", postHandler);

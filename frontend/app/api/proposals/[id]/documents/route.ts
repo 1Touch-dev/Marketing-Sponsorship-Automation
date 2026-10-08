@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import type { ProposalContent } from "@/types/database";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -80,7 +81,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   bundle.push(entry);
   await sb.from("proposals").update({ content: { ...content, document_bundle: bundle } }).eq("id", id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: id,
     action: "proposal.document_uploaded",
@@ -123,7 +124,7 @@ export async function DELETE(req: Request, ctx: { params: { id: string } }) {
   await (sb as any).storage.from("proposal-assets").remove([path]);
   await sb.from("proposals").update({ content: { ...content, document_bundle: remaining } }).eq("id", id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: id,
     action: "proposal.document_deleted",

@@ -1,3 +1,4 @@
+import { senderAuthorization } from "@/lib/contacts/store";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude } from "@/lib/bedrock/client";
 import { validateAiOutput, emailOutputSchema, type EmailOutput } from "@/lib/ai/schemas";
@@ -70,11 +71,12 @@ export function emailHasUnresolved(text: string): boolean {
   return hasUnresolvedVariables(text).length > 0;
 }
 
-export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> {
+export async function loadDefaultEmailTemplate(tenantId: string): Promise<EmailTemplate | null> {
   const sb = supabaseAdmin();
   const { data } = await sb
     .from("email_templates")
     .select("*")
+    .eq("tenant_id", tenantId)
     .eq("active", true)
     .eq("is_default", true)
     .limit(1)
@@ -84,6 +86,7 @@ export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> 
     const { data: fallback } = await sb
       .from("email_templates")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .order("created_at", { ascending: true })
       .limit(1)
@@ -101,6 +104,7 @@ export async function loadDefaultEmailTemplate(): Promise<EmailTemplate | null> 
  * Falls back gracefully if the flow_type column has not been migrated yet.
  */
 export async function loadEmailTemplateForFlow(
+  tenantId: string,
   flowType?: string | null,
   templateId?: string | null,
 ): Promise<EmailTemplate | null> {
@@ -111,6 +115,7 @@ export async function loadEmailTemplateForFlow(
       .from("email_templates")
       .select("*")
       .eq("id", templateId)
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .maybeSingle();
     if (data) return normalizeTemplate(data);
@@ -120,6 +125,7 @@ export async function loadEmailTemplateForFlow(
     const { data, error } = await sb
       .from("email_templates")
       .select("*")
+      .eq("tenant_id", tenantId)
       .eq("active", true)
       .eq("flow_type", flowType)
       .order("is_default", { ascending: false })
@@ -130,7 +136,7 @@ export async function loadEmailTemplateForFlow(
     if (!error && data) return normalizeTemplate(data);
   }
 
-  return loadDefaultEmailTemplate();
+  return loadDefaultEmailTemplate(tenantId);
 }
 
 function normalizeTemplate(row: Record<string, unknown> | null): EmailTemplate | null {
@@ -310,23 +316,33 @@ export function injectNewsletterFooter(html: string, recipientEmail: string, app
   return html + footer;
 }
 
-export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>) {
+/**
+ * The default sender for ONE tenant. It used to have no tenant filter, so an email for one club could
+ * be signed with another club's team member, and with several default senders configured the lookup
+ * quietly fell back to the generic name.
+ */
+export async function resolveDefaultSender(sb: ReturnType<typeof supabaseAdmin>, tenantId: string) {
   let senderName = "Departamento Comercial";
   let senderTitle = "";
+  let memberId: string | null = null;
   try {
     const { data: sender, error } = await sb
       .from("team_members")
-      .select("full_name, title")
+      .select("id, full_name, title")
+      .eq("tenant_id", tenantId)
       .eq("default_sender", true)
       .eq("active", true)
       .limit(1)
       .maybeSingle();
-    if (!error && sender) {
+    // An email is only signed as a named person while that person is an authorized sender;
+    // otherwise it goes out as the generic "Departamento Comercial".
+    if (!error && sender && (await senderAuthorization(sb, tenantId, sender.id as string)).authorized) {
       senderName = sender.full_name ?? senderName;
       senderTitle = sender.title ?? "";
+      memberId = sender.id as string;
     }
   } catch {
     /* non-fatal */
   }
-  return { senderName, senderTitle };
+  return { senderName, senderTitle, memberId };
 }

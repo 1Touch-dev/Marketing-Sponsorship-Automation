@@ -4,6 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { resolveAppUrl } from "@/lib/url";
 import { randomBytes } from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { userActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
   await sb.from("proposals").update({ share_token: token } as Record<string, unknown>).eq("id", proposal.id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.share_created",
@@ -78,7 +79,7 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
 
   await sb.from("proposals").update({ share_token: null } as Record<string, unknown>).eq("id", proposal.id);
 
-  await recordAudit({
+  await recordAudit({ actor: userActor(auth.user),
     entity_type: "proposal",
     entity_id: proposal.id,
     action: "proposal.share_revoked",

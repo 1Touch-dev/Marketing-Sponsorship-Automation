@@ -53,10 +53,12 @@ export interface PortalSession {
   companyId: string;
   email: string;
   expiresAt: number;
+  /** When this session was issued: access ended after this moment ends the session (portal_revocations). */
+  issuedAt: number;
 }
 
-export function createSessionToken(companyId: string, email: string): string {
-  const payload: PortalSession = { companyId, email, expiresAt: Date.now() + SESSION_TTL_MS };
+export function createSessionToken(companyId: string, email: string, now = Date.now()): string {
+  const payload: PortalSession = { companyId, email, expiresAt: now + SESSION_TTL_MS, issuedAt: now };
   const json = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${json}.${sign(json)}`;
 }
@@ -71,7 +73,8 @@ export function verifySessionToken(token: string | undefined): PortalSession | n
   try {
     const payload = JSON.parse(Buffer.from(json, "base64url").toString("utf-8")) as PortalSession;
     if (payload.expiresAt < Date.now()) return null;
-    return payload;
+    // sessions made before issue times were recorded count as issued at the start of time, so any later revocation ends them
+    return { ...payload, issuedAt: typeof payload.issuedAt === "number" ? payload.issuedAt : 0 };
   } catch {
     return null;
   }

@@ -83,15 +83,45 @@ export async function sendForSignature(args: SendForSignatureArgs): Promise<Send
   return { envelopeId: created.id, signingUrl };
 }
 
+/** One recipient's own progress, as the provider reports it. */
+export interface EnvelopeRecipient {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  readStatus: string;
+  signingStatus: string;
+  sendStatus: string;
+  signedAt: string | null;
+  signingOrder: number | null;
+  rejectionReason: string | null;
+}
+
 export interface EnvelopeStatus {
   status: "DRAFT" | "PENDING" | "COMPLETED" | "REJECTED" | "CANCELLED";
   completedAt: string | null;
+  recipients: EnvelopeRecipient[];
 }
 
 export async function getEnvelopeStatus(envelopeId: string): Promise<EnvelopeStatus> {
   const documenso = getClient();
   const envelope = await documenso.envelopes.get({ envelopeId });
-  return { status: envelope.status, completedAt: envelope.completedAt };
+  return {
+    status: envelope.status,
+    completedAt: envelope.completedAt,
+    recipients: (envelope.recipients ?? []).map((r) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      role: r.role,
+      readStatus: r.readStatus,
+      signingStatus: r.signingStatus,
+      sendStatus: r.sendStatus,
+      signedAt: r.signedAt,
+      signingOrder: r.signingOrder,
+      rejectionReason: r.rejectionReason,
+    })),
+  };
 }
 
 /** Downloads the final signed PDF (with signatures + audit trail burned in). */

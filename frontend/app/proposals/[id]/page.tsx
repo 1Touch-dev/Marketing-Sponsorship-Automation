@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId, getTenantById } from "@/lib/tenants/current";
+import { loadSponsorClaims } from "@/lib/claims/sponsor-claims";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
@@ -51,6 +52,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
     stadiumName: tenantRow?.club_facts.stadium_name,
     city: tenantRow?.club_facts.city,
     state: tenantRow?.club_facts.state,
+    claims: (await loadSponsorClaims(sb, tenantId)).claims,
   };
   const { data: proposal } = await sb
     .from("proposals")

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { userActor } from "@/lib/identity/actor";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     }).select("id").single();
 
     if (error) throw error;
-    await recordAudit({ action: "asset.created", entity_type: "image_job", entity_id: (data as Record<string,string>).id, metadata: { type: body.job_type } });
+    await recordAudit({ actor: userActor(auth.user), action: "asset.created", entity_type: "image_job", entity_id: (data as Record<string,string>).id, metadata: { type: body.job_type } });
 
     return NextResponse.json({ success: true, id: (data as Record<string,string>).id });
   } catch (err) {
@@ -85,7 +86,7 @@ export async function PATCH(req: Request) {
     if ("related_campaign_id" in body) updatePayload.campaign_id = body.related_campaign_id || null;
 
     await sb.from("image_generation_jobs" as "companies").update(updatePayload as unknown as Record<string,unknown>).eq("id", id as string).eq("tenant_id" as "id", auth.user.tenant_id);
-    await recordAudit({ action: `asset.${status ?? "updated"}`, entity_type: "image_job", entity_id: id as string, metadata: { status: status as string } });
+    await recordAudit({ actor: userActor(auth.user), action: `asset.${status ?? "updated"}`, entity_type: "image_job", entity_id: id as string, metadata: { status: status as string } });
 
     return NextResponse.json({ success: true });
   } catch (err) {

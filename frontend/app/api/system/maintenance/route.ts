@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { requireInternalAuth } from "@/lib/internal-auth";
+import { internalActor } from "@/lib/identity/actor";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
       .in("id", ids);
 
     await recordAudit({
+      actor: internalActor(req),
       entity_type: "system",
       entity_id: null,
       action: "system.maintenance",
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
       .in("id", ids);
 
     await recordAudit({
+      actor: internalActor(req),
       entity_type: "system",
       entity_id: null,
       action: "system.maintenance",
@@ -151,6 +154,7 @@ export async function POST(req: Request) {
     await sb.from("companies").update({ status: "closed" }).in("id", ids);
 
     await recordAudit({
+      actor: internalActor(req),
       entity_type: "system",
       entity_id: null,
       action: "system.maintenance",
