@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { verifySessionToken, PORTAL_COOKIE } from "@/lib/portal/session";
+import { PORTAL_COOKIE } from "@/lib/portal/session";
+import { resolvePortalSession } from "@/lib/portal/guard";
+import { portalProposals } from "@/lib/portal/data";
 import { getTenantById } from "@/lib/tenants/current";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import type { ProposalContent } from "@/types/database";
@@ -24,26 +26,16 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default async function PortalDashboardPage() {
-  const cookieStore = cookies();
-  const session = verifySessionToken(cookieStore.get(PORTAL_COOKIE)?.value);
-  if (!session) redirect("/portal/login");
-
   const sb = supabaseAdmin();
-  const { data: company } = await sb
-    .from("companies")
-    .select("id, company_name, logo_url, industry, tenant_id")
-    .eq("id", session.companyId)
-    .maybeSingle();
-
+  // The one guard for the sponsor portal: genuine cookie, sponsor still exists, still a contact there, access not ended.
+  const auth = await resolvePortalSession(sb, cookies().get(PORTAL_COOKIE)?.value);
+  if (!auth.ok) redirect("/portal/login");
+  const { ctx } = auth;
+  const { data: company } = await sb.from("companies").select("id, company_name, logo_url, industry").eq("id", ctx.companyId).eq("tenant_id", ctx.tenantId).maybeSingle();
   if (!company) redirect("/portal/login");
 
-  // White-label the sponsor's own dashboard — this is exactly the surface
-  // master_report.md §6.1 means by "each customer's sponsors see a branded
-  // portal under the customer's own brand, not the platform's." Portal
-  // sessions have no platform_users identity (magic-link cookie, not a
-  // Supabase session), so getCurrentTenant() can't be used here — resolve
-  // via the sponsor's own company.tenant_id instead.
-  const tenant = company.tenant_id ? await getTenantById(company.tenant_id) : null;
+  // White-label the sponsor's own dashboard under the club's brand, resolved from the sponsor's own company.
+  const tenant = await getTenantById(ctx.tenantId);
   const isCoritiba = !tenant || tenant.id === CORITIBA_TENANT_ID;
   const clubName = tenant?.club_facts.short_name ?? tenant?.club_facts.club_name ?? DEFAULT_CLUB_NAME;
   const crestUrl = isCoritiba ? DEFAULT_CREST : (tenant?.branding.crest_url ?? tenant?.branding.logo_url ?? null);
@@ -51,12 +43,9 @@ export default async function PortalDashboardPage() {
     ? tenant.branding.primary_color
     : DEFAULT_PRIMARY_HEX;
 
-  const { data: proposals } = await sb
-    .from("proposals")
-    .select("id, title, status, content, share_token, created_at, approved_at")
-    .eq("company_id", session.companyId)
-    .neq("status", "rejected")
-    .order("created_at", { ascending: false });
+  // Only proposals the club has approved or sent, already reduced to what a sponsor may read.
+  const shown = await portalProposals(sb, ctx);
+  const proposals = (shown.ok ? shown.value : []) as unknown as Array<{ id: string; title: string; status: string; content: ProposalContent; share_token: string | null; created_at: string }>;
 
   return (
     <div className="min-h-screen w-full bg-slate-50">

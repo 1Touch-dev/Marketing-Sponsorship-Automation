@@ -4,22 +4,26 @@ import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { externalActor } from "@/lib/identity/actor";
 import { recordAudit } from "@/lib/audit/log";
 import { logFingerprint } from "@/lib/identity/privacy";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { sharedProposalFor, validateLead } from "@/lib/proposals/share-access";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const body = await req.json();
+  const rl = checkRateLimit(`interest:${getClientIp(req)}`, { max: 5, windowMs: 60_000 });
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
+  const body = await req.json().catch(() => ({}));
   const sb = supabaseAdmin();
 
-  // Public, unauthenticated route (a sponsor viewing the share link) — there
-  // is no session to resolve a tenant from, so the tenant must come from the
-  // proposal itself, not resolveTenantId()'s session-based fallback (which
-  // would silently misattribute every submission to the Coritiba default).
-  const { data: proposal } = await sb
-    .from("proposals")
-    .select("tenant_id")
-    .eq("id", params.id)
-    .maybeSingle();
+  // Public, unauthenticated route (a sponsor viewing the share link). The share token is the credential, and it also
+  // tells us the tenant: the proposal's own, never a session's.
+  const shared = await sharedProposalFor(sb, params.id, typeof body.token === "string" ? body.token : null);
+  if (!shared) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+  const checked = validateLead(body);
+  if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
+  const lead = checked.lead;
+  // validated copies replace the raw body from here on
+  body.name = lead.name; body.email = lead.email; body.phone = lead.phone; body.company = lead.company; body.message = lead.message; body.lgpdConsent = true;
 
-  const tenantId = proposal?.tenant_id ?? CORITIBA_TENANT_ID;
+  const tenantId = shared.tenant_id ?? CORITIBA_TENANT_ID;
   const details = { contact_name: body.name, contact_email: body.email, contact_phone: body.phone, company: body.company, message: body.message, lgpd_consent: body.lgpdConsent };
   // A lead's details are personal data, so they are kept in a table they can be erased from, and the
   // permanent audit log holds only a reference. Before migration 0069 the table does not exist, and the

@@ -7,6 +7,7 @@ import { userActor } from "@/lib/identity/actor";
 import { settleUncertain } from "@/lib/actions/engine";
 import { supabaseRpc } from "@/lib/actions/broker";
 import { viewAction } from "@/lib/actions/queries";
+import { settleRunForAction } from "@/lib/agents/langgraph/outreach-runner";
 
 export const runtime = "nodejs";
 
@@ -28,5 +29,6 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
   const r = await settleUncertain(supabaseRpc(sb), ctx.params.id, { kind: "approver", id: auth.user.id, email: auth.user.email }, parsed.data.outcome, parsed.data.evidence);
   if (!r.ok) return NextResponse.json({ error: r.failure.message }, { status: 409 });
   await recordAudit({ actor: userActor(auth.user), entity_type: view.value.target_type, entity_id: view.value.target_id, action: "agent.action.accepted", metadata: { action_id: ctx.params.id, outcome: parsed.data.outcome, evidence: parsed.data.evidence } });
+  await settleRunForAction(sb, auth.user.tenant_id, ctx.params.id, parsed.data.outcome === "sent" ? "sent" : "failed").catch(() => undefined);
   return NextResponse.json({ state: parsed.data.outcome === "sent" ? "reconciled" : "failed" });
 }

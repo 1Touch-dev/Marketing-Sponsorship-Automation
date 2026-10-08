@@ -12,7 +12,7 @@ import { decideBatch, gateBatch, loadLimits, saveLimits } from "../../lib/batch/
 import { insertAudit, type AuditEntry } from "../../lib/audit/log";
 import { agentActor, userActor } from "../../lib/identity/actor";
 
-const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql", "0071_tombstones_full_undo.sql"];
+const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql", "0071_tombstones_full_undo.sql", "0072_langgraph_runtime.sql"];
 const T = "00000000-0000-0000-0000-000000000001";
 const CO = "aaaaaaaa-0000-4000-8000-00000000000a";
 const CO2 = "bbbbbbbb-0000-4000-8000-00000000000b";
@@ -23,7 +23,7 @@ const RUN = "dddddddd-0000-4000-8000-0000000000d1";
 const seed = `
   INSERT INTO public.platform_users (tenant_id, email, role, is_active) VALUES
     ('${T}', 'ana@club.com', 'admin', true), ('${T}', 'bia@club.com', 'approver', true), ('${T}', 'cid@club.com', 'sales_rep', true), ('${T}', 'dan@club.com', 'approver', false);
-  CREATE TABLE public.emails (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, recipient text, subject text, company_id uuid, proposal_id uuid, sender_member_id uuid, status text NOT NULL DEFAULT 'pending_approval');
+  CREATE TABLE public.emails (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, recipient text, subject text, body_text text, body_html text, company_id uuid, proposal_id uuid, sender_member_id uuid, status text NOT NULL DEFAULT 'pending_approval');
   INSERT INTO public.emails (id, tenant_id, recipient, subject, company_id) VALUES
     ('${EM1}', '${T}', 'buyer@sponsor.com', 'Proposta', '${CO}'), ('${EM2}', '${T}', 'other@sponsor.com', 'Outra', '${CO}');
   CREATE TABLE public.agent_runs (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, company_id uuid, created_by uuid, status text NOT NULL, result jsonb, updated_at timestamptz NOT NULL DEFAULT now());
@@ -95,7 +95,7 @@ test("a new agent does nothing until a version is promoted with evidence and it 
   const early = await assign(sb, T, "scout-agent", { scope_kind: "all_companies", allowed_effects: ["flag_pipeline"], max_cost_usd: 0.05, justification: "Daily pipeline sweep for the whole club" }, "ana@club.com");
   assert.ok(!early.ok && /no live version/.test(early.error));
   assert.equal(((await promoteVersion(sb, T, "scout-agent", 1, {}, { kind: "human", id: "ana@club.com" })) as any).status, 400);
-  assert.ok((await promoteVersion(sb, T, "scout-agent", 1, { reviewed_by: "ana@club.com", note: "Read the code" }, { kind: "human", id: "ana@club.com" })).ok);
+  assert.ok((await promoteVersion(sb, T, "scout-agent", 1, { gate_override: "Read the code and the prompt with Bia before release" }, { kind: "human", id: "ana@club.com" })).ok);
   assert.ok((await assign(sb, T, "scout-agent", { scope_kind: "all_companies", allowed_effects: ["flag_pipeline"], max_cost_usd: 0.05, justification: "Daily pipeline sweep for the whole club" }, "ana@club.com")).ok);
   assert.ok((await authorizeAgent(sb, T, "scout-agent", { effects: ["flag_pipeline"] })).ok);
   const wide = await assign(sb, T, "scout-agent", { scope_kind: "all_companies", allowed_effects: ["flag_pipeline"], max_cost_usd: 0.05 }, "ana@club.com");
@@ -373,4 +373,46 @@ test("installing with assign gives each agent a workspace-wide assignment that n
   assert.match(row.justification, /zed@third.com/);
   assert.equal(((await installStandardAgents(sb, T3, "", false)) as any).ok, false);
   assert.equal(((await installStandardAgents(sb, "00000000-0000-0000-0000-0000000000ff", "zed@third.com", false)) as any).ok, false);
+});
+
+// ── the email must still be the one that was approved ───────────────────────
+
+for (const [what, change] of [
+  ["its recipient", "UPDATE public.emails SET recipient = 'attacker@evil.example' WHERE id = $1"],
+  ["its subject", "UPDATE public.emails SET subject = 'Pay this invoice today' WHERE id = $1"],
+  ["its text", "UPDATE public.emails SET body_text = 'Send your bank details to this address.' WHERE id = $1"],
+] as const) {
+  test(`if ${what} is changed after the plan was made, nothing is sent and the approver is told`, async () => {
+    const { db, sb } = await world();
+    await db.query("UPDATE public.emails SET body_text = 'Olá, segue a proposta.' WHERE id = $1", [EM1]);
+    const id = ((await planEmailSend(sb, { tenantId: T, emailId: EM1, onBehalfOf: "cid@club.com", audit: audits().audit })) as any).actionId as string;
+    await db.query(change, [EM1]);
+    const calls = { v: 0 };
+    const out = await approveAndSend(sb, { tenantId: T, actionId: id, approver: user("bia@club.com", "approver"), send: sendOk(calls), audit: audits().audit });
+    assert.ok(!out.ok && out.state === "failed" && /changed after this plan was made/.test(out.error), JSON.stringify(out));
+    assert.equal(calls.v, 0, "the provider was never called");
+    assert.equal(await stateOf(db, id), "failed");
+  });
+}
+
+test("an email that has not changed since the plan is sent as approved", async () => {
+  const { db, sb } = await world();
+  await db.query("UPDATE public.emails SET body_text = 'Olá, segue a proposta.' WHERE id = $1", [EM1]);
+  const id = ((await planEmailSend(sb, { tenantId: T, emailId: EM1, onBehalfOf: "cid@club.com", audit: audits().audit })) as any).actionId as string;
+  const plan = (await viewAction(sb, T, id)) as any;
+  assert.match(plan.value.plan.inputs.content_fingerprint, /^[0-9a-f]{64}$/);
+  const calls = { v: 0 };
+  const out = await approveAndSend(sb, { tenantId: T, actionId: id, approver: user("bia@club.com", "approver"), send: sendOk(calls), audit: audits().audit });
+  assert.ok(out.ok && calls.v === 1);
+});
+
+test("a changed email can be planned again, as a new plan that a person reads again", async () => {
+  const { db, sb } = await world();
+  const first = ((await planEmailSend(sb, { tenantId: T, emailId: EM1, onBehalfOf: null, audit: audits().audit })) as any).actionId as string;
+  await db.query("UPDATE public.emails SET recipient = 'corrected@sponsor.com' WHERE id = $1", [EM1]);
+  await approveAndSend(sb, { tenantId: T, actionId: first, approver: user("bia@club.com", "approver"), send: sendOk({ v: 0 }), audit: audits().audit });
+  const second = await planEmailSend(sb, { tenantId: T, emailId: EM1, onBehalfOf: null, audit: audits().audit });
+  assert.ok(second.ok && (second as any).actionId !== first && second.state === "awaiting_approval");
+  const v = (await viewAction(sb, T, (second as any).actionId)) as any;
+  assert.equal(v.value.plan.inputs.recipient, "corrected@sponsor.com");
 });

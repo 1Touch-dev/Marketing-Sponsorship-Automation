@@ -24,7 +24,7 @@ export async function POST(_req: Request, ctx: { params: { id: string } }) {
   const authority = await authorizeAgent(supabaseAdmin(), auth.user.tenant_id, "negotiation-agent", { companyId: (em as { company_id: string | null }).company_id, effects: ["draft_email"] });
   if (!authority.ok) return NextResponse.json({ error: authority.error }, { status: authority.status });
 
-  const result = await runNegotiationAgent(ctx.params.id);
+  const result = await runNegotiationAgent(ctx.params.id, auth.user.tenant_id);
   if (!result.success) {
     return NextResponse.json({ error: result.error ?? "Negotiation agent failed" }, { status: 500 });
   }

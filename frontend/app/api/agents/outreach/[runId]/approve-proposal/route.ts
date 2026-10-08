@@ -42,7 +42,9 @@ async function postHandler(
   const resume = await resumeAgentAfterProposalApproval(ctx.params.runId);
 
   if (!resume.success) {
-    return NextResponse.json({ error: resume.error ?? "Failed to resume agent" }, { status: 500 });
+    // being second to answer, or answering the wrong question, is a conflict with the run's state, not a server fault
+    const conflict = resume.refused === true || /already carrying|already finished|already in progress|not waiting for|cancelled|ended on a refusal/i.test(resume.error ?? "");
+    return NextResponse.json({ error: resume.error ?? "Failed to resume agent" }, { status: conflict ? 409 : 500 });
   }
 
   return NextResponse.json({

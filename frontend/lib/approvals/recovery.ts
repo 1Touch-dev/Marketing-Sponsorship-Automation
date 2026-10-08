@@ -1,3 +1,5 @@
+import { cancelRun } from "../agents/langgraph/runtime";
+import { SupabaseCheckpointSaver } from "../agents/langgraph/postgres-saver";
 import type { WriteResult } from "../accounts/store";
 import { isMissingMigration } from "../proposals/revision-store";
 import { block, cancel, transition, type Who } from "../actions/engine";
@@ -112,7 +114,11 @@ export async function resolveBlock(sb: Sb, tenantId: string, blockId: string, in
     if (input.newReviewerEmail && !(u && u.is_active && ["admin", "approver"].includes(u.role))) return { ok: false, status: 409, error: `${input.newReviewerEmail} is not an active member who can approve this.` };
     if (!input.newReviewerEmail && !(await anyApprover(sb, tenantId))) return { ok: false, status: 409, error: "Nobody in the club can approve this right now." };
   }
-  if (input.action === "cancel") await sb.from("agent_runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", row.subject_id).eq("tenant_id", tenantId);
+  if (input.action === "cancel") {
+    await sb.from("agent_runs").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", row.subject_id).eq("tenant_id", tenantId);
+    // the run's graph stops with it: nothing can resume it later (a run with no graph has nothing to cancel)
+    await cancelRun(sb, { tenantId, threadId: SupabaseCheckpointSaver.threadId(tenantId, "outreach-agent", row.subject_id), by: actor.email, reason: input.note?.trim() || "Cancelled with its blocked approval." });
+  }
   const resolution = input.action === "reassign" ? "reassigned" : input.action === "cancel" ? "cancelled" : "dismissed";
   const upd = await sb.from("approval_blocks").update({ status: "resolved", resolved_at: new Date().toISOString(), resolved_by: actor.email, resolution, resolution_note: input.note ?? null }).eq("id", blockId).eq("status", "open");
   return upd.error ? { ok: false, status: 500, error: upd.error.message } : { ok: true, value: { id: blockId, resolution } };

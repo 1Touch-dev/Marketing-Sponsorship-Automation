@@ -8,7 +8,7 @@ import {
   type ActionState, type DriveDeps, type ExecOutcome, type Rpc, type Who,
 } from "../../lib/actions/engine";
 
-const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql"];
+const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql", "0071_tombstones_full_undo.sql", "0072_langgraph_runtime.sql"];
 const T = "00000000-0000-0000-0000-000000000001";
 const CO = "aaaaaaaa-0000-4000-8000-00000000000a";
 const EMAIL = "eeeeeeee-0000-4000-8000-0000000000e1";

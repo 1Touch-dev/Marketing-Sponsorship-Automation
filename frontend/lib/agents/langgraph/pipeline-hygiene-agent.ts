@@ -24,6 +24,7 @@
  */
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { runCheckpointed } from "@/lib/agents/langgraph/checkpointed";
 
 const TERMINAL_STAGES = new Set(["closed_won", "closed_lost"]);
 const WARNING_DAYS = 14;
@@ -55,7 +56,7 @@ async function scanPipeline(state: typeof HygieneState.State): Promise<Partial<t
   return { rawCompanies: data ?? [] };
 }
 
-function classifyIssues(state: typeof HygieneState.State): Partial<typeof HygieneState.State> {
+export function classifyIssues(state: typeof HygieneState.State): Partial<typeof HygieneState.State> {
   const now = Date.now();
   const stale: StaleCompany[] = [];
 
@@ -79,13 +80,17 @@ function classifyIssues(state: typeof HygieneState.State): Partial<typeof Hygien
   return { staleCompanies: stale };
 }
 
-const graph = new StateGraph(HygieneState)
-  .addNode("scan_pipeline", scanPipeline)
-  .addNode("classify_issues", classifyIssues)
-  .addEdge(START, "scan_pipeline")
-  .addEdge("scan_pipeline", "classify_issues")
-  .addEdge("classify_issues", END)
-  .compile();
+export const HYGIENE_GRAPH = "pipeline-hygiene-agent";
+
+export function buildHygieneGraph(checkpointer?: unknown) {
+  return new StateGraph(HygieneState)
+    .addNode("scan_pipeline", scanPipeline)
+    .addNode("classify_issues", classifyIssues)
+    .addEdge(START, "scan_pipeline")
+    .addEdge("scan_pipeline", "classify_issues")
+    .addEdge("classify_issues", END)
+    .compile(checkpointer ? { checkpointer: checkpointer as never } : undefined);
+}
 
 export interface PipelineHygieneReport {
   staleCompanies: StaleCompany[];
@@ -93,7 +98,7 @@ export interface PipelineHygieneReport {
 }
 
 export async function runPipelineHygieneAgent(tenantId: string): Promise<PipelineHygieneReport> {
-  const finalState = await graph.invoke({ tenantId } as typeof HygieneState.State);
+  const finalState = await runCheckpointed<typeof HygieneState.State>({ tenantId, graph: HYGIENE_GRAPH, build: buildHygieneGraph, initial: { tenantId } });
   return {
     staleCompanies: finalState.staleCompanies,
     generatedAt: new Date().toISOString(),

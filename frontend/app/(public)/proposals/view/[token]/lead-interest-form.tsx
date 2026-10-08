@@ -5,11 +5,13 @@ import { getOrCreateVisitorKey } from "./visitor-key";
 
 interface LeadInterestFormProps {
   proposalId: string;
+  /** The proposal's share token: the credential this public form acts with. */
+  token: string;
   companyName?: string;
   clubName?: string;
 }
 
-export function LeadInterestForm({ proposalId, companyName = "", clubName = "o clube" }: LeadInterestFormProps) {
+export function LeadInterestForm({ proposalId, token, companyName = "", clubName = "o clube" }: LeadInterestFormProps) {
   const [name, setName] = useState("");
   const [company, setCompany] = useState(companyName);
   const [email, setEmail] = useState("");
@@ -31,7 +33,7 @@ export function LeadInterestForm({ proposalId, companyName = "", clubName = "o c
       const res = await fetch(`/api/proposals/${proposalId}/interest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, company, email, phone, message, lgpdConsent, visitor_key: getOrCreateVisitorKey() }),
+        body: JSON.stringify({ token, name, company, email, phone, message, lgpdConsent, visitor_key: getOrCreateVisitorKey() }),
       });
       if (!res.ok) throw new Error("Erro ao enviar");
       setStatus("success");

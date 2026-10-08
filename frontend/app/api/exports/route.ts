@@ -18,6 +18,10 @@ export async function POST(req: Request) {
       metadata?: Record<string, unknown>;
     };
 
+    // Staff screens only (the middleware requires a session). The type becomes part of an audit action name and the
+    // audit log is permanent, so it must be one of the known types, not text.
+    if (!["pdf_executive", "pdf_print", "share_link", "presentation", "preview"].includes(export_type)) return NextResponse.json({ error: "Unknown export type" }, { status: 400 });
+    if (typeof proposal_id !== "string" || !/^[0-9a-f-]{36}$/i.test(proposal_id)) return NextResponse.json({ error: "proposal_id required" }, { status: 400 });
     const tenantId = await resolveTenantId();
     const sb = supabaseAdmin();
 
@@ -27,7 +31,7 @@ export async function POST(req: Request) {
       action: `proposal.export_${export_type}`,
       entity_type: "proposal",
       entity_id: proposal_id,
-      metadata: { export_type, company_id, ...metadata },
+      metadata: { export_type, company_id: typeof company_id === "string" ? company_id.slice(0, 40) : null, via: typeof metadata?.via === "string" ? metadata.via.slice(0, 40) : null },
     });
 
     // Increment view/export count on proposal

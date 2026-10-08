@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { freshDb, refusal } from "./harness";
 
-const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql"];
+const MIG = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql", "0071_tombstones_full_undo.sql", "0072_langgraph_runtime.sql"];
 const T = "00000000-0000-0000-0000-000000000001";
 const T2 = "00000000-0000-0000-0000-000000000002";
 const CO_A = "aaaaaaaa-0000-4000-8000-00000000000a";
@@ -113,9 +113,9 @@ test("a new version goes live with evidence and retires the one it replaces; ass
   const def = (await val(db, "SELECT id FROM public.agent_definitions WHERE key = 'renewal-agent'")).id;
   const v2 = (await val(db, "INSERT INTO public.agent_versions (tenant_id, definition_id, version, effects, tools, max_cost_usd, created_by) VALUES ($1, $2, 2, ARRAY['draft_renewal'], ARRAY['draft_renewal'], 0.4, 'ana') RETURNING id", [T, def])).id;
   assert.match(await refusal(db, "INSERT INTO public.agent_version_events (tenant_id, version_id, event_type, evidence, actor_kind, actor_id) VALUES ($1, $2, 'promoted', '{\"x\":1}', 'human', 'ana')", [T, v2]), /another version is live/);
-  assert.match(await refusal(db, "SELECT public.agent_version_promote($1, 'human', 'ana@club.com', '{}'::jsonb)", [v2]), /violates check/, "no evidence, no promotion");
+  assert.match(await refusal(db, "SELECT public.agent_version_promote($1, 'human', 'ana@club.com', '{}'::jsonb)", [v2]), /GATE|violates check/, "no evidence, no promotion");
   const v1 = (await val(db, "SELECT public.agent_active_version($1) AS v", [def])).v;
-  await db.query("SELECT public.agent_version_promote($1, 'human', 'ana@club.com', $2::jsonb)", [v2, JSON.stringify({ eval_run: "2026-10-08", passed: true })]);
+  await db.query("SELECT public.agent_version_promote($1, 'human', 'ana@club.com', $2::jsonb)", [v2, JSON.stringify({ gate_override: "Reviewed the changes with the team before release" })]);
   assert.equal((await val(db, "SELECT public.agent_active_version($1) AS v", [def])).v, v2);
   assert.notEqual(v1, v2);
   assert.match(await refusal(db, "SELECT public.agent_version_promote($1, 'human', 'ana@club.com', '{\"a\":1}'::jsonb)", [v2]), /already live/);
@@ -285,7 +285,7 @@ test("revoking the assignment, or replacing the version, after approval stops th
     if (mode === "revoke") await db.query("UPDATE public.agent_assignments SET revoked_at = now(), revoked_by = 'ana', revoke_reason = 'Stop this agent now' WHERE definition_id = $1", [def]);
     else {
       const v2 = (await val(db, "INSERT INTO public.agent_versions (tenant_id, definition_id, version, effects, max_cost_usd, created_by) VALUES ($1, $2, 2, ARRAY['draft_email', 'send_email'], 0.8, 'ana') RETURNING id", [T, def])).id;
-      await db.query("SELECT public.agent_version_promote($1, 'human', 'ana@club.com', '{\"reviewed\":true}'::jsonb)", [v2]);
+      await db.query("SELECT public.agent_version_promote($1, 'human', 'ana@club.com', '{\"gate_override\":\"Reviewed the changes with the team before release\"}'::jsonb)", [v2]);
     }
     assert.match(await refusal(db, "SELECT public.agent_action_transition($1, 'executing', 'service', 's', NULL, $2::jsonb)", [id, JSON.stringify({ payload_hash: await hashOf(db, id) })]), /REVOKED/, mode);
     assert.equal(await state(db, id), "authorized");

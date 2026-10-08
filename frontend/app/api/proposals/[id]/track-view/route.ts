@@ -6,6 +6,8 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import { externalActor } from "@/lib/identity/actor";
 import { recordAudit } from "@/lib/audit/log";
 import { logFingerprint } from "@/lib/identity/privacy";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { sharedProposalFor } from "@/lib/proposals/share-access";
 
 /**
  * POST /api/proposals/[id]/track-view
@@ -22,6 +24,9 @@ import { logFingerprint } from "@/lib/identity/privacy";
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const sb = supabaseAdmin();
+  // Anyone can call this, and each call writes to a permanent log: slow a flood down.
+  const rl = checkRateLimit(`track-view:${getClientIp(req)}:${params.id}`, { max: 30, windowMs: 60_000 });
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 });
 
   let body: {
     view_id?: string;
@@ -43,7 +48,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         max_scroll_pct:
           typeof body.max_scroll_pct === "number" ? Math.max(0, Math.min(100, Math.round(body.max_scroll_pct))) : null,
       } as never)
-      .eq("id", body.view_id);
+      .eq("id", body.view_id)
+      // only a view of THIS proposal can be updated through it
+      .eq("proposal_id" as "id", params.id as unknown as string);
     return NextResponse.json({ ok: true });
   }
 
@@ -52,14 +59,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const variant = searchParams.get("variant") ?? "A";
   const visitorKey = searchParams.get("visitor_key") || null;
 
-  // Public, unauthenticated route (a sponsor viewing the share link) — no
-  // session to resolve a tenant from, so look it up from the proposal itself.
-  const { data: proposalTenant } = await sb
-    .from("proposals")
-    .select("tenant_id")
-    .eq("id", params.id)
-    .maybeSingle();
-  const tenantId = proposalTenant?.tenant_id ?? CORITIBA_TENANT_ID;
+  // Public, unauthenticated route (a sponsor viewing the share link): the share token is the credential. A view with a
+  // wrong or missing token is quietly ignored, so a guessed proposal id writes nothing to the log or the CRM.
+  const shared = await sharedProposalFor(sb, params.id, token);
+  if (!shared) return NextResponse.json({ ok: true, view_id: null });
+  const tenantId = shared.tenant_id ?? CORITIBA_TENANT_ID;
 
   // The share token works as a password for the proposal, so the log keeps a fingerprint of it, not the token.
   await recordAudit({

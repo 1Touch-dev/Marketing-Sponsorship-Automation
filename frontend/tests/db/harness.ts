@@ -4,6 +4,9 @@ import { PGlite } from "@electric-sql/pglite";
 
 const root = path.resolve(__dirname, "../../..");
 
+/** Every migration the platform depends on, in order: what production has. Tests of a later migration build on all of them. */
+export const ALL_MIGRATIONS = ["0069_identity_tombstones_idempotency.sql", "0070_agent_governance.sql", "0071_tombstones_full_undo.sql", "0072_langgraph_runtime.sql"];
+
 /** A fresh in-memory Postgres with the stand-in base schema, plus the named migrations from supabase/migrations applied in order. */
 export async function freshDb(migrations: string[] = [], opts: { seed?: string } = {}): Promise<PGlite> {
   const db = new PGlite();

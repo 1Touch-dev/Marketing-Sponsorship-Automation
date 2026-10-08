@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import type { WriteResult } from "../accounts/store";
 import { checkSend } from "../contacts/store";
 import { loadDelivery } from "../messaging/store";
@@ -17,14 +18,34 @@ export const supabaseRpc = (sb: Sb): Rpc => async (fn, args) => {
   return { data, error: error ? { message: error.message } : null };
 };
 
-interface EmailRow { id: string; tenant_id: string; recipient: string; subject: string | null; company_id: string | null; proposal_id: string | null; sender_member_id: string | null; status: string }
+interface EmailRow { id: string; tenant_id: string; recipient: string; subject: string | null; company_id: string | null; proposal_id: string | null; sender_member_id: string | null; status: string; body_text?: string | null; body_html?: string | null }
 
-/** The checks that must hold both when the plan is made and again just before it runs. */
-export async function emailSendGates(sb: Sb, emailId: string): Promise<GateResult> {
-  const { data: row } = await sb.from("emails").select("id, tenant_id, recipient, subject, company_id, proposal_id, sender_member_id, status").eq("id", emailId).maybeSingle();
+const EMAIL_COLUMNS = "id, tenant_id, recipient, subject, company_id, proposal_id, sender_member_id, status, body_text, body_html";
+
+/** What the approver is approving, as one fingerprint: who it goes to, the subject and the exact text. */
+export function emailFingerprint(e: Pick<EmailRow, "recipient" | "subject" | "body_text" | "body_html">): string {
+  return createHash("sha256").update(JSON.stringify([e.recipient?.trim().toLowerCase() ?? "", e.subject ?? "", e.body_text ?? "", e.body_html ?? ""])).digest("hex");
+}
+
+/**
+ * The checks that must hold both when the plan is made and again just before it runs. Given the plan that was approved,
+ * the email must still be exactly that email: a recipient, subject or text changed after approval is refused.
+ */
+export async function emailSendGates(sb: Sb, emailId: string, approved?: { inputs?: Record<string, unknown> } | null): Promise<GateResult> {
+  const { data: row } = await sb.from("emails").select(EMAIL_COLUMNS).eq("id", emailId).maybeSingle();
   if (!row) return { ok: false, gates: { email: "missing" }, reason: "Email not found" };
   const email = row as EmailRow;
   if (email.status === "sent") return { ok: false, gates: { email: "already sent" }, reason: "This email was already sent" };
+  if (approved?.inputs) {
+    const was = approved.inputs;
+    const recipientChanged = typeof was.recipient === "string" && was.recipient.trim().toLowerCase() !== email.recipient.trim().toLowerCase();
+    const subjectChanged = "subject" in was && (was.subject ?? null) !== (email.subject ?? null);
+    const textChanged = typeof was.content_fingerprint === "string" && was.content_fingerprint !== emailFingerprint(email);
+    if (recipientChanged || subjectChanged || textChanged) {
+      const what = recipientChanged ? "its recipient" : subjectChanged ? "its subject" : "its text";
+      return { ok: false, gates: { content: "changed after approval" }, reason: `The email was changed after this plan was made (${what}). What was approved is not what would be sent, so it was not sent. Make a new plan for the email as it is now.` };
+    }
+  }
   const pre = await loadDelivery(sb, null, emailId);
   if (pre && !pre.view.canSend && pre.view.state !== "crm_activity_recorded") return { ok: false, gates: { delivery: pre.view.state }, reason: `Not sending: ${pre.view.blockedReason}` };
   const standing = await checkSend(sb, email.tenant_id, email);
@@ -32,11 +53,11 @@ export async function emailSendGates(sb: Sb, emailId: string): Promise<GateResul
   return { ok: true, gates: { email: "exists, not sent", delivery: "sendable", do_not_contact: "clear", authorized_sender: "clear" } };
 }
 
-export function emailSendPlan(email: Pick<EmailRow, "id" | "recipient" | "subject" | "company_id">, maxCostUsd: number): PlanInput {
+export function emailSendPlan(email: Pick<EmailRow, "id" | "recipient" | "subject" | "company_id"> & Partial<Pick<EmailRow, "body_text" | "body_html">>, maxCostUsd: number): PlanInput {
   return {
     scope: { company_id: email.company_id, recipient: email.recipient },
     tools: ["send_email"],
-    inputs: { email_id: email.id, recipient: email.recipient, subject: email.subject },
+    inputs: { email_id: email.id, recipient: email.recipient, subject: email.subject, content_fingerprint: emailFingerprint({ recipient: email.recipient, subject: email.subject, body_text: email.body_text ?? null, body_html: email.body_html ?? null }) },
     // Truthful on purpose: the platform has no email provider connected yet, so this marks the email sent and logs it in the CRM.
     expected_effects: ["The email is marked as sent and an activity is logged in the CRM. The platform has no email provider connected, so the recipient is not emailed by it."],
     cost_ceiling_usd: Math.min(0.01, maxCostUsd),
@@ -63,7 +84,7 @@ export async function planEmailSend(sb: Sb, i: { tenantId: string; emailId: stri
   const audit = i.audit ?? recordAudit;
   const rpc = supabaseRpc(sb);
   const agentKey = i.agentKey ?? "outreach-agent";
-  const { data: row } = await sb.from("emails").select("id, tenant_id, recipient, subject, company_id, proposal_id, sender_member_id, status").eq("id", i.emailId).eq("tenant_id", i.tenantId).maybeSingle();
+  const { data: row } = await sb.from("emails").select(EMAIL_COLUMNS).eq("id", i.emailId).eq("tenant_id", i.tenantId).maybeSingle();
   if (!row) return { ok: false, status: 404, error: "Email not found" };
   const email = row as EmailRow;
 
@@ -147,7 +168,7 @@ export async function approveAndSend(sb: Sb, i: { tenantId: string; actionId: st
 
   let result: { success: boolean; data: Record<string, unknown>; summary: string } = { success: false, data: {}, summary: "" };
   const run = async () => { result = await i.send(); return toExecOutcome(result); };
-  const done = await execute(rpc, i.actionId, run, { recheck: () => emailSendGates(sb, view.target_id) });
+  const done = await execute(rpc, i.actionId, run, { recheck: () => emailSendGates(sb, view.target_id, view.plan as { inputs?: Record<string, unknown> }) });
   await audit({
     actor: governedActorFor(view.requested_by, view.on_behalf_of), tenant_id: i.tenantId, entity_type: "email", entity_id: view.target_id, action: `agent.action.${done.state}`,
     metadata: { action_id: i.actionId, called: done.called, message: done.message ?? null },

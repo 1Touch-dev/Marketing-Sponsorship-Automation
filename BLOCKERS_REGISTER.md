@@ -8,33 +8,32 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 195** (counted from the tables below; refresh after each task. The 8 Oct recount found the earlier figure was one too high: it was 164.)
+**Open items right now: 217** (counted from the tables below; refresh after each task. 195 before tasks 21, 22, 30, 31 and the LangGraph work; those added 23 and cleared 1.)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 87 |
-| James | 70 |
-| Yash | 27 |
+| Abhishek | 101 |
+| James | 73 |
+| Yash | 31 |
 | Yash / James | 7 |
 | James / the club | 3 |
 | James / Yash | 1 |
+| Abhishek / James | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 56 |
-| Tech debt | 33 |
-| Yash | 25 |
-| Test gap | 12 |
-| Account | 9 |
-| Known limit | 24 |
-| Deploy | 7 |
+| Decision | 60 |
+| Tech debt | 41 |
+| Known limit | 30 |
+| Yash | 27 |
+| Test gap | 14 |
 | Data | 10 |
-| Content | 6 |
+| Account | 9 |
+| Deploy | 7 |
 | Security | 7 |
+| Content | 6 |
 | Behaviour | 5 |
 | Removed | 1 |
-
-Use this to plan the final sweep: James and Yash items need their input, Abhishek items can be done in one pass.
 
 ---
 
@@ -386,7 +385,7 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 |---|---|---|---|---|---|
 | T28-01 | Test gap | Yash / James | **No real email provider (X-10).** 'Provider accepted' is today: the email is marked sent and logged to the CRM, and the recipient is not emailed by the platform. A send that is marked sent but whose CRM write fails is recorded as unknown, not as success. With no Pipedrive key on this box every live send ended there. The fully successful path is covered by the database tests, not by a live run. | Provide the provider and a Pipedrive key, then run one live send. | Open |
 | T28-02 | Tech debt | Abhishek | The sweeper that marks a stuck 'executing' action as unknown runs only when called (`/api/agent-actions/sweep`). | Schedule it (see T25-01). | Open |
-| T28-03 | **Decision** | Abhishek | **LangGraph.js is not wired in yet.** The durable state machine lives in Postgres and does not depend on any agent framework, as agreed. The existing agents still run on their current orchestrator; moving them onto LangGraph graphs that use this state is not done. | Decide whether to port the agents now or after Tasks 30 and 31. | Open |
+| T28-03 | **Decision** | Abhishek | **(Cleared 8 Oct: LangGraph.js is now wired; see the LangGraph section.)** ~~LangGraph.js is not wired in yet.~~ The durable state machine lives in Postgres and does not depend on any agent framework, as agreed. The existing agents still run on their current orchestrator; moving them onto LangGraph graphs that use this state is not done. | Decide whether to port the agents now or after Tasks 30 and 31. | Cleared |
 
 ---
 
@@ -400,6 +399,36 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 
 ---
 
+### LangGraph runtime, Tasks 21, 22, 30 and 31 (done 8 Oct, migration 0072)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| LG-01 | Tech debt | Abhishek | **No retention for saved run steps.** Every step stores the full state in `langgraph_checkpoints`/`langgraph_writes`; nothing is ever pruned. | Decide how long a finished run's steps are kept, then add a prune job. | Open |
+| LG-02 | Tech debt | Abhishek | The earlier orchestrator (`orchestrator-legacy.ts`, `resume-legacy.ts`) is kept as a fallback for when 0072 is not applied. | Remove it after 0072 has been live for a release. | Open |
+| LG-03 | Tech debt | Abhishek | The sweeper for stuck runs (`/api/agent-graphs/sweep`) runs only when called. | Schedule it with the other sweeps (T25-01, T28-02). | Open |
+| LG-04 | Known limit | Abhishek | A crash in the middle of a step is proven by the real-Postgres tests (a step that dies is redone, finished steps are not), and a new server process was shown reading and cancelling a run an older process left waiting. A process was not killed mid-model-call on the live system. | Run a kill-during-run drill when there is a staging box. | Open |
+| LG-05 | Known limit | Abhishek | A run that ends on a rule (for example "nobody qualified this account") is recorded as failed and cannot be carried on; start a new run once the cause is fixed. Only a crash can be carried on. | None needed; stated so nobody expects otherwise. | Open |
+| LG-06 | **Decision** | Abhishek / James | **The manual `/api/emails/[id]/send` route does not go through the action broker.** A person with `send_proposal` can approve an agent-drafted email or mark it sent without a send plan. Found 8 Oct; only the clear case is closed now (a *cancelled* plan refuses). | Decide whether agent-drafted emails must always use the plan, then make this route enforce it. | Open |
+| LG-07 | Known limit | Abhishek | Cancelling a run withdraws its send plan, but the draft email stays in `pending_approval` as a dead item. | Mark the draft rejected when its plan is withdrawn. | Open |
+| LG-08 | Tech debt | Abhishek | New tenants have no agents until `install-standard` is called; nothing calls it on onboarding. | Call it from tenant creation. | Open |
+| T21-01 | Yash | Yash | No sponsor-portal screens beyond the sign-in and a minimal dashboard, and no screen for staff to end a contact's access (`POST /api/portal-admin/revoke` exists). | Build to the routes. | Open |
+| T21-02 | **Decision** | James | **Ending access ends sessions issued before it.** A contact still on file can ask for a new link and get back in. Removing the contact stops that. | Decide whether revoking should also block new links. | Open |
+| T21-03 | Tech debt | Abhishek | One secret (`INTERNAL_API_SECRET`) signs magic links and portal sessions; there is no rotation plan. | Add a rotation plan. | Open |
+| T22-01 | **Decision** | Yash | **X-13: which task tool** (Pipedrive Projects, Plane, or none). Until chosen `TASK_SOURCE_SYSTEM=none` and nothing syncs. | Choose; then write the adapter (see `docs/TASK_SOURCE_HANDOVER_FOR_YASH.md`). | Open |
+| T22-02 | Yash | Yash | No inbox screen for what the outside tool reports (apply a completion, dismiss). Routes exist. | Build the screen. | Open |
+| T22-03 | Test gap | Yash | Only the in-memory adapter and the contract suite have run. A real adapter must pass the same suite against a sandbox project of the real tool. | Run `adapterContractCases` against it. | Open |
+| T22-04 | Tech debt | Abhishek | Push and pull are not scheduled; the first push sends every in-force deliverable. | Schedule them; decide backfill (all history or open items only). | Open |
+| T30-01 | **Decision** | James | **Budget and limits are mine.** US$15 per 30 days in total, US$4 per run. About US$0.45 buys a full negotiation evaluation. | Confirm or change `EVAL_TOTAL_BUDGET_USD` / `EVAL_RUN_BUDGET_USD`. | Open |
+| T30-02 | Known limit | Abhishek | **Two spend records.** The app's budget counts evaluations run through it (US$0.07 so far). Runs from the command line (`eval:local`, about US$6.64 of development spend) are in `.eval-spend.json` and the provider's bill, not in the app's budget. The real total is higher than the app shows. | Count command-line runs in the ledger, or stop using them. | Open |
+| T30-03 | Known limit | Abhishek | Model cases exist for negotiation, proposals, renewal and report only. Pipeline hygiene (plain code) has none, so it can only go live with a written override. A handful of cases per agent, not a statistical guarantee. | Add a fixture whenever production shows a new failure. | Open |
+| T30-04 | Tech debt | Abhishek | The evidence checker exists but is not wired into research: nothing fetches a cited page and checks the quote. | Wire it in when research is reworked. | Open |
+| T30-05 | Tech debt | Abhishek | The agent versions installed by `install-standard` went live as "standard catalog" without an evaluation. Only reporting-agent v2 (a scratch tenant) has a recorded run. | Evaluate each live version for the real club and accept baselines. | Open |
+| T30-06 | Known limit | Abhishek | Cost reference is tokens per case, not money; a model change that cuts tokens but raises price per token is not seen. Editing any prompt invalidates earlier evaluations. | None needed. | Open |
+| T31-01 | **Decision** | James | **Langfuse hosting and capture level.** Cloud at `redacted`, self-hosted, or off. Until decided leave it off or use `metadata`. | Decide; then set the keys. | Open |
+| T31-02 | Test gap | Abhishek | No Langfuse instance exists, so tracing was proven with a fake client (spans, generations, redaction, never throws), not against a live one. | Provision keys and look at one real trace. | Open |
+
+---
+
 ### Housekeeping found on 8 Oct
 
 | ID | Type | Owner | Blocker | What clears it | Status |
@@ -408,14 +437,10 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 
 ---
 
-## C. Anticipated for tasks not started (to be confirmed when we reach them)
+## C. Anticipated for tasks not started
 
-| Task | Likely blocker | Owner |
-|---|---|---|
-| 21 Portal enforcement | Needs Yash's portal shell to test against. | Yash |
-| 22 Task source of truth | Blocked on X-13. | Yash |
-| 30 Evaluation gates | Needs fixtures from real commercial edge cases and a budget. | Abhishek / James |
-| 31 Langfuse write-up | None. | Abhishek |
+All numbered tasks (1 to 31) are done; nothing is anticipated.
+
 
 ---
 
@@ -458,3 +483,4 @@ Use this to plan the final sweep: James and Yash items need their input, Abhishe
 | A bulk job with no limit on size or cost | 8 Oct (Task 29): refused before anything starts, and recorded; verified that nothing was spent |
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |
+| Found and fixed by the live tests on 8 Oct (tasks 21–31): unauthenticated `/api/exports`, `/api/system/health` and `/api/system/status`; internal cost (`execution_brief`) shown to sponsors; draft proposals visible in the portal; negotiation agent forwarding to a stranger's address and obeying planted orders; proposal agent repeating invented "verified" figures; report agent inventing a contact; an email changed after approval not being noticed; an approval flag left open after a legitimate transition; the portal returning database error text for a bad id; a cancelled run leaving its send plan approvable; a cancelled send plan reversible through the manual route | 8 Oct |

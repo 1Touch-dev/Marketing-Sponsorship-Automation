@@ -13,6 +13,7 @@ import { approveAndSend, planEmailSend } from "@/lib/actions/broker";
 import { emailForAuthUser } from "@/lib/identity/lookup";
 import type { ToolResult } from "@/lib/agents/tools";
 import { hasOpenBlock } from "@/lib/approvals/recovery";
+import { finishOutreachGraph } from "@/lib/agents/langgraph/outreach-runner";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -107,6 +108,9 @@ async function postHandler(
     } as unknown as Record<string, unknown>)
     .eq("id", ctx.params.runId)
     .eq("tenant_id", auth.user.tenant_id);
+
+  // The send plan was decided: let the run's graph finish (nothing happens for a run that never had one).
+  await finishOutreachGraph(ctx.params.runId, sendResult.success ? "sent" : "failed").catch(() => undefined);
 
   return NextResponse.json({
     success: sendResult.success,

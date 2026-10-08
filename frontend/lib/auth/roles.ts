@@ -92,6 +92,7 @@ const PERMISSIONS = {
   refresh_company_status: ["admin", "sales_rep"] as UserRole[],
   restore_records:   ["admin"] as UserRole[],
   manage_agents:     ["admin"] as UserRole[],
+  manage_portal_access: ["admin"] as UserRole[],
   manage_batch_limits: ["admin"] as UserRole[],
 
   // System

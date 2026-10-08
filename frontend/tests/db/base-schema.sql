@@ -6,9 +6,9 @@ CREATE ROLE service_role NOLOGIN;
 CREATE TYPE public.user_role AS ENUM ('admin', 'reviewer', 'viewer');
 CREATE FUNCTION public.current_app_role() RETURNS public.user_role AS $$ SELECT 'viewer'::public.user_role $$ LANGUAGE sql;
 
-CREATE TABLE public.tenants (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL DEFAULT 'T');
+CREATE TABLE public.tenants (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), slug text NOT NULL DEFAULT gen_random_uuid()::text, name text NOT NULL DEFAULT 'T');
 CREATE TABLE public.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
-CREATE TABLE public.platform_users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES public.tenants(id), email text NOT NULL, role text NOT NULL, is_active boolean NOT NULL DEFAULT true);
+CREATE TABLE public.platform_users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES public.tenants(id), email text NOT NULL, full_name text NOT NULL DEFAULT '', role text NOT NULL, is_active boolean NOT NULL DEFAULT true);
 CREATE TABLE public.companies (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES public.tenants(id), company_name text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE public.contacts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES public.tenants(id), company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE, full_name text);
 CREATE TABLE public.proposals (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES public.tenants(id), company_id uuid REFERENCES public.companies(id) ON DELETE CASCADE, title text);

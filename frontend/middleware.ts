@@ -1,91 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
-// Routes publicly accessible without auth
-const PUBLIC_ROUTES = new Set([
-  "/login",
-  "/api/auth/login",
-  "/api/auth/session",
-  "/api/health",        // public health check endpoint
-  // Niche go-to-market landing pages (master_report.md §6.1 "front doors",
-  // Phase 9) — public marketing pages, no session by definition.
-  "/sports-clubs",
-  "/nonprofits",
-  "/conferences",
-  "/chambers",
-  "/festivals",
-]);
-
-// Public path prefixes
-const PUBLIC_PREFIXES = [
-  "/proposals/view/",  // public proposal share links (no auth)
-  "/_next/",
-  "/favicon",
-  "/images/",
-  "/icons/",
-  "/mockups/",
-  "/demo-logos/",
-  "/brand/",           // club logo/crest assets — needed on public proposal share pages
-  "/api/internal/",   // secured by INTERNAL_API_SECRET instead of session
-  "/api/system/",     // health checks — secured at route level if needed
-  "/portal",          // sponsor self-serve portal — its own magic-link/
-                       // signed-cookie auth (lib/portal/session.ts), not
-                       // the internal Supabase session this middleware
-                       // otherwise enforces. Each /portal page and
-                       // /api/portal/* route checks its own cookie.
-  "/api/portal/",
-  "/api/documenso/webhook", // called by Documenso's own servers, no session
-  "/api/mcp/public",        // public read-only MCP server — own bearer-token auth (MCP_PUBLIC_API_KEY), not a session
-];
-
-// API endpoints called directly from the public proposal share page
-// (app/(public)/proposals/view/[token]) by an unauthenticated sponsor —
-// these were never actually exempted here despite the page itself being
-// public, so every call from a real external visitor silently 401'd
-// (the client-side fetches all .catch(() => {}), so nothing ever
-// surfaced). Found while live-testing Phase 5 engagement tracking.
-const PUBLIC_API_PATTERNS: RegExp[] = [
-  /^\/api\/proposals\/[^/]+\/track-view$/, // view/engagement tracking
-  /^\/api\/proposals\/[^/]+\/interest$/,   // "I'm interested" lead-capture form
-  /^\/api\/exports$/,                      // export/print tracking (also used by the authenticated view)
-  // Scheduler-pattern endpoints meant to run unattended via cron/n8n as well
-  // as from a human clicking a UI button — previously only reachable via a
-  // browser session, so no unattended trigger could ever actually reach
-  // them (found live-testing Phase 5, 2026-09-15). Secured at the route
-  // level instead via requirePermissionOrInternal() (session OR
-  // INTERNAL_API_SECRET), same split as /api/internal/*.
-  /^\/api\/proposals\/detect-cold$/,
-  /^\/api\/email-sequences\/advance$/,
-  /^\/api\/gmail\/sync-threads$/,
-  // Delivery and signature callbacks from an email provider / the e-signature
-  // provider: no session by definition. Each route checks its own credential
-  // (INTERNAL_API_SECRET, or a logged-in person for the few facts a person
-  // may record), and the signers route checks the session itself for reads.
-  /^\/api\/emails\/[^/]+\/events$/,
-  /^\/api\/contracts\/[^/]+\/signers$/,
-  // Access-gate passcode/NDA verification (Task 6) — called from the public
-  // gate form on /proposals/view/[token] by a real anonymous sponsor, who
-  // by definition has no admin session. Found live-testing 2026-09-17: this
-  // was never exempted, so every real visitor entering a passcode got
-  // middleware's generic {"error":"Unauthorized"} instead of the route's
-  // own "Senha incorreta."/success handling — the only reason it ever
-  // appeared to work was that it was tested from an already-logged-in
-  // admin browser tab, which carried a valid session cookie incidentally.
-  /^\/api\/proposals\/view\/[^/]+\/verify-gate$/,
-  // Lead-capture form on the public niche landing pages above — called by a
-  // real anonymous visitor, no session by definition.
-  /^\/api\/leads$/,
-];
+// Everything reachable without a staff session is declared, with the guard it relies on, in lib/auth/public-surface.ts
+// (and a test checks each one). Anything not listed there needs a staff session.
+import { isPublicPath } from "@/lib/auth/public-surface";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Skip auth for static assets and public paths
-  if (
-    PUBLIC_ROUTES.has(pathname) ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
-    PUBLIC_API_PATTERNS.some((r) => r.test(pathname))
-  ) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 

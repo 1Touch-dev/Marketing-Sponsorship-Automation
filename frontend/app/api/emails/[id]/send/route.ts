@@ -136,6 +136,21 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: "Email already sent" }, { status: 409 });
   }
 
+  // A plan to send this email that was cancelled (for example because the agent run that made it was) is a decision
+  // that was made. Approving or sending by hand must not quietly undo it: a new plan has to be made on purpose.
+  const { data: lastPlan } = await sb
+    .from("agent_actions")
+    .select("id, state")
+    .eq("tenant_id", auth.user.tenant_id)
+    .eq("effect", "send_email")
+    .eq("target_id", email.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if ((lastPlan as { state?: string } | null)?.state === "cancelled") {
+    return NextResponse.json({ error: "The plan to send this email was cancelled, so it cannot be approved or sent from here. Make a new send plan for it if it should still go out.", code: "plan_cancelled" }, { status: 409 });
+  }
+
   // Nothing is sent again when the recipient may already have the message: a
   // send whose outcome is unknown (a timeout after the provider may have
   // accepted it), one a person reported sending, or one a provider already

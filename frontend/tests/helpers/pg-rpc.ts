@@ -5,7 +5,7 @@ const TABLE_FUNCTIONS = new Set(["agent_assignment_for"]);
 
 /** Calls the database functions the way supabase-js rpc() does, against a real Postgres engine. */
 export function pgRpc(db: PGlite, hooks: { before?: (fn: string, args: Record<string, unknown>) => void | Promise<void> } = {}): Rpc {
-  return async (fn, args) => {
+  return async (fn, args = {}) => {
     try {
       await hooks.before?.(fn, args);
       const keys = Object.keys(args);
