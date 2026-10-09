@@ -4,6 +4,9 @@ import { personActor, serviceActor } from "@/lib/identity/actor";
 
 type Sb = any;
 
+/** Written onto the proposal when an edit no longer matches the approved revision. */
+export const APPROVAL_EXPIRED_REASON = "Terms changed after approval — re-approval required";
+
 export type ActivationGuard = { ok: true } | { ok: false; code: string; message: string };
 
 /**
@@ -48,7 +51,7 @@ export async function invalidateIfDrifted(
 
   await sb
     .from("proposals")
-    .update({ status: "under_review", status_reason: "Terms changed after approval — re-approval required" })
+    .update({ status: "under_review", status_reason: APPROVAL_EXPIRED_REASON })
     .eq("id", proposalId)
     .eq("tenant_id", tenantId);
 

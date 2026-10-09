@@ -29,6 +29,10 @@ import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
 import { VersionHistoryPanel } from "@/components/proposals/version-history-panel";
 import { ConvertToContractButton } from "@/components/proposals/convert-to-contract-button";
+import { checkProposalDrift } from "@/lib/proposals/revision-store";
+import { APPROVAL_EXPIRED_REASON } from "@/lib/proposals/approval-guard";
+import { COMMERCIAL_CONTENT_KEYS } from "@/lib/proposals/revisions";
+import { loadProof } from "@/lib/contracts/evidence-store";
 import { ProposalPackages } from "@/components/proposals/proposal-packages";
 import { ABTestPanel } from "./ab-test-panel";
 import type { ProposalContent } from "@/types/database";
@@ -119,6 +123,28 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
   const campaign = p.campaigns;
   const canSendOutreach = proposal.status === "approved";
 
+  const approvedRevisionId = (proposal as { approved_revision_id?: string | null }).approved_revision_id ?? null;
+  let approvedRevision: { revision_number: number; title: string | null; content: Record<string, unknown> } | null = null;
+  if (approvedRevisionId) {
+    const { data: revisionRow } = await sb
+      .from("proposal_revisions")
+      .select("revision_number, title, content")
+      .eq("id", approvedRevisionId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (revisionRow) {
+      approvedRevision = revisionRow as { revision_number: number; title: string | null; content: Record<string, unknown> };
+    }
+  }
+  const drift = await checkProposalDrift(sb, tenantId, proposal.id);
+  const approvalExpired = (drift.ok && drift.drift.drifted) || p.status_reason === APPROVAL_EXPIRED_REASON;
+  const revisionBadgeLabel =
+    approvedRevision && (proposal.status === "approved" || proposal.status === "sent")
+      ? `${proposal.status === "sent" ? "Sent" : "Approved"}, version ${approvedRevision.revision_number}`
+      : undefined;
+  const proof = linkedContract?.id ? await loadProof(sb, tenantId, linkedContract.id) : null;
+  const signatureLabel = proof?.proof.label ?? null;
+
   const hasIntelligenceLayer = !!(
     p.strategy_variants?.length ||
     p.pricing_tiers?.length ||
@@ -182,7 +208,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
                 <Edit3 className="h-3.5 w-3.5" /> Edit
               </Link>
             </Button>
-            <StatusBadge status={proposal.status} />
+            <StatusBadge status={proposal.status} label={revisionBadgeLabel} />
           </div>
         }
       />
@@ -248,7 +274,40 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
         </div>
       )}
 
-      {p.status_reason && proposal.status !== "revision_requested" && proposal.status !== "rejected" && (
+      {approvalExpired && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          <p>
+            This approval no longer applies.
+            {approvedRevision ? ` Version ${approvedRevision.revision_number} was approved.` : ""}
+            {" "}The text on this page is back in review.
+          </p>
+          {approvedRevision && (
+            <details className="mt-3">
+              <summary className="cursor-pointer font-medium">Open the approved wording</summary>
+              <div className="mt-3 space-y-3">
+                {approvedRevision.title && (
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-amber-800/80">Title</p>
+                    <p className="mt-1 whitespace-pre-wrap">{approvedRevision.title}</p>
+                  </div>
+                )}
+                {COMMERCIAL_CONTENT_KEYS.map((key) => {
+                  const text = commercialFieldText(approvedRevision?.content?.[key]);
+                  if (!text || (key === "title" && text === approvedRevision?.title)) return null;
+                  return (
+                    <div key={key}>
+                      <p className="text-xs font-medium uppercase tracking-wide text-amber-800/80">{COMMERCIAL_FIELD_LABELS[key]}</p>
+                      <p className="mt-1 whitespace-pre-wrap">{text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {p.status_reason && p.status_reason !== APPROVAL_EXPIRED_REASON && proposal.status !== "revision_requested" && proposal.status !== "rejected" && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
           Status reason: {p.status_reason}
         </div>
@@ -525,6 +584,9 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
           <ApprovalRoleGate>
             <ApprovalPanel proposalId={proposal.id} status={proposal.status} />
           </ApprovalRoleGate>
+          {signatureLabel && (
+            <p className="text-sm text-muted-foreground">Signature: {signatureLabel}</p>
+          )}
 
           {/* Execution brief — internal use only, not shown on landing page */}
           <Card>
@@ -551,7 +613,11 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             <Card>
               <CardHeader>
                 <CardTitle>Outreach</CardTitle>
-                <CardDescription>Approve the proposal to draft an outreach email.</CardDescription>
+                <CardDescription>
+                  {approvalExpired
+                    ? "The new revision has to be approved before anyone can send."
+                    : "Approve the proposal to draft an outreach email."}
+                </CardDescription>
               </CardHeader>
             </Card>
           )}
@@ -652,6 +718,29 @@ function renderSection(title: string, body?: string | null) {
       <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">{body}</p>
     </div>
   );
+}
+
+const COMMERCIAL_FIELD_LABELS: Record<(typeof COMMERCIAL_CONTENT_KEYS)[number], string> = {
+  title: "Title",
+  executive_summary: "Executive summary",
+  campaign_rationale: "Campaign rationale",
+  sponsorship_value: "Sponsorship value",
+  activation_plan: "Activation plan",
+  deliverables: "Deliverables",
+  investment_note: "Investment note",
+  cta: "Call to action",
+};
+
+function commercialFieldText(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    const parts = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    return parts.length > 0 ? parts.join("\n") : null;
+  }
+  return null;
 }
 
 type BarterTerms = {

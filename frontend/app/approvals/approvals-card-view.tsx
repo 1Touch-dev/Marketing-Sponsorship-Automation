@@ -16,6 +16,7 @@ export type ApprovalItem = {
   status: string;
   preview?: string;
   editUrl: string;
+  note?: string;
 };
 
 type EmailTemplate = {
@@ -523,6 +524,9 @@ export function ApprovalsCardView({ items }: Props) {
               </div>
 
               <CardTitle className="mt-3 text-lg leading-snug">{currentItem.title}</CardTitle>
+              {currentItem.note && (
+                <p className="text-sm text-amber-700 dark:text-amber-300">{currentItem.note}</p>
+              )}
 
               <div className="mt-3">
                 <HumanInTheLoopBadge compact />

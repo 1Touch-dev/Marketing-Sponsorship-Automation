@@ -11,6 +11,7 @@ import { ApprovalsViewToggle } from "./approvals-view-toggle";
 import { CampaignBulkList } from "./campaign-bulk-list";
 import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 import type { ApprovalItem } from "./approvals-card-view";
+import { APPROVAL_EXPIRED_REASON } from "@/lib/proposals/approval-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ type ApprovalProposal = {
   updated_at: string;
   company_id: string;
   content_md?: string | null;
+  status_reason?: string | null;
   companies: { company_name: string } | null;
 };
 
@@ -72,7 +74,7 @@ export default async function ApprovalsPage({
   ] = await Promise.all([
     sb
       .from("proposals")
-      .select("id, title, status, version, updated_at, company_id, content_md, companies(company_name)")
+      .select("id, title, status, version, updated_at, company_id, content_md, status_reason, companies(company_name)")
       .eq("tenant_id", tenantId)
       .in("status", ["under_review", "revision_requested", "draft", "approved"])
       .order("updated_at", { ascending: false })
@@ -164,6 +166,7 @@ export default async function ApprovalsPage({
         status: p.status,
         preview: p.content_md ? truncate(p.content_md.replace(/^#.*\n/gm, "").trim(), 200) : undefined,
         editUrl: `/proposals/${p.id}/edit`,
+        note: p.status_reason === APPROVAL_EXPIRED_REASON ? "Previous approval no longer applies" : undefined,
       });
     }
   }
@@ -240,6 +243,9 @@ export default async function ApprovalsPage({
                   <div className="text-xs text-muted-foreground">
                     {p.companies?.company_name ?? "—"} · v{p.version} · {formatDate(p.updated_at)}
                   </div>
+                  {p.status_reason === APPROVAL_EXPIRED_REASON && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">Previous approval no longer applies</p>
+                  )}
                 </div>
                 <StatusBadge status={p.status} />
               </Link>

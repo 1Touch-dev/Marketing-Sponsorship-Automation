@@ -162,7 +162,7 @@ export function ApprovalPanel({ proposalId, status }: { proposalId: string; stat
             : status === "under_review"
             ? "Approve, request revision, or reject."
             : status === "approved" || isSent
-            ? "Approved. Mark as Active/In Contract when the deal is signed."
+            ? "The wording is approved. Mark as Active / In Contract to start the contract."
             : "Review this proposal."}
         </CardDescription>
       </CardHeader>
