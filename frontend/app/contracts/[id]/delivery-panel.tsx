@@ -12,6 +12,7 @@ export type ObligationListRow = {
   timing: "overdue" | "due_soon" | "upcoming" | "done";
   proof: "attached" | "stated" | "none";
   actions: string[];
+  match_id: string | null;
 };
 
 type HistoryEvent = {
@@ -79,8 +80,67 @@ export function HandoffButton({ contractId }: { contractId: string }) {
   );
 }
 
+export function ProofPackButton({ contractId }: { contractId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function download() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/contracts/${contractId}/proof-pack`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(typeof body.error === "string" ? body.error : "The proof pack could not be downloaded.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const named = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "");
+      link.href = url;
+      link.download = named?.[1] ?? "proof-pack.zip";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("The proof pack could not be downloaded.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <button
+        type="button"
+        onClick={download}
+        disabled={busy}
+        className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+      >
+        {busy ? "Preparing proof pack…" : "Proof pack"}
+      </button>
+      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+    </span>
+  );
+}
+
 export function DeliveryBoard({ rows }: { rows: ObligationListRow[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [matches, setMatches] = useState<Array<{ id: string; opponent: string; match_date: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/matches?limit=200");
+        const body = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok && Array.isArray(body.data)) setMatches(body.data);
+      } catch {
+        // The due-date groups still show if the match list cannot be loaded.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -109,7 +169,14 @@ export function DeliveryBoard({ rows }: { rows: ObligationListRow[] }) {
                       <span>Proof: {row.proof}</span>
                     </span>
                   </button>
-                  {openId === row.id && <ObligationDetail obligationId={row.id} />}
+                  {openId === row.id && (
+                    <ObligationDetail
+                      obligationId={row.id}
+                      matchId={row.match_id}
+                      dueDate={row.due_date}
+                      matches={matches}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -120,13 +187,25 @@ export function DeliveryBoard({ rows }: { rows: ObligationListRow[] }) {
   );
 }
 
-function ObligationDetail({ obligationId }: { obligationId: string }) {
+function ObligationDetail({
+  obligationId,
+  matchId,
+  dueDate,
+  matches,
+}: {
+  obligationId: string;
+  matchId: string | null;
+  dueDate: string;
+  matches: Array<{ id: string; opponent: string; match_date: string }>;
+}) {
   const router = useRouter();
   const [detail, setDetail] = useState<{ actions: string[]; history: HistoryEvent[] } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState<"link" | "file" | "statement">("link");
   const [ref, setRef] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [chosenMatch, setChosenMatch] = useState(matchId ?? "");
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -161,17 +240,58 @@ function ObligationDetail({ obligationId }: { obligationId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obligationId]);
 
+  async function saveMatch(next: string) {
+    setChosenMatch(next);
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/obligations/${obligationId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ match_id: next || null }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setActionError(typeof body.error === "string" ? body.error : "The match could not be saved.");
+        setChosenMatch(matchId ?? "");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setActionError("The match could not be saved.");
+      setChosenMatch(matchId ?? "");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function post(action: string) {
     setBusy(true);
     setActionError(null);
-    const payload: Record<string, string> = { action };
-    if (action === "evidence") {
-      payload.evidence_kind = kind;
-      payload.evidence_ref = ref;
-    }
-    if ((action === "deliver" || action === "evidence" || action === "accept") && note.trim()) payload.note = note.trim();
-    if (action === "waive" || action === "reopen") payload.reason = reason.trim();
     try {
+      const payload: Record<string, string> = { action };
+      if (action === "evidence") {
+        payload.evidence_kind = kind;
+        if (kind === "file") {
+          if (!file) {
+            setActionError("Choose a file.");
+            return;
+          }
+          const form = new FormData();
+          form.set("file", file);
+          const uploaded = await fetch(`/api/obligations/${obligationId}/proof-files`, { method: "POST", body: form });
+          const saved = await uploaded.json().catch(() => ({}));
+          if (!uploaded.ok || typeof saved.id !== "string") {
+            setActionError(typeof saved.error === "string" ? saved.error : "The file could not be uploaded.");
+            return;
+          }
+          payload.evidence_ref = saved.id;
+        } else {
+          payload.evidence_ref = ref;
+        }
+      }
+      if ((action === "deliver" || action === "evidence" || action === "accept") && note.trim()) payload.note = note.trim();
+      if (action === "waive" || action === "reopen") payload.reason = reason.trim();
       const res = await fetch(`/api/obligations/${obligationId}/events`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -183,6 +303,7 @@ function ObligationDetail({ obligationId }: { obligationId: string }) {
         return;
       }
       setRef("");
+      setFile(null);
       setNote("");
       setReason("");
       await load();
@@ -231,6 +352,24 @@ function ObligationDetail({ obligationId }: { obligationId: string }) {
           event.preventDefault();
         }}
       >
+        <div className="space-y-2">
+          <label className="block text-xs font-medium" htmlFor={`${obligationId}-match`}>Match</label>
+          <select
+            id={`${obligationId}-match`}
+            value={chosenMatch}
+            disabled={busy}
+            onChange={(event) => { void saveMatch(event.target.value); }}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            <option value="">No match</option>
+            {matches.map((match) => (
+              <option key={match.id} value={match.id}>
+                {match.opponent} · {showDate(match.match_date)}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">The due date stays {showDate(dueDate)}.</p>
+        </div>
         {actions.has("deliver") && (
           <div className="space-y-2">
             <p className="text-sm">Record delivery. This is not proof, and it is not acceptance.</p>
@@ -259,20 +398,34 @@ function ObligationDetail({ obligationId }: { obligationId: string }) {
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             >
               <option value="link">Link</option>
-              <option value="file">File reference</option>
+              <option value="file">File</option>
               <option value="statement">Written statement</option>
             </select>
-            <label className="block text-xs font-medium" htmlFor={`${obligationId}-ref`}>
-              {kind === "statement" ? "Statement" : "Reference"}
-            </label>
-            <textarea
-              id={`${obligationId}-ref`}
-              value={ref}
-              onChange={(event) => setRef(event.target.value)}
-              rows={kind === "statement" ? 3 : 2}
-              placeholder={kind === "statement" ? "What was delivered, when, and how it was confirmed (20+ characters)." : "https://… — a reference, not an upload"}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            />
+            {kind === "file" ? (
+              <>
+                <label className="block text-xs font-medium" htmlFor={`${obligationId}-file`}>File</label>
+                <input
+                  id={`${obligationId}-file`}
+                  type="file"
+                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                  className="w-full text-sm"
+                />
+              </>
+            ) : (
+              <>
+                <label className="block text-xs font-medium" htmlFor={`${obligationId}-ref`}>
+                  {kind === "statement" ? "Statement" : "Web address"}
+                </label>
+                <textarea
+                  id={`${obligationId}-ref`}
+                  value={ref}
+                  onChange={(event) => setRef(event.target.value)}
+                  rows={kind === "statement" ? 3 : 2}
+                  placeholder={kind === "statement" ? "What was delivered, when, and how it was confirmed (20+ characters)." : "https://…"}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                />
+              </>
+            )}
             <button type="button" disabled={busy} onClick={() => post("evidence")} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">
               Save proof
             </button>

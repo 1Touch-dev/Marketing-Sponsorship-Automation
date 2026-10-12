@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,99 @@ function totalViews(r: MediaReach): number {
   return (r.official_views ?? 0) + (r.unofficial_fan_views ?? 0) + (r.rival_account_views ?? 0) + (r.media_tv_radio_views ?? 0);
 }
 
+type DueItem = {
+  id: string;
+  title: string;
+  due_date: string;
+  status: string;
+  contract_id: string;
+};
+
+type DueMatch = {
+  id: string;
+  opponent: string;
+  match_date: string;
+  competition: string | null;
+  home_away: string;
+} | null;
+
+type DueGroup = { match: DueMatch; obligations: DueItem[] };
+
+function dueDate(value: string) {
+  const day = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : value;
+}
+
+function DueItems({ items }: { items: DueItem[] }) {
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">Nothing is due around this match.</p>;
+  return (
+    <ul className="divide-y rounded-lg border bg-background">
+      {items.map((item) => (
+        <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+          <span className="font-medium">{item.title}</span>
+          <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+            <span>Due {dueDate(item.due_date)}</span>
+            <span className="capitalize">{item.status}</span>
+            <Link href={`/contracts/${item.contract_id}`} className="underline">Contract</Link>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DueAroundMatches({ onOpenMatch }: { onOpenMatch: (id: string) => void }) {
+  const [groups, setGroups] = useState<DueGroup[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/obligations?group_by=match");
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(typeof body.error === "string" ? body.error : "Couldn't load what is due around these matches.");
+          return;
+        }
+        setGroups(Array.isArray(body.groups) ? body.groups : []);
+      } catch {
+        if (!cancelled) setError("Couldn't load what is due around these matches.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Due around matches</h2>
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {groups && groups.length === 0 && <p className="text-sm text-muted-foreground">Nothing is due around these matches.</p>}
+      {groups?.map((group) => {
+        const heading = group.match
+          ? `${group.match.opponent} · ${dueDate(group.match.match_date)}${group.match.competition ? ` · ${group.match.competition}` : ""} · ${group.match.home_away}`
+          : "No match";
+        return (
+          <div key={group.match?.id ?? "none"} className="rounded-xl border bg-card">
+            <div className="flex items-center justify-between gap-2 px-4 py-3">
+              <h3 className="text-sm font-medium">{heading}</h3>
+              {group.match && (
+                <button type="button" className="text-xs underline" onClick={() => onOpenMatch(group.match!.id)}>
+                  Open this match
+                </button>
+              )}
+            </div>
+            <div className="border-t px-4 py-3">
+              <DueItems items={group.obligations} />
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 export function MatchesManager({
   initialMatches,
   migrationPending,
@@ -50,6 +144,10 @@ export function MatchesManager({
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [dueMatchId, setDueMatchId] = useState<string | null>(null);
+  const [dueItems, setDueItems] = useState<DueItem[] | null>(null);
+  const [dueError, setDueError] = useState<string | null>(null);
+  const [dueLoading, setDueLoading] = useState(false);
 
   const [matchDate, setMatchDate] = useState("");
   const [opponent, setOpponent] = useState("");
@@ -118,6 +216,32 @@ export function MatchesManager({
     setReachDraft((prev) => ({ ...prev, [id]: { ...(prev[id] ?? draftFor(matches.find((m) => m.id === id)!)), ...patch } as MediaReach }));
   }
 
+  async function openDue(id: string) {
+    if (dueMatchId === id) {
+      setDueMatchId(null);
+      setDueItems(null);
+      setDueError(null);
+      return;
+    }
+    setDueMatchId(id);
+    setDueLoading(true);
+    setDueError(null);
+    setDueItems(null);
+    try {
+      const res = await fetch(`/api/obligations?match_id=${id}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDueError(typeof body.error === "string" ? body.error : "Couldn't load what is due around this match.");
+        return;
+      }
+      setDueItems(Array.isArray(body.data) ? body.data : []);
+    } catch {
+      setDueError("Couldn't load what is due around this match.");
+    } finally {
+      setDueLoading(false);
+    }
+  }
+
   async function saveReach(id: string) {
     const draft = reachDraft[id];
     if (!draft) return;
@@ -155,6 +279,7 @@ export function MatchesManager({
 
   return (
     <div className="space-y-5">
+      <DueAroundMatches onOpenMatch={(id) => { void openDue(id); }} />
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {matches.length} match{matches.length === 1 ? "" : "es"} · click a match to edit its media reach
@@ -237,6 +362,16 @@ export function MatchesManager({
                     {totalViews(reach).toLocaleString("pt-BR")} views
                   </div>
                   <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openDue(m.id);
+                    }}
+                    className="text-xs underline"
+                  >
+                    What&apos;s due
+                  </button>
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteMatch(m.id);
@@ -250,6 +385,14 @@ export function MatchesManager({
                   {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
               </button>
+
+              {dueMatchId === m.id && (
+                <div className="border-t px-4 py-3">
+                  {dueLoading && <p className="text-sm text-muted-foreground">Loading what is due.</p>}
+                  {dueError && <p role="alert" className="text-sm text-red-600">{dueError}</p>}
+                  {dueItems && <DueItems items={dueItems} />}
+                </div>
+              )}
 
               {isOpen && (
                 <div className="border-t p-4 space-y-3 bg-muted/30">

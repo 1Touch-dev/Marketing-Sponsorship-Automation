@@ -24,6 +24,7 @@ import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
 import { CompanyDetailTabs } from "@/components/companies/company-detail-tabs";
+import { LogoArtworkPanel } from "./logo-artwork-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,8 @@ export default async function CompanyDetailPage({
           </div>
         }
       />
+
+      <LogoArtworkPanel companyId={company.id} />
 
       <CompanyDetailTabs
         overview={

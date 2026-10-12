@@ -10,6 +10,7 @@ import type { ProposalContent } from "@/types/database";
 import { UNFROZEN_SPONSOR_NOTICE } from "@/lib/proposals/frozen";
 import { ExternalLink } from "lucide-react";
 import { PortalShell } from "./portal-shell";
+import { PortalDeliveryList, type PortalDeliveryItem } from "./portal-delivery";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function PortalDashboardPage() {
   }>;
   const delivery = await portalDelivery(sb, ctx);
   const recaps = await portalRecaps(sb, ctx);
-  const deliveries = (delivery.ok ? delivery.value : []) as Array<{ id: string; title: string; due_date: string; status: string; proof: string }>;
+  const deliveries = (delivery.ok ? delivery.value : []) as unknown as PortalDeliveryItem[];
   const issued = (recaps.ok ? recaps.value : []) as Array<{ id: string; version: number; issued_at: string; open_items: number }>;
 
   return (
@@ -128,18 +129,7 @@ export default async function PortalDashboardPage() {
             Nenhuma entrega para {company.company_name} no momento.
           </p>
         )}
-        {delivery.ok && deliveries.map((item) => (
-          <div key={item.id} className="rounded-2xl bg-white border border-slate-200 p-5 sm:p-6">
-            <h3 className="text-base font-semibold text-slate-900">{item.title}</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              {item.due_date ? `Prazo ${item.due_date.slice(0, 10)}` : "Sem prazo"}
-              {" · "}
-              {item.status}
-              {" · "}
-              {item.proof === "attached" ? "Comprovação anexada" : item.proof === "stated" ? "Comprovação declarada" : "Comprovação pendente"}
-            </p>
-          </div>
-        ))}
+        {delivery.ok && deliveries.length > 0 && <PortalDeliveryList items={deliveries} />}
       </section>
 
       <section className="space-y-3">

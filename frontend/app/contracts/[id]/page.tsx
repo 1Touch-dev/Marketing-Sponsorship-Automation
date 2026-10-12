@@ -5,7 +5,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { listObligations } from "@/lib/obligations/store";
 import { PageHeader } from "@/components/shared/page-header";
 import { formatDate } from "@/lib/utils";
-import { DeliveryBoard, HandoffButton, type ObligationListRow } from "./delivery-panel";
+import { DeliveryBoard, HandoffButton, ProofPackButton, type ObligationListRow } from "./delivery-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +43,7 @@ export default async function ContractDeliveryPage({ params }: { params: { id: s
         timing: row.timing,
         proof: row.proof,
         actions: row.actions,
+        match_id: row.match_id ?? null,
       }))
     : [];
 
@@ -59,6 +60,7 @@ export default async function ContractDeliveryPage({ params }: { params: { id: s
             <Link href={`/contracts/${contract.id}/recap`} className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent">
               Recap
             </Link>
+            <ProofPackButton contractId={contract.id} />
           </div>
         }
       />
