@@ -73,9 +73,11 @@ test("changing the package ends it too, and the flag is cleared and recorded", a
   await w.db.query("UPDATE public.campaign_inventory_items SET unit_price = 9999 WHERE campaign_id = $1 AND name = 'LED'", [id]);
   const out = await expirePreapprovalIfChanged(w.sb, T1, id, "editor@club.com", w.audit);
   assert.equal(out.expired, true);
-  const row = (await w.db.query("SELECT is_preapproved, preapproved_at FROM public.campaigns WHERE id = $1", [id])).rows[0] as any;
+  const row = (await w.db.query("SELECT is_preapproved, preapproved_at, status, approved_revision_id FROM public.campaigns WHERE id = $1", [id])).rows[0] as any;
   assert.equal(row.is_preapproved, false);
   assert.equal(row.preapproved_at, null);
+  assert.equal(row.status, "draft");
+  assert.ok(row.approved_revision_id);
   assert.equal(w.audits.length, 1);
   assert.equal(w.audits[0].action, "campaign.preapproval_expired");
   assert.equal(w.audits[0].tenant_id, T1);
@@ -88,6 +90,7 @@ test("a re-save that changes nothing does not end it, and neither do whitespace 
   const w = await world();
   const id = await w.campaign();
   await w.preapprove(id);
+  await w.db.query("UPDATE public.campaigns SET status = 'approved' WHERE id = $1", [id]);
   // the inventory route replaces every row on each save: same package, new rows
   await w.db.query("DELETE FROM public.campaign_inventory_items WHERE campaign_id = $1", [id]);
   await w.db.query("INSERT INTO public.campaign_inventory_items (tenant_id, campaign_id, name, quantity, unit_price, sort_order) VALUES ($1, $2, 'Camisa', 1, 500, 0), ($1, $2, 'LED', 2, 1000, 1)", [T1, id]);
@@ -95,6 +98,22 @@ test("a re-save that changes nothing does not end it, and neither do whitespace 
   await w.db.query("UPDATE public.campaigns SET summary = '  Um conceito real  ', activation_brief = '{\"generated_at\": \"later\"}'::jsonb, raw_output = '{\"x\": 1}'::jsonb WHERE id = $1", [id]);
   assert.equal((await campaignApproval(w.sb, T1, id))?.state, "valid");
   assert.equal((await expirePreapprovalIfChanged(w.sb, T1, id, "x", w.audit)).expired, false);
+  const kept = (await w.db.query("SELECT status, is_preapproved FROM public.campaigns WHERE id = $1", [id])).rows[0] as any;
+  assert.equal(kept.status, "approved");
+  assert.equal(kept.is_preapproved, true);
+});
+
+test("a drifted campaign whose status is approved comes back as draft", async () => {
+  const w = await world();
+  const id = await w.campaign();
+  await w.preapprove(id);
+  await w.db.query("UPDATE public.campaigns SET status = 'approved', summary = 'Outro conceito' WHERE id = $1", [id]);
+  const out = await expirePreapprovalIfChanged(w.sb, T1, id, "editor@club.com", w.audit);
+  assert.equal(out.expired, true);
+  const row = (await w.db.query("SELECT is_preapproved, status, approved_revision_id FROM public.campaigns WHERE id = $1", [id])).rows[0] as any;
+  assert.equal(row.is_preapproved, false);
+  assert.equal(row.status, "draft");
+  assert.ok(row.approved_revision_id);
 });
 
 test("pre-approving again after a change records a new revision and applies to that one", async () => {

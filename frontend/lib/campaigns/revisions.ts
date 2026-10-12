@@ -69,6 +69,18 @@ export type CampaignApproval =
   // migration 0073 is not applied yet: behave exactly as before it
   | { state: "legacy"; valid: true; message: string };
 
+/** What the status badge may say. Pre-approval is a separate flag and must not turn a draft into Approved. */
+export function campaignStatusPresentation(
+  status: string,
+  bound: { matches: boolean; revision_number: number } | null,
+): { status: string; label?: string } {
+  if (bound?.matches && status === "approved") {
+    return { status, label: `Approved, version ${bound.revision_number}` };
+  }
+  if (bound && !bound.matches && status === "approved") return { status: "draft" };
+  return { status };
+}
+
 export const APPROVAL_MESSAGES = {
   not_preapproved: "Campaign is not pre-approved. Mark it as pre-approved before running the batch agent.",
   expired: "This campaign's wording or package changed after it was pre-approved, so the pre-approval no longer applies. Read it again and pre-approve it.",

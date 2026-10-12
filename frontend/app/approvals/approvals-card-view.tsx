@@ -17,6 +17,8 @@ export type ApprovalItem = {
   preview?: string;
   editUrl: string;
   note?: string;
+  /** Shown in place of the status title when the stored status and the checksum agree on a version. */
+  badgeLabel?: string;
 };
 
 type EmailTemplate = {
@@ -504,7 +506,7 @@ export function ApprovalsCardView({ items }: Props) {
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${typeBadgeColor[currentItem.type]}`}>
                     {typeLabel[currentItem.type]}
                   </span>
-                  <StatusBadge status={currentItem.status} />
+                  <StatusBadge status={currentItem.status} label={currentItem.badgeLabel} />
                   {reviewed.has(currentItem.id) && (
                     <Badge variant="success">Reviewed</Badge>
                   )}

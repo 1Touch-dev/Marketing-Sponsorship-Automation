@@ -7,7 +7,8 @@ import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
 import { PreapproveToggle } from "./preapprove-toggle";
-import { campaignApproval } from "@/lib/campaigns/revision-store";
+import { campaignApproval, loadBoundCampaignRevision } from "@/lib/campaigns/revision-store";
+import { CAMPAIGN_TEXT_KEYS, campaignStatusPresentation, type CampaignLine } from "@/lib/campaigns/revisions";
 import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
 import { ActivationBriefPanel } from "@/components/campaigns/activation-brief-panel";
 import { resolveJobImageUrl } from "@/lib/proposals/proposal-images";
@@ -31,6 +32,22 @@ const STRATEGY_KEYWORDS: Record<string, { label: string; color: string }> = {
   sustainability: { label: "Sustainability", color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
   product: { label: "Product-Led", color: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300" },
 };
+
+const CAMPAIGN_FIELD_LABELS: Record<(typeof CAMPAIGN_TEXT_KEYS)[number], string> = {
+  title: "Title",
+  summary: "Summary",
+  objective: "Objective",
+  cta: "Call to action",
+  description: "Description",
+  activation: "Activation",
+  strategy: "Strategy",
+};
+
+function frozenText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
 
 function detectTags(title: string, summary: string | null): string[] {
   const text = (title + " " + (summary ?? "")).toLowerCase();
@@ -57,6 +74,10 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
 
   // Whether the pre-approval still applies to what the campaign says and contains now (not just whether a flag is set).
   const approval = await campaignApproval(sb, tenantId, campaign.id);
+  // The bound revision stays after the flag is cleared, so a wording change can still be told from a manual revoke.
+  const bound = await loadBoundCampaignRevision(sb, tenantId, campaign.id);
+  const wordingChanged = bound != null && !bound.matches;
+  const statusView = campaignStatusPresentation(campaign.status, bound);
 
   const { data: campaignImagesRaw } = await sb
     .from("image_generation_jobs" as "companies")
@@ -88,7 +109,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </Link>
             <DuplicateCampaignButton campaignId={campaign.id} />
-            <StatusBadge status={campaign.status} />
+            <StatusBadge status={statusView.status} label={statusView.label} />
           </div>
         }
       />
@@ -99,7 +120,8 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           campaignId={campaign.id}
           isPreapproved={approval?.valid === true}
           preapprovedAt={campaign.preapproved_at ?? null}
-          notice={campaign.is_preapproved && approval && !approval.valid ? approval.message : null}
+          version={approval?.state === "valid" ? approval.revision_number : null}
+          notice={approval?.state === "unfrozen" ? approval.message : null}
         />
         {approval?.valid && (
           <Link
@@ -110,6 +132,41 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
           </Link>
         )}
       </div>
+
+      {wordingChanged && bound && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          <p>
+            This pre-approval no longer applies. Version {bound.revision_number} was pre-approved. The text on this page is no longer that version.
+          </p>
+          <details className="mt-3">
+            <summary className="cursor-pointer font-medium">Open the approved wording</summary>
+            <div className="mt-3 space-y-3">
+              {CAMPAIGN_TEXT_KEYS.map((key) => {
+                const text = frozenText(bound.content?.[key]);
+                if (!text) return null;
+                return (
+                  <div key={key}>
+                    <p className="text-xs font-medium uppercase tracking-wide text-amber-800/80">{CAMPAIGN_FIELD_LABELS[key]}</p>
+                    <p className="mt-1 whitespace-pre-wrap">{text}</p>
+                  </div>
+                );
+              })}
+              {bound.lines.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-amber-800/80">Package</p>
+                  <ul className="mt-1 space-y-1">
+                    {bound.lines.map((line: CampaignLine, index) => (
+                      <li key={`${line.name}-${index}`}>
+                        {line.name} · {line.quantity}{line.unit ? ` ${line.unit}` : ""} · unit price {line.unit_price}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
+        </div>
+      )}
 
       {/* Strategy tags */}
       {tags.length > 0 && (

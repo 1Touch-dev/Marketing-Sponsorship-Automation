@@ -13,6 +13,8 @@ export type CampaignBulkRow = {
   status: string;
   createdAt: string;
   companyName: string;
+  note?: string;
+  badgeLabel?: string;
 };
 
 export function CampaignBulkList({ campaigns }: { campaigns: CampaignBulkRow[] }) {
@@ -162,8 +164,11 @@ export function CampaignBulkList({ campaigns }: { campaigns: CampaignBulkRow[] }
                 <div className="text-xs text-muted-foreground">
                   {c.companyName} · {formatDate(c.createdAt)}
                 </div>
+                {c.note && (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">{c.note}</p>
+                )}
               </div>
-              <StatusBadge status={c.status} />
+              <StatusBadge status={c.status} label={c.badgeLabel} />
             </Link>
           </div>
           {errors[c.id] && (

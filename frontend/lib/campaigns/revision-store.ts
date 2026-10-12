@@ -3,7 +3,7 @@ import { recordAudit, type AuditEntry } from "../audit/log";
 import { serviceActor } from "../identity/actor";
 import {
   APPROVAL_MESSAGES, campaignChecksum, campaignContent, campaignLines, campaignTotal,
-  type CampaignApproval, type CampaignSnapshot,
+  type CampaignApproval, type CampaignLine, type CampaignSnapshot,
 } from "./revisions";
 
 type Sb = any;
@@ -68,16 +68,82 @@ export async function campaignApproval(sb: Sb, tenantId: string, campaignId: str
   return { state: "valid", valid: true, revision_number: r.revision_number, message: APPROVAL_MESSAGES.valid };
 }
 
+export type BoundCampaignRevision = {
+  revision_number: number;
+  matches: boolean;
+  content: Record<string, unknown>;
+  lines: CampaignLine[];
+};
+
+/**
+ * The revision the campaign was bound to, compared with the words and package now.
+ * This still answers after the pre-approval flag is cleared. A manual revoke keeps the checksum the same, so matches stays true.
+ */
+export async function loadBoundCampaignRevisions(sb: Sb, tenantId: string, campaignIds: string[]): Promise<Map<string, BoundCampaignRevision>> {
+  const out = new Map<string, BoundCampaignRevision>();
+  if (campaignIds.length === 0) return out;
+  const { data: rows, error } = await sb.from("campaigns")
+    .select("id, title, summary, objective, cta, description, activation, strategy, approved_revision_id")
+    .in("id", campaignIds)
+    .eq("tenant_id", tenantId);
+  if (error || !rows) return out;
+  const withRev = (rows as Array<Record<string, unknown>>).filter((r) => r.approved_revision_id);
+  if (withRev.length === 0) return out;
+  const ids = withRev.map((r) => r.id as string);
+  const revIds = withRev.map((r) => r.approved_revision_id as string);
+  const { data: items } = await sb.from("campaign_inventory_items")
+    .select("campaign_id, inventory_id, name, category, inventory_type, quantity, unit, unit_price, notes, included")
+    .in("campaign_id", ids)
+    .eq("tenant_id", tenantId);
+  const { data: revs, error: revErr } = await sb.from("campaign_revisions")
+    .select("id, campaign_id, revision_number, checksum, content, lines")
+    .in("id", revIds)
+    .eq("tenant_id", tenantId);
+  if (revErr || !revs) return out;
+  const itemsByCampaign = new Map<string, Array<Record<string, unknown>>>();
+  for (const item of (items ?? []) as Array<Record<string, unknown>>) {
+    const cid = String(item.campaign_id);
+    const list = itemsByCampaign.get(cid) ?? [];
+    list.push(item);
+    itemsByCampaign.set(cid, list);
+  }
+  const revById = new Map<string, { id: string; campaign_id: string; revision_number: number; checksum: string; content: Record<string, unknown>; lines: unknown }>();
+  for (const rev of revs as Array<{ id: string; campaign_id: string; revision_number: number; checksum: string; content: Record<string, unknown>; lines: unknown }>) {
+    revById.set(rev.id, rev);
+  }
+  for (const row of withRev) {
+    const rev = revById.get(row.approved_revision_id as string);
+    if (!rev || rev.campaign_id !== row.id) continue;
+    const snap = { content: campaignContent(row), lines: campaignLines(itemsByCampaign.get(row.id as string) ?? []) };
+    out.set(row.id as string, {
+      revision_number: rev.revision_number,
+      matches: rev.checksum === campaignChecksum(snap),
+      content: rev.content ?? {},
+      lines: Array.isArray(rev.lines) ? rev.lines as CampaignLine[] : [],
+    });
+  }
+  return out;
+}
+
+export async function loadBoundCampaignRevision(sb: Sb, tenantId: string, campaignId: string): Promise<BoundCampaignRevision | null> {
+  const found = await loadBoundCampaignRevisions(sb, tenantId, [campaignId]);
+  return found.get(campaignId) ?? null;
+}
+
 /**
  * Called after anything that can change a campaign's words or package. If the campaign was pre-approved and no longer
  * matches what was approved, the pre-approval is cleared, so the screen shows it off and the next batch is refused.
  * The check at run time makes the same decision without this; clearing the flag is so people can see it.
+ * An approved campaign comes back as draft, which is what the Approvals queue loads. The bound revision stays.
  */
 export async function expirePreapprovalIfChanged(sb: Sb, tenantId: string, campaignId: string, by: string | null, audit: (e: AuditEntry) => Promise<unknown> = recordAudit): Promise<{ expired: boolean }> {
   const approval = await campaignApproval(sb, tenantId, campaignId);
   if (!approval || approval.state !== "expired") return { expired: false };
+  const { data: current } = await sb.from("campaigns").select("status").eq("id", campaignId).eq("tenant_id", tenantId).maybeSingle();
+  const patch: Record<string, unknown> = { is_preapproved: false, preapproved_by: null, preapproved_at: null };
+  if ((current as { status?: string } | null)?.status === "approved") patch.status = "draft";
   const { data, error } = await sb.from("campaigns")
-    .update({ is_preapproved: false, preapproved_by: null, preapproved_at: null })
+    .update(patch)
     .eq("id", campaignId).eq("tenant_id", tenantId).eq("is_preapproved", true).select("id");
   if (error || !data?.length) return { expired: false };
   await audit({

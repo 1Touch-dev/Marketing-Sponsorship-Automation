@@ -10,12 +10,15 @@ export function PreapproveToggle({
   campaignId,
   isPreapproved,
   preapprovedAt,
+  version,
   notice,
 }: {
   campaignId: string;
   isPreapproved: boolean;
   preapprovedAt: string | null;
-  /** Why a pre-approval that was given no longer applies (the campaign changed after it). */
+  /** Bound revision number, present only while the checksum still matches. */
+  version?: number | null;
+  /** Shown when a pre-approval was given before its wording was recorded. */
   notice?: string | null;
 }) {
   const [loading, setLoading] = useState(false);
@@ -55,7 +58,7 @@ export function PreapproveToggle({
       {notice ? <span className="text-xs text-amber-700 dark:text-amber-400 max-w-md">{notice}</span> : null}
       {isPreapproved ? (
         <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-          <ShieldCheck className="h-3 w-3" /> Pre-approved for auto-run
+          <ShieldCheck className="h-3 w-3" /> {version != null ? `Pre-approved, version ${version}` : "Pre-approved for auto-run"}
         </span>
       ) : null}
       <Button

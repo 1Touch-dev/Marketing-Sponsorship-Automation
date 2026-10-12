@@ -12,6 +12,8 @@ import { CampaignBulkList } from "./campaign-bulk-list";
 import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
 import type { ApprovalItem } from "./approvals-card-view";
 import { APPROVAL_EXPIRED_REASON } from "@/lib/proposals/approval-guard";
+import { loadBoundCampaignRevisions } from "@/lib/campaigns/revision-store";
+import { campaignStatusPresentation } from "@/lib/campaigns/revisions";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +110,18 @@ export default async function ApprovalsPage({
   const totalCampaignsReal = campaignsCountResult.count;
   const totalEmailsReal = emailsCountResult.count;
 
+  const campaignRows = (campaigns as unknown as ApprovalCampaign[] | null) ?? [];
+  const boundByCampaign = await loadBoundCampaignRevisions(sb, tenantId, campaignRows.map((c) => c.id));
+  const campaignQueueView = (c: ApprovalCampaign) => {
+    const bound = boundByCampaign.get(c.id) ?? null;
+    const view = campaignStatusPresentation(c.status, bound);
+    return {
+      status: view.status,
+      badgeLabel: view.label,
+      note: bound != null && !bound.matches ? "Previous approval no longer applies" : undefined,
+    };
+  };
+
   // The same definition of "awaiting approval" the dashboard uses (lib/metrics),
   // so the number a person clicks through from there is the number they land on.
   const { metrics: m } = await loadMetrics(sb, tenantId);
@@ -173,13 +187,16 @@ export default async function ApprovalsPage({
 
   if (showCampaigns) {
     for (const c of filteredCampaigns) {
+      const view = campaignQueueView(c);
       cardItems.push({
         id: c.id,
         type: "campaign",
         title: c.title,
         company: c.companies?.company_name ?? "—",
-        status: c.status,
+        status: view.status,
+        badgeLabel: view.badgeLabel,
         editUrl: `/campaigns/${c.id}`,
+        note: view.note,
       });
     }
   }
@@ -268,17 +285,24 @@ export default async function ApprovalsPage({
           </div>
           {typeFilter === "campaigns" ? (
             <CampaignBulkList
-              campaigns={filteredCampaigns.map((c) => ({
-                id: c.id,
-                title: c.title,
-                status: c.status,
-                createdAt: c.created_at,
-                companyName: c.companies?.company_name ?? "—",
-              }))}
+              campaigns={filteredCampaigns.map((c) => {
+                const view = campaignQueueView(c);
+                return {
+                  id: c.id,
+                  title: c.title,
+                  status: view.status,
+                  badgeLabel: view.badgeLabel,
+                  note: view.note,
+                  createdAt: c.created_at,
+                  companyName: c.companies?.company_name ?? "—",
+                };
+              })}
             />
           ) : (
             <div className="space-y-2">
-              {filteredCampaigns.map((c) => (
+              {filteredCampaigns.map((c) => {
+                const view = campaignQueueView(c);
+                return (
                 <Link
                   key={c.id}
                   href={`/campaigns/${c.id}`}
@@ -289,10 +313,14 @@ export default async function ApprovalsPage({
                     <div className="text-xs text-muted-foreground">
                       {c.companies?.company_name ?? "—"} · {formatDate(c.created_at)}
                     </div>
+                    {view.note && (
+                      <p className="text-xs text-amber-700 dark:text-amber-300">{view.note}</p>
+                    )}
                   </div>
-                  <StatusBadge status={c.status} />
+                  <StatusBadge status={view.status} label={view.badgeLabel} />
                 </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
