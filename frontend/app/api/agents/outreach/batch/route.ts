@@ -20,6 +20,7 @@ import type { AgentMode, SSEEvent } from "@/lib/agents/types";
 import { logger } from "@/lib/monitoring/logger";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { idempotent } from "@/lib/idempotency";
+import { campaignApproval } from "@/lib/campaigns/revision-store";
 import { authorizeAgent } from "@/lib/agents/governance";
 import { gateBatch } from "@/lib/batch/gate";
 import { checkDailySpendCap } from "@/lib/monitoring/spend-guard";
@@ -70,11 +71,10 @@ async function postHandler(req: Request) {
     .maybeSingle();
 
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
-  if (!campaign.is_preapproved) {
-    return NextResponse.json(
-      { error: "Campaign is not pre-approved. Mark it as pre-approved before running the batch agent." },
-      { status: 409 }
-    );
+  // Not just the flag: the campaign must still say and contain what was pre-approved.
+  const approval = await campaignApproval(sb, auth.user.tenant_id, campaign_id);
+  if (!approval?.valid) {
+    return NextResponse.json({ error: approval?.message ?? "Campaign is not pre-approved. Mark it as pre-approved before running the batch agent.", approval_state: approval?.state ?? "not_preapproved" }, { status: 409 });
   }
 
   const { data: companies } = await sb

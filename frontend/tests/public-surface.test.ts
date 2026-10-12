@@ -36,12 +36,15 @@ test("every API route that can be reached without a staff session is declared, a
 test("every sponsor-portal API route checks the sponsor session, except the three sign-in steps", () => {
   const portal = apiRoutes.filter((r) => r.url.startsWith("/api/portal/"));
   assert.ok(portal.length >= 9);
-  const unguarded = portal.filter((r) => !PORTAL_ENTRY.has(r.url) && !/portalGet\(/.test(r.src)).map((r) => r.url);
+  // portalGet / portalPost are the guarded wrappers; the one binary download (a zip) calls the same session check itself
+  const unguarded = portal.filter((r) => !PORTAL_ENTRY.has(r.url) && !/portalGet\(|portalPost\(|requirePortalSession\(/.test(r.src)).map((r) => r.url);
   assert.deepEqual(unguarded, []);
   for (const entry of PORTAL_ENTRY) assert.ok(portal.some((r) => r.url === entry), `${entry} exists`);
-  // and they only read: a sponsor session never changes anything but its own sign-in state
-  const writes = portal.filter((r) => !PORTAL_ENTRY.has(r.url) && /export (async )?function (POST|PUT|PATCH|DELETE)|export const (POST|PUT|PATCH|DELETE)/.test(r.src)).map((r) => r.url);
-  assert.deepEqual(writes, [], "the sponsor portal is read-only");
+  // and they only read, except the few things a sponsor can do, named here: each must use the POST wrapper (same-site and JSON only)
+  const SPONSOR_ACTIONS = new Set(["/api/portal/delivery/x/accept"]);
+  const writes = portal.filter((r) => !PORTAL_ENTRY.has(r.url) && /export (async )?function (POST|PUT|PATCH|DELETE)|export const (POST|PUT|PATCH|DELETE)/.test(r.src));
+  assert.deepEqual(writes.map((r) => r.url).sort(), [...SPONSOR_ACTIONS].sort(), "the sponsor portal only reads, apart from the actions named above");
+  for (const w of writes) assert.ok(/portalPost\(/.test(w.src), `${w.url} uses portalPost`);
 });
 
 test("the portal pages confirm the sponsor session through the one guard, and the staff-only portal admin is not public", () => {

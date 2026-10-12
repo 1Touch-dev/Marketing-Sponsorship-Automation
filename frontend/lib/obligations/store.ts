@@ -5,6 +5,7 @@ import { allocationTaskTitle } from "../allocations/model";
 import { createProject, listProjects } from "../projects/store";
 import { isTerminal } from "../projects/model";
 import { loadProof } from "../contracts/evidence-store";
+import { loadMatchLinks, setObligationMatch } from "../delivery/match";
 import { dateInForce, loadDateChanges, type DateChangeRow } from "../schedule/dates";
 import { ensureDefaultDependencies, loadEdges } from "../schedule/dependencies";
 import {
@@ -24,6 +25,8 @@ export interface ObligationRow {
   id: string; tenant_id: string; contract_id: string; company_id: string; project_id: string | null; allocation_id: string | null;
   source_key: string; kind: "deliverable" | "onboarding"; title: string; description: string | null; quantity: number | null; unit: string | null;
   due_date: string; due_basis: string; owner_email: string; owner_basis: string; created_by: string; created_at: string; updated_at: string;
+  /** the match this work is grouped under (migration 0074); absent where it is not set up */
+  match_id?: string | null;
 }
 const COLUMNS = "id, tenant_id, contract_id, company_id, project_id, allocation_id, source_key, kind, title, description, quantity, unit, due_date, due_basis, owner_email, owner_basis, created_by, created_at, updated_at";
 
@@ -60,7 +63,7 @@ function summarise(rows: ObligationRow[], events: EventFull[], today: string, ch
   });
 }
 
-export interface ObligationFilter { contractId?: string | null; companyId?: string | null; projectId?: string | null; status?: string | null; owner?: string | null; timing?: string | null }
+export interface ObligationFilter { contractId?: string | null; companyId?: string | null; projectId?: string | null; status?: string | null; owner?: string | null; timing?: string | null; matchId?: string | null }
 
 export async function listObligations(sb: Sb, tenantId: string, f: ObligationFilter = {}): Promise<WriteResult<ObligationSummary[]>> {
   let q = sb.from("obligations").select(COLUMNS).eq("tenant_id", tenantId).order("due_date", { ascending: true }).limit(2000);
@@ -73,6 +76,9 @@ export async function listObligations(sb: Sb, tenantId: string, f: ObligationFil
   const rows = (data ?? []) as ObligationRow[];
   const ids = rows.map((r) => r.id);
   let out = summarise(rows, await loadEvents(sb, ids), todayStr(), await loadDateChanges(sb, tenantId, "obligation", ids));
+  const links = await loadMatchLinks(sb, tenantId, ids);
+  out = out.map((o) => ({ ...o, match_id: links.get(o.id) ?? null }));
+  if (f.matchId) out = out.filter((o) => o.match_id === f.matchId);
   if (f.status) out = out.filter((o) => o.status === f.status);
   if (f.timing) out = out.filter((o) => o.timing === f.timing);
   return { ok: true, value: out };
@@ -307,7 +313,7 @@ export async function recordEvent(sb: Sb, tenantId: string, id: string, input: E
 }
 
 /** Only who owns it and how it is described can change; its dates and quantity are fixed (Task 17). */
-export async function updateObligation(sb: Sb, tenantId: string, id: string, patch: { owner_email?: string; description?: string | null }): Promise<WriteResult<{ id: string }>> {
+export async function updateObligation(sb: Sb, tenantId: string, id: string, patch: { owner_email?: string; description?: string | null; match_id?: string | null }): Promise<WriteResult<{ id: string }>> {
   const update: Record<string, unknown> = {};
   if (patch.owner_email !== undefined) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(patch.owner_email)) return { ok: false, status: 400, error: "owner_email must be a valid email" };
@@ -315,6 +321,11 @@ export async function updateObligation(sb: Sb, tenantId: string, id: string, pat
     update.owner_basis = "assigned";
   }
   if (patch.description !== undefined) update.description = patch.description?.trim() || null;
+  if (patch.match_id !== undefined) {
+    const placed = await setObligationMatch(sb, tenantId, id, patch.match_id);
+    if (!placed.ok) return placed;
+    if (Object.keys(update).length === 0) return { ok: true, value: { id } };
+  }
   if (Object.keys(update).length === 0) return { ok: false, status: 400, error: "Nothing to change" };
   const { data, error } = await sb.from("obligations").update(update).eq("id", id).eq("tenant_id", tenantId).select("id").maybeSingle();
   if (error) return fail(error);

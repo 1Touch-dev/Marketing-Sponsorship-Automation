@@ -17,9 +17,9 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
   return NextResponse.json(res.value);
 }
 
-const schema = z.object({ owner_email: z.string().max(200).optional(), description: z.string().max(2000).nullish() });
+const schema = z.object({ owner_email: z.string().max(200).optional(), description: z.string().max(2000).nullish(), match_id: z.string().uuid().nullable().optional() });
 
-/** Reassign an obligation or reword its description. Its dates and quantity are fixed once it exists. */
+/** Reassign an obligation, reword its description, or put it under a match. Its dates and quantity are fixed once it exists. */
 export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("manage_obligations");
   if ("error" in auth) return auth.error;

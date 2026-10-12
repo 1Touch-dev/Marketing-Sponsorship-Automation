@@ -20,7 +20,7 @@ const seed = `
   ALTER TABLE public.companies ADD COLUMN logo_url text, ADD COLUMN industry text;
   ALTER TABLE public.contacts ADD COLUMN email text;
   ALTER TABLE public.proposals ADD COLUMN status text, ADD COLUMN version int DEFAULT 1, ADD COLUMN created_at timestamptz DEFAULT now(), ADD COLUMN approved_at timestamptz,
-    ADD COLUMN share_token text, ADD COLUMN expires_at timestamptz, ADD COLUMN content jsonb, ADD COLUMN pricing_tiers jsonb, ADD COLUMN strategy_variants jsonb;
+    ADD COLUMN share_token text, ADD COLUMN expires_at timestamptz, ADD COLUMN content jsonb, ADD COLUMN pricing_tiers jsonb, ADD COLUMN strategy_variants jsonb, ADD COLUMN approved_revision_id uuid;
   CREATE TABLE public.proposal_packages (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), proposal_id uuid, name text, description text, price_brl numeric, benefits jsonb, inventory_items jsonb, sort_order int DEFAULT 0, active boolean DEFAULT true, internal_margin numeric);
   ALTER TABLE public.contracts ADD COLUMN contract_number text, ADD COLUMN deal_type text, ADD COLUMN start_date date, ADD COLUMN end_date date, ADD COLUMN total_value_brl numeric, ADD COLUMN signature_status text, ADD COLUMN internal_notes text;
   ALTER TABLE public.obligations ADD COLUMN contract_id uuid, ADD COLUMN project_id uuid, ADD COLUMN allocation_id uuid, ADD COLUMN source_key text, ADD COLUMN kind text, ADD COLUMN description text,

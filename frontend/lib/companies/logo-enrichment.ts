@@ -35,6 +35,7 @@
  */
 
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { archivePendingLogos } from "@/lib/delivery/logo-versions";
 
 export type LogoSource = "logo_dev" | "apollo" | "favicon";
 
@@ -180,7 +181,7 @@ export async function fetchAndStoreCompanyLogo(opts: {
   try {
     const { data: company } = await sb
       .from("companies")
-      .select("id, company_name, website, logo_url, logo_fetched_at")
+      .select("id, tenant_id, company_name, website, logo_url, logo_fetched_at")
       .eq("id", opts.companyId)
       .maybeSingle();
 
@@ -206,6 +207,8 @@ export async function fetchAndStoreCompanyLogo(opts: {
           logo_fetched_at: new Date().toISOString(),
         })
         .eq("id", opts.companyId);
+      // the database has recorded this as the company's next logo version; copy the image itself too (best effort, in the background)
+      void archivePendingLogos(sb, (company as { tenant_id?: string }).tenant_id ?? "", opts.companyId).catch(() => undefined);
 
       try {
         await sb.from("company_logos" as "companies").insert({

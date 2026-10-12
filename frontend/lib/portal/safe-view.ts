@@ -14,6 +14,19 @@ const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
 /** Statuses a sponsor may see. A draft or a proposal still under the club's review is not theirs to see yet. */
 export const SPONSOR_VISIBLE_PROPOSAL_STATUSES = ["approved", "sent", "active_contract"] as const;
+/**
+ * Whether a sponsor may read a proposal at all. The statuses above, and also one being re-reviewed after an edit
+ * (`under_review`) that HAS an approved revision: the sponsor keeps the version that was approved, which is what they were
+ * sent, instead of the link going dead while staff fix a typo. What they are shown is that frozen version (lib/proposals/
+ * frozen.ts), never the text under review. A proposal that was never approved has no revision and stays hidden.
+ */
+export function sponsorMayRead(row: { status?: unknown; approved_revision_id?: unknown }): boolean {
+  if ((SPONSOR_VISIBLE_PROPOSAL_STATUSES as readonly string[]).includes(String(row.status))) return true;
+  return row.status === "under_review" && typeof row.approved_revision_id === "string" && row.approved_revision_id.length > 0;
+}
+/** The statuses to fetch before `sponsorMayRead` decides. */
+export const SPONSOR_FETCH_STATUSES = [...SPONSOR_VISIBLE_PROPOSAL_STATUSES, "under_review"] as const;
+
 /** Contracts a sponsor sees: signed ones. */
 export const SPONSOR_VISIBLE_CONTRACT_STATUSES = ["active", "completed", "expired"] as const;
 
@@ -35,7 +48,7 @@ export const sponsorIntelligence = (i: unknown): Rec | null => (i && typeof i ==
 
 export function sponsorProposal(row: Rec): Rec {
   return {
-    ...pick(row, ["id", "title", "status", "version", "created_at", "approved_at", "share_token", "expires_at"]),
+    ...pick(row, ["id", "title", "status", "version", "created_at", "approved_at", "share_token", "expires_at", "approval_frozen", "approved_revision_number"]),
     content: sponsorContent(row.content),
     pricing_tiers: sponsorPricingTiers(row.pricing_tiers),
     strategy_variants: sponsorVariants(row.strategy_variants),
@@ -44,6 +57,15 @@ export function sponsorProposal(row: Rec): Rec {
 
 export const sponsorContract = (row: Rec): Rec => pick(row, ["id", "contract_number", "title", "status", "deal_type", "start_date", "end_date", "total_value_brl", "currency", "signature_status"]);
 
+/** The accepted proof as a sponsor reads it: the words, the address, or the file's name and checksum. */
+export function sponsorProofDetail(p: unknown): Rec | null {
+  const r = rec(p);
+  if (r.kind !== "link" && r.kind !== "file" && r.kind !== "statement") return null;
+  const out: Rec = pick(r, ["kind", "link", "statement", "recorded_at"]);
+  if (r.kind === "file") out.file = pick(rec(r.file), ["id", "name", "size_bytes", "content_type", "sha256"]);
+  return out;
+}
+
 /** Delivery progress without who inside the club owns it, how it is tracked, or anything about cost. */
 export function sponsorObligation(row: Rec): Rec {
   const proven = row.status === "accepted";
@@ -51,6 +73,13 @@ export function sponsorObligation(row: Rec): Rec {
     ...pick(row, ["id", "contract_id", "title", "description", "quantity", "unit", "due_date", "status", "timing"]),
     // proof is shown once the club's own second person has accepted it
     proof: proven ? (row.proof ?? "attached") : "pending",
+    // ...and then it is the proof itself, not just the word for it
+    proof_detail: proven ? sponsorProofDetail(row.proof_detail) : null,
+    // the match this work is grouped under, if any
+    match: row.match ? pick(rec(row.match), ["id", "opponent", "match_date", "competition", "home_away"]) : null,
+    // the sponsor's own acceptance of that proof, and whether they still can
+    sponsor_acceptance: row.sponsor_acceptance ? pick(rec(row.sponsor_acceptance), ["accepted_at", "accepted_by", "note"]) : null,
+    can_accept: proven && row.can_accept === true,
   };
 }
 

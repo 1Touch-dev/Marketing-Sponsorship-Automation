@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
 import { PreapproveToggle } from "./preapprove-toggle";
+import { campaignApproval } from "@/lib/campaigns/revision-store";
 import { CampaignInventoryTable } from "@/components/campaigns/campaign-inventory-table";
 import { ActivationBriefPanel } from "@/components/campaigns/activation-brief-panel";
 import { resolveJobImageUrl } from "@/lib/proposals/proposal-images";
@@ -54,6 +55,9 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
     .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false });
 
+  // Whether the pre-approval still applies to what the campaign says and contains now (not just whether a flag is set).
+  const approval = await campaignApproval(sb, tenantId, campaign.id);
+
   const { data: campaignImagesRaw } = await sb
     .from("image_generation_jobs" as "companies")
     .select("id, output_urls, selected_url, prompt, job_type")
@@ -93,10 +97,11 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4 rounded-lg border bg-muted/30 p-3">
         <PreapproveToggle
           campaignId={campaign.id}
-          isPreapproved={!!campaign.is_preapproved}
+          isPreapproved={approval?.valid === true}
           preapprovedAt={campaign.preapproved_at ?? null}
+          notice={campaign.is_preapproved && approval && !approval.valid ? approval.message : null}
         />
-        {campaign.is_preapproved && (
+        {approval?.valid && (
           <Link
             href={`/campaigns/${campaign.id}/batch`}
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors"

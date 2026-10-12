@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { expirePreapprovalIfChanged } from "@/lib/campaigns/revision-store";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { userActor } from "@/lib/identity/actor";
 
@@ -110,5 +111,8 @@ export async function PATCH(
     metadata: { item_count: lines.length, package_total_brl: packageTotal },
   });
 
-  return NextResponse.json({ ok: true, package_total_brl: packageTotal, item_count: lines.length });
+  // A pre-approval covers the package as it was approved: changing it ends the approval.
+  const { expired } = await expirePreapprovalIfChanged(sb, auth.user.tenant_id, id, auth.user.email);
+
+  return NextResponse.json({ ok: true, package_total_brl: packageTotal, item_count: lines.length, preapproval_expired: expired });
 }

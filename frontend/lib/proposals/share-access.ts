@@ -1,18 +1,20 @@
 import crypto from "crypto";
+import { sponsorMayRead } from "../portal/safe-view";
 
 type Sb = any;
 
 /**
  * The proposal a visitor is allowed to touch, found by its id AND its share token. The token is the only credential a
  * sponsor has, so the public routes that act on a proposal (a view, an expression of interest) check it, instead of
- * trusting an id that anyone can see in a URL. Returns null for a wrong token, a withdrawn or rejected proposal, and an
+ * trusting an id that anyone can see in a URL. Returns null for a wrong token, a proposal that is not yet approved or was withdrawn or rejected, and an
  * expired link, all the same, so a caller cannot tell which.
  */
 export async function sharedProposalFor(sb: Sb, proposalId: string, token: string | null | undefined): Promise<{ id: string; tenant_id: string } | null> {
   if (!token || token.length < 8 || !/^[0-9a-f-]{36}$/i.test(proposalId)) return null;
-  const { data } = await sb.from("proposals").select("id, tenant_id, share_token, status, expires_at").eq("id", proposalId).maybeSingle();
-  const row = data as { id: string; tenant_id: string; share_token: string | null; status: string; expires_at?: string | null } | null;
-  if (!row?.share_token || row.status === "rejected") return null;
+  const { data } = await sb.from("proposals").select("id, tenant_id, share_token, status, expires_at, approved_revision_id").eq("id", proposalId).maybeSingle();
+  const row = data as { id: string; tenant_id: string; share_token: string | null; status: string; expires_at?: string | null; approved_revision_id?: string | null } | null;
+  // only a proposal the club has approved can be acted on through its link (a view, an expression of interest)
+  if (!row?.share_token || !sponsorMayRead(row)) return null;
   if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) return null;
   const a = Buffer.from(row.share_token);
   const b = Buffer.from(token);
