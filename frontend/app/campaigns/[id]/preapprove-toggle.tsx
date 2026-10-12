@@ -10,10 +10,13 @@ export function PreapproveToggle({
   campaignId,
   isPreapproved,
   preapprovedAt,
+  notice,
 }: {
   campaignId: string;
   isPreapproved: boolean;
   preapprovedAt: string | null;
+  /** Why a pre-approval that was given no longer applies (the campaign changed after it). */
+  notice?: string | null;
 }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -49,6 +52,7 @@ export function PreapproveToggle({
 
   return (
     <div className="flex items-center gap-2">
+      {notice ? <span className="text-xs text-amber-700 dark:text-amber-400 max-w-md">{notice}</span> : null}
       {isPreapproved ? (
         <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
           <ShieldCheck className="h-3 w-3" /> Pre-approved for auto-run

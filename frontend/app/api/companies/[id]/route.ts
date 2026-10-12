@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
+import { archivePendingLogos } from "@/lib/delivery/logo-versions";
 import { extractDomainFromWebsite } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
@@ -82,6 +83,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     action: "company.updated",
     metadata: { fields: Object.keys(updates) },
   });
+
+  // A replaced logo is recorded as the next version by the database; keep the image itself too (best effort, in the background).
+  if ("logo_url" in updates) void archivePendingLogos(sb, auth.user.tenant_id, params.id).catch(() => undefined);
 
   // ── Re-enrich when website/domain changes ────────────────────────────────
   if ("website" in updates && updates.website !== existing?.website) {

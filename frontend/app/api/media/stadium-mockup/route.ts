@@ -14,6 +14,7 @@ import { checkRateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 import { persistImageDebugArtifacts, storeGeneratedPng } from "@/lib/media/media-storage";
 import { checkDailySpendCap, recordSpend, IMAGE_COST_ESTIMATES_USD } from "@/lib/monitoring/spend-guard";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { logoVersionFields } from "@/lib/delivery/logo-versions";
 import { userActor } from "@/lib/identity/actor";
 
 export const maxDuration = 300;
@@ -99,6 +100,8 @@ export async function POST(req: Request) {
           proposal_id: body.proposal_id.trim(),
           company_id: body.company_id?.trim() || null,
           job_type: "stadium_mockup_official",
+          // which version of the sponsor's logo this image was made from, so it can be flagged when the logo is replaced
+          ...(await logoVersionFields(sb, auth.user.tenant_id, body.company_id?.trim(), body.sponsor_logo_url)),
           status: "completed",
           prompt: promptNote,
           placement_zone: placement,

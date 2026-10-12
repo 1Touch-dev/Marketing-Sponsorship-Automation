@@ -97,6 +97,8 @@ test("proof must be a real link, a real file link or a substantial written state
   assert.deepEqual(validateEvent({ action: "evidence", evidenceKind: "link", evidenceRef: "https://club.com/photos/1" }), []);
   assert.match(validateEvent({ action: "evidence", evidenceKind: "link", evidenceRef: "photo of it" }).join(), /web address/);
   assert.match(validateEvent({ action: "evidence", evidenceKind: "file", evidenceRef: "" }).join(), /evidence_ref is required/);
+  assert.match(validateEvent({ action: "evidence", evidenceKind: "file", evidenceRef: "https://club.com/x.pdf" }).join(), /uploaded for this obligation/, "a file is an uploaded file's id, not an address");
+  assert.deepEqual(validateEvent({ action: "evidence", evidenceKind: "file", evidenceRef: "6d95718d-b22a-4d37-9215-989d212bf1ba" }), []);
   assert.match(validateEvent({ action: "evidence", evidenceKind: "statement", evidenceRef: "done" }).join(), /20\+ characters/);
   assert.deepEqual(validateEvent({ action: "evidence", evidenceKind: "statement", evidenceRef: "Shown on the LED in all 25 home games, confirmed by match ops" }), []);
   assert.match(validateEvent({ action: "evidence", evidenceKind: "photo", evidenceRef: "https://x.co" }).join(), /link, file or statement/);

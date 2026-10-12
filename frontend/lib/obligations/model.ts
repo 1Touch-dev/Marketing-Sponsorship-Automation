@@ -180,7 +180,8 @@ export function validateEvent(i: EventInput): string[] {
     if (i.evidenceKind !== "link" && i.evidenceKind !== "file" && i.evidenceKind !== "statement") problems.push("evidence_kind must be link, file or statement");
     else if (!ref) problems.push("evidence_ref is required");
     else if (i.evidenceKind === "statement") { if (ref.length < 20) problems.push("a written statement needs 20+ characters saying what was delivered, when and how it was confirmed"); }
-    else if (!/^https?:\/\/\S+$/i.test(ref)) problems.push(`evidence_ref must be a web address for a ${i.evidenceKind}`);
+    else if (i.evidenceKind === "file") { if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref)) problems.push("file proof is a file uploaded for this obligation: send its id as evidence_ref (upload it first)"); }
+    else if (!/^https?:\/\/\S+$/i.test(ref)) problems.push("evidence_ref must be a web address for a link");
   }
   return problems;
 }

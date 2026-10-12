@@ -9,6 +9,9 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, supabaseServer } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/server-permission";
+import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { approveCampaignRevision } from "@/lib/campaigns/revision-store";
 
 export const runtime = "nodejs";
 
@@ -69,6 +72,16 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     }
   }
 
+  // Pre-approving records exactly what was approved: the campaign's wording and package are frozen as a revision and the
+  // approval is bound to it. If either changes later the approval stops applying (lib/campaigns/revision-store.ts).
+  let revisionNumber: number | null = null;
+  if (preapproved) {
+    const frozen = await approveCampaignRevision(sb, auth.user.tenant_id, ctx.params.id, { reason: "Pre-approved", by: auth.user.email });
+    if (frozen.ok) revisionNumber = frozen.revision.revision_number;
+    // Before migration 0073 there is nothing to record the wording in; pre-approval then works as it always did.
+    else if (frozen.skipped !== "migration_missing") return NextResponse.json({ error: frozen.skipped === "not_found" ? "Campaign not found" : (frozen.error ?? "Could not record what is being approved") }, { status: frozen.skipped === "not_found" ? 404 : 500 });
+  }
+
   const { data, error } = await sb
     .from("campaigns")
     .update({
@@ -82,5 +95,9 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
+  await recordAudit({
+    actor: userActor(auth.user), entity_type: "campaign", entity_id: ctx.params.id,
+    action: preapproved ? "campaign.preapproved" : "campaign.preapproval_revoked", metadata: { revision_number: revisionNumber },
+  });
+  return NextResponse.json({ data, revision_number: revisionNumber });
 }

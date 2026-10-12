@@ -38,7 +38,7 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   E("/api/auth/session", "none", "reports the caller's own session, nothing else"),
   E("/api/health", "none", "liveness only"),
   P("/api/internal/", "internal-secret", "called by schedulers and operators with the shared secret", INTERNAL),
-  P("/api/portal/", "portal-session", "the sponsor portal API: every route confirms the sponsor session (portalGet), except its three entry steps", /portalGet\(|requirePortalSession|checkRateLimit|verifyMagicLinkToken|PORTAL_COOKIE/),
+  P("/api/portal/", "portal-session", "the sponsor portal API: every route confirms the sponsor session (portalGet, portalPost for the one thing a sponsor does), except its three entry steps", /portalGet\(|portalPost\(|requirePortalSession|checkRateLimit|verifyMagicLinkToken|PORTAL_COOKIE/),
   E("/api/documenso/webhook", "provider-credential", "called by the e-signature provider", /signature|secret|timingSafeEqual|verify/i),
   E("/api/mcp/public", "provider-credential", "read-only public MCP server with its own bearer key", /MCP_PUBLIC_API_KEY/),
   // Operator endpoints the schedulers call with the shared secret. The system's health and status pages are NOT here: they

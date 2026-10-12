@@ -8,31 +8,31 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 217** (counted from the tables below; refresh after each task. 195 before tasks 21, 22, 30, 31 and the LangGraph work; those added 23 and cleared 1.)
+**Open items right now: 235** (counted from the tables below; refresh after each task. 217 before priorities 6 to 8, which added 18.)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 101 |
-| James | 73 |
-| Yash | 31 |
+| Abhishek | 111 |
+| James | 78 |
+| Yash | 33 |
 | Yash / James | 7 |
 | James / the club | 3 |
+| Abhishek / James | 2 |
 | James / Yash | 1 |
-| Abhishek / James | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 60 |
-| Tech debt | 41 |
-| Known limit | 30 |
-| Yash | 27 |
+| Decision | 65 |
+| Tech debt | 44 |
+| Known limit | 36 |
+| Yash | 29 |
 | Test gap | 14 |
 | Data | 10 |
 | Account | 9 |
+| Security | 8 |
 | Deploy | 7 |
-| Security | 7 |
 | Content | 6 |
-| Behaviour | 5 |
+| Behaviour | 6 |
 | Removed | 1 |
 
 ---
@@ -429,6 +429,31 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 
 ---
 
+### Priorities 6, 7 and 8: frozen proposal for sponsors, campaign revisions, delivery records (done 12 Oct, migrations 0073 and 0074)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| P7-01 | **Decision** | Abhishek / James | **A revision freezes the title, content and quote lines only.** Pricing tiers, strategy variants, the packages list, images, ROI and fulfilment figures on the proposal page are still read live, so a sponsor can see those newer than what was approved. Adding them to the frozen snapshot changes every checksum, so existing revisions would read as changed. | Decide whether to freeze them too; if so, version the snapshot format first. | Open |
+| P7-02 | **Decision** | James | **While a proposal is being re-reviewed after an edit, the sponsor keeps seeing the version that was approved** (built), instead of the link going dead. A proposal never approved stays hidden. If a withdrawn approval should hide it, say so; staff can also set it to rejected. | Confirm or change the rule (`sponsorMayRead` in `lib/portal/safe-view.ts`). | Open |
+| P7-03 | **Decision** | James | **48 of the 49 proposals sponsors can see have no frozen revision** (approved before revisions existed). They are still served from the live text, and say `approval_frozen: false`. `POST /api/proposals/freeze-approved` freezes what each says now; it states that the current wording is what was approved, so a person runs it, after looking. It has **not** been run on the real data. | Someone at the club checks and runs it (`dry_run` first). | Open |
+| P7-04 | Known limit | Abhishek | The public proposal link now works only for approved, sent, active-contract or re-reviewed-after-approval proposals. Four shared links on the real data (3 drafts, 1 under review) now answer "not found" to anyone but a signed-in member of that club, who can still preview them. | None needed; stated so nobody is surprised. | Open |
+| P6-01 | Behaviour | James | **The one campaign pre-approved today must be pre-approved again after this is deployed**, because nothing recorded what it was approved on. Until then the batch runner refuses it, with a message saying why. | A person pre-approves it once. | Open |
+| P6-02 | Known limit | Abhishek | A pre-approval covers a campaign's title, summary, objective, call to action, description, activation text, strategy and its included inventory. The activation brief (internal delivery planning, regenerated each time) is excluded on purpose. | None needed. | Open |
+| P6-03 | Tech debt | Abhishek | There is no route that edits a campaign's text yet. When one is added it must call `expirePreapprovalIfChanged`. Until then the run-time check (`campaignApproval`) protects the batch runner whatever changes the text. | Add the call when the route is added. | Open |
+| P6-04 | Tech debt | Abhishek | **Found, not fixed:** `PATCH /api/campaigns/[id]/status` sets `approved` or `rejected`, but the campaign status type in the database has only draft, selected, archived and active, so it appears to fail. All 173 campaigns are `draft`. | Decide what campaign status means, then fix the route or the type. | Open |
+| P6-05 | Yash | Yash | No screen shows a campaign's approval history. The page shows a notice and drops the badge when a pre-approval stops applying; `GET /api/campaigns/<id>/revisions` has the history. | Build to the route. | Open |
+| P8-01 | **Decision** | James | **T16-02 is still open.** A match can now be put on an obligation and the work grouped by it (`?group_by=match`), but no due date moves. Sold items are still due on the contract end date. | Confirm, or give dates per match; then date moves through the existing date-change flow. | Open |
+| P8-02 | **Decision** | James | **T16-04 is still open.** A sponsor can accept the proof the club has accepted; it is recorded on its own and changes no status. A sponsor sees proof only after the club's second person has accepted it. | Decide whether a sponsor's accept should replace the internal one. | Open |
+| P8-03 | Yash | Yash | No screens for: placing work under a match, uploading and previewing proof, the sponsor's accept button and proof, downloading the pack, logo versions and out-of-date images. All routes exist. | Build to the routes. | Open |
+| P8-04 | Known limit | Abhishek | Only the three image routes that take a sponsor logo (jersey, stadium, campaign creative) record which logo version they used. Images made before this, and by other routes, show as "unknown", never as up to date. | Record it in the other routes if they start using a logo. | Open |
+| P8-05 | Known limit | Abhishek | The 38 logos already on companies are recorded as version 1 but **not copied**; a copy is made when a logo next changes, or on `POST /api/companies/<id>/logo-versions`. An old logo's address can already be dead (the test one answered 404), in which case it cannot be kept. | Run the archive route once for every company. | Open |
+| P8-06 | Tech debt | Abhishek | The `matches` table has no club column, so every club sees every match and an obligation can point at any of them. | Add a club column when a second club has its own fixtures. | Open |
+| P8-07 | Known limit | Abhishek | A proof file is a PDF, image or MP4 up to 15 MB; a pack stops adding files at 100 MB and says so in its index. Packs are built in memory. | None needed at this size. | Open |
+| P8-08 | Security | Abhishek | **Found, not changed:** signed-contract evidence PDFs are stored in the `proposal-assets` bucket, which is public, and their public address is saved. Proof files use a new private bucket and short-lived links. | Move the contract evidence to a private bucket. | Open |
+| P8-09 | Known limit | Abhishek | "File" proof now means the id of a file uploaded for that obligation, not a web address. No obligations exist yet, so nothing was converted; any screen must upload first. | None needed. | Open |
+
+---
+
 ### Housekeeping found on 8 Oct
 
 | ID | Type | Owner | Blocker | What clears it | Status |
@@ -484,3 +509,4 @@ All numbered tasks (1 to 31) are done; nothing is anticipated.
 | Emails drafted or sent to people who asked us to stop, or to dead addresses | 7 Oct (Task 14): refused at every draft and send point, before any AI call; a failure to check also refuses |
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |
 | Found and fixed by the live tests on 8 Oct (tasks 21–31): unauthenticated `/api/exports`, `/api/system/health` and `/api/system/status`; internal cost (`execution_brief`) shown to sponsors; draft proposals visible in the portal; negotiation agent forwarding to a stranger's address and obeying planted orders; proposal agent repeating invented "verified" figures; report agent inventing a contact; an email changed after approval not being noticed; an approval flag left open after a legitimate transition; the portal returning database error text for a bad id; a cancelled run leaving its send plan approvable; a cancelled send plan reversible through the manual route | 8 Oct |
+| Found and fixed while building priorities 6 to 8 (12 Oct): a sponsor could see proposal wording newer than what was approved (public link and portal); a draft was readable by anyone holding its link; a pre-approved campaign kept running unattended after its wording or package changed; a logo replaced anywhere left no record of the old one; a "file" proof pointed at nothing; the portal had no way to see the accepted proof itself | 12 Oct |

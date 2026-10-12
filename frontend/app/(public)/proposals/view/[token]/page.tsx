@@ -21,7 +21,9 @@ import { ScrollProgressBar } from "./scroll-progress-bar";
 import { AccessGateForm } from "./access-gate-form";
 import { cookies } from "next/headers";
 import { gateCookieName, verifyGateToken } from "@/lib/proposals/access-gate";
-import { sponsorContent, sponsorIntelligence, sponsorPricingTiers, sponsorVariants } from "@/lib/portal/safe-view";
+import { sponsorMayRead, sponsorContent, sponsorIntelligence, sponsorPricingTiers, sponsorVariants } from "@/lib/portal/safe-view";
+import { approvalIsBroken, loadFrozenRevisions, withFrozen } from "@/lib/proposals/frozen";
+import { getCurrentPlatformUser } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,17 @@ export default async function PublicProposalViewPage({
   if (proposal.status === "rejected") notFound();
 
   const tenantId = (proposal as { tenant_id: string }).tenant_id;
+
+  // Only a proposal the club has approved is the sponsor's to read. A draft or one still in review can be previewed by a
+  // signed-in member of this club, and by nobody else who happens to hold the link.
+  if (!sponsorMayRead(proposal as { status: string; approved_revision_id?: string | null })) {
+    const staff = await getCurrentPlatformUser();
+    if (!staff || staff.tenant_id !== tenantId) notFound();
+  }
+  // What the sponsor reads is the frozen revision that was approved, not text edited since (lib/proposals/frozen.ts).
+  const frozenRevisions = await loadFrozenRevisions(sb, tenantId, [proposal as { id: string; approved_revision_id?: string | null }]);
+  if (approvalIsBroken(proposal as { approved_revision_id?: string | null }, frozenRevisions.get(proposal.id))) notFound();
+  const shownProposal = withFrozen(proposal as Record<string, unknown>, frozenRevisions.get(proposal.id));
   const tenant = await getTenantById(tenantId);
   const isCoritiba = tenantId === CORITIBA_TENANT_ID;
   const sponsorClaims = await loadSponsorClaims(sb, tenantId);
@@ -99,7 +112,7 @@ export default async function PublicProposalViewPage({
     share_token?: string | null;
   };
 
-  const p = proposal as EnrichedProposal & {
+  const p = shownProposal as unknown as EnrichedProposal & {
     meeting_link?: string | null;
     access_gate_enabled?: boolean;
     access_gate_type?: "passcode" | "nda";
