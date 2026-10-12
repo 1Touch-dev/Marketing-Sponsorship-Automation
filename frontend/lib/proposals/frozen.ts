@@ -7,12 +7,16 @@ type Rec = Record<string, unknown>;
  * for staff (migration 0052); this is the matching rule for sponsors, so text edited after approval cannot reach a
  * sponsor before it has been approved again.
  *
- * What a revision freezes is the title, the content and the quote lines. Pricing tiers and strategy variants are not part
- * of it (see BLOCKERS_REGISTER P7-01), so they are still read from the live row.
+ * What a revision freezes is the title, the content and the quote lines. Pricing tiers, strategy variants, and the
+ * live campaign summary are not part of it, so the sponsor page omits them until a revision stores them
+ * (BLOCKERS_REGISTER P7-01).
  *
- * A proposal approved before revisions existed has none. It is shown as it always was and says so (`approval_frozen:
- * false`) until staff freeze it (`POST /api/proposals/freeze-approved`), rather than disappearing from every sponsor.
+ * A proposal approved before revisions existed has none (`approval_frozen: false`). The sponsor card and the public
+ * page show only `UNFROZEN_SPONSOR_NOTICE`. They do not render the live offer. Staff freeze the current wording with
+ * `POST /api/proposals/freeze-approved`.
  */
+export const UNFROZEN_SPONSOR_NOTICE =
+  "The approved version has not been recorded, and the text on file is the current text.";
 export interface FrozenRevision {
   id: string;
   proposal_id: string;

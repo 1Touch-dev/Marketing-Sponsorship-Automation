@@ -5,7 +5,7 @@ import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { ProposalLandingPage } from "@/components/proposals/proposal-landing-page";
 import type { ProposalContent } from "@/types/database";
-import type { StrategyVariant, PricingTier, CompanyIntelligence } from "@/lib/ai/schemas";
+import type { CompanyIntelligence } from "@/lib/ai/schemas";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
 import { PrintButton } from "@/app/proposals/[id]/view/print-button";
 import { PhoneCall, Calendar, ThumbsUp } from "lucide-react";
@@ -21,8 +21,8 @@ import { ScrollProgressBar } from "./scroll-progress-bar";
 import { AccessGateForm } from "./access-gate-form";
 import { cookies } from "next/headers";
 import { gateCookieName, verifyGateToken } from "@/lib/proposals/access-gate";
-import { sponsorMayRead, sponsorContent, sponsorIntelligence, sponsorPricingTiers, sponsorVariants } from "@/lib/portal/safe-view";
-import { approvalIsBroken, loadFrozenRevisions, withFrozen } from "@/lib/proposals/frozen";
+import { sponsorMayRead, sponsorContent, sponsorIntelligence } from "@/lib/portal/safe-view";
+import { approvalIsBroken, loadFrozenRevisions, UNFROZEN_SPONSOR_NOTICE, withFrozen } from "@/lib/proposals/frozen";
 import { getCurrentPlatformUser } from "@/lib/auth/server-permission";
 
 export const dynamic = "force-dynamic";
@@ -106,8 +106,6 @@ export default async function PublicProposalViewPage({
       logo_url?: string | null;
     } | null;
     campaigns: { title: string; summary?: string | null } | null;
-    strategy_variants?: StrategyVariant[] | null;
-    pricing_tiers?: PricingTier[] | null;
     intelligence?: CompanyIntelligence | null;
     share_token?: string | null;
   };
@@ -138,6 +136,15 @@ export default async function PublicProposalViewPage({
         />
       );
     }
+  }
+
+  if (shownProposal.approval_frozen !== true) {
+    return (
+      <div className="min-h-screen w-full bg-white">
+        <title>Proposta</title>
+        <p className="max-w-xl mx-auto px-6 py-16 text-sm text-slate-700">{UNFROZEN_SPONSOR_NOTICE}</p>
+      </div>
+    );
   }
 
   return (
@@ -190,8 +197,8 @@ export default async function PublicProposalViewPage({
           created_at: p.created_at,
           // Only what a sponsor may read: the club's internal cost estimates and any other stray keys stay behind.
           content: sponsorContent(p.content) as ProposalContent,
-          strategy_variants: sponsorVariants(p.strategy_variants) as unknown as StrategyVariant[],
-          pricing_tiers: sponsorPricingTiers(p.pricing_tiers) as unknown as PricingTier[],
+          strategy_variants: [],
+          pricing_tiers: [],
           visual_prompts: p.visual_prompts,
           intelligence: sponsorIntelligence(p.intelligence) as unknown as CompanyIntelligence | null,
           share_token: p.share_token,
@@ -203,7 +210,6 @@ export default async function PublicProposalViewPage({
           country: company?.country,
           logo_url: company?.logo_url,
         }}
-        campaign={p.campaigns}
         approvedImages={approvedImages}
         adminMode={false}
         expiresAt={(p as unknown as { expires_at?: string | null }).expires_at ?? null}

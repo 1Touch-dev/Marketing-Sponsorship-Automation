@@ -7,6 +7,7 @@ import { portalDelivery, portalProposals, portalRecaps } from "@/lib/portal/data
 import { getTenantById } from "@/lib/tenants/current";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import type { ProposalContent } from "@/types/database";
+import { UNFROZEN_SPONSOR_NOTICE } from "@/lib/proposals/frozen";
 import { ExternalLink } from "lucide-react";
 import { PortalShell } from "./portal-shell";
 
@@ -45,7 +46,15 @@ export default async function PortalDashboardPage() {
 
   // Only proposals the club has approved or sent, already reduced to what a sponsor may read.
   const shown = await portalProposals(sb, ctx);
-  const proposals = (shown.ok ? shown.value : []) as unknown as Array<{ id: string; title: string; content: ProposalContent; share_token: string | null; created_at: string }>;
+  const proposals = (shown.ok ? shown.value : []) as unknown as Array<{
+    id: string;
+    title: string;
+    content: ProposalContent;
+    share_token: string | null;
+    created_at: string;
+    approval_frozen?: boolean;
+    approved_revision_number?: number | null;
+  }>;
   const delivery = await portalDelivery(sb, ctx);
   const recaps = await portalRecaps(sb, ctx);
   const deliveries = (delivery.ok ? delivery.value : []) as Array<{ id: string; title: string; due_date: string; status: string; proof: string }>;
@@ -71,12 +80,20 @@ export default async function PortalDashboardPage() {
       )}
 
       {shown.ok && proposals.map((p) => {
+        if (p.approval_frozen !== true) {
+          return (
+            <div key={p.id} className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+              <p className="p-5 sm:p-6 text-sm text-slate-700">{UNFROZEN_SPONSOR_NOTICE}</p>
+            </div>
+          );
+        }
         const summary = typeof p.content?.executive_summary === "string" ? p.content.executive_summary.trim() : "";
         return (
           <div key={p.id} className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
             <div className="p-5 sm:p-6">
               <h2 className="text-base font-semibold text-slate-900 truncate">{p.title}</h2>
               <p className="text-xs text-slate-400 mt-0.5">
+                {typeof p.approved_revision_number === "number" ? `Versão ${p.approved_revision_number} · ` : ""}
                 Criada em {new Date(p.created_at).toLocaleDateString("pt-BR")}
               </p>
               {summary && <p className="text-sm text-slate-600 mt-3 whitespace-pre-wrap">{summary}</p>}
