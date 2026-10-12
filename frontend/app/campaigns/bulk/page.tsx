@@ -13,6 +13,7 @@ import {
   ArrowRight, Search, X, Users, AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { BatchPreview } from "@/components/shared/batch-preview";
 
 // Labels match ACTUAL Portuguese values stored in the `companies.industry` column.
 // The API uses ilike(%pt%), so partial match works across variants.
@@ -95,6 +96,8 @@ export default function BulkCampaignsPage() {
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<{ message: string; successful: number; failed: number } | null>(null);
   const [progress, setProgress] = useState("");
+  const [batchBlocked, setBatchBlocked] = useState(false);
+  const selectedNames = foundCompanies.filter((c) => selectedIds.has(c.id)).map((c) => c.company_name);
 
   const runSearch = useCallback(async (industry: string, q: string) => {
     if (!industry.trim() && !q.trim()) {
@@ -160,6 +163,7 @@ export default function BulkCampaignsPage() {
       const body: Record<string, unknown> = { objective, max_companies: maxCompanies };
       if (ids.length > 0) {
         body.company_ids = ids;
+        body.max_companies = ids.length;
       } else {
         body.industry = industryFilter.trim();
       }
@@ -335,10 +339,18 @@ export default function BulkCampaignsPage() {
               </div>
             )}
 
+            <BatchPreview
+              kind="campaign_generation"
+              names={selectedNames}
+              industryUnresolved={selectedIds.size === 0}
+              routeMax={20}
+              onBlocked={setBatchBlocked}
+            />
+
             <Button
               className="w-full gap-2 mt-2"
               onClick={run}
-              disabled={loading || (selectedIds.size > 0 && incompleteSelected.length > 0 && !confirmedIncomplete)}
+              disabled={loading || batchBlocked || (selectedIds.size > 0 && incompleteSelected.length > 0 && !confirmedIncomplete)}
             >
               {loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Gerando…</>

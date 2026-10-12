@@ -110,7 +110,11 @@ export default async function ContractsPage() {
                 <tr key={c.id} className="hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.contract_number || c.id.slice(0, 8)}</td>
                   <td className="px-4 py-3 font-medium">{c.companies?.company_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.title}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/contracts/${c.id}`} className="font-medium text-foreground hover:underline">
+                      {c.title}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-semibold text-emerald-700">{c.total_value_brl ? `R$ ${Number(c.total_value_brl).toLocaleString("pt-BR")}` : "—"}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{c.start_date ? formatDate(c.start_date) : "—"} — {c.end_date ? formatDate(c.end_date) : "—"}</td>
                   <td className="px-4 py-3">

@@ -11,6 +11,7 @@ import {
   CheckCircle2, XCircle, Clock, ExternalLink, FileText, Mail,
 } from "lucide-react";
 import Link from "next/link";
+import { BatchPreview } from "@/components/shared/batch-preview";
 
 type FoundCompany = {
   id: string;
@@ -72,6 +73,8 @@ export function OutreachBatchRunner({
   const [foundCompanies, setFoundCompanies] = useState<FoundCompany[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchBlocked, setBatchBlocked] = useState(false);
+  const selectedNames = foundCompanies.filter((c) => selectedIds.has(c.id)).map((c) => c.company_name);
 
   const [launching, setLaunching] = useState(false);
   const [batchState, setBatchState] = useState<BatchState | null>(null);
@@ -227,10 +230,17 @@ export function OutreachBatchRunner({
 
           <hr />
 
+          <BatchPreview
+            kind="outreach_run"
+            names={selectedNames}
+            routeMax={50}
+            onBlocked={setBatchBlocked}
+          />
+
           <Button
             className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white"
             onClick={launchBatch}
-            disabled={launching || selectedIds.size === 0 || !!isRunningBatch}
+            disabled={launching || selectedIds.size === 0 || !!isRunningBatch || batchBlocked}
           >
             {launching ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Launching…</>
