@@ -14,7 +14,7 @@ const COLS = "id, entity_type, entity_id, system, external_id, created_by, creat
  * again changes nothing. A record that is already linked to another ID in that system, or an outside ID that
  * already belongs to another record, is refused rather than quietly re-pointed.
  */
-export async function linkExternal(sb: Sb, tenantId: string, i: { entityType: string; entityId: string; system: string; externalId: string; actor: string }): Promise<WriteResult<{ id: string; created: boolean }>> {
+export async function linkExternal(sb: Sb, tenantId: string, i: { entityType: string; entityId: string; system: string; externalId: string; actor: string; externalType?: string | null }): Promise<WriteResult<{ id: string; created: boolean }>> {
   if (!i.actor) return { ok: false, status: 403, error: "A signed-in person or a named service is required." };
   if (!i.entityType.trim() || !i.system.trim() || !i.externalId.trim()) return { ok: false, status: 400, error: "entity_type, system and external_id are required." };
   if (await isTombstoned(sb, tenantId, i.entityType, i.entityId)) return { ok: false, status: 409, error: "That record was deleted. It cannot be linked to an outside ID unless the deletion is undone." };
@@ -29,7 +29,10 @@ export async function linkExternal(sb: Sb, tenantId: string, i: { entityType: st
   const theirs = await sb.from("external_refs").select(COLS).eq("tenant_id", tenantId).eq("system", i.system).eq("entity_type", i.entityType).eq("external_id", i.externalId).is("unlinked_at", null).maybeSingle();
   if (theirs.data) return { ok: false, status: 409, error: `${i.system} ID ${i.externalId} already belongs to another ${i.entityType} record.` };
 
-  const ins = await sb.from("external_refs").insert({ tenant_id: tenantId, entity_type: i.entityType, entity_id: i.entityId, system: i.system, external_id: i.externalId, created_by: i.actor }).select("id").single();
+  const row = { tenant_id: tenantId, entity_type: i.entityType, entity_id: i.entityId, system: i.system, external_id: i.externalId, created_by: i.actor };
+  let ins = await sb.from("external_refs").insert(i.externalType ? { ...row, external_type: i.externalType } : row).select("id").single();
+  // the kind of outside object was added in migration 0075; before it, the link is made without it
+  if (ins.error && i.externalType && ins.error.code !== "23505" && /external_type/.test(ins.error.message ?? "")) ins = await sb.from("external_refs").insert(row).select("id").single();
   if (ins.error) {
     if (ins.error.code === "23505") return { ok: false, status: 409, error: "Another link to this record or this outside ID was made at the same moment." };
     return { ok: false, status: 500, error: ins.error.message };
@@ -66,4 +69,11 @@ export async function unlinkExternal(sb: Sb, tenantId: string, id: string, reaso
   if (row.unlinked_at) return { ok: false, status: 409, error: "That link was already unlinked." };
   const { error } = await sb.from("external_refs").update({ unlinked_at: new Date().toISOString(), unlinked_by: actor, unlink_reason: reason.trim() }).eq("id", id).eq("tenant_id", tenantId);
   return error ? { ok: false, status: 500, error: error.message } : { ok: true, value: { id } };
+}
+
+/** The live link of one record in one system, or null: what the next push uses instead of searching the outside system by name. */
+export async function findLink(sb: Sb, tenantId: string, system: string, entityType: string, entityId: string): Promise<WriteResult<{ id: string; external_id: string } | null>> {
+  const { data, error } = await sb.from("external_refs").select("id, external_id").eq("tenant_id", tenantId).eq("system", system).eq("entity_type", entityType).eq("entity_id", entityId).is("unlinked_at", null).maybeSingle();
+  if (error) return isMissingMigration(error) ? { ok: false, status: 503, error: notSetUp } : { ok: false, status: 500, error: error.message };
+  return { ok: true, value: (data as { id: string; external_id: string } | null) ?? null };
 }

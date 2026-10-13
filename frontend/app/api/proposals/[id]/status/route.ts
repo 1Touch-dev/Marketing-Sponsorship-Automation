@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { createOrUpdateDeal } from "@/lib/pipedrive/sync";
+import { pushDeal } from "@/lib/pipedrive/adapter";
+import { pushContext, person } from "@/lib/pipedrive/context";
+import { isPipedriveConfigured } from "@/lib/pipedrive/client";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
@@ -68,13 +70,14 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
         const shareToken = proposal.share_token as string | null;
         const tenant = await resolveClubContext(auth.user.tenant_id);
         const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
-        createOrUpdateDeal({
-          title: `${companyName} × ${clubName} — ${proposal.title}`,
-          orgName: companyName,
-          status: "open",
-          proposalId: ctx.params.id,
-          proposalUrl: shareToken ? `${appUrl}/proposals/view/${shareToken}` : undefined,
-        }).catch(() => {});
+        // by stored ID: the deal this proposal already has is updated, and a new one is created only if it has none
+        if (isPipedriveConfigured()) {
+          void pushDeal(pushContext(sb, auth.user.tenant_id, person(auth.user.email), "proposal_status", ctx.params.id), ctx.params.id, {
+            status: "sent",
+            title: `${companyName} × ${clubName} — ${proposal.title}`,
+            proposalUrl: shareToken ? `${appUrl}/proposals/view/${shareToken}` : undefined,
+          }).catch(() => {});
+        }
       }
     } catch {
       // non-fatal — Pipedrive sync failure should not block response

@@ -90,6 +90,18 @@ export async function deleteRecord(sb: Sb, i: DeleteInput): Promise<DeleteResult
     if (error.code === "23503") return { ok: false, status: 409, error: "Other records still point at this one and cannot be removed with it.", dependents: preview.value.dependents };
     return { ok: false, status: 500, error: error.message };
   }
+  // A deleted record's Pipedrive links are marked removed, with the reason, and an event says so. Nothing is deleted in
+  // Pipedrive: the deal or organization stays there, no longer tied to anything here. (Loaded when needed, so this module
+  // does not depend on the Pipedrive adapter, which depends on it.)
+  if (i.table === "proposals" || i.table === "companies" || i.table === "contacts") {
+    try {
+      const { removeLinks } = await import("../pipedrive/adapter");
+      await removeLinks(
+        { sb, tenantId: i.tenantId, auth: { kind: i.actor.kind === "agent" ? "agent" : i.actor.kind === "service" ? "service" : "human", by: i.actor.email || i.actor.label || i.actor.id, basis: "record_deleted", ref: i.id } },
+        i.table, i.id, reason ? `The record was deleted in Coxa: ${reason}` : "The record was deleted in Coxa.",
+      );
+    } catch { /* the delete has happened; a link that could not be marked is still found by the tombstone */ }
+  }
   return { ok: true, dependents: preview.value.dependents, attributed };
 }
 

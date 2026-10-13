@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { getEnvSummary } from "@/lib/env-validation";
 import { getQueueStats } from "@/lib/jobs/queue";
+import { pipedriveConnection } from "@/lib/pipedrive/status";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ export async function GET() {
   // AI service status
   const awsConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
   const openaiConfigured = !!process.env.OPENAI_API_KEY;
-  const pipedriveConfigured = !!process.env.PIPEDRIVE_API_KEY;
+  // the one connection record, the same answer /crm-sync, /pipeline and /system show
+  const pipedrive = await pipedriveConnection(supabaseAdmin(), auth.user.tenant_id, { check: true });
   const replicateConfigured = !!process.env.REPLICATE_API_TOKEN;
   const hunterConfigured = !!process.env.HUNTER_API_KEY;
   const apolloConfigured = !!process.env.APOLLO_API_KEY;
@@ -76,7 +78,7 @@ export async function GET() {
       database: { healthy: dbHealthy, latency_ms: dbLatencyMs },
       bedrock_ai: { healthy: awsConfigured, configured: awsConfigured },
       openai: { healthy: openaiConfigured, configured: openaiConfigured },
-      pipedrive: { healthy: pipedriveConfigured, configured: pipedriveConfigured },
+      pipedrive: { healthy: pipedrive.state === "connected", configured: pipedrive.configured, state: pipedrive.state, detail: pipedrive.detail, key_accepted: pipedrive.key_accepted, last_push_ok_at: pipedrive.last_push_ok_at, last_error: pipedrive.last_error, last_error_at: pipedrive.last_error_at },
       replicate: {
         healthy: replicateConfigured,
         configured: replicateConfigured,

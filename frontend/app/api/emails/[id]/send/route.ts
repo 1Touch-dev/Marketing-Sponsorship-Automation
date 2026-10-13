@@ -5,7 +5,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow } from "@/lib/workflow-events";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
-import { resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
+import { pushContext, person } from "@/lib/pipedrive/context";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { gmailClientFromTokens, createGmailDraft, sendGmailDraft } from "@/lib/gmail/client";
 import { decryptSecret } from "@/lib/security/secret-crypto";
@@ -240,35 +240,13 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
   let pdError: string | null = null;
   let updated: Record<string, unknown> | null = null;
   try {
-    // Resolve Pipedrive IDs from the linked proposal/company
-    let pipedriveDealId: number | null = null;
-    let pipedriveOrgId: number | null = null;
-    let pipedrivePersonId: number | null = null;
-
-    if (email.proposal_id) {
-      const ids = await resolveProposalPipedriveIds(sb, email.proposal_id);
-      pipedriveDealId = ids.dealId;
-      pipedriveOrgId = ids.orgId;
-
-      const { data: proposal } = await sb
-        .from("proposals")
-        .select("companies(full_intelligence)")
-        .eq("id", email.proposal_id)
-        .eq("tenant_id", auth.user.tenant_id)
-        .maybeSingle();
-      const companyData = (proposal as Record<string, unknown> | null)?.companies as Record<string, unknown> | null;
-      const fullIntel = companyData?.full_intelligence as Record<string, unknown> | null;
-      pipedrivePersonId = (fullIntel?.pipedrive_person_id as number) ?? null;
-    }
-
-    // Log to Pipedrive Activities
-    const pdResult = await logEmailToPipedrive({
-      subject: email.subject,
-      bodyHtml: email.body_html ?? email.body_text ?? "",
-      pipedrive_deal_id: pipedriveDealId,
-      pipedrive_org_id: pipedriveOrgId,
-      pipedrive_person_id: pipedrivePersonId,
-    });
+    // The activity is logged on the proposal's deal, found by its stored link. This records that Coxa put a note in the CRM;
+    // it says nothing about the email having been delivered.
+    const pdResult = await logEmailToPipedrive(
+      pushContext(sb, auth.user.tenant_id, person(auth.user.email), "email_logged", email.id),
+      email.proposal_id ?? null,
+      { subject: email.subject, bodyHtml: email.body_html ?? email.body_text ?? "" },
+    );
     activity_id = pdResult.activity_id;
     pdError = pdResult.error ?? null;
 

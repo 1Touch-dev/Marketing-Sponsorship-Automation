@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { companyCreateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { pushContext, person } from "@/lib/pipedrive/context";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { getCurrentTenant } from "@/lib/tenants/current";
@@ -153,7 +154,7 @@ async function postHandler(req: Request) {
       segment: data.segment,
       city: null,
     },
-  }).catch(err => console.error("[CRM] company sync failed", err));
+  }, pushContext(supabaseAdmin(), auth.user.tenant_id, person(auth.user.email), "company_created", data.id)).catch(err => console.error("[CRM] company sync failed", err));
 
   return NextResponse.json(
     {

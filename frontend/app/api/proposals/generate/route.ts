@@ -15,6 +15,7 @@ import {
 } from "@/lib/bedrock/prompts";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { pushContext, person } from "@/lib/pipedrive/context";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
@@ -336,7 +337,7 @@ async function postHandler(req: Request) {
     entity_type: "proposal",
     entity_id: proposal.id,
     operation: "create",
-  }).catch(err => console.error("[CRM] proposal generate sync failed", err));
+  }, pushContext(sb, auth.user.tenant_id, person(auth.user.email), "proposal_created", proposal.id)).catch(err => console.error("[CRM] proposal generate sync failed", err));
 
   return NextResponse.json({ data: proposal, attempts: attempt });
 }

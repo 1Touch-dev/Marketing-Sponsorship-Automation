@@ -8,27 +8,27 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 - **Status:** Open / Cleared. Cleared items stay listed so nothing is re-litigated.
 
 
-**Open items right now: 235** (counted from the tables below; refresh after each task. 217 before priorities 6 to 8, which added 18.)
+**Open items right now: 246** (counted from the tables below; refresh after each task. 235 before the CRM link work, which added 11.)
 
 | Owner | Open |
 |---|---|
-| Abhishek | 111 |
-| James | 78 |
-| Yash | 33 |
-| Yash / James | 7 |
+| Abhishek | 116 |
+| James | 81 |
+| Yash | 34 |
+| Yash / James | 8 |
 | James / the club | 3 |
-| Abhishek / James | 2 |
+| Abhishek / James | 3 |
 | James / Yash | 1 |
 
 | Type | Open |
 |---|---|
-| Decision | 65 |
-| Tech debt | 44 |
-| Known limit | 36 |
-| Yash | 29 |
-| Test gap | 14 |
+| Decision | 69 |
+| Tech debt | 45 |
+| Known limit | 39 |
+| Yash | 30 |
+| Test gap | 15 |
+| Account | 10 |
 | Data | 10 |
-| Account | 9 |
 | Security | 8 |
 | Deploy | 7 |
 | Content | 6 |
@@ -454,6 +454,24 @@ Started 6 Oct 2026 for Abhishek's numbered tasks (see `Abhishek's tasks 2nd octo
 
 ---
 
+### CRM link, health and log: Yash's items 0a to 0d (done 13 Oct, migration 0075)
+
+| ID | Type | Owner | Blocker | What clears it | Status |
+|---|---|---|---|---|---|
+| CRM-01 | **Decision** | James | **Confirm the CRM decision** (`docs/CRM_DECISION_PIPEDRIVE_STAYS.md`): Pipedrive stays; Twenty only as a later pilot of about 5 companies and 10 deals, after the adapter. | Confirm or change. | Open |
+| CRM-02 | Test gap | Abhishek | **No push has been made to the real Pipedrive.** Everything was tested against a stand-in and the real database. The real account was only read (key accepted; Projects endpoint reachable). | One supervised push of a single proposal after the links below are in place. | Open |
+| CRM-03 | **Decision** | James | **Link the existing Pipedrive IDs before pushes go live on production.** Checked 13 Oct: none of the 44 stored deal IDs exist in Pipedrive; all 35 stored organization IDs do (4 under a different name); 17 companies with no ID already exist there by exact name. `POST /api/crm/link-existing` (dry run first) links what exists and only *suggests* the 17. Skipping it means the first push of each of those 17 companies creates a duplicate organization in the club's real CRM. | Someone runs it, reviews the 4 and the 17, confirms the pairs. | Open |
+| CRM-04 | Known limit | Abhishek | "One push per record at a time" is enforced inside one server process. With two server instances at once, two pushes of a new proposal could each create a deal; the second link is refused and the event says it needs attention. | Move the lock into the database if a second instance is ever run. | Open |
+| CRM-05 | Known limit | Abhishek | A person is pushed only together with a deal (the company's first contact with an email), and a deal carries title, status and value 0 only. No pipeline or stage is chosen; nothing flows back from Pipedrive. | Decide what the sales team needs in Pipedrive; add it to the adapter. | Open |
+| CRM-06 | Known limit | Abhishek | If someone deletes a deal inside Pipedrive, the next push to it fails with a message saying so, instead of quietly creating another. A person unlinks it (with a reason) to send it as new. | None needed; by design. | Open |
+| CRM-07 | Tech debt | Abhishek | `crm_sync_queue` is the old record: nothing writes to it any more. `/crm-sync` shows its numbers under "Earlier queue" next to the live counts from the call log. | Retire the table and its buttons when Yash redoes the page. | Open |
+| CRM-08 | **Decision** | Abhishek / James | The Pipedrive part no longer says an email was "sent": the activity is labelled "Logged in CRM" and the result is "logged". The email's own `sent` mark belongs to the delivery state machine and is unchanged (see LG-06). | Decide with LG-06. | Open |
+| CRM-09 | Account | James | **Twenty's licence:** the core is AGPLv3, but files marked `@license Enterprise` need a paid subscription in production, and audit logs, row-level permissions and SSO are only on its paid plans. Which are in the free self-hosted core was not verified. | Check the repository for those markers before the pilot relies on permissions or audit. | Open |
+| CRM-10 | Yash | Yash | `/crm-sync`, `/pipeline` and `/system` read the one connection record, in English. The text of the banner is in `lib/integrations/health.ts`; Portuguese labels, a "run the link checker" screen and a retry button for recent failures (`PATCH /api/crm {action:"retry_recent_failures"}`) are not built. | Build to the routes. | Open |
+| CRM-11 | **Decision** | Yash / James | **0c: where delivery tasks live.** Recommendation written: the tables Coxa owns, no second system now (`docs/DELIVERY_TASKS_DECISION.md`). The Pipedrive Projects test (create a task twice, update, complete, delete, contract suite) needs a go-ahead because it writes to the club's real CRM; Plane has no workspace. | Confirm; say if the Projects test should be run. Closes X-13 for now. | Open |
+
+---
+
 ### Housekeeping found on 8 Oct
 
 | ID | Type | Owner | Blocker | What clears it | Status |
@@ -510,3 +528,4 @@ All numbered tasks (1 to 31) are done; nothing is anticipated.
 | A named team member signing emails without being authorized | 7 Oct (Task 14): signing is limited to authorized senders; revocation blocks already drafted emails |
 | Found and fixed by the live tests on 8 Oct (tasks 21–31): unauthenticated `/api/exports`, `/api/system/health` and `/api/system/status`; internal cost (`execution_brief`) shown to sponsors; draft proposals visible in the portal; negotiation agent forwarding to a stranger's address and obeying planted orders; proposal agent repeating invented "verified" figures; report agent inventing a contact; an email changed after approval not being noticed; an approval flag left open after a legitimate transition; the portal returning database error text for a bad id; a cancelled run leaving its send plan approvable; a cancelled send plan reversible through the manual route | 8 Oct |
 | Found and fixed while building priorities 6 to 8 (12 Oct): a sponsor could see proposal wording newer than what was approved (public link and portal); a draft was readable by anyone holding its link; a pre-approved campaign kept running unattended after its wording or package changed; a logo replaced anywhere left no record of the old one; a "file" proof pointed at nothing; the portal had no way to see the accepted proof itself | 12 Oct |
+| Found and fixed while doing the CRM link (13 Oct): a Pipedrive refusal was reported as "synced" (so a failed sync and a green banner could show together); three screens each decided the connection status their own way and the status card could never show a real answer; a deal was found by title search so two similar proposals could share one; creating a company never created its organization; a "delete" could remove the deal in Pipedrive; an activity was posted loose when no deal was known | 13 Oct |

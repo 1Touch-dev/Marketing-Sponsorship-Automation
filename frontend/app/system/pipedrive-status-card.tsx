@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 
 type CrmStatus = {
+  /** the one connection record (lib/integrations/health.ts): the same answer /crm-sync and /pipeline show */
+  connection?: { state: "not_configured" | "key_rejected" | "failing" | "unverified" | "connected"; tone: string; label: string; detail: string };
   pipedrive_configured: boolean;
   api_valid: boolean;
   api_error?: string;
@@ -85,16 +87,16 @@ export function PipedriveStatusCard() {
 
   const statusBadge = () => {
     if (!status) return null;
-    if (!status.pipedrive_configured) {
-      return <Badge variant="outline" className="text-slate-500 border-slate-300">Not configured</Badge>;
+    switch (status.connection?.state) {
+      case "not_configured": return <Badge variant="outline" className="text-slate-500 border-slate-300">Not configured</Badge>;
+      case "key_rejected": return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Invalid API key</Badge>;
+      case "failing": return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Last push failed</Badge>;
+      case "unverified": return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Not checked</Badge>;
+      default: break;
     }
-    if (!status.api_valid) {
-      return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Invalid API key</Badge>;
-    }
-    if (status.pending_count > 0) {
-      return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">{status.pending_count} pending</Badge>;
-    }
-    return <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">Synced</Badge>;
+    if (!status.pipedrive_configured) return <Badge variant="outline" className="text-slate-500 border-slate-300">Not configured</Badge>;
+    if (status.pending_count > 0) return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">{status.pending_count} pending</Badge>;
+    return <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">Connected</Badge>;
   };
 
   return (
@@ -127,7 +129,7 @@ export function PipedriveStatusCard() {
               <XCircle className="h-5 w-5 text-red-500 mx-auto" />
             )}
             <div className="text-[10px] text-muted-foreground mt-1">
-              {!status ? "…" : status.pipedrive_configured ? (status.api_valid ? "Valid" : "Invalid") : "Missing"}
+              {!status ? "…" : !status.pipedrive_configured ? "Missing" : status.api_valid ? "Valid" : status.connection?.state === "key_rejected" ? "Invalid" : "Not checked"}
             </div>
           </div>
 
@@ -157,7 +159,7 @@ export function PipedriveStatusCard() {
         </div>
 
         {/* API error */}
-        {status && !status.api_valid && status.api_error && (
+        {status && status.api_error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 flex items-start gap-2">
             <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
             <span>{status.api_error}</span>
