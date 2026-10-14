@@ -46,12 +46,12 @@ export function AppShell({
 
   return (
     <UserRoleProvider>
-      <div className="flex min-h-screen flex-col md:flex-row">
+      <div className="app-shell flex h-dvh overflow-hidden flex-col md:flex-row">
         <Sidebar clubName={clubName} tagline={tagline} crestUrl={crestUrl} />
-        <div className="flex flex-1 flex-col min-w-0 max-w-full">
+        <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden">
           <MobileNav />
           <ModuleSecondaryNav />
-          <main className="flex-1">
+          <main className="min-h-0 flex-1 overflow-y-auto">
             <ContentWrapper>{children}</ContentWrapper>
           </main>
         </div>

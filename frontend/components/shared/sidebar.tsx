@@ -28,13 +28,14 @@ function LangToggle() {
   const { lang, toggle } = useLang();
   return (
     <button
+      type="button"
       onClick={toggle}
       title={lang === "pt" ? "Switch to English" : "Mudar para Português"}
-      className="flex items-center gap-0.5 rounded border overflow-hidden text-[10px] font-semibold hover:opacity-90 transition-opacity"
+      className="flex items-center text-[10px] font-semibold"
     >
-      <span className={`px-1.5 py-0.5 ${lang === "pt" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>PT</span>
-      <span className="text-muted-foreground px-0.5">|</span>
-      <span className={`px-1.5 py-0.5 ${lang === "en" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>EN</span>
+      <span className={lang === "pt" ? "text-foreground underline underline-offset-2" : "text-muted-foreground hover:text-foreground"}>PT</span>
+      <span className="px-1 text-muted-foreground">|</span>
+      <span className={lang === "en" ? "text-foreground underline underline-offset-2" : "text-muted-foreground hover:text-foreground"}>EN</span>
     </button>
   );
 }
@@ -190,7 +191,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden md:flex md:flex-col border-r bg-card overflow-hidden transition-all duration-200",
+        "hidden h-full min-h-0 shrink-0 md:flex md:flex-col border-r bg-card overflow-hidden transition-all duration-200",
         collapsed ? "md:w-[60px]" : "md:w-60"
       )}
     >

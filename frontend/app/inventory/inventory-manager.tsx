@@ -543,7 +543,7 @@ export function InventoryManager({ initialItems }: { initialItems: Item[] }) {
         </div>
         <Button
           size="sm"
-          onClick={() => { setEditItem(null); setShowForm(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          onClick={() => { setEditItem(null); setShowForm(true); document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" }); }}
           className="gap-1.5"
         >
           <Plus className="h-4 w-4" /> Add Item

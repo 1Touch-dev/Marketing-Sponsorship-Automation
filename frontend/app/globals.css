@@ -127,8 +127,12 @@
   }
 
   /* Ensure main content takes full width when sidebar is hidden */
-  .flex.min-h-screen {
+  .app-shell,
+  .app-shell > div,
+  main {
     display: block !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   main {
