@@ -11,6 +11,7 @@ import {
 import { MaintenanceActions } from "./maintenance-actions";
 import { PipedriveSyncButton } from "./pipedrive-sync-button";
 import { PipedriveStatusCard } from "./pipedrive-status-card";
+import { pipedriveConnection } from "@/lib/pipedrive/status";
 import { getEnvSummary } from "@/lib/env-validation";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +86,7 @@ export default async function SystemMaintenancePage() {
   const serpConfigured = !!(process.env.SERPAPI_KEY ?? process.env.SERPAPI_API_KEY);
   const openaiConfigured = !!(process.env.OPENAI_API_KEY);
   const bedrockConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  const pipedrive = await pipedriveConnection(sb, tenantId, { check: true });
 
   const services = [
     { id: "supabase", label: "Supabase DB", status: "active", description: "Database connected", icon: Database },
@@ -92,7 +94,8 @@ export default async function SystemMaintenancePage() {
     { id: "openai", label: "OpenAI (gpt-image-2)", status: openaiConfigured ? "active" : "missing", description: openaiConfigured ? "Image generation ready" : "Add OPENAI_API_KEY", icon: Zap },
     { id: "serpapi", label: "SerpAPI", status: serpConfigured ? "configured" : "missing", description: serpConfigured ? "Key set — verify at serpapi.com/manage-api-key" : "Add SERPAPI_KEY to .env for competitor discovery", icon: Globe },
     { id: "playwright", label: "Playwright", status: "optional", description: "Browser scraping — run: npx playwright install", icon: Globe },
-    { id: "pipedrive", label: "Pipedrive CRM", status: "placeholder", description: "Architecture ready — no API key required yet", icon: Key },
+    // from the one connection record (the same one /crm-sync and /pipeline show), not a fixed word
+    { id: "pipedrive", label: "Pipedrive CRM", status: ({ connected: "active", unverified: "configured", failing: "failing", key_rejected: "failing", not_configured: "idle" } as Record<string, string>)[pipedrive.state] ?? "idle", description: pipedrive.detail, icon: Key },
   ];
 
   return (
@@ -120,14 +123,16 @@ export default async function SystemMaintenancePage() {
                 missing: "text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
                 optional: "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800",
                 placeholder: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700",
+                failing: "text-red-600 bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
+                idle: "text-slate-500 bg-slate-50 border-slate-200 dark:bg-slate-900/20 dark:border-slate-700",
               };
               const statusLabels: Record<string, string> = {
                 active: "Active", configured: "Configured", missing: "Missing",
-                optional: "Optional", placeholder: "Placeholder",
+                optional: "Optional", placeholder: "Placeholder", failing: "Failing", idle: "Not connected",
               };
               const dotColors: Record<string, string> = {
                 active: "bg-green-500", configured: "bg-blue-500", missing: "bg-red-500",
-                optional: "bg-amber-500", placeholder: "bg-slate-400",
+                optional: "bg-amber-500", placeholder: "bg-slate-400", failing: "bg-red-500", idle: "bg-slate-400",
               };
               return (
                 <div key={svc.id} className={`rounded-lg border p-3 ${statusColors[svc.status] ?? statusColors.placeholder}`}>

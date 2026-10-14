@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, DollarSign, Plus, Activity, CheckCircle, Target, ArrowRight } from "lucide-react";
 import { HygieneCheckPanel } from "./hygiene-check-panel";
 import { PipelineBoard } from "./pipeline-board";
+import { ConnectionBanner } from "@/components/integrations/connection-banner";
+import { pipedriveConnection } from "@/lib/pipedrive/status";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,7 @@ const STAGES = [
 export default async function PipelinePage() {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
+  const connection = await pipedriveConnection(sb, tenantId, { check: true });
 
   // Use companies table with pipeline_stage — no separate table needed
   // Found live-testing 2026-09-17 (building the Pipeline Hygiene Agent,
@@ -86,10 +89,10 @@ export default async function PipelinePage() {
     <div className="space-y-6">
       <PageHeader
         title="Sales Pipeline"
-        description="CRM-ready lead tracking for Coritiba FC sponsorship deals (Pipedrive-ready)"
+        description="Lead tracking for Coritiba FC sponsorship deals"
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">Pipedrive Integration: Ready to Configure</Badge>
+            <Badge variant="outline" className={`text-xs ${connection.tone === "ok" ? "border-green-300 text-green-700" : connection.tone === "bad" ? "border-red-300 text-red-700" : connection.tone === "warn" ? "border-amber-300 text-amber-700" : ""}`}>{connection.label}</Badge>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Add Lead
@@ -102,25 +105,8 @@ export default async function PipelinePage() {
 
       <HygieneCheckPanel />
 
-      {/* Pipedrive notice */}
-      <Card className="border-blue-200 bg-blue-50/30">
-        <CardContent className="pt-4">
-          <div className="flex items-start gap-3">
-            <Activity className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-blue-800">Pipedrive Integration Ready</p>
-              <p className="text-sm text-blue-700 mt-1">
-                Every lead here is already tracked in a way that&apos;s ready to sync with Pipedrive.
-                When you&apos;re ready to connect it, the integration layer is pre-built.
-              </p>
-              <a href="https://mcp.pipedream.com/app/pipedrive" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1">
-                Pipedrive MCP Integration Docs
-                <ArrowRight className="h-3 w-3" />
-              </a>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* The same connection record /crm-sync and /system show */}
+      <ConnectionBanner connection={connection} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -15,6 +15,7 @@ import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from 
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { pushContext, person as pdPerson, agent as pdAgent, service as pdService } from "@/lib/pipedrive/context";
 import { logger } from "@/lib/monitoring/logger";
 import type { ProposalContent } from "@/types/database";
 import { userActor } from "@/lib/identity/actor";
@@ -265,11 +266,12 @@ export async function generatePersonalizedProposalForCompany(
     metadata: { company_id: companyId, campaign_id: campaignId, agent: true },
   });
 
+  const crmWho = actor.kind === "agent" ? pdAgent(actor.name ?? "proposal-agent") : actor.kind === "rule" ? pdService(actor.name ?? "rule") : actor.email ? pdPerson(actor.email) : pdService("proposal-generator");
   void enqueueCrmSync({
     entity_type: "proposal",
     entity_id: proposal.id,
     operation: "create",
-  }).catch(err => console.error("[CRM] agent proposal sync failed", err));
+  }, pushContext(sb, tenantId, crmWho, "proposal_created", proposal.id)).catch(err => console.error("[CRM] agent proposal sync failed", err));
 
   const content = proposal.content as Record<string, string> | null;
 

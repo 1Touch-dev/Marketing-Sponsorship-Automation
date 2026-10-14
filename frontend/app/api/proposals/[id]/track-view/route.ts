@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { logActivity } from "@/lib/pipedrive/sync";
+import { logCrmActivity } from "@/lib/pipedrive/adapter";
+import { pushContext, service } from "@/lib/pipedrive/context";
+import { isPipedriveConfigured } from "@/lib/pipedrive/client";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { externalActor } from "@/lib/identity/actor";
@@ -112,23 +114,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .maybeSingle();
 
   // Sync to Pipedrive as activity
-  try {
-    const { data: prop } = await sb
-      .from("proposals")
-      .select("title, companies(company_name)")
-      .eq("id", params.id)
-      .single();
-    if (prop) {
-      const companyName = Array.isArray(prop.companies)
-        ? (prop.companies[0] as { company_name: string } | undefined)?.company_name
-        : (prop.companies as { company_name: string } | null)?.company_name;
-      const dealClubTenant = await resolveClubContext(tenantId);
-      const dealClubName = dealClubTenant.club_facts.short_name ?? dealClubTenant.club_facts.club_name;
-      const dealTitle = `${companyName} × ${dealClubName} — ${prop.title}`;
-      logActivity({ dealTitle, activityType: "Proposta visualizada", note: `Sponsor viewed proposal at ${new Date().toISOString()}` }).catch(() => {});
-    }
-  } catch {
-    // non-fatal
+  // A sponsor opened the proposal: a note on its deal, found by the stored link (nothing is matched by title).
+  if (isPipedriveConfigured()) {
+    void logCrmActivity(pushContext(sb, tenantId, service("sponsor-view"), "sponsor_view", params.id), params.id, {
+      subject: "Proposta visualizada",
+      note: `Sponsor viewed proposal at ${new Date().toISOString()}`,
+    }).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, view_id: (viewRow as unknown as { id: string } | null)?.id ?? null });

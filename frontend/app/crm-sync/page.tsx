@@ -3,6 +3,9 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CrmSyncManager } from "./crm-sync-manager";
+import { ConnectionBanner } from "@/components/integrations/connection-banner";
+import { pipedriveConnection } from "@/lib/pipedrive/status";
+import { recentFailures } from "@/lib/integrations/log";
 import { GitMerge, CheckCircle, Clock, AlertCircle, Zap } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +28,15 @@ export default async function CrmSyncPage() {
     return acc;
   }, {});
 
-  const hasPipedrive = !!process.env.PIPEDRIVE_API_KEY;
+  // The one connection record (also read by /pipeline, /system and the health endpoints). Opening this page asks Pipedrive
+  // whether it accepts the key if that has not been checked in the last five minutes.
+  const connection = await pipedriveConnection(sb, tenantId, { check: true });
+
+  // What was actually sent in the last 30 days, from the log of calls (the queue below is the old record, kept as history)
+  const since = new Date(Date.now() - 30 * 86400 * 1000).toISOString();
+  const { data: recent } = await sb.from("integration_events" as "companies").select("outcome" as "id").eq("tenant_id" as "id", tenantId).eq("system" as "id", "pipedrive").gte("created_at", since).limit(5000);
+  const pushes = ((recent ?? []) as unknown as Array<{ outcome: string }>).reduce((acc: Record<string, number>, r) => { acc[r.outcome] = (acc[r.outcome] ?? 0) + 1; return acc; }, {});
+  const failures = await recentFailures(sb, tenantId, "pipedrive", 5);
 
   // Pipeline names for display
   const PIPELINE_NAMES: Record<number, string> = {
@@ -43,37 +54,39 @@ export default async function CrmSyncPage() {
         description="Live integration with Coritiba FC Pipedrive account"
       />
 
-      {/* Connection status banner */}
-      <div className={`rounded-xl border p-4 mb-6 flex items-start gap-3 ${hasPipedrive
-        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-        : "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"}`}>
-        {hasPipedrive
-          ? <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-          : <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-        }
-        <div className="flex-1">
-          <div className={`font-semibold text-sm ${hasPipedrive ? "text-green-700 dark:text-green-300" : "text-amber-700 dark:text-amber-300"}`}>
-            {hasPipedrive ? "✓ Pipedrive Conectado — Coritiba FC" : "Pipedrive Não Configurado"}
-          </div>
-          <div className={`text-xs mt-0.5 ${hasPipedrive ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
-            {hasPipedrive
-              ? "Sync ativo — empresas e propostas sincronizam com Pipedrive automaticamente."
-              : "Adicione PIPEDRIVE_API_KEY ao .env para ativar o sync."
-            }
-          </div>
-        </div>
-        {hasPipedrive && (
-          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium flex-shrink-0">Live</span>
-        )}
+      <ConnectionBanner connection={connection} className="mb-6" />
+
+      {/* What was sent, last 30 days */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        {[
+          { label: "Sent OK (30 days)", value: pushes.succeeded ?? 0, icon: CheckCircle, color: "green" },
+          { label: "Failed (30 days)", value: pushes.failed ?? 0, icon: AlertCircle, color: "red" },
+          { label: "Not sent (30 days)", value: pushes.skipped ?? 0, icon: Clock, color: "amber" },
+        ].map(s => (
+          <Card key={s.label}>
+            <CardContent className="pt-4 pb-3 flex items-center gap-3">
+              <s.icon className={`h-5 w-5 flex-shrink-0 ${s.color === "green" ? "text-green-500" : s.color === "red" ? "text-red-500" : "text-amber-500"}`} />
+              <div><div className="text-xl font-bold">{s.value}</div><div className="text-xs text-muted-foreground">{s.label}</div></div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
+      {failures.length > 0 && (
+        <Card className="mb-6 border-red-200">
+          <CardHeader><CardTitle className="text-sm text-red-700">Latest failed calls</CardTitle></CardHeader>
+          <CardContent className="space-y-1 text-xs">
+            {failures.map((f, i) => (<div key={i} className="flex gap-2"><span className="text-muted-foreground w-36 flex-shrink-0">{new Date(f.ts).toLocaleString("pt-BR")}</span><span className="font-mono">{f.entity_type}/{f.operation}</span><span className="text-red-600">{f.error ?? `HTTP ${f.http_status ?? "?"}`}</span></div>))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Pending", value: stats.pending ?? 0, icon: Clock, color: "amber" },
-          { label: "Synced", value: stats.synced ?? 0, icon: CheckCircle, color: "green" },
-          { label: "Failed", value: stats.failed ?? 0, icon: AlertCircle, color: "red" },
-          { label: "Total", value: safeQueue.length, icon: GitMerge, color: "slate" },
+          { label: "Earlier queue: pending", value: stats.pending ?? 0, icon: Clock, color: "amber" },
+          { label: "Earlier queue: synced", value: stats.synced ?? 0, icon: CheckCircle, color: "green" },
+          { label: "Earlier queue: failed", value: stats.failed ?? 0, icon: AlertCircle, color: "red" },
+          { label: "Earlier queue: total", value: safeQueue.length, icon: GitMerge, color: "slate" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="pt-4 pb-3 flex items-center gap-3">

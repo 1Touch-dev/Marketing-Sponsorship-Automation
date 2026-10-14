@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { validateEnv, getEnvSummary } from "@/lib/env-validation";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { pipedriveConnection } from "@/lib/pipedrive/status";
 import { checkApifyHealth, type ApifyHealthStatus } from "@/lib/intelligence/apify";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +12,8 @@ export async function GET() {
   const auth = await requirePermission("manage_integrations");
   if ("error" in auth) return auth.error;
   const envSummary = getEnvSummary();
+  // the one connection record, the same answer /crm-sync, /pipeline and /system show
+  const pipedrive = await pipedriveConnection(supabaseAdmin(), auth.user.tenant_id, { check: true });
   const openaiKey = process.env.OPENAI_API_KEY ?? "";
   const bedrockOk = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
   const apifyToken = process.env.APIFY_API_TOKEN ?? "";
@@ -67,9 +71,9 @@ export async function GET() {
         description: "Browser scraping — Apify crawler is the primary method; Playwright activates when OS support added",
       },
       pipedrive: {
-        status: "placeholder",
+        status: pipedrive.state,
         label: "Pipedrive CRM",
-        description: "Architecture ready — requires API key to activate",
+        description: pipedrive.detail,
       },
     },
     environment: { healthy: valid, vars: envSummary },

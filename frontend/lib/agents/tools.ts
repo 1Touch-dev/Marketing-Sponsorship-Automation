@@ -25,6 +25,7 @@ import {
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
 import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
+import { pushContext, agent } from "@/lib/pipedrive/context";
 import { guardColumns } from "@/lib/db/column-guard";
 import { serverEnv } from "@/lib/env";
 import { emailOutputSchema, validateAiOutput } from "@/lib/ai/schemas";
@@ -489,31 +490,16 @@ export async function toolSendEmail(input: {
   const email = claimed;
 
   try {
-    let pipedriveDealId: number | null = null;
-    let pipedriveOrgId: number | null = null;
-
+    // The activity goes on the proposal's deal, found by its stored link; if there is none yet, the deal is created first.
+    const pd = pushContext(sb, String(email.tenant_id), agent("outreach-agent"), "email_logged", String(email.id));
     if (email.proposal_id) {
       const ids = await resolveProposalPipedriveIds(sb, email.proposal_id as string);
-      pipedriveDealId = ids.dealId;
-      pipedriveOrgId = ids.orgId;
-
-      if (!pipedriveDealId) {
-        const { result } = await enqueueCrmSync({
-          entity_type: "proposal",
-          entity_id: email.proposal_id as string,
-          operation: "create",
-        });
-        pipedriveDealId = (result.pipedrive_deal_id as number) ?? null;
-        pipedriveOrgId = (result.pipedrive_org_id as number) ?? pipedriveOrgId;
-      }
+      if (!ids.dealId) await enqueueCrmSync({ entity_type: "proposal", entity_id: email.proposal_id as string, operation: "create" }, pd);
     }
 
-    const { activity_id, error: pdError } = await logEmailToPipedrive({
+    const { activity_id, error: pdError } = await logEmailToPipedrive(pd, (email.proposal_id as string | null) ?? null, {
       subject: email.subject,
       bodyHtml: email.body_html ?? email.body_text ?? "",
-      pipedrive_deal_id: pipedriveDealId,
-      pipedrive_org_id: pipedriveOrgId,
-      pipedrive_person_id: null,
     });
 
     await sb.from("emails").update({

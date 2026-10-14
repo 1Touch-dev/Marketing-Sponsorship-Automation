@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { pushContext, person } from "@/lib/pipedrive/context";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
@@ -275,7 +276,7 @@ async function postHandler(req: Request) {
       entity_type: "proposal",
       entity_id: proposal.id,
       operation: "create",
-    }).catch(err => console.error("[CRM] wizard proposal sync failed", err));
+    }, pushContext(sb as never, auth.user.tenant_id, person(auth.user.email), "proposal_created", proposal.id)).catch(err => console.error("[CRM] wizard proposal sync failed", err));
 
     return NextResponse.json({ proposal_id: proposal.id });
   } catch (err) {

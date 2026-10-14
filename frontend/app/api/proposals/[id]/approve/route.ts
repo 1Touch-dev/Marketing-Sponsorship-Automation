@@ -6,7 +6,8 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalStatus } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
-import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { pushContext, person } from "@/lib/pipedrive/context";
 import crypto from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { activateProposalUnits, leaveActiveContractUnits } from "@/lib/inventory/proposal-units";
@@ -171,26 +172,14 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
     },
   });
 
-  // ── Fire-and-forget: sync status change to Pipedrive ─────────────────────
-  void (async () => {
-    const ids = await resolveProposalPipedriveIds(sb, parsed.data.proposal_id);
-    const p = proposal as Record<string, unknown>;
-    const content = (p.content as Record<string, unknown>) ?? {};
-    const dealId = ids.dealId ?? (p.pipedrive_deal_id as number) ?? (content.pipedrive_deal_id as number) ?? null;
-    const pipelineId = ids.pipelineId ?? (p.pipedrive_pipeline_id as number) ?? (content.pipedrive_pipeline_id as number) ?? null;
-
-    await enqueueCrmSync({
-      entity_type: "proposal",
-      entity_id: parsed.data.proposal_id,
-      operation: dealId ? "status_change" : "create",
-      payload: {
-        pipedrive_deal_id: dealId,
-        pipedrive_pipeline_id: pipelineId,
-        new_status: newStatus,
-        status_reason: parsed.data.comments ?? null,
-      },
-    });
-  })().catch(err => console.error("[CRM] proposal approve sync failed", err));
+  // ── Fire-and-forget: tell Pipedrive about the decision. The person who decided is the one answerable for the push. ──
+  void enqueueCrmSync({
+    entity_type: "proposal",
+    entity_id: parsed.data.proposal_id,
+    operation: "status_change",
+    payload: { new_status: newStatus, status_reason: parsed.data.comments ?? null },
+  }, pushContext(sb, auth.user.tenant_id, person(auth.user.email), "proposal_decision", parsed.data.proposal_id))
+    .catch(err => console.error("[CRM] proposal approve sync failed", err));
 
   return NextResponse.json({ data: proposal, ...(claimsReport ? { claims: claimsReport } : {}) });
 }
