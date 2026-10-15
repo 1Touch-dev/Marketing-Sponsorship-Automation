@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, DollarSign, Plus, Activity, CheckCircle, Target, ArrowRight } from "lucide-react";
 import { HygieneCheckPanel } from "./hygiene-check-panel";
 import { PipelineBoard } from "./pipeline-board";
-import { ConnectionBanner } from "@/components/integrations/connection-banner";
+import { ConnectionBanner, ConnectionHeadline } from "@/components/integrations/connection-banner";
 import { pipedriveConnection } from "@/lib/pipedrive/status";
 
 export const dynamic = "force-dynamic";
@@ -92,7 +92,9 @@ export default async function PipelinePage() {
         description="Lead tracking for Coritiba FC sponsorship deals"
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={`text-xs ${connection.tone === "ok" ? "border-green-300 text-green-700" : connection.tone === "bad" ? "border-red-300 text-red-700" : connection.tone === "warn" ? "border-amber-300 text-amber-700" : ""}`}>{connection.label}</Badge>
+            <Badge variant="outline" className={`text-xs ${connection.tone === "ok" ? "border-green-300 text-green-700" : connection.tone === "bad" ? "border-red-300 text-red-700" : connection.tone === "warn" ? "border-amber-300 text-amber-700" : ""}`}>
+              <ConnectionHeadline facts={connection} />
+            </Badge>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Add Lead

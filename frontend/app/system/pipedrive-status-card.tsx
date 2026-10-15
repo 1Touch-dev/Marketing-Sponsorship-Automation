@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Key, RefreshCw, CheckCircle2, XCircle, AlertTriangle,
-  Trash2, Clock, Activity,
+  Clock, Activity,
 } from "lucide-react";
+import { connectionCopy, type ConnectionFacts } from "@/lib/integrations/connection-copy";
+import { useLang } from "@/lib/i18n/lang-context";
 
 type CrmStatus = {
   /** the one connection record (lib/integrations/health.ts): the same answer /crm-sync and /pipeline show */
-  connection?: { state: "not_configured" | "key_rejected" | "failing" | "unverified" | "connected"; tone: string; label: string; detail: string };
+  connection?: ConnectionFacts;
   pipedrive_configured: boolean;
   api_valid: boolean;
   api_error?: string;
@@ -22,10 +24,10 @@ type CrmStatus = {
 };
 
 export function PipedriveStatusCard() {
+  const { lang } = useLang();
   const [status, setStatus] = useState<CrmStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [clearing, setClearing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -59,8 +61,8 @@ export function PipedriveStatusCard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entity_type: "manual", entity_id: "manual", operation: "create" }),
       });
-      const data = await res.json() as { message?: string; sync_status?: string; error?: string };
-      setSyncResult(data.message ?? data.sync_status ?? "Done");
+      const data = await res.json() as { connection?: ConnectionFacts; sync_status?: string; error?: string };
+      setSyncResult(data.connection ? connectionCopy(data.connection, lang).detail : (data.error ?? data.sync_status ?? "Done"));
       await fetchStatus();
     } catch (e) {
       setSyncResult(`Error: ${String(e)}`);
@@ -69,34 +71,14 @@ export function PipedriveStatusCard() {
     }
   }
 
-  async function clearFailed() {
-    setClearing(true);
-    try {
-      await fetch("/api/crm", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear_failed" }),
-      });
-      await fetchStatus();
-    } catch {
-      // silently fail
-    } finally {
-      setClearing(false);
-    }
-  }
-
   const statusBadge = () => {
     if (!status) return null;
-    switch (status.connection?.state) {
-      case "not_configured": return <Badge variant="outline" className="text-slate-500 border-slate-300">Not configured</Badge>;
-      case "key_rejected": return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Invalid API key</Badge>;
-      case "failing": return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Last push failed</Badge>;
-      case "unverified": return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Not checked</Badge>;
-      default: break;
-    }
-    if (!status.pipedrive_configured) return <Badge variant="outline" className="text-slate-500 border-slate-300">Not configured</Badge>;
-    if (status.pending_count > 0) return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">{status.pending_count} pending</Badge>;
-    return <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">Connected</Badge>;
+    const state = status.connection?.state ?? (status.pipedrive_configured ? "connected" : "not_configured");
+    const name = connectionCopy({ state, ...status.connection }, lang).stateName;
+    if (state === "key_rejected" || state === "failing") return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">{name}</Badge>;
+    if (state === "unverified") return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">{name}</Badge>;
+    if (state === "not_configured") return <Badge variant="outline" className="text-slate-500 border-slate-300">{name}</Badge>;
+    return <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">{name}</Badge>;
   };
 
   return (
@@ -129,7 +111,7 @@ export function PipedriveStatusCard() {
               <XCircle className="h-5 w-5 text-red-500 mx-auto" />
             )}
             <div className="text-[10px] text-muted-foreground mt-1">
-              {!status ? "…" : !status.pipedrive_configured ? "Missing" : status.api_valid ? "Valid" : status.connection?.state === "key_rejected" ? "Invalid" : "Not checked"}
+              {!status ? "…" : connectionCopy({ state: status.connection?.state ?? (status.pipedrive_configured ? "unverified" : "not_configured"), ...status.connection }, lang).stateName}
             </div>
           </div>
 
@@ -200,32 +182,6 @@ export function PipedriveStatusCard() {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Syncing…" : "Sync Now"}
-          </Button>
-          {(status?.stats?.failed ?? 0) > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={clearFailed}
-              disabled={clearing}
-              className="gap-1.5 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {clearing ? "Clearing…" : `Clear ${status?.stats?.failed ?? 0} Failed`}
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              void fetch("/api/crm", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "retry_failed" }),
-              }).then(() => fetchStatus());
-            }}
-            className="gap-1.5"
-          >
-            Retry Failed
           </Button>
         </div>
       </CardContent>
