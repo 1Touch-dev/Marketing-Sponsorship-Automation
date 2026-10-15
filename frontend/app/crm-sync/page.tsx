@@ -3,6 +3,8 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CrmSyncManager } from "./crm-sync-manager";
+import { CrmLinkChecker } from "./crm-link-checker";
+import { RetryRecentFailures } from "./retry-recent-button";
 import { ConnectionBanner } from "@/components/integrations/connection-banner";
 import { pipedriveConnection } from "@/lib/pipedrive/status";
 import { recentFailures } from "@/lib/integrations/log";
@@ -55,6 +57,9 @@ export default async function CrmSyncPage() {
       />
 
       <ConnectionBanner connection={connection} className="mb-6" />
+
+      <RetryRecentFailures />
+      <CrmLinkChecker />
 
       {/* What was sent, last 30 days */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
