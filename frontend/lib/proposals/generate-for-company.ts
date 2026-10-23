@@ -14,7 +14,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import { proposalContentSchema, validateAiOutput, type ProposalContentAI } from "@/lib/ai/schemas";
 import { serverEnv } from "@/lib/env";
 import { recordAudit } from "@/lib/audit/log";
-import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person as pdPerson, agent as pdAgent, service as pdService } from "@/lib/pipedrive/context";
 import { logger } from "@/lib/monitoring/logger";
 import type { ProposalContent } from "@/types/database";

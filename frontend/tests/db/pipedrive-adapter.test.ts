@@ -29,6 +29,7 @@ const person = { kind: "human" as const, by: "ana@club.com", basis: "proposal_de
 
 async function world(opts: { migrations?: string[]; extraSeed?: string } = {}) {
   process.env.PIPEDRIVE_API_KEY = "test-key";
+  delete process.env.TWENTY_API_KEY;
   const db = await freshDb(opts.migrations ?? MIGRATIONS, { seed: seed(opts.extraSeed) });
   const sb = pgClient(db);
   const fake = new FakePipedrive();

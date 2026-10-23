@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
 import { recordAudit } from "@/lib/audit/log";
-import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
 import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";

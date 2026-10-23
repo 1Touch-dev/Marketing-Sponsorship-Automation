@@ -239,6 +239,8 @@ APIFY_API_TOKEN=
 SERPAPI_KEY=
 LOGO_DEV_TOKEN=                    # Company logo scraping (get a free key at https://logo.dev/signup) — falls back to Apollo + Google favicon if unset/expired
 PIPEDRIVE_API_KEY=
+TWENTY_BASE_URL=http://localhost:3200   # Self-hosted Twenty; later public domain is this value only
+TWENTY_API_KEY=                         # Twenty workspace API key; empty = do not push to Twenty
 NEXTAUTH_SECRET=
 INTERNAL_API_SECRET=               # Secures /api/system/* + /api/internal/* endpoints, and (as of 15 Sep 2026) unattended cron/n8n calls to /api/proposals/detect-cold, /api/email-sequences/advance, /api/gmail/sync-threads via requirePermissionOrInternal() — pass as x-internal-secret header
 HUNTER_API_KEY=                    # Contact/email enrichment (REST) + official Hunter MCP server (mcp.hunter.io, X-API-Key header)

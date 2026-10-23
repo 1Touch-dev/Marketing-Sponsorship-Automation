@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { companyCreateSchema } from "@/lib/validators";
 import { recordAudit } from "@/lib/audit/log";
-import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import { fetchAndStoreCompanyLogo } from "@/lib/companies/logo-enrichment";
 import { requirePermission } from "@/lib/auth/server-permission";

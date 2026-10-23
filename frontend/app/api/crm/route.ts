@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { dispatchToPipedrive, enqueueCrmSync, isPipedriveConfigured } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
+import { dispatchToPipedrive, isPipedriveConfigured } from "@/lib/pipedrive/sync";
 import { pipedriveConnection } from "@/lib/pipedrive/status";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import { recentFailures } from "@/lib/integrations/log";
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ queued: false, live_sync: isPipedriveConfigured(), sync_status: c.state === "connected" ? "synced" : c.state === "not_configured" ? "skipped" : "failed", connection: { state: c.state, tone: c.tone, label: c.label, detail: c.detail }, pipedrive_result: {}, message: `${c.label}. ${c.detail}` });
     }
 
-    const { sync_status, result } = await enqueueCrmSync(
+    const { sync_status, result, twenty_result } = await enqueueCrmSync(
       { entity_type: body.entity_type, entity_id: body.entity_id, operation: body.operation, payload: body.payload },
       pushContext(sb, auth.user.tenant_id, person(auth.user.email), "manual_sync", body.entity_id),
     );
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
       live_sync: isPipedriveConfigured(),
       sync_status,
       pipedrive_result: result,
+      twenty_result: twenty_result ?? {},
       message: sync_status === "synced"
         ? "Synced to Pipedrive ✓"
         : sync_status === "failed"

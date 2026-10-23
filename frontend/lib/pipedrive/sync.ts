@@ -2,26 +2,14 @@ import { findLink } from "../sync/external-refs";
 import { openAction, logEvent } from "../integrations/log";
 import { isPipedriveConfigured } from "./client";
 import { SYSTEM, pushDeal, pushOrganization, pushPerson, removeLinks, type PushContext, type PushResult } from "./adapter";
+import type { CrmSyncOpts, CrmSyncResult } from "../crm/types";
 
 export { isPipedriveConfigured };
+export type { CrmSyncOpts, CrmSyncResult };
 
 /**
- * The entry point the rest of the app uses to say "this record changed, tell Pipedrive". It no longer decides anything
- * itself: every push goes through the adapter (lib/pipedrive/adapter.ts), by stored ID, with someone answerable for it, and
- * the answer it gives is the truth: `synced` only when Pipedrive accepted the call. (Before, a rejected call still came
- * back as "synced", which is how a failed sync and a green banner could be on screen together.)
+ * Pipedrive-only push. The rest of the app calls `enqueueCrmSync` in lib/crm/sync.ts, which fans out to this and to Twenty.
  */
-export interface CrmSyncOpts {
-  entity_type: string;
-  entity_id: string;
-  operation: "create" | "update" | "delete" | "status_change";
-  payload?: Record<string, unknown>;
-}
-
-export interface CrmSyncResult {
-  sync_status: "synced" | "failed" | "skipped" | "queued";
-  result: Record<string, unknown>;
-}
 
 const TYPES = { proposal: "proposals", company: "companies", contact: "contacts" } as const;
 
@@ -54,7 +42,7 @@ export async function dispatchToPipedrive(entityType: string, entityId: string, 
   return { ...(table === "proposals" ? { pipedrive_deal_id: id } : table === "companies" ? { pipedrive_org_id: id } : { pipedrive_person_id: id }), created: !!r.created };
 }
 
-export async function enqueueCrmSync(opts: CrmSyncOpts, ctx: PushContext): Promise<CrmSyncResult> {
+export async function enqueuePipedriveSync(opts: CrmSyncOpts, ctx: PushContext): Promise<CrmSyncResult> {
   if (!isPipedriveConfigured()) {
     // say so in the log instead of dropping it: someone can see that a change was NOT sent, and why
     const table = (TYPES as Record<string, string | undefined>)[opts.entity_type] ?? opts.entity_type;
@@ -68,6 +56,12 @@ export async function enqueueCrmSync(opts: CrmSyncOpts, ctx: PushContext): Promi
   } catch (e) {
     return { sync_status: "failed", result: { error: e instanceof Error ? e.message : String(e) } };
   }
+}
+
+/** Same fan-out as lib/crm/sync.ts, so existing imports of enqueueCrmSync from this file keep working. */
+export async function enqueueCrmSync(opts: CrmSyncOpts, ctx: PushContext): Promise<CrmSyncResult> {
+  const { enqueueCrmSync: fanOut } = await import("../crm/sync");
+  return fanOut(opts, ctx);
 }
 
 /**

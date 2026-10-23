@@ -24,7 +24,8 @@ import {
 } from "@/lib/email/template-engine";
 import { logEmailToPipedrive } from "@/lib/pipedrive/email";
 import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
-import { enqueueCrmSync, resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
+import { resolveProposalPipedriveIds } from "@/lib/pipedrive/sync";
 import { pushContext, agent } from "@/lib/pipedrive/context";
 import { guardColumns } from "@/lib/db/column-guard";
 import { serverEnv } from "@/lib/env";

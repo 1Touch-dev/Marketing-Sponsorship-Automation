@@ -14,7 +14,7 @@ import {
   PROMPT_VERSION,
 } from "@/lib/bedrock/prompts";
 import { recordAudit } from "@/lib/audit/log";
-import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import { serverEnv } from "@/lib/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";

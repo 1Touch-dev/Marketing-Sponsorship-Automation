@@ -6,7 +6,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { ProposalStatus } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
-import { enqueueCrmSync } from "@/lib/pipedrive/sync";
+import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import crypto from "crypto";
 import { requirePermission } from "@/lib/auth/server-permission";
