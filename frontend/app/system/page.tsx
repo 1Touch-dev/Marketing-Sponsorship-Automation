@@ -12,6 +12,7 @@ import { MaintenanceActions } from "./maintenance-actions";
 import { PipedriveSyncButton } from "./pipedrive-sync-button";
 import { PipedriveStatusCard } from "./pipedrive-status-card";
 import { pipedriveConnection } from "@/lib/pipedrive/status";
+import { ConnectionSentence } from "@/components/integrations/connection-banner";
 import { getEnvSummary } from "@/lib/env-validation";
 
 export const dynamic = "force-dynamic";
@@ -141,7 +142,11 @@ export default async function SystemMaintenancePage() {
                     <span className="text-xs font-semibold">{svc.label}</span>
                     <span className="ml-auto text-[10px] font-medium capitalize">{statusLabels[svc.status] ?? svc.status}</span>
                   </div>
-                  <p className="text-[11px] opacity-80">{svc.description}</p>
+                  {svc.id === "pipedrive" ? (
+                    <ConnectionSentence facts={pipedrive} className="text-[11px] opacity-80" />
+                  ) : (
+                    <p className="text-[11px] opacity-80">{svc.description}</p>
+                  )}
                 </div>
               );
             })}

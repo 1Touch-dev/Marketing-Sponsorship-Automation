@@ -49,7 +49,15 @@ export async function GET(req: Request) {
   }, {});
 
   return NextResponse.json({
-    connection: { state: connection.state, tone: connection.tone, label: connection.label, detail: connection.detail },
+    connection: {
+      state: connection.state,
+      tone: connection.tone,
+      last_error: connection.last_error,
+      last_error_at: connection.last_error_at,
+      last_push_ok_at: connection.last_push_ok_at,
+      key_checked_at: connection.key_checked_at,
+      last_error_kind: connection.last_error_kind,
+    },
     // the fields the status card has always read, now filled from the one record
     pipedrive_configured: connection.configured,
     api_valid: connection.key_accepted === true,
@@ -79,7 +87,7 @@ export async function POST(req: Request) {
     // The "Sync" button on the status card sends entity_type "manual": it asks for the connection to be checked now.
     if (body.entity_type === "manual") {
       const c = await pipedriveConnection(sb, auth.user.tenant_id, { force: true });
-      return NextResponse.json({ queued: false, live_sync: isPipedriveConfigured(), sync_status: c.state === "connected" ? "synced" : c.state === "not_configured" ? "skipped" : "failed", connection: { state: c.state, tone: c.tone, label: c.label, detail: c.detail }, pipedrive_result: {}, message: `${c.label}. ${c.detail}` });
+      return NextResponse.json({ queued: false, live_sync: isPipedriveConfigured(), sync_status: c.state === "connected" ? "synced" : c.state === "not_configured" ? "skipped" : "failed", connection: { state: c.state, tone: c.tone, last_error: c.last_error, last_error_at: c.last_error_at, last_push_ok_at: c.last_push_ok_at, key_checked_at: c.key_checked_at, last_error_kind: c.last_error_kind }, pipedrive_result: {}, message: c.state });
     }
 
     const { sync_status, result, twenty_result } = await enqueueCrmSync(
