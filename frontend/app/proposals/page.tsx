@@ -9,6 +9,7 @@ import { formatDate, truncate } from "@/lib/utils";
 import { Filter, FileText, ChevronRight } from "lucide-react";
 import { BulkLogoUploader } from "@/components/proposals/bulk-logo-uploader";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { buildListTextSearchOr, matchingCompanyIds, sanitizeSearchTerm } from "@/lib/search/or-ilike";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,14 @@ export default async function ProposalsPage({
   const tenant = await getCurrentTenant();
   const tenantId = tenant?.id ?? CORITIBA_TENANT_ID;
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const searchTerm = searchParams.q ? sanitizeSearchTerm(searchParams.q) : "";
+  const textSearchOr = searchTerm
+    ? buildListTextSearchOr({
+        term: searchTerm,
+        columns: ["title"],
+        companyIds: await matchingCompanyIds(sb, tenantId, searchTerm),
+      })
+    : null;
 
   // Found in the 2026-09-23 UX audit: this page used to fetch up to 300 rows
   // and filter/sort them entirely in JS, then render every matching row at
@@ -58,10 +67,7 @@ export default async function ProposalsPage({
     if (searchParams.status) q = q.eq("status", searchParams.status);
     if (searchParams.company) q = q.eq("company_id", searchParams.company);
     if (searchParams.industry) q = q.ilike("companies.industry", `%${searchParams.industry.replace(/[%_]/g, "")}%`);
-    if (searchParams.q) {
-      const term = searchParams.q.replace(/[%_]/g, "");
-      q = q.or(`title.ilike.%${term}%,companies.company_name.ilike.%${term}%`);
-    }
+    if (textSearchOr) q = q.or(textSearchOr);
     if (searchParams.date_from) q = q.gte("created_at", searchParams.date_from);
     if (searchParams.date_to) q = q.lte("created_at", `${searchParams.date_to}T23:59:59`);
     return q as T;
