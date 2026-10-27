@@ -85,8 +85,8 @@ export function BulkImportButton() {
   }
 
   return (
-    <div className="inline-flex flex-col items-start gap-2">
-      <div className="flex items-center gap-2">
+    <div className="flex w-fit max-w-full flex-col items-start gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Hidden input + label button — exact same pattern as /contacts */}
         <label htmlFor="company-bulk-csv-input" className="inline-flex">
           <input
@@ -166,9 +166,9 @@ export function BulkImportButton() {
         </div>
       )}
 
-      {/* Columns hint */}
-      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-        <FileText className="h-3 w-3 flex-shrink-0" />
+      {/* Width follows the buttons, not this line — otherwise the header grows a hole. */}
+      <p className="w-0 min-w-full text-[11px] leading-snug text-muted-foreground">
+        <FileText className="mr-1 inline h-3 w-3 align-text-bottom" />
         Columns: <span className="font-mono">company_name</span> (required),{" "}
         industry, website, country, notes
       </p>

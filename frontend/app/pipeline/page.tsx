@@ -91,7 +91,7 @@ export default async function PipelinePage() {
         title="Sales Pipeline"
         description="Lead tracking for Coritiba FC sponsorship deals"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className={`text-xs ${connection.tone === "ok" ? "border-green-300 text-green-700" : connection.tone === "bad" ? "border-red-300 text-red-700" : connection.tone === "warn" ? "border-amber-300 text-amber-700" : ""}`}>
               <ConnectionHeadline facts={connection} />
             </Badge>

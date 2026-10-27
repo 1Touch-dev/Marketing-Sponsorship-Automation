@@ -99,8 +99,9 @@ export default async function CompaniesPage({
       <PageHeader
         title="Companies"
         description={`${totalCount} target companies for sponsorship outreach.`}
+        layout="stacked"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <BulkImportButton />
             <BulkFetchLogosButton
               companyIds={allFilteredForBulk.map((c) => c.id)}

@@ -34,15 +34,15 @@ export function ReportingCheckPanel() {
   return (
     <Card className="border-sky-200">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-sky-600" />
               Reporting Agent
             </CardTitle>
             <CardDescription>Drafts monthly ROI report emails for active sponsors with real match data (Phase 8, Team 2 agent)</CardDescription>
           </div>
-          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck}>
+          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck} className="shrink-0">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Check for Reports"}
           </Button>
         </div>
