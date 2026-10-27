@@ -1,3 +1,5 @@
+import { formatDate } from "../utils";
+
 export type ConnectionLang = "pt" | "en";
 export type ConnectionStateName = "not_configured" | "key_rejected" | "failing" | "unverified" | "connected";
 
@@ -12,7 +14,7 @@ export type ConnectionFacts = {
 };
 
 const when = (iso: string | null | undefined, lang: ConnectionLang) =>
-  iso ? new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC" : lang === "pt" ? "nunca" : "never";
+  iso ? formatDate(iso) : lang === "pt" ? "nunca" : "never";
 
 /** Headline, one-sentence reason, and the short name used on the status card. */
 export function connectionCopy(facts: ConnectionFacts, lang: ConnectionLang, name = "Pipedrive"): { label: string; detail: string; stateName: string } {

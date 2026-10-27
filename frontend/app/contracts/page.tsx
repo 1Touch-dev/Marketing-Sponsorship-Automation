@@ -2,7 +2,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
-import { formatDate } from "@/lib/utils";
+import { formatDateOnly } from "@/lib/utils";
 import { FileCheck, DollarSign, AlertTriangle } from "lucide-react";
 import { RenewalCheckPanel } from "./renewal-check-panel";
 import { ReportingCheckPanel } from "./reporting-check-panel";
@@ -116,7 +116,7 @@ export default async function ContractsPage() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 font-semibold text-emerald-700">{c.total_value_brl ? `R$ ${Number(c.total_value_brl).toLocaleString("pt-BR")}` : "—"}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">{c.start_date ? formatDate(c.start_date) : "—"} — {c.end_date ? formatDate(c.end_date) : "—"}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{c.start_date ? formatDateOnly(c.start_date) : "—"} — {c.end_date ? formatDateOnly(c.end_date) : "—"}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[c.status] ?? "bg-gray-100 text-gray-600"}`}>{c.status}</span>
                   </td>
