@@ -9,6 +9,7 @@ import { loadStage, recordQualification } from "@/lib/accounts/store";
 import { QUALIFYING_PIPELINE_STAGES } from "@/lib/accounts/stage";
 import { userActor } from "@/lib/identity/actor";
 import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
+import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
 
 export const runtime = "nodejs";
 
@@ -62,6 +63,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if ("contact_name" in updates || "contact_email" in updates || "contact_phone" in updates) {
+    const row = data as { contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null };
+    await syncPrimaryContactFromCompany(sb, {
+      tenantId: auth.user.tenant_id,
+      companyId: params.id,
+      fullName: row.contact_name,
+      email: row.contact_email,
+      phone: row.contact_phone,
+    });
+  }
 
   // A person moving a card into a "real opportunity" column is a human decision, so it is
   // recorded as a qualification (once). Moving it back does not undo it: revoke explicitly.

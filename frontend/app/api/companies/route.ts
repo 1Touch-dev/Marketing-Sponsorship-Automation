@@ -12,6 +12,7 @@ import { loadCompanyIndex } from "@/lib/accounts/store";
 import { creationDecision, findCandidates, normalizeCnpj, registrableDomain } from "@/lib/accounts/dedup";
 import { userActor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
+import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
 
 export const runtime = "nodejs";
 
@@ -113,6 +114,14 @@ async function postHandler(req: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await syncPrimaryContactFromCompany(sb, {
+    tenantId: auth.user.tenant_id,
+    companyId: data.id,
+    fullName: parsed.data.contact_name,
+    email: parsed.data.contact_email,
+    phone: parsed.data.contact_phone,
+  });
 
   await recordAudit({ actor: userActor(auth.user),
     entity_type: "company",

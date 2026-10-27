@@ -188,6 +188,9 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
       {/* Contact info */}
       <div className="space-y-2 pt-2 border-t">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Person</p>
+        <p className="text-xs text-muted-foreground">
+          Email is required for this person to appear in Contacts, emails, and the sponsor portal.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="contact_name">Name</Label>
