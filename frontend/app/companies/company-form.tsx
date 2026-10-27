@@ -158,6 +158,9 @@ export function CompanyForm() {
       {/* Contact */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contact Person</h3>
+        <p className="text-xs text-muted-foreground">
+          Email is required for this person to appear in Contacts, emails, and the sponsor portal.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="contact_name">Name</Label>
