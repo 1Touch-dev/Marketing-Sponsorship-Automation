@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Package, DollarSign, TrendingDown, AlertCircle, Plus, CheckCircle, Clock } from "lucide-react";
 import { BarterForm } from "./barter-form";
+import { BarterItemEditor } from "./barter-item-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function BarterPage() {
   const inNegotiation = items.filter((i) => i.status === "in_negotiation");
   const closed = items.filter((i) => i.status === "closed");
   const potentialSavings = items
-    .filter((i) => i.current_price && i.target_price)
+    .filter((i) => i.status !== "cancelled" && i.current_price && i.target_price)
     .reduce((sum, i) => sum + (Number(i.current_price) - Number(i.target_price)), 0);
 
   // Budget-offset tagging (master_report.md Section 4 item 6) — real, already-
@@ -290,6 +291,14 @@ function BarterItemCard({ item }: { item: Record<string, unknown> }) {
                 )}
               </div>
             )}
+
+            <BarterItemEditor
+              key={`${item.id as string}-${item.status}-${item.barter_type}-${item.target_price}`}
+              itemId={item.id as string}
+              status={(item.status as string) || "open"}
+              barterType={(item.barter_type as string) || "full_barter"}
+              targetPrice={item.target_price == null ? null : Number(item.target_price)}
+            />
           </div>
         </div>
       </CardContent>
