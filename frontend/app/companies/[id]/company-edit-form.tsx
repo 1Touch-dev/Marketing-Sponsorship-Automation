@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Save, X, Tag, Plus } from "lucide-react";
 import { COMPANY_NAME_MAX, COMPANY_NOTES_MAX, companyPayloadError } from "@/lib/validators";
+import { PIPELINE_FORM_STAGES } from "@/lib/pipeline/stages";
 
 // Found in the 2026-09-23 UX audit: Google's real row has segment="global"
 // and company_size="enterprise", neither of which were in these lists — a
@@ -21,7 +22,7 @@ import { COMPANY_NAME_MAX, COMPANY_NOTES_MAX, companyPayloadError } from "@/lib/
 const SEGMENTS = ["local", "state", "national", "international", "global"];
 const SIZES = ["small", "medium", "large", "enterprise"];
 const BUSINESS_TYPES = ["B2C", "B2B", "Both"];
-const PIPELINE_STAGES = ["competitor", "prospect", "qualified", "contacted", "proposal_sent", "negotiation", "closed_won", "closed_lost"];
+const PIPELINE_STAGES = PIPELINE_FORM_STAGES;
 
 export function CompanyEditForm({ company }: { company: Record<string, unknown> }) {
   const router = useRouter();
@@ -96,6 +97,8 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
   }
 
   const selectCls = "w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  const currentStage = (company.pipeline_stage as string) || "prospect";
+  const stageInList = PIPELINE_STAGES.some((s) => s.key === currentStage);
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -151,8 +154,9 @@ export function CompanyEditForm({ company }: { company: Record<string, unknown> 
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="pipeline_stage">Pipeline Stage</Label>
-          <select id="pipeline_stage" name="pipeline_stage" defaultValue={(company.pipeline_stage as string) || "prospect"} className={selectCls}>
-            {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>)}
+          <select id="pipeline_stage" name="pipeline_stage" defaultValue={currentStage} className={selectCls}>
+            {PIPELINE_STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            {!stageInList && <option value={currentStage}>{currentStage}</option>}
           </select>
         </div>
       </div>
