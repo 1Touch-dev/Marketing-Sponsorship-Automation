@@ -12,6 +12,7 @@ import {
   X, Eye, EyeOff, BarChart2, CalendarClock, UserMinus,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { newsletterFieldError } from "@/lib/newsletter/field-error";
 
 type Company = {
   id: string;
@@ -64,6 +65,9 @@ export function NewsletterClient({
   const [manualEmails, setManualEmails] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [scheduledFor, setScheduledFor] = useState<string>("");
+  const [subjectTouched, setSubjectTouched] = useState(false);
+  const [bodyTouched, setBodyTouched] = useState(false);
+  const [previewAttempted, setPreviewAttempted] = useState(false);
 
   const totalRecipients = useMemo(() => {
     if (recipientMode === "all") {
@@ -101,7 +105,12 @@ export function NewsletterClient({
     setSelectedCompanies(new Set(companies.filter((c) => c.contact_count > 0).map((c) => c.id)));
   }
 
+  const subjectError = newsletterFieldError("subject", subject, subjectTouched || previewAttempted);
+  const bodyError = newsletterFieldError("body", bodyHtml, bodyTouched || previewAttempted);
+
   async function handleSend() {
+    setSubjectTouched(true);
+    setBodyTouched(true);
     if (!subject.trim()) {
       toast({ variant: "destructive", title: "Subject is required" });
       return;
@@ -228,10 +237,12 @@ export function NewsletterClient({
           <Label>Subject *</Label>
           <Input
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => { setSubjectTouched(true); setSubject(e.target.value); }}
             placeholder="e.g. Coritiba FC — Oportunidade de Patrocínio 2025/26"
             className="text-base"
+            aria-invalid={!!subjectError}
           />
+          {subjectError && <p className="text-xs text-destructive">{subjectError}</p>}
         </div>
 
         {/* Body */}
@@ -240,7 +251,10 @@ export function NewsletterClient({
             <Label>Email body (HTML or plain text) *</Label>
             <button
               type="button"
-              onClick={() => setShowPreview((v) => !v)}
+              onClick={() => {
+                setPreviewAttempted(true);
+                setShowPreview((v) => !v);
+              }}
               className="text-xs text-indigo-600 flex items-center gap-1 hover:underline"
             >
               {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -255,12 +269,14 @@ export function NewsletterClient({
           ) : (
             <Textarea
               value={bodyHtml}
-              onChange={(e) => setBodyHtml(e.target.value)}
+              onChange={(e) => { setBodyTouched(true); setBodyHtml(e.target.value); }}
               placeholder="Write your email here. Supports HTML for rich formatting."
               rows={14}
               className="font-mono text-xs"
+              aria-invalid={!!bodyError}
             />
           )}
+          {bodyError && <p className="text-xs text-destructive">{bodyError}</p>}
           <p className="text-xs text-muted-foreground">
             Tip: use <code className="bg-muted px-1 rounded">{"{{company_name}}"}</code>, <code className="bg-muted px-1 rounded">{"{{contact_name}}"}</code> for personalization.
           </p>
