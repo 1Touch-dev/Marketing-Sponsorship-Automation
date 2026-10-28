@@ -82,13 +82,10 @@ export function PipelineBoard({
           "prospect" today) doesn't blow out the page height — it just
           scrolls within its own column, same as Trello/Pipedrive. */}
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
-        {stages
-          .filter((s) => s.key !== "closed_lost" || stageGroups["closed_lost"].length > 0)
-          .map((stage) => {
-            const stageCompanies = stageGroups[stage.key] || [];
-            if (stageCompanies.length === 0 && stage.key === "closed_won") return null;
-            return <StageColumn key={stage.key} stage={stage} companies={stageCompanies} />;
-          })}
+        {stages.map((stage) => {
+          const stageCompanies = stageGroups[stage.key] || [];
+          return <StageColumn key={stage.key} stage={stage} companies={stageCompanies} />;
+        })}
       </div>
 
       <DragOverlay>

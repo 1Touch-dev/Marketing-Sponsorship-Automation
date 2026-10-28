@@ -140,7 +140,8 @@ export default async function CrmSyncPage() {
           </div>
 
           <div className="mt-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs space-y-1">
-            <p className="font-semibold text-slate-700 dark:text-slate-300">Estágios automáticos (Patrocínios):</p>
+            <p className="font-semibold text-slate-700 dark:text-slate-300">Proposal status → Pipedrive deal (Patrocínios)</p>
+            <p className="text-[10px] text-muted-foreground">This maps a proposal&apos;s status to a Pipedrive deal. Company columns on /pipeline are a separate board.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 mt-1">
               {[
                 { status: "draft / under_review", stage: "Elaborar Proposta (21)" },

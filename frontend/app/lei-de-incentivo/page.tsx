@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, Users, Calendar, DollarSign, CheckCircle, Plus, AlertCircle, Leaf, BookOpen, Activity } from "lucide-react";
 import { SocialProjectForm } from "./social-project-form";
+import { AmountRaisedField } from "./amount-raised-field";
 import { loadRegistry, type RegistryEntry } from "@/lib/claims/store";
 
 export const dynamic = "force-dynamic";
@@ -208,6 +209,13 @@ function ProjectCard({ project }: { project: Record<string, unknown> }) {
                 </div>
               </div>
             )}
+
+            <AmountRaisedField
+              key={`${project.id as string}-${raised}`}
+              projectId={project.id as string}
+              budgetRaised={raised}
+              budgetTotal={budget}
+            />
 
             {!!project.tax_benefit && (
               <div className="mt-3 flex items-start gap-1.5 p-2 rounded-md bg-green-50 border border-green-100">

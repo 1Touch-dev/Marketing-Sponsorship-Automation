@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Everything reachable without a staff session is declared, with the guard it relies on, in lib/auth/public-surface.ts
 // (and a test checks each one). Anything not listed there needs a staff session.
 import { isPublicPath } from "@/lib/auth/public-surface";
+import { sessionCookieOptions, withSessionCookieOptions } from "@/lib/auth/session-cookie";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -15,19 +16,21 @@ export async function middleware(req: NextRequest) {
 
   const res = NextResponse.next();
 
+  const cookieOptions = sessionCookieOptions(req);
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions,
       cookies: {
         get(name: string) { return req.cookies.get(name)?.value; },
         set(name: string, value: string, options: Record<string, unknown>) {
           try { req.cookies.set(name, value); } catch { /* no-op */ }
-          res.cookies.set(name, value, options as Parameters<typeof res.cookies.set>[2]);
+          res.cookies.set(name, value, withSessionCookieOptions(options, req) as Parameters<typeof res.cookies.set>[2]);
         },
         remove(name: string, options: Record<string, unknown>) {
           try { req.cookies.set(name, ""); } catch { /* no-op */ }
-          res.cookies.set(name, "", options as Parameters<typeof res.cookies.set>[2]);
+          res.cookies.set(name, "", withSessionCookieOptions(options, req) as Parameters<typeof res.cookies.set>[2]);
         },
       },
     }

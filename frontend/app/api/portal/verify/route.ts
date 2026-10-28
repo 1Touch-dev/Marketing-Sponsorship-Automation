@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyMagicLinkToken, createSessionToken, PORTAL_COOKIE, SESSION_TTL_MS } from "@/lib/portal/session";
 import { recordAudit } from "@/lib/audit/log";
 import { externalActor } from "@/lib/identity/actor";
+import { sessionCookieOptions } from "@/lib/auth/session-cookie";
 
 export const runtime = "nodejs";
 
@@ -20,11 +21,8 @@ export async function GET(req: NextRequest) {
   const sessionToken = createSessionToken(payload.companyId, payload.email);
   const res = NextResponse.redirect(new URL("/portal", req.url));
   res.cookies.set(PORTAL_COOKIE, sessionToken, {
-    httpOnly: true,
-    secure: req.url.startsWith("https://"),
-    sameSite: "lax",
+    ...sessionCookieOptions(req),
     maxAge: SESSION_TTL_MS / 1000,
-    path: "/",
   });
 
   await recordAudit({

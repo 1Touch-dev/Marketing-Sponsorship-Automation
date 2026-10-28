@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { COMPANY_NAME_MAX, COMPANY_NOTES_MAX, companyPayloadError } from "@/lib/validators";
+import { PIPELINE_FORM_STAGES } from "@/lib/pipeline/stages";
 
 const INDUSTRIES = [
   "Bebidas / FMCG", "Bebidas Energéticas / Lifestyle", "Tecnologia", "Tecnologia / Educação",
@@ -152,14 +153,9 @@ export function CompanyForm() {
         <div className="space-y-1.5">
           <Label htmlFor="pipeline_stage">Pipeline Stage</Label>
           <select id="pipeline_stage" name="pipeline_stage" className={selectCls} defaultValue="prospect">
-            <option value="competitor">Competitor (tracking only)</option>
-            <option value="prospect">Prospect</option>
-            <option value="qualified">Qualified</option>
-            <option value="contacted">Contacted</option>
-            <option value="proposal_sent">Proposal Sent</option>
-            <option value="negotiation">Negotiation</option>
-            <option value="closed_won">Closed Won</option>
-            <option value="closed_lost">Closed Lost</option>
+            {PIPELINE_FORM_STAGES.map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
           </select>
           <p className="text-xs text-muted-foreground">Selecting "Competitor" also sets company status to competitor (red badge).</p>
         </div>

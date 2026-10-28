@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { serverEnv } from "@/lib/env";
+import {
+  sessionCookieOptions,
+  withSessionCookieOptions,
+  type RequestLike,
+} from "@/lib/auth/session-cookie";
 
 /**
  * NOTE: We intentionally do NOT pass the Database generic here. The hand-typed
@@ -39,27 +44,39 @@ export function supabaseAdmin() {
   });
 }
 
+function requestLikeFromHeaders(): RequestLike {
+  try {
+    const h = headers();
+    return { headers: { get: (name: string) => h.get(name) } };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * SSR client bound to the current request's cookies (anon key + RLS).
  */
 export function supabaseServer() {
   const env = serverEnv();
   const cookieStore = cookies();
+  const reqLike = requestLikeFromHeaders();
+  const cookieOptions = sessionCookieOptions(reqLike);
   return createServerClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    cookieOptions,
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options: Record<string, unknown>) {
         try {
-          cookieStore.set({ name, value, ...options });
+          cookieStore.set({ name, value, ...withSessionCookieOptions(options, reqLike) });
         } catch {
           // Server components cannot write cookies; ignore.
         }
       },
       remove(name: string, options: Record<string, unknown>) {
         try {
-          cookieStore.set({ name, value: "", ...options });
+          cookieStore.set({ name, value: "", ...withSessionCookieOptions(options, reqLike) });
         } catch {
           /* no-op */
         }

@@ -7,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-
-const STAGES = ["prospect", "qualified", "contacted", "proposal_sent", "negotiation", "closed_won", "closed_lost"];
+import { PIPELINE_BOARD_STAGES } from "@/lib/pipeline/stages";
 
 export function PipelineLeadForm({ companies }: { companies: Record<string, unknown>[] }) {
   const router = useRouter();
@@ -75,8 +74,8 @@ export function PipelineLeadForm({ companies }: { companies: Record<string, unkn
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="stage">Stage</Label>
-          <select id="stage" name="stage" className={selectCls}>
-            {STAGES.map((s) => <option key={s} value={s}>{s.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}</option>)}
+          <select id="stage" name="stage" className={selectCls} defaultValue="prospect">
+            {PIPELINE_BOARD_STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
         </div>
         <div className="space-y-1.5">
