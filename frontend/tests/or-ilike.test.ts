@@ -42,4 +42,18 @@ test("list text search or still matches titles when no company ids match", () =>
 test("blank or wildcard-only terms produce no filter", () => {
   assert.equal(buildListTextSearchOr({ term: "   ", columns: ["title"] }), null);
   assert.equal(buildListTextSearchOr({ term: "%_%", columns: ["title"] }), null);
+  assert.equal(buildListTextSearchOr({ term: "%", columns: ["company_name"] }), null);
+  assert.equal(buildListTextSearchOr({ term: "_", columns: ["company_name"] }), null);
+});
+
+test("SQL-like terms are quoted so they do not split a PostgREST .or() clause", () => {
+  const term = "'; DROP TABLE companies; --";
+  const or = buildListTextSearchOr({
+    term,
+    columns: ["company_name", "industry", "country"],
+  });
+  assert.ok(or);
+  assert.match(or!, /company_name\.ilike\."%/);
+  assert.equal(or!.includes("ilike.%';"), false);
+  assert.equal(ilikeClause("company_name", term).startsWith('company_name.ilike."'), true);
 });

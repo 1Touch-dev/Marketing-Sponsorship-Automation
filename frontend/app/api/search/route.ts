@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
+import { buildListTextSearchOr } from "@/lib/search/or-ilike";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,17 @@ export async function GET(req: Request) {
   const tenantId = await resolveTenantId();
   const results: Array<{ type: string; id: string; title: string; subtitle: string; url: string; badge?: string }> = [];
 
+  const companyOr = buildListTextSearchOr({ term: q, columns: ["company_name", "industry", "notes"] });
+  const proposalOr = buildListTextSearchOr({ term: q, columns: ["title"] });
+  const campaignOr = buildListTextSearchOr({ term: q, columns: ["title", "summary"] });
+  const inventoryOr = buildListTextSearchOr({ term: q, columns: ["name", "category", "description"] });
+
   await Promise.all([
     // Companies
-    types.includes("companies") && sb.from("companies")
+    types.includes("companies") && companyOr && sb.from("companies")
       .select("id, company_name, industry, segment, status")
       .eq("tenant_id", tenantId)
-      .or(`company_name.ilike.%${q}%,industry.ilike.%${q}%,notes.ilike.%${q}%`)
+      .or(companyOr)
       .neq("status", "closed")
       .limit(limit)
       .then(({ data }) => {
@@ -42,10 +48,10 @@ export async function GET(req: Request) {
       }),
 
     // Proposals
-    types.includes("proposals") && sb.from("proposals")
+    types.includes("proposals") && proposalOr && sb.from("proposals")
       .select("id, title, status, companies(company_name)")
       .eq("tenant_id", tenantId)
-      .or(`title.ilike.%${q}%`)
+      .or(proposalOr)
       .not("status", "eq", "archived")
       .limit(limit)
       .then(({ data }) => {
@@ -63,10 +69,10 @@ export async function GET(req: Request) {
       }),
 
     // Campaigns
-    types.includes("campaigns") && sb.from("campaigns")
+    types.includes("campaigns") && campaignOr && sb.from("campaigns")
       .select("id, title, status, companies(company_name)")
       .eq("tenant_id", tenantId)
-      .or(`title.ilike.%${q}%,summary.ilike.%${q}%`)
+      .or(campaignOr)
       .limit(limit)
       .then(({ data }) => {
         for (const c of (data ?? []) as Array<Record<string,unknown>>) {
@@ -83,10 +89,10 @@ export async function GET(req: Request) {
       }),
 
     // Inventory
-    types.includes("inventory") && sb.from("inventory_items" as "companies")
+    types.includes("inventory") && inventoryOr && sb.from("inventory_items" as "companies")
       .select("id, name, category, price_per_game, price_per_month")
       .eq("tenant_id" as "id", tenantId)
-      .or(`name.ilike.%${q}%,category.ilike.%${q}%,description.ilike.%${q}%`)
+      .or(inventoryOr)
       .limit(limit)
       .then(({ data }) => {
         for (const item of (data ?? []) as Array<Record<string,unknown>>) {

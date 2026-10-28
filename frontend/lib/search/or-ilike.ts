@@ -5,10 +5,10 @@ export function sanitizeSearchTerm(raw: string): string {
   return raw.replace(/[%_]/g, "").trim();
 }
 
-/** Quote the ilike pattern when the term has spaces or quotes, so `.or()` stays one clause. */
+/** Quote the ilike pattern when the term would split or break a PostgREST `.or()` clause. */
 export function ilikeClause(column: string, term: string): string {
   const pattern = `%${term}%`;
-  if (/[\s,"]/.test(term)) {
+  if (/[\s,"';\\()]/.test(term)) {
     return `${column}.ilike."${pattern.replace(/"/g, '\\"')}"`;
   }
   return `${column}.ilike.${pattern}`;
