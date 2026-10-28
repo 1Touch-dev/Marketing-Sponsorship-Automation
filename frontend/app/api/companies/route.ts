@@ -13,6 +13,7 @@ import { creationDecision, findCandidates, normalizeCnpj, registrableDomain } fr
 import { userActor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
 import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
+import { sanitizeSearchTerm } from "@/lib/search/or-ilike";
 
 export const runtime = "nodejs";
 
@@ -32,14 +33,17 @@ export async function GET(req: Request) {
     .limit(limit);
 
   if (industry) {
-    query = query.ilike("industry", `%${industry}%`);
+    const safeIndustry = sanitizeSearchTerm(industry);
+    if (safeIndustry) query = query.ilike("industry", `%${safeIndustry}%`);
   }
   if (q) {
-    query = query.ilike("company_name", `%${q}%`);
+    const safe = sanitizeSearchTerm(q);
+    if (!safe) return NextResponse.json([]);
+    query = query.ilike("company_name", `%${safe}%`);
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json([]);
 
   // Add each company's derived stage (directory / researched / qualified). Before
   // migration 0058 the view does not exist and the field is simply absent.

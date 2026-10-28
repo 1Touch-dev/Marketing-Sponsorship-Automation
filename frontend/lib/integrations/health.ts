@@ -1,4 +1,5 @@
 import { isMissingMigration } from "../proposals/revision-store";
+import { formatDate } from "../utils";
 
 type Sb = any;
 
@@ -40,7 +41,7 @@ export interface Connection extends IntegrationHealth {
 }
 
 const t = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
-const when = (iso: string | null) => (iso ? new Date(iso).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "never");
+const when = (iso: string | null) => (iso ? formatDate(iso) : "never");
 
 /** The state, from the four facts. Pure, so every screen gets the same answer from the same record. */
 export function connectionOf(h: IntegrationHealth, name = "Pipedrive"): Connection {

@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { listObligations } from "@/lib/obligations/store";
 import { PageHeader } from "@/components/shared/page-header";
-import { formatDate } from "@/lib/utils";
+import { formatDateOnly } from "@/lib/utils";
 import { DeliveryBoard, HandoffButton, ProofPackButton, type ObligationListRow } from "./delivery-panel";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export default async function ContractDeliveryPage({ params }: { params: { id: s
         {" · "}
         {contract.status}
         {" · "}
-        {contract.start_date ? formatDate(contract.start_date) : "—"} — {contract.end_date ? formatDate(contract.end_date) : "—"}
+        {contract.start_date ? formatDateOnly(contract.start_date) : "—"} — {contract.end_date ? formatDateOnly(contract.end_date) : "—"}
       </p>
 
       {!listed.ok && (

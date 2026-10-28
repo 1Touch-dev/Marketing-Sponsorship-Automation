@@ -34,15 +34,15 @@ export function HygieneCheckPanel() {
   return (
     <Card className="border-amber-200">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-amber-600" />
               Pipeline Hygiene Check
             </CardTitle>
             <CardDescription>Flags deals with no activity for 14+ days</CardDescription>
           </div>
-          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck}>
+          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck} className="shrink-0">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Run Check"}
           </Button>
         </div>

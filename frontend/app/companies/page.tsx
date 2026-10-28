@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { BulkImportButton } from "./bulk-import-button";
 import { BulkFetchLogosButton } from "./bulk-fetch-logos-button";
 import { Building2, Globe, Calendar, Filter, Plus } from "lucide-react";
+import { buildListTextSearchOr, sanitizeSearchTerm } from "@/lib/search/or-ilike";
+
+const NEVER_MATCH_ID = "00000000-0000-0000-0000-000000000000";
 
 export const dynamic = "force-dynamic";
 
@@ -61,16 +64,23 @@ export default async function CompaniesPage({
     let q = query as any; // eslint-disable-line
     q = q.eq("tenant_id", tenantId).neq("status", "closed");
     if (searchParams.q) {
-      const term = searchParams.q.replace(/[%_]/g, "");
-      q = q.or(`company_name.ilike.%${term}%,industry.ilike.%${term}%,country.ilike.%${term}%`);
+      const or = buildListTextSearchOr({
+        term: searchParams.q,
+        columns: ["company_name", "industry", "country"],
+      });
+      q = or ? q.or(or) : q.eq("id", NEVER_MATCH_ID);
     }
     if (searchParams.industry && !searchParams.q) {
-      q = q.ilike("industry", `%${searchParams.industry.replace(/[%_]/g, "")}%`);
+      const industry = sanitizeSearchTerm(searchParams.industry);
+      if (industry) q = q.ilike("industry", `%${industry}%`);
     }
     if (searchParams.status) q = q.eq("status", searchParams.status);
     if (searchParams.size) q = q.eq("company_size", searchParams.size);
     if (searchParams.stage) q = q.eq("pipeline_stage", searchParams.stage);
-    if (searchParams.country) q = q.ilike("country", `%${searchParams.country.replace(/[%_]/g, "")}%`);
+    if (searchParams.country) {
+      const country = sanitizeSearchTerm(searchParams.country);
+      if (country) q = q.ilike("country", `%${country}%`);
+    }
     return q as T;
   }
 
@@ -99,8 +109,9 @@ export default async function CompaniesPage({
       <PageHeader
         title="Companies"
         description={`${totalCount} target companies for sponsorship outreach.`}
+        layout="stacked"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <BulkImportButton />
             <BulkFetchLogosButton
               companyIds={allFilteredForBulk.map((c) => c.id)}

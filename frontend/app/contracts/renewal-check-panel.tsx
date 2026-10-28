@@ -36,15 +36,15 @@ export function RenewalCheckPanel() {
   return (
     <Card className="border-violet-200">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <CardTitle className="text-base flex items-center gap-2">
               <RefreshCw className="h-4 w-4 text-violet-600" />
               Renewal Agent
             </CardTitle>
             <CardDescription>Drafts renewal proposals for contracts expiring within 60 days (Phase 8, Team 2 agent)</CardDescription>
           </div>
-          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck}>
+          <Button size="sm" variant="outline" disabled={loading} onClick={runCheck} className="shrink-0">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Check for Renewals"}
           </Button>
         </div>

@@ -29,7 +29,7 @@ export function PageHeader({
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? (
-        <div className={cn("flex flex-wrap gap-2", stacked ? "w-full min-w-0" : "shrink-0")}>{actions}</div>
+        <div className={cn("flex flex-wrap items-start gap-2", stacked ? "w-full min-w-0" : "shrink-0")}>{actions}</div>
       ) : null}
     </div>
   );

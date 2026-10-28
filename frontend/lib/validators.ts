@@ -1,11 +1,25 @@
 import { z } from "zod";
 
+export const COMPANY_NAME_MAX = 200;
+export const COMPANY_NOTES_MAX = 4000;
+
+export function companyPayloadError(
+  json: { error?: string; issues?: Array<{ path?: Array<string | number> }> },
+  fallback = "Invalid payload",
+): string {
+  const paths = (json.issues ?? []).flatMap((i) => i.path ?? []);
+  if (paths.includes("notes")) return `Notes must be at most ${COMPANY_NOTES_MAX} characters`;
+  if (paths.includes("company_name")) return `Company name must be between 2 and ${COMPANY_NAME_MAX} characters`;
+  if (json.error && json.error !== "Invalid payload") return json.error;
+  return fallback;
+}
+
 export const companyCreateSchema = z.object({
-  company_name: z.string().min(2).max(200),
+  company_name: z.string().min(2).max(COMPANY_NAME_MAX),
   industry: z.string().max(120).optional().nullable(),
   website: z.string().url().optional().or(z.literal("")).nullable(),
   country: z.string().max(40).optional().nullable().default("BR"),
-  notes: z.string().max(4000).optional().nullable(),
+  notes: z.string().max(COMPANY_NOTES_MAX).optional().nullable(),
   status: z.enum(["competitor", "prospect", "active", "paused", "closed"]).default("prospect"),
   segment: z.enum(["local", "state", "national", "global"]).optional().default("local"),
   company_size: z.enum(["startup", "small", "medium", "large", "enterprise"]).optional().default("medium"),

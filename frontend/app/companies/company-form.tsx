@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { COMPANY_NAME_MAX, COMPANY_NOTES_MAX, companyPayloadError } from "@/lib/validators";
 
 const INDUSTRIES = [
   "Bebidas / FMCG", "Bebidas Energéticas / Lifestyle", "Tecnologia", "Tecnologia / Educação",
@@ -22,9 +23,18 @@ export function CompanyForm() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notesLen, setNotesLen] = useState(0);
+  const submittingRef = useRef(false);
+  const idempotencyKey = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `company-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
@@ -51,12 +61,12 @@ export function CompanyForm() {
     try {
       const res = await fetch("/api/companies", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey.current },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(j?.error ?? `Request failed (${res.status})`);
+        const j = await res.json().catch(() => ({})) as { error?: string; issues?: Array<{ path?: Array<string | number> }> };
+        throw new Error(companyPayloadError(j, j?.error ?? `Request failed (${res.status})`));
       }
       const { data } = await res.json() as { data: { id: string } };
       // Fire-and-forget logo enrichment in the background
@@ -68,9 +78,9 @@ export function CompanyForm() {
       router.push(`/companies/${data.id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
+      submittingRef.current = false;
       setSubmitting(false);
+      setError(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -82,7 +92,7 @@ export function CompanyForm() {
 
         <div className="space-y-1.5">
           <Label htmlFor="company_name">Company Name *</Label>
-          <Input id="company_name" name="company_name" required placeholder="e.g. Heineken Brasil" />
+          <Input id="company_name" name="company_name" required maxLength={COMPANY_NAME_MAX} placeholder="e.g. Heineken Brasil" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -180,7 +190,17 @@ export function CompanyForm() {
       {/* Notes */}
       <div className="space-y-1.5">
         <Label htmlFor="notes">Strategic Notes</Label>
-        <Textarea id="notes" name="notes" rows={3} placeholder="Sponsorship history, key contacts, budget signals, past interactions…" />
+        <Textarea
+          id="notes"
+          name="notes"
+          rows={3}
+          maxLength={COMPANY_NOTES_MAX}
+          placeholder="Sponsorship history, key contacts, budget signals, past interactions…"
+          onChange={(e) => setNotesLen(e.target.value.length)}
+        />
+        <p className={`text-xs ${notesLen >= COMPANY_NOTES_MAX ? "text-destructive" : "text-muted-foreground"}`}>
+          {notesLen}/{COMPANY_NOTES_MAX}
+        </p>
       </div>
 
       {error && <div className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">{error}</div>}
