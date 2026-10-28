@@ -77,3 +77,10 @@ test("the table covers every entry once and each says why it is public", () => {
     seen.add(key);
   }
 });
+
+test("niche lead pages are public so AppShell can skip staff chrome", () => {
+  for (const path of ["/sports-clubs", "/nonprofits", "/conferences", "/chambers", "/festivals", "/login"]) {
+    assert.ok(isPublicPath(path), `${path} is on the public surface`);
+  }
+  assert.equal(isPublicPath("/companies"), null);
+});

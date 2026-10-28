@@ -8,6 +8,7 @@ import { ContentWrapper } from "@/components/shared/content-wrapper";
 import { GlobalSearch } from "@/components/shared/global-search";
 import { QuickActionsFAB } from "@/components/shared/quick-actions";
 import { UserRoleProvider } from "@/lib/auth/use-user-role";
+import { isPublicPath } from "@/lib/auth/public-surface";
 
 export function AppShell({
   children,
@@ -21,17 +22,13 @@ export function AppShell({
   crestUrl?: string | null;
 }) {
   const pathname = usePathname();
-  // /proposals/view/* lives in the (public) route group (no sidebar by design)
-  // /proposals/[id]/view is the admin-linked landing page — strip sidebar so
-  // sponsors don't see internal navigation when we share the direct link
-  const isPublicView =
-    pathname.startsWith("/proposals/view/") ||
+  // Public marketing / share / portal / login: no staff chrome.
+  // /proposals/[id]/view and /deck need a staff session but still strip the
+  // sidebar so a shared admin link does not show Relacionamentos.
+  const hideStaffChrome =
+    !!isPublicPath(pathname) ||
     /^\/proposals\/[^/]+\/view$/.test(pathname) ||
-    /^\/proposals\/[^/]+\/deck$/.test(pathname) ||
-    // Sponsor self-serve portal (Task 12) — its own magic-link auth, never
-    // the internal CRM chrome, same reasoning as the proposal share pages.
-    pathname.startsWith("/portal");
-  const isLoginPage = pathname === "/login";
+    /^\/proposals\/[^/]+\/deck$/.test(pathname);
 
   useEffect(() => {
     function onOpen() { /* handled inside GlobalSearch */ }
@@ -39,8 +36,7 @@ export function AppShell({
     return () => window.removeEventListener("open-global-search", onOpen);
   }, []);
 
-  if (isPublicView || isLoginPage) {
-    if (isLoginPage) return <>{children}</>;
+  if (hideStaffChrome) {
     return <>{children}</>;
   }
 
