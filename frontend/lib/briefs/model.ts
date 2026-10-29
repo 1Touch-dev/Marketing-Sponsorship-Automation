@@ -129,8 +129,8 @@ export function evaluateGate(brief: Pick<BriefRow, "id" | "level" | "created_at"
   return { ok: true, level: brief.level, missing: [], briefId: brief.id };
 }
 
-export function gateMessage(companyName: string, companyId: string, gate: GateResult): string {
-  return `A buyer brief is needed before a proposal can be generated for ${companyName}: ${gate.missing.join(", ")}. Add a quick brief at /companies/${companyId}/brief.`;
+export function gateMessage(companyName: string, _companyId: string, gate: GateResult): string {
+  return `A buyer brief is needed before a proposal can be generated for ${companyName}: ${gate.missing.join(", ")}. Add a quick brief before generating.`;
 }
 
 /**

@@ -59,7 +59,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const tenantId = await resolveTenantId();
   const { data: campaign } = await sb
     .from("campaigns")
-    .select("*, companies(company_name, industry, country)")
+    .select("*, companies(company_name, industry, country, contact_name, contact_email)")
     .eq("id", params.id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -90,7 +90,14 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const campaignImages = (campaignImagesRaw ?? []).map((img) => ({ ...img, imageUrl: resolveJobImageUrl(img) }));
 
   const company = (campaign as {
-    companies: { company_name: string; industry: string | null; country: string | null } | null;
+    companies: {
+      company_name: string;
+      industry: string | null;
+      country: string | null;
+      contact_name: string | null;
+      contact_email: string | null;
+    } | null;
+    company_id: string;
   }).companies;
 
   const tags = detectTags(campaign.title, campaign.summary);
@@ -283,7 +290,12 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <GenerateProposalButton campaignId={campaign.id} />
+              <GenerateProposalButton
+                campaignId={campaign.id}
+                companyId={campaign.company_id as string}
+                contactName={company?.contact_name}
+                contactEmail={company?.contact_email}
+              />
               <div className="text-xs text-muted-foreground">
                 AI generates a complete proposal using Coritiba FC context, Couto Pereira inventory, and company-specific intelligence.
               </div>
