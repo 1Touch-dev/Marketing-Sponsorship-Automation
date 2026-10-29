@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Newspaper, Mail, Send, Settings2, BarChart3, Users, Plus, X, ExternalLink,
-  CheckCircle2, Clock, ChevronDown, ChevronUp
+  CheckCircle2, Clock, ChevronDown, ChevronUp, AlertCircle,
 } from "lucide-react";
+import {
+  DEFAULT_NEWSLETTER_BLOCKS,
+  DEFAULT_NEWSLETTER_SETTINGS,
+  NEWSLETTER_DAYS,
+  type NewsItem,
+  type NewsletterBlocks,
+} from "@/lib/newsletter/settings";
 
 const INDUSTRIES = [
   "Automotivo", "Financeiro", "Alimentos e Bebidas", "Saúde",
@@ -20,27 +27,10 @@ const INDUSTRIES = [
   "Beleza / Cosméticos / ESG", "Moda Esportiva",
 ];
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS = NEWSLETTER_DAYS;
 const HOURS = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}:00`);
 
-type NewsItem = { title: string; body: string; link: string };
-
-type NewsletterBlock = {
-  header: { logo: boolean; title: string };
-  intro: string;
-  newsItems: NewsItem[];
-  cta: { text: string; url: string };
-};
-
-const DEFAULT_BLOCKS: NewsletterBlock = {
-  header: { logo: true, title: "Coritiba FC — Sponsorship Update" },
-  intro: "Olá! Confira as últimas oportunidades de patrocínio do Coritiba FC.",
-  newsItems: [
-    { title: "Nova oportunidade de patrocínio", body: "Detalhe da oportunidade aqui.", link: "" },
-    { title: "Resultados da última rodada", body: "Coritiba continua em destaque.", link: "" },
-  ],
-  cta: { text: "Ver propostas", url: "https://coritiba.com.br/patrocinio" },
-};
+type NewsletterBlock = NewsletterBlocks;
 
 function NewsItemEditor({ item, index, onChange, onRemove }: {
   item: NewsItem;
@@ -72,7 +62,7 @@ function NewsItemEditor({ item, index, onChange, onRemove }: {
   );
 }
 
-function renderPreviewHtml(blocks: NewsletterBlock, subject: string): string {
+function renderPreviewHtml(blocks: NewsletterBlocks, subject: string): string {
   const newsHtml = blocks.newsItems.map((n, i) => `
     <div style="margin-bottom:20px;padding:16px;background:#f8fafc;border-radius:8px;border-left:3px solid #16a34a;">
       <h3 style="margin:0 0 8px;font-size:15px;color:#1e293b;">${n.title || `News ${i + 1}`}</h3>
@@ -108,17 +98,42 @@ function renderPreviewHtml(blocks: NewsletterBlock, subject: string): string {
 }
 
 export default function NewsletterSettingsPage() {
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
-  const [subject, setSubject] = useState("Coritiba FC — Oportunidade de Patrocínio");
-  const [sendDay, setSendDay] = useState("Tuesday");
-  const [sendHour, setSendHour] = useState("09:00");
-  const [blocks, setBlocks] = useState<NewsletterBlock>(DEFAULT_BLOCKS);
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>(DEFAULT_NEWSLETTER_SETTINGS.industries);
+  const [subject, setSubject] = useState(DEFAULT_NEWSLETTER_SETTINGS.subject);
+  const [sendDay, setSendDay] = useState(DEFAULT_NEWSLETTER_SETTINGS.send_day);
+  const [sendHour, setSendHour] = useState(DEFAULT_NEWSLETTER_SETTINGS.send_hour);
+  const [blocks, setBlocks] = useState<NewsletterBlock>(DEFAULT_NEWSLETTER_BLOCKS);
   const [showPreview, setShowPreview] = useState(false);
   const [testEmail, setTestEmail] = useState("");
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [migrationNeeded, setMigrationNeeded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/newsletter/settings");
+        const j = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (j?.migration_needed) setMigrationNeeded(true);
+        if (!res.ok) return;
+        if (typeof j.subject === "string") setSubject(j.subject);
+        if (typeof j.send_day === "string" && (NEWSLETTER_DAYS as readonly string[]).includes(j.send_day)) {
+          setSendDay(j.send_day as (typeof NEWSLETTER_DAYS)[number]);
+        }
+        if (typeof j.send_hour === "string") setSendHour(j.send_hour);
+        if (Array.isArray(j.industries)) setSelectedIndustries(j.industries);
+        if (j.blocks && typeof j.blocks === "object") setBlocks(j.blocks);
+      } catch {
+        /* keep defaults */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Mock past newsletters data
   const pastNewsletters = [
@@ -183,10 +198,30 @@ export default function NewsletterSettingsPage() {
 
   async function saveConfig() {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setSaving(false);
-    setConfigSaved(true);
-    setTimeout(() => setConfigSaved(false), 3000);
+    setConfigSaved(false);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/newsletter/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subject,
+          send_day: sendDay,
+          send_hour: sendHour,
+          industries: selectedIndustries,
+          blocks,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j?.migration_needed) setMigrationNeeded(true);
+      if (!res.ok) throw new Error(j?.error ?? `Save failed (${res.status})`);
+      setConfigSaved(true);
+      setTimeout(() => setConfigSaved(false), 3000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const previewHtml = renderPreviewHtml(blocks, subject);
@@ -197,6 +232,18 @@ export default function NewsletterSettingsPage() {
         title="Newsletter Configuration"
         description="Configure, build, and schedule your sponsor outreach newsletter"
       />
+
+      {migrationNeeded && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Database Migration Required</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Apply migration 0076 to persist newsletter settings. Save Config will not stick until then.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Config + Builder */}
@@ -246,7 +293,7 @@ export default function NewsletterSettingsPage() {
                   <Label className="text-xs">Send Day</Label>
                   <select
                     value={sendDay}
-                    onChange={(e) => setSendDay(e.target.value)}
+                    onChange={(e) => setSendDay(e.target.value as (typeof NEWSLETTER_DAYS)[number])}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none"
                   >
                     {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -286,6 +333,9 @@ export default function NewsletterSettingsPage() {
                 <p className={`text-xs rounded p-2 ${testResult.startsWith("Test sent") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
                   {testResult}
                 </p>
+              )}
+              {saveError && (
+                <p className="text-xs rounded p-2 bg-red-50 text-red-700">{saveError}</p>
               )}
             </CardContent>
           </Card>
