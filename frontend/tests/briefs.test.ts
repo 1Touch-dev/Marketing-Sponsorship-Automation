@@ -61,10 +61,24 @@ test("a brief goes stale after 90 days, exactly at the boundary", () => {
   assert.match(stale.missing[0], /91 days old/);
 });
 
-test("the refusal tells the person where to add a brief", () => {
+test("the refusal names the company and asks for a quick brief", () => {
   const msg = gateMessage("Acme", "co-9", evaluateGate(null));
   assert.match(msg, /Acme/);
-  assert.match(msg, /\/companies\/co-9\/brief/);
+  assert.match(msg, /quick brief before generating/);
+  assert.ok(!msg.includes("/companies/co-9/brief"));
+});
+
+test("missing brief still fails evaluateGate; a brief from today passes; a brief 91 days old fails with the age message", () => {
+  const now = new Date("2026-10-29T12:00:00Z");
+  const missing = evaluateGate(null, now);
+  assert.equal(missing.ok, false);
+  assert.deepEqual(missing.missing, ["objective", "period", "point of contact", "next action"]);
+  const today = evaluateGate({ id: "b-today", level: "quick", created_at: now.toISOString() }, now);
+  assert.equal(today.ok, true);
+  const made = new Date(now.getTime() - 91 * 86_400_000).toISOString();
+  const stale = evaluateGate({ id: "b-old", level: "quick", created_at: made }, now);
+  assert.equal(stale.ok, false);
+  assert.match(stale.missing[0], /91 days old \(more than 90\)/);
 });
 
 test("the prompt block never lets the brief or research set a price", () => {

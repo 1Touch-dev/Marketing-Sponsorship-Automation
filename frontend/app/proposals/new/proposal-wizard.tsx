@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toaster";
 import { effectiveAvailability, resolveRate, resolveUnit } from "@/lib/inventory/availability";
+import { QuickBriefPanel, type GenerateAttempt } from "@/components/briefs/quick-brief-panel";
 import {
   Check, ChevronRight, ChevronLeft, Sparkles, Building2,
   Package, Brain, Zap, FileText, Users, Globe, MapPin,
@@ -18,6 +19,7 @@ type Company = {
   id: string; company_name: string; industry: string | null;
   segment: string | null; business_type: string | null; company_size: string | null;
   website: string | null; logo_url: string | null; notes: string | null;
+  contact_name: string | null; contact_email: string | null;
 };
 type Campaign = { id: string; title: string; summary: string | null; status: string };
 type MatchOption = { id: string; opponent: string; match_date: string };
@@ -347,8 +349,8 @@ export function ProposalWizard({
   function back() { setStep(s => Math.max(s - 1, 1)); }
 
   // ── Generate proposal ────────────────────────────────────────────────────
-  async function generateProposal() {
-    if (!selectedCompany) return;
+  async function generateProposal(): Promise<GenerateAttempt> {
+    if (!selectedCompany) return { ok: false, error: "Select a company" };
     setGenerating(true);
     try {
       // Step 1: create campaign if none selected
@@ -371,13 +373,16 @@ export function ProposalWizard({
           barter_split_template: proposalType === "barter" ? barterSplitTemplate : null,
         }),
       });
-      const j = await res.json() as { proposal_id?: string; error?: string };
-      if (!res.ok || !j.proposal_id) throw new Error(j.error ?? "Generation failed");
+      const j = await res.json() as { proposal_id?: string; error?: string; code?: string };
+      if (!res.ok || !j.proposal_id) {
+        return { ok: false, error: j.error ?? "Generation failed", code: j.code };
+      }
       setGeneratedId(j.proposal_id);
       setStep(6);
       toast({ variant: "success", title: "Proposal generated!", description: "Review your proposal below." });
+      return { ok: true };
     } catch (err) {
-      toast({ variant: "destructive", title: "Generation failed", description: err instanceof Error ? err.message : "Unknown error" });
+      return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
     } finally {
       setGenerating(false);
     }
@@ -857,12 +862,20 @@ export function ProposalWizard({
             <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 text-xs text-green-700 dark:text-green-300">
               <strong>Coritiba FC grounding active.</strong> AI will generate a full proposal referencing Couto Pereira, Verde e Branco identity, and the Curitiba/Paraná market. No competitor clubs will be mentioned.
             </div>
-            <div className="flex justify-between pt-2">
-              <Button variant="outline" onClick={back} className="gap-2"><ChevronLeft className="h-4 w-4" /> Back</Button>
-              <Button onClick={generateProposal} disabled={generating || !selectedCompany} className="gap-2 bg-amber-500 hover:bg-amber-600 text-white">
-                {generating ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> Generate Proposal</>}
-              </Button>
-            </div>
+            <QuickBriefPanel
+              companyId={selectedCompany?.id ?? ""}
+              contactName={selectedCompany?.contact_name}
+              contactEmail={selectedCompany?.contact_email}
+              generateLabel="Generate Proposal"
+              generateIcon={<Sparkles className="h-4 w-4" />}
+              primaryClassName="bg-amber-500 hover:bg-amber-600 text-white"
+              leftAction={
+                <Button variant="outline" onClick={back} disabled={generating} className="gap-2">
+                  <ChevronLeft className="h-4 w-4" /> Back
+                </Button>
+              }
+              onGenerate={generateProposal}
+            />
           </CardContent>
         </Card>
       )}

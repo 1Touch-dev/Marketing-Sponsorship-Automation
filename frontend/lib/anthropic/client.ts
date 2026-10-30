@@ -33,7 +33,15 @@ function client(): Anthropic {
     throw new Error("ANTHROPIC_API_KEY is not configured — cannot use the direct Anthropic fallback");
   }
   // Bounded: a hung request must not pile up behind retries.
-  cachedClient = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 120_000, maxRetries: 2 });
+  // Org-unscoped keys (sk-ant-svc-…) must send anthropic-workspace-id; workspace-scoped keys can omit it.
+  cachedClient = new Anthropic({
+    apiKey: env.ANTHROPIC_API_KEY,
+    timeout: 120_000,
+    maxRetries: 2,
+    defaultHeaders: env.ANTHROPIC_WORKSPACE_ID
+      ? { "anthropic-workspace-id": env.ANTHROPIC_WORKSPACE_ID }
+      : undefined,
+  });
   return cachedClient;
 }
 
