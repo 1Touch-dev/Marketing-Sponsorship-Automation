@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabaseServer, supabaseAdmin } from "@/lib/supabase/server";
+import { timingSafeEqual } from "node:crypto";
 import { can, type Permission, type PlatformUser } from "@/lib/auth/roles";
+import { userActor, internalActor, type Actor } from "@/lib/identity/actor";
+import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 
 /**
  * Server-side RBAC enforcement (Phase 5 audit finding, 2026-09-08).
@@ -63,7 +66,10 @@ function hasValidInternalSecret(req: Request): boolean {
   const provided =
     req.headers.get("x-internal-secret") ||
     req.headers.get("authorization")?.replace("Bearer ", "");
-  return provided === secret;
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**
@@ -84,4 +90,38 @@ export async function requirePermissionOrInternal(
     return { user: null };
   }
   return requirePermission(permission);
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Who is calling, which club (tenant) they act for, and the actor to write in the audit log. */
+export interface Caller {
+  /** The signed-in person; null when the caller is the app itself (or a scheduler) holding the internal secret. */
+  user: PlatformUser | null;
+  tenantId: string;
+  actor: Actor;
+}
+
+/**
+ * For routes the app also calls on itself (competitor discovery, enrichment, follow-up and email drafts): open to a
+ * signed-in person with the permission, OR to an unattended caller presenting INTERNAL_API_SECRET.
+ *
+ * A person acts for their own tenant. An internal caller says which tenant with the x-tenant-id header (the secret
+ * holder is trusted; a malformed value is refused, never guessed). With no header it is the default club, the same
+ * rule every other scheduler endpoint uses. Without a valid secret the call is exactly as strict as requirePermission.
+ */
+export async function requireCaller(
+  req: Request,
+  permission: Permission,
+): Promise<Caller | { error: NextResponse }> {
+  if (hasValidInternalSecret(req)) {
+    const asked = req.headers.get("x-tenant-id")?.trim();
+    if (asked && !UUID.test(asked)) {
+      return { error: NextResponse.json({ error: "x-tenant-id must be a UUID" }, { status: 400 }) };
+    }
+    return { user: null, tenantId: asked || CORITIBA_TENANT_ID, actor: internalActor(req) };
+  }
+  const auth = await requirePermission(permission);
+  if ("error" in auth) return auth;
+  return { user: auth.user, tenantId: auth.user.tenant_id, actor: userActor(auth.user) };
 }

@@ -7,7 +7,7 @@ import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { notifyGoneColdNudge } from "@/lib/slack/notify";
 import { userOrService } from "@/lib/identity/actor";
-import { internalAppUrl } from "@/lib/url";
+import { callOwnRoute } from "@/lib/auth/internal-call";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -107,13 +107,13 @@ export async function POST(req: Request) {
     }
 
     try {
-      const res = await fetch(`${internalAppUrl()}/api/followups/generate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+      const res = await callOwnRoute("/api/followups/generate", {
+        tenantId,
+        service: "gone-cold-detector",
+        body: {
           email_id: parentEmail.id,
           reason: `Gone cold — viewed but no activity for ${engagement.days_since_last_view} day(s)`,
-        }),
+        },
       });
       const generated = await res.json();
       if (!res.ok) throw new Error(generated.error ?? "generate failed");

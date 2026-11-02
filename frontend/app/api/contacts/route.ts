@@ -5,7 +5,7 @@ import { extractDomainFromEmail } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { idempotent } from "@/lib/idempotency";
-import { internalAppUrl } from "@/lib/url";
+import { callOwnRoute } from "@/lib/auth/internal-call";
 
 export const runtime = "nodejs";
 
@@ -131,15 +131,12 @@ async function triggerContactDrivenEnrichment(
     if (!hasCorporateDomain) continue;
 
     // Fire-and-forget enrich call
-    await fetch(
-      new URL("/api/intelligence/enrich", internalAppUrl()).toString(),
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company_id: company.id }),
-        signal: AbortSignal.timeout(5_000),
-      }
-    ).catch(() => {});
+    await callOwnRoute("/api/intelligence/enrich", {
+      tenantId,
+      service: "contact-added",
+      body: { company_id: company.id },
+      signal: AbortSignal.timeout(5_000),
+    }).catch(() => {});
   }
 }
 

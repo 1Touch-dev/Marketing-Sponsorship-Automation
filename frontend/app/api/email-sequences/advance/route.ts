@@ -4,7 +4,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { userOrService } from "@/lib/identity/actor";
-import { internalAppUrl } from "@/lib/url";
+import { callOwnRoute } from "@/lib/auth/internal-call";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -109,17 +109,17 @@ export async function POST(req: Request) {
     // Generate the draft for this step's flow via the existing generate endpoint.
     let generated: { data?: { id?: string }; error?: string } = {};
     try {
-      const res = await fetch(`${internalAppUrl()}/api/emails/generate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
+      const res = await callOwnRoute("/api/emails/generate", {
+        tenantId,
+        service: "email-sequence",
+        body: {
           proposal_id: e.proposal_id,
           recipient: e.recipient,
           contact_name: e.contact_name ?? undefined,
           flow_type: step.flow_type,
           template_id: step.template_id ?? undefined,
           tone: step.tone ?? undefined,
-        }),
+        },
       });
       generated = await res.json();
       if (!res.ok) throw new Error(generated.error ?? "generate failed");

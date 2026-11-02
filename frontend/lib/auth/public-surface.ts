@@ -54,6 +54,12 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   R(/^\/api\/proposals\/detect-cold$/, "internal-secret", "scheduler endpoint", INTERNAL),
   R(/^\/api\/email-sequences\/advance$/, "internal-secret", "scheduler endpoint", INTERNAL),
   R(/^\/api\/gmail\/sync-threads$/, "internal-secret", "scheduler endpoint", INTERNAL),
+  // The app calling its own routes (lib/auth/internal-call.ts). Each route uses requireCaller(): a signed-in person with the
+  // permission, or INTERNAL_API_SECRET; with neither the route answers 401 itself.
+  R(/^\/api\/companies\/[^/]+\/discover$/, "internal-secret", "the app's own call after a company is created", /requireCaller/),
+  R(/^\/api\/intelligence\/enrich$/, "internal-secret", "the app's own call after a website or contact change", /requireCaller/),
+  R(/^\/api\/followups\/generate$/, "internal-secret", "the app's own call for a gone-cold follow-up draft", /requireCaller/),
+  R(/^\/api\/emails\/generate$/, "internal-secret", "the app's own call for an email-sequence step", /requireCaller/),
   R(/^\/api\/emails\/[^/]+\/events$/, "internal-secret", "delivery events from the email provider", INTERNAL),
   R(/^\/api\/contracts\/[^/]+\/signers$/, "provider-credential", "signature callbacks; reads check the session in the route", /requirePermission|INTERNAL_API_SECRET|getCurrentPlatformUser|timingSafeEqual/),
   R(/^\/api\/leads$/, "rate-limited-form", "the lead form on the public niche pages", /checkRateLimit/),

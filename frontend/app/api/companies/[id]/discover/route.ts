@@ -3,7 +3,7 @@ import { registrableDomain } from "@/lib/accounts/dedup";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { invokeClaude, extractJson } from "@/lib/bedrock/client";
-import { requirePermission } from "@/lib/auth/server-permission";
+import { requireCaller } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const maxDuration = 90;
@@ -14,7 +14,7 @@ export const maxDuration = 90;
  * and persist everything back to the company record.
  */
 export async function POST(req: Request, ctx: { params: { id: string } }) {
-  const auth = await requirePermission("run_intelligence");
+  const auth = await requireCaller(req, "run_intelligence");
   if ("error" in auth) return auth.error;
 
   const companyId = ctx.params.id;
@@ -26,13 +26,13 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
       .from("companies")
       .select("*")
       .eq("id", companyId)
-      .eq("tenant_id", auth.user.tenant_id)
+      .eq("tenant_id", auth.tenantId)
       .maybeSingle();
 
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     const co = company as Record<string, unknown>;
-    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const tenant = await resolveClubContext(auth.tenantId);
     const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
 
     // ── Step 1: Generate competitor search queries ────────────────────────────
@@ -103,7 +103,7 @@ Rules:
     // substring match: that match errored whenever several rows contained the name,
     // which was read as "not found" and created a duplicate. A subsidiary or sibling
     // is a separate account and is not treated as the same company.
-    const companyIndex = await loadCompanyIndex(sb, auth.user.tenant_id);
+    const companyIndex = await loadCompanyIndex(sb, auth.tenantId);
     for (const comp of discoveredCompetitors.slice(0, 8)) {
       const { existing } = existingEntity(
         { company_name: String(comp.name), website: (comp.website as string | null) ?? null, domain: registrableDomain((comp.website as string | null) ?? null) },
@@ -116,7 +116,7 @@ Rules:
         const { data: newComp } = await (sb as any)
           .from("companies")
           .insert({
-            tenant_id: auth.user.tenant_id,
+            tenant_id: auth.tenantId,
             company_name: comp.name,
             website: comp.website ?? null,
             industry: comp.industry ?? co.industry,
@@ -168,7 +168,7 @@ Rules:
         discovery_method: "ai_auto",
       } as unknown as Record<string, unknown>)
       .eq("id", companyId)
-      .eq("tenant_id", auth.user.tenant_id);
+      .eq("tenant_id", auth.tenantId);
 
     return NextResponse.json({
       success: true,
