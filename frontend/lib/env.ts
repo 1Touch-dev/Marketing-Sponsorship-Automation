@@ -8,6 +8,8 @@ import { z } from "zod";
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   APP_URL: z.string().url().default("http://localhost:3000"),
+  /** Where this server calls itself (see lib/url.ts internalAppUrl). Empty = http://127.0.0.1:$PORT (3000). */
+  INTERNAL_APP_URL: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().url().optional()),
 
   AWS_ACCESS_KEY_ID: z.string().min(1),
   AWS_SECRET_ACCESS_KEY: z.string().min(1),

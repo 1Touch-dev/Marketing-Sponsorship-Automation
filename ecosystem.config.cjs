@@ -1,10 +1,11 @@
 /**
  * PM2 production processes — runs on AWS EC2 24/7.
- * Public URL: https://eligibly-facing-unloved.ngrok-free.dev
+ * The public address is APP_URL in frontend/.env.local. The ngrok tunnel below is the LEGACY address: keep it running
+ * until the club's own domain is live and every link already sent has had time to move (see docs/DOMAIN_SWITCH.md).
  *
  * Apply: npm run pm2:setup   (or: pm2 start ecosystem.config.cjs && pm2 save)
  */
-const NGROK_URL = "https://eligibly-facing-unloved.ngrok-free.dev";
+const NGROK_URL = process.env.LEGACY_NGROK_URL || "https://eligibly-facing-unloved.ngrok-free.dev";
 
 module.exports = {
   apps: [

@@ -16,6 +16,7 @@ import { generatePersonalizedProposalForCompany } from "@/lib/proposals/generate
 import { invokeClaude } from "@/lib/bedrock/client";
 import { outreachEmailPrompt } from "@/lib/bedrock/prompts";
 import { resolveClubContext } from "@/lib/tenants/club-context";
+import { resolveAppUrl } from "@/lib/url";
 import {
   loadDefaultEmailTemplate,
   generateEmailWithTemplate,
@@ -317,9 +318,10 @@ export async function toolGenerateOutreachEmail(input: {
     if (!rc.allowed) return { success: false, data: { blocked: true }, summary: `Not drafting an email: ${rc.blocks[0].message}` };
 
     const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, tenantId);
+    const appBase = resolveAppUrl();
     const proposalLink = proposal.share_token
-      ? `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/view/${proposal.share_token}`
-      : `${env.APP_URL ?? "https://eligibly-facing-unloved.ngrok-free.dev"}/proposals/${proposal.id}`;
+      ? `${appBase}/proposals/view/${proposal.share_token}`
+      : `${appBase}/proposals/${proposal.id}`;
 
     const templateVars: EmailTemplateVariables = {
       company_name: String(company.company_name ?? ""),

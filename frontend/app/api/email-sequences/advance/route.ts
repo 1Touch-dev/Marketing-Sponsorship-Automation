@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
-import { serverEnv } from "@/lib/env";
 import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { userOrService } from "@/lib/identity/actor";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -52,8 +52,6 @@ export async function POST(req: Request) {
   const tenantId = auth.user?.tenant_id ?? (await resolveTenantId());
 
   const sb = supabaseAdmin();
-  const env = serverEnv();
-  const appUrl = env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const body = (await req.json().catch(() => ({}))) as {
     enrollment_id?: string;
@@ -111,7 +109,7 @@ export async function POST(req: Request) {
     // Generate the draft for this step's flow via the existing generate endpoint.
     let generated: { data?: { id?: string }; error?: string } = {};
     try {
-      const res = await fetch(`${appUrl}/api/emails/generate`, {
+      const res = await fetch(`${internalAppUrl()}/api/emails/generate`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

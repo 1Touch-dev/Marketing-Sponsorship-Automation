@@ -10,6 +10,7 @@ import { QUALIFYING_PIPELINE_STAGES } from "@/lib/accounts/stage";
 import { userActor } from "@/lib/identity/actor";
 import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 
@@ -106,7 +107,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (newDomain && newDomain !== oldDomain) {
       // Fire-and-forget: do not await — client gets response immediately
       void fetch(
-        new URL(`/api/intelligence/enrich`, process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString(),
+        new URL(`/api/intelligence/enrich`, internalAppUrl()).toString(),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

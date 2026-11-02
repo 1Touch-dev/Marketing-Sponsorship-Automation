@@ -27,10 +27,7 @@ echo ""
 echo "==> Status"
 pm2 list
 echo ""
-HTTP_LOCAL=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo "fail")
-HTTP_NGROK=$(curl -s -o /dev/null -w "%{http_code}" https://eligibly-facing-unloved.ngrok-free.dev/api/health || echo "fail")
-echo "localhost:3000/api/health => $HTTP_LOCAL"
-echo "ngrok /api/health          => $HTTP_NGROK"
+bash "$ROOT/scripts/check-public-urls.sh"
 echo ""
-echo "Public base URL (share with James): https://eligibly-facing-unloved.ngrok-free.dev"
+echo "Public base URL: the APP_URL value in frontend/.env.local"
 echo "Closing Cursor/laptop does NOT stop the server — processes live on this EC2 instance."

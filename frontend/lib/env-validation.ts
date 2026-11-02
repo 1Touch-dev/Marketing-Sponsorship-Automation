@@ -24,6 +24,7 @@ export function validateEnv(): { valid: boolean; statuses: EnvStatus[]; summary:
     { key: "APIFY_API_TOKEN", required: false, validate: v => v.startsWith("apify_api_"), hint: "Get from apify.com/account/integrations" },
     { key: "SERPAPI_KEY", required: false, hint: "Deprecated — Apify is now used instead of SerpAPI" },
     { key: "PIPEDRIVE_API_KEY", required: false },
+    { key: "INTERNAL_APP_URL", required: false, hint: "Where the server calls itself. Empty = http://127.0.0.1:3000. Never the public domain." },
     { key: "TWENTY_API_KEY", required: false, hint: "Optional second CRM. Empty means Coxa does not push to Twenty." },
     { key: "TWENTY_BASE_URL", required: false, hint: "Twenty origin, default http://localhost:3200" },
     { key: "NEXTAUTH_SECRET", required: false },

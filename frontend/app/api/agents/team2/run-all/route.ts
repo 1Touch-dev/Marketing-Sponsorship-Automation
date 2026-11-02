@@ -28,6 +28,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { userActor } from "@/lib/identity/actor";
 import { auditAgentOutputs } from "@/lib/agents/audit";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -56,9 +57,8 @@ export async function POST() {
 
   let sequencerProcessed = 0;
   if (dueCount && dueCount > 0) {
-    const appUrl = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     try {
-      const res = await fetch(`${appUrl}/api/email-sequences/advance`, {
+      const res = await fetch(`${internalAppUrl()}/api/email-sequences/advance`, {
         method: "POST",
         headers: {
           "content-type": "application/json",

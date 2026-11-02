@@ -16,10 +16,7 @@ pm2 save
 sleep 3
 echo ""
 echo "==> Health check"
-LOCAL=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health || echo "fail")
-NGROK=$(curl -s -o /dev/null -w "%{http_code}" https://eligibly-facing-unloved.ngrok-free.dev/api/health -H "ngrok-skip-browser-warning: true" || echo "fail")
-echo "localhost:3000 => $LOCAL"
-echo "ngrok public   => $NGROK"
+bash "$ROOT/scripts/check-public-urls.sh"
 pm2 list
 echo ""
 echo "Done. Site stays up when you close Cursor/laptop (runs on this server)."

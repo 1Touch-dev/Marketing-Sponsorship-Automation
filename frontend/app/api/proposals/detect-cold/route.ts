@@ -7,6 +7,7 @@ import { requirePermissionOrInternal } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { notifyGoneColdNudge } from "@/lib/slack/notify";
 import { userOrService } from "@/lib/identity/actor";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      const res = await fetch(`${appUrl}/api/followups/generate`, {
+      const res = await fetch(`${internalAppUrl()}/api/followups/generate`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
