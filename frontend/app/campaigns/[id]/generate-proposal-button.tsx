@@ -1,45 +1,48 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
+import { QuickBriefPanel, type GenerateAttempt } from "@/components/briefs/quick-brief-panel";
 
-export function GenerateProposalButton({ campaignId }: { campaignId: string }) {
+export function GenerateProposalButton({
+  campaignId,
+  companyId,
+  contactName,
+  contactEmail,
+}: {
+  campaignId: string;
+  companyId: string;
+  contactName?: string | null;
+  contactEmail?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
 
-  async function onClick() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/proposals/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ campaign_id: campaignId }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j?.error ?? `Failed (${res.status})`);
-      toast({
-        variant: "success",
-        title: "Proposal generated",
-        description: j.attempts > 1 ? `Done after ${j.attempts} attempts.` : undefined,
-      });
-      router.push(`/proposals/${j.data.id}`);
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Generation failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-      });
-    } finally {
-      setLoading(false);
-    }
+  async function onGenerate(): Promise<GenerateAttempt> {
+    const res = await fetch("/api/proposals/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campaign_id: campaignId }),
+    });
+    const j = await res.json() as { data?: { id: string }; error?: string; code?: string; attempts?: number };
+    if (!res.ok || !j.data?.id) return { ok: false, error: j?.error ?? `Failed (${res.status})`, code: j?.code };
+    toast({
+      variant: "success",
+      title: "Proposal generated",
+      description: j.attempts && j.attempts > 1 ? `Done after ${j.attempts} attempts.` : undefined,
+    });
+    router.push(`/proposals/${j.data.id}`);
+    return { ok: true };
   }
 
   return (
-    <Button onClick={onClick} disabled={loading} className="w-full">
-      {loading ? "Generating proposal…" : "Generate proposal"}
-    </Button>
+    <QuickBriefPanel
+      companyId={companyId}
+      contactName={contactName}
+      contactEmail={contactEmail}
+      generateLabel="Generate proposal"
+      layout="stack"
+      onGenerate={onGenerate}
+    />
   );
 }

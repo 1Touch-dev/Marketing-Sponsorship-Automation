@@ -3,6 +3,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { notFound } from "next/navigation";
 import { GenerateProposalButton } from "./generate-proposal-button";
 import { DuplicateCampaignButton } from "./duplicate-campaign-button";
@@ -59,7 +60,7 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const tenantId = await resolveTenantId();
   const { data: campaign } = await sb
     .from("campaigns")
-    .select("*, companies(company_name, industry, country)")
+    .select("*, companies(company_name, industry, country, contact_name, contact_email)")
     .eq("id", params.id)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -90,7 +91,14 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
   const campaignImages = (campaignImagesRaw ?? []).map((img) => ({ ...img, imageUrl: resolveJobImageUrl(img) }));
 
   const company = (campaign as {
-    companies: { company_name: string; industry: string | null; country: string | null } | null;
+    companies: {
+      company_name: string;
+      industry: string | null;
+      country: string | null;
+      contact_name: string | null;
+      contact_email: string | null;
+    } | null;
+    company_id: string;
   }).companies;
 
   const tags = detectTags(campaign.title, campaign.summary);
@@ -283,7 +291,12 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <GenerateProposalButton campaignId={campaign.id} />
+              <GenerateProposalButton
+                campaignId={campaign.id}
+                companyId={campaign.company_id as string}
+                contactName={company?.contact_name}
+                contactEmail={company?.contact_email}
+              />
               <div className="text-xs text-muted-foreground">
                 AI generates a complete proposal using Coritiba FC context, Couto Pereira inventory, and company-specific intelligence.
               </div>
@@ -317,16 +330,16 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
             </Card>
           )}
 
-          {/* Images assigned to this campaign */}
-          {campaignImages && campaignImages.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Generated images for this campaign</CardTitle>
-                <CardDescription className="text-xs">
-                  Assign more from the <Link href="/assets" className="text-primary hover:underline">Asset Library</Link>.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+          {/* Images assigned to this campaign — always shown so an empty campaign still has a heading. */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Generated images for this campaign</CardTitle>
+              <CardDescription className="text-xs">
+                Assign more from the <Link href="/assets" className="text-primary hover:underline">Asset Library</Link>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {campaignImages.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
                   {campaignImages.map((img) => (
                     <a key={img.id} href="/assets" title={img.prompt} className="block aspect-square rounded-md overflow-hidden border bg-muted">
@@ -337,9 +350,20 @@ export default async function CampaignDetailPage({ params }: { params: { id: str
                     </a>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <EmptyState
+                  className="p-4"
+                  title="No images assigned yet."
+                  description="Assign existing assets from the Asset Library. This campaign does not generate images from here."
+                  action={
+                    <Link href="/assets" className="text-sm text-primary hover:underline">
+                      Asset Library
+                    </Link>
+                  }
+                />
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 

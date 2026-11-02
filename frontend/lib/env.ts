@@ -19,6 +19,11 @@ const serverSchema = z.object({
     (v) => (v === "" || v === undefined ? undefined : v),
     z.string().min(10).optional()
   ),
+  /** Required for org-unscoped Anthropic keys; optional (and ignored if empty) for workspace-scoped keys. */
+  ANTHROPIC_WORKSPACE_ID: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
 
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
