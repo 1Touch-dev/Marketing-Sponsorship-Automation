@@ -10,8 +10,7 @@ import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-permission";
-import { userActor } from "@/lib/identity/actor";
+import { requireCaller } from "@/lib/auth/server-permission";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -50,7 +49,7 @@ type EmailRow = {
 };
 
 export async function POST(req: Request) {
-  const auth = await requirePermission("edit_proposal");
+  const auth = await requireCaller(req, "edit_proposal");
   if ("error" in auth) return auth.error;
 
   const env = serverEnv();
@@ -67,7 +66,7 @@ export async function POST(req: Request) {
     .from("emails")
     .select("id, sent_at, created_at, subject, body_text, recipient, sender, proposal_id, thread_id, gmail_thread_id, proposals(id, companies(id, company_name, industry, website, country))")
     .eq("id", parsed.data.email_id)
-    .eq("tenant_id", auth.user.tenant_id)
+    .eq("tenant_id", auth.tenantId)
     .single();
 
   if (peErr || !parentEmail) return NextResponse.json({ error: "Email not found" }, { status: 404 });
@@ -86,7 +85,7 @@ export async function POST(req: Request) {
     metadata: { parent_email_id: typedEmail.id },
   });
 
-  const tenant = await resolveClubContext(auth.user.tenant_id);
+  const tenant = await resolveClubContext(auth.tenantId);
   const { system, user } = followupEmailPrompt({
     company,
     previousSubject: typedEmail.subject,
@@ -130,7 +129,7 @@ export async function POST(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({ actor: userActor(auth.user),
+    await recordAudit({ actor: auth.actor,
       entity_type: "followup",
       action: "followup.generate_failed",
       metadata: { parent_email_id: typedEmail.id, error: lastError },
@@ -145,7 +144,7 @@ export async function POST(req: Request) {
     .from("emails")
     .insert(
       guardColumns("emails", {
-        tenant_id: auth.user.tenant_id,
+        tenant_id: auth.tenantId,
         proposal_id: typedEmail.proposal_id,
         thread_id: typedEmail.thread_id,
         gmail_thread_id: typedEmail.gmail_thread_id,
@@ -170,7 +169,7 @@ export async function POST(req: Request) {
   const { data: followup, error: fErr } = await sb
     .from("followups")
     .insert({
-      tenant_id: auth.user.tenant_id,
+      tenant_id: auth.tenantId,
       proposal_id: typedEmail.proposal_id,
       thread_id: typedEmail.thread_id,
       parent_email_id: typedEmail.id,
@@ -188,7 +187,7 @@ export async function POST(req: Request) {
   }
 
   if (eventId) await completeWorkflow(eventId, { followup_id: followup?.id, draft_email_id: draft.id });
-  await recordAudit({ actor: userActor(auth.user),
+  await recordAudit({ actor: auth.actor,
     entity_type: "followup",
     entity_id: followup?.id,
     action: "followup.suggested",

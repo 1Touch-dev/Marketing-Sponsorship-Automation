@@ -28,7 +28,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/log";
 import { userActor } from "@/lib/identity/actor";
 import { auditAgentOutputs } from "@/lib/agents/audit";
-import { internalAppUrl } from "@/lib/url";
+import { callOwnRoute } from "@/lib/auth/internal-call";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -58,13 +58,10 @@ export async function POST() {
   let sequencerProcessed = 0;
   if (dueCount && dueCount > 0) {
     try {
-      const res = await fetch(`${internalAppUrl()}/api/email-sequences/advance`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-internal-secret": process.env.INTERNAL_API_SECRET ?? "",
-        },
-        body: JSON.stringify({ run_due: true, limit: 25 }),
+      const res = await callOwnRoute("/api/email-sequences/advance", {
+        tenantId,
+        service: "run-all",
+        body: { run_due: true, limit: 25 },
       });
       if (res.ok) sequencerProcessed = (await res.json()).processed ?? 0;
     } catch {

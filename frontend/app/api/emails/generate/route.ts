@@ -21,8 +21,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { startWorkflow, completeWorkflow, failWorkflow, retryWorkflow } from "@/lib/workflow-events";
 import { emailOutputSchema, validateAiOutput, type EmailOutput } from "@/lib/ai/schemas";
 import { guardColumns } from "@/lib/db/column-guard";
-import { requirePermission } from "@/lib/auth/server-permission";
-import { userActor } from "@/lib/identity/actor";
+import { requireCaller } from "@/lib/auth/server-permission";
 import { idempotent } from "@/lib/idempotency";
 
 export const runtime = "nodejs";
@@ -31,7 +30,7 @@ export const maxDuration = 60;
 const MAX_RETRIES = 2;
 
 async function postHandler(req: Request) {
-  const auth = await requirePermission("create_proposal");
+  const auth = await requireCaller(req, "create_proposal");
   if ("error" in auth) return auth.error;
 
   const env = serverEnv();
@@ -50,7 +49,7 @@ async function postHandler(req: Request) {
     .from("proposals")
     .select("id, title, status, content, company_id, share_token, companies(id, company_name, industry, website, country)")
     .eq("id", parsed.data.proposal_id)
-    .eq("tenant_id", auth.user.tenant_id)
+    .eq("tenant_id", auth.tenantId)
     .single();
   if (pErr || !proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
   if (proposal.status !== "approved") {
@@ -74,10 +73,10 @@ async function postHandler(req: Request) {
     proposal.title;
 
   // Do-not-contact and dead addresses are refused before any AI call.
-  const standing = await checkRecipient(sb, auth.user.tenant_id, { email: parsed.data.recipient, companyId: (proposal as { company_id?: string | null }).company_id ?? null });
+  const standing = await checkRecipient(sb, auth.tenantId, { email: parsed.data.recipient, companyId: (proposal as { company_id?: string | null }).company_id ?? null });
   if (!standing.allowed) return NextResponse.json({ error: standing.blocks[0].message, code: "recipient_blocked", blocks: standing.blocks }, { status: 409 });
 
-  const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, auth.user.tenant_id);
+  const { senderName, senderTitle, memberId: signerId } = await resolveDefaultSender(sb, auth.tenantId);
   const companyName = String(company.company_name ?? "");
   const contactName = parsed.data.contact_name?.trim() || "Prezado(a)";
   const proposalLink = proposal.share_token
@@ -101,7 +100,7 @@ async function postHandler(req: Request) {
 
   const flowType = parsed.data.flow_type ?? "intro";
 
-  const emailTemplate = await loadEmailTemplateForFlow(auth.user.tenant_id, flowType, parsed.data.template_id);
+  const emailTemplate = await loadEmailTemplateForFlow(auth.tenantId, flowType, parsed.data.template_id);
   if (emailTemplate) {
     const templated = await generateEmailWithTemplate({
       template: emailTemplate,
@@ -119,7 +118,7 @@ async function postHandler(req: Request) {
   }
 
   if (!validated) {
-    const tenant = await resolveClubContext(auth.user.tenant_id);
+    const tenant = await resolveClubContext(auth.tenantId);
     const promptArgs = {
       company: company as unknown as Parameters<typeof outreachEmailPrompt>[0]["company"],
       proposalTitle: proposal.title,
@@ -170,7 +169,7 @@ async function postHandler(req: Request) {
 
   if (!validated) {
     if (eventId) await failWorkflow(eventId, lastError);
-    await recordAudit({ actor: userActor(auth.user),
+    await recordAudit({ actor: auth.actor,
       entity_type: "email",
       action: "email.generate_failed",
       metadata: { proposal_id: proposal.id, error: lastError },
@@ -186,7 +185,7 @@ async function postHandler(req: Request) {
     .from("image_generation_jobs")
     .select("selected_url, output_urls, status, display_label")
     .eq("proposal_id", proposal.id)
-    .eq("tenant_id", auth.user.tenant_id)
+    .eq("tenant_id", auth.tenantId)
     .in("status", ["completed", "approved"])
     .limit(3);
 
@@ -204,7 +203,7 @@ async function postHandler(req: Request) {
   }
 
   const emailInsert: Record<string, unknown> = {
-    tenant_id: auth.user.tenant_id,
+    tenant_id: auth.tenantId,
     proposal_id: proposal.id,
     recipient: parsed.data.recipient,
     subject: validated.subject,
@@ -245,15 +244,15 @@ async function postHandler(req: Request) {
     return NextResponse.json({ error: insErr?.message ?? "Insert failed" }, { status: 500 });
   }
 
-  await stampSigner(sb, auth.user.tenant_id, row.id, signerId);
+  await stampSigner(sb, auth.tenantId, row.id, signerId);
 
   // Record that this was a pitch, and why, when a person chose it as the first contact
   // with an account nobody has qualified (the default would have been a conversation).
   {
-    const oc = await loadOutreachContext(sb, auth.user.tenant_id, String(company.id));
+    const oc = await loadOutreachContext(sb, auth.tenantId, String(company.id));
     if (oc) {
-      const chk = checkPlaybook({ playbook: "pitch", stage: oc.stage, firstTouch: oc.firstTouch, hasApprovedProposal: true, actor: { kind: "human", email: auth.user.email } });
-      await stampEmail(sb, auth.user.tenant_id, row.id, { companyId: oc.company.id, playbook: "pitch", note: chk.note ?? null });
+      const chk = checkPlaybook({ playbook: "pitch", stage: oc.stage, firstTouch: oc.firstTouch, hasApprovedProposal: true, actor: auth.user ? { kind: "human", email: auth.user.email } : { kind: "agent", name: "internal-api" } });
+      await stampEmail(sb, auth.tenantId, row.id, { companyId: oc.company.id, playbook: "pitch", note: chk.note ?? null });
     }
   }
 
@@ -268,13 +267,13 @@ async function postHandler(req: Request) {
           .from("emails")
           .update({ body_html: bodyWithTracking })
           .eq("id", row.id)
-          .eq("tenant_id", auth.user.tenant_id);
+          .eq("tenant_id", auth.tenantId);
       } catch { /* non-fatal */ }
     }
   }
 
   if (eventId) await completeWorkflow(eventId, { email_id: row.id });
-  await recordAudit({ actor: userActor(auth.user),
+  await recordAudit({ actor: auth.actor,
     entity_type: "email",
     entity_id: row.id,
     action: "email.generated",

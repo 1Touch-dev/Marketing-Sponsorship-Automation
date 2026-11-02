@@ -21,13 +21,13 @@ import { enrichCompanySocial } from "@/lib/intelligence/social-scraper";
 import { resolveCompanyDomain } from "@/lib/intelligence/domain-resolution";
 import { recordAudit } from "@/lib/audit/log";
 import { logger } from "@/lib/monitoring/logger";
-import { requirePermission } from "@/lib/auth/server-permission";
+import { requireCaller } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 
 export const maxDuration = 90;
 
 export async function POST(req: Request) {
-  const auth = await requirePermission("run_intelligence");
+  const auth = await requireCaller(req, "run_intelligence");
   if ("error" in auth) return auth.error;
 
   const startTime = Date.now();
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       .from("companies")
       .select("id, company_name, website, industry, country, full_intelligence")
       .eq("id", company_id)
-      .eq("tenant_id", auth.user.tenant_id)
+      .eq("tenant_id", auth.tenantId)
       .maybeSingle();
 
     if (!company) {
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         steps: domainResolution.steps,
         elapsed_ms: domainResolution.elapsed_ms,
       };
-      await sb.from("companies").update({ website: `https://${manual}` }).eq("id", company.id).eq("tenant_id", auth.user.tenant_id);
+      await sb.from("companies").update({ website: `https://${manual}` }).eq("id", company.id).eq("tenant_id", auth.tenantId);
       const { error: manualDomainErr } = await sb
         .from("companies")
         .update({
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
           domain_updated_at: new Date().toISOString(),
         } as never)
         .eq("id", company.id)
-        .eq("tenant_id", auth.user.tenant_id);
+        .eq("tenant_id", auth.tenantId);
       if (manualDomainErr?.code === "42703") {
         /* domain columns optional */
       }
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       .from("companies")
       .select("domain, domain_source")
       .eq("id", company_id)
-      .eq("tenant_id", auth.user.tenant_id)
+      .eq("tenant_id", auth.tenantId)
       .maybeSingle();
     const needsWebsiteBackfill = domain && !company.website;
     const needsDomainColumns =
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
           .from("companies")
           .update({ website: `https://${domain}` })
           .eq("id", company_id)
-          .eq("tenant_id", auth.user.tenant_id);
+          .eq("tenant_id", auth.tenantId);
       }
     }
     if (needsDomainColumns) {
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
           domain_updated_at: new Date().toISOString(),
         })
         .eq("id", company_id)
-        .eq("tenant_id", auth.user.tenant_id);
+        .eq("tenant_id", auth.tenantId);
       if (domainColError?.message?.includes("does not exist") || domainColError?.code === "42703") {
         logger.warn("Domain tracking columns not applied yet — run migration 0022", {
           company_id,
@@ -228,9 +228,9 @@ export async function POST(req: Request) {
       .from("companies")
       .update({ full_intelligence: updatedIntelligence, intelligence_updated_at: new Date().toISOString() })
       .eq("id", company_id)
-      .eq("tenant_id", auth.user.tenant_id);
+      .eq("tenant_id", auth.tenantId);
 
-    await recordAudit({ actor: userActor(auth.user),
+    await recordAudit({ actor: auth.actor,
       action: "company.enrichment_run",
       entity_type: "company",
       entity_id: company_id,
@@ -316,7 +316,6 @@ export async function GET(req: Request) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 import type { DomainResolutionResult } from "@/lib/intelligence/domain-resolution";
-import { userActor } from "@/lib/identity/actor";
 
 type EnrichmentResult = {
   hunter: Awaited<ReturnType<typeof searchDomain>> | null;

@@ -10,7 +10,7 @@ import { QUALIFYING_PIPELINE_STAGES } from "@/lib/accounts/stage";
 import { userActor } from "@/lib/identity/actor";
 import { deleteRecord, readDeleteOptions } from "@/lib/records/tombstones";
 import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
-import { internalAppUrl } from "@/lib/url";
+import { callOwnRoute } from "@/lib/auth/internal-call";
 
 export const runtime = "nodejs";
 
@@ -106,15 +106,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const newDomain = extractDomainFromWebsite(updates.website as string ?? "");
     if (newDomain && newDomain !== oldDomain) {
       // Fire-and-forget: do not await — client gets response immediately
-      void fetch(
-        new URL(`/api/intelligence/enrich`, internalAppUrl()).toString(),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ company_id: params.id }),
-          signal: AbortSignal.timeout(5_000),
-        }
-      ).catch(() => {
+      void callOwnRoute("/api/intelligence/enrich", {
+        tenantId: auth.user.tenant_id,
+        service: "company-website-changed",
+        body: { company_id: params.id },
+        signal: AbortSignal.timeout(5_000),
+      }).catch(() => {
         // Non-fatal — enrichment will run next time user clicks Enrich
       });
     }
