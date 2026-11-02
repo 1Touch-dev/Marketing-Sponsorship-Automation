@@ -38,3 +38,17 @@ export function resolveAppUrl(req?: Request): string {
   // 3. Local development fallback
   return "http://localhost:3000";
 }
+
+/**
+ * internalAppUrl — where THIS server reaches itself, for the fire-and-forget calls a route makes to another of its own
+ * routes (competitor discovery, enrichment, follow-up drafts, sequence steps).
+ *
+ * Deliberately NOT the public address: a call to the public domain leaves the machine, crosses DNS, the proxy and HTTPS,
+ * and fails whenever any of them is down or not set up yet (for example the days between switching APP_URL and the
+ * domain working). Set INTERNAL_APP_URL only if the app does not listen on this machine's port 3000.
+ */
+export function internalAppUrl(): string {
+  const explicit = process.env.INTERNAL_APP_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+  return `http://127.0.0.1:${process.env.PORT?.trim() || "3000"}`;
+}

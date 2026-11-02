@@ -42,7 +42,8 @@
     "test:portal": "tsx --test tests/db/portal.test.ts tests/public-surface.test.ts",
     "test:tasks": "tsx --test tests/db/task-sync.test.ts",
     "test:langgraph": "tsx --test tests/db/langgraph-runtime.test.ts tests/db/outreach-graph.test.ts tests/db/langfuse-runs.test.ts",
-    "test:governance": "tsx --test tests/db/governance.test.ts"
+    "test:governance": "tsx --test tests/db/governance.test.ts",
+    "test:domain": "tsx --test tests/domain-switch.test.ts tests/session-cookie.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

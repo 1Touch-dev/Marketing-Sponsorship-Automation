@@ -5,6 +5,7 @@ import { extractDomainFromEmail } from "@/lib/intelligence/domain-resolution";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { idempotent } from "@/lib/idempotency";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 
@@ -131,7 +132,7 @@ async function triggerContactDrivenEnrichment(
 
     // Fire-and-forget enrich call
     await fetch(
-      new URL("/api/intelligence/enrich", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").toString(),
+      new URL("/api/intelligence/enrich", internalAppUrl()).toString(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -14,6 +14,7 @@ import { userActor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
 import { syncPrimaryContactFromCompany } from "@/lib/companies/sync-primary-contact";
 import { sanitizeSearchTerm } from "@/lib/search/or-ilike";
+import { internalAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 
@@ -137,8 +138,7 @@ async function postHandler(req: Request) {
   // ── Fire-and-forget: auto-trigger competitor discovery in background ────────
   // We kick this off without awaiting so the response returns immediately.
   // The discovery runs async and populates competitors + differentiators.
-  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  fetch(`${appUrl}/api/companies/${data.id}/discover`, {
+  fetch(`${internalAppUrl()}/api/companies/${data.id}/discover`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   }).catch(() => {

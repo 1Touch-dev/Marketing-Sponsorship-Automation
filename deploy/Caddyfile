@@ -1,0 +1,22 @@
+# Reverse proxy for the club's own domain. Install: sudo apt install caddy ; copy to /etc/caddy/Caddyfile ; sudo systemctl reload caddy
+# Caddy gets and renews the HTTPS certificate by itself, but ONLY once the DNS A record for the name points at this
+# server (54.157.138.205) and ports 80 and 443 are open. Until then Caddy retries and logs errors; nothing else is affected.
+# The legacy ngrok tunnel keeps serving the same app on port 3000 in parallel and is not touched by this file.
+
+sponsorship.coritiba.com.br {
+	encode gzip
+
+	# Long AI calls (image generation takes up to ~2 minutes) must not be cut off by the proxy.
+	reverse_proxy 127.0.0.1:3000 {
+		transport http {
+			response_header_timeout 5m
+			read_timeout 5m
+		}
+	}
+
+	# Caddy already sends X-Forwarded-For / -Proto / -Host to the app, which the session cookie's Secure flag and
+	# resolveAppUrl() rely on.
+	log {
+		output file /var/log/caddy/sponsorship.log
+	}
+}
