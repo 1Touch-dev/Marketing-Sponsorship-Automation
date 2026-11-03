@@ -305,12 +305,14 @@ function injectProposalLinkTextIfMissing(text: string, proposalLink: string): st
 /**
  * Appends an LGPD-compliant footer with unsubscribe link before </body>.
  */
-export function injectNewsletterFooter(html: string, recipientEmail: string, appUrl: string): string {
+export function injectNewsletterFooter(html: string, recipientEmail: string, appUrl: string, unsubscribeUrl?: string): string {
+  // A signed link for this one recipient when the caller has one; the old unsigned link only for callers that do not.
+  const unsub = unsubscribeUrl ?? `${appUrl}/api/newsletter/unsubscribe?email=${encodeURIComponent(recipientEmail)}`;
   const footer = `
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af;line-height:1.6">
   <p>Coritiba FC · Departamento Comercial · Rua Campo Comprido, 669 · Curitiba/PR</p>
   <p>Você está recebendo esta mensagem porque demonstrou interesse em patrocinar o Coritiba FC.</p>
-  <p><a href="${appUrl}/api/newsletter/unsubscribe?email=${encodeURIComponent(recipientEmail)}" style="color:#6b7280">Descadastrar-se desta lista</a></p>
+  <p><a href="${unsub}" style="color:#6b7280">Descadastrar-se desta lista</a></p>
 </div>`;
   if (html.includes("</body>")) return html.replace("</body>", `${footer}</body>`);
   return html + footer;

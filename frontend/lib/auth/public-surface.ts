@@ -62,6 +62,8 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   R(/^\/api\/emails\/generate$/, "internal-secret", "the app's own call for an email-sequence step", /requireCaller/),
   R(/^\/api\/emails\/[^/]+\/events$/, "internal-secret", "delivery events from the email provider", INTERNAL),
   R(/^\/api\/contracts\/[^/]+\/signers$/, "provider-credential", "signature callbacks; reads check the session in the route", /requirePermission|INTERNAL_API_SECRET|getCurrentPlatformUser|timingSafeEqual/),
+  E("/api/newsletter/unsubscribe", "share-token", "the signed unsubscribe link in a newsletter: it names one address and cannot be edited (GET only shows a page; the POST unsubscribes)", /verifyUnsubscribeToken/),
+  E("/api/ses/events", "provider-credential", "bounces and complaints from Amazon SES, delivered by Amazon SNS: refused unless the SNS signature verifies for our topic", /verifySnsMessage/),
   R(/^\/api\/leads$/, "rate-limited-form", "the lead form on the public niche pages", /checkRateLimit/),
 ];
 
