@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { createMagicLinkToken } from "@/lib/portal/session";
 import { resolveAppUrl } from "@/lib/url";
-import { sendPlatformEmail } from "@/lib/gmail/send-platform-email";
+import { sendSystemEmail } from "@/lib/mail/system";
 import { recordAudit } from "@/lib/audit/log";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { externalActor } from "@/lib/identity/actor";
@@ -68,8 +68,9 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    await sendPlatformEmail({
+    await sendSystemEmail({
       tenantId: contact.tenant_id,
+      tag: "portal-link",
       to: email,
       subject: "Seu link de acesso ao portal do patrocinador",
       bodyText: `Clique no link abaixo para acessar o portal (válido por 15 minutos):\n\n${magicLink}`,

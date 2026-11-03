@@ -28,7 +28,26 @@ type Newsletter = {
   status: string;
   sent_at: string | null;
   created_at: string;
+  scheduled_for?: string | null;
 };
+
+const STATUS_STYLE: Record<string, string> = {
+  sent: "bg-emerald-100 text-emerald-700",
+  sending: "bg-sky-100 text-sky-700",
+  scheduled: "bg-indigo-100 text-indigo-700",
+  partial: "bg-amber-100 text-amber-700",
+  failed: "bg-red-100 text-red-700",
+  cancelled: "bg-slate-100 text-slate-600",
+};
+
+/** "5 accepted · 1 bounced": what happened to the recipients, in the order that matters. */
+function countsLine(c: Record<string, number> | undefined): string {
+  if (!c) return "";
+  return (["accepted", "delivered", "bounced", "complained", "failed", "skipped", "queued"] as const)
+    .filter((k) => c[k])
+    .map((k) => `${c[k]} ${k}`)
+    .join(" · ");
+}
 
 type Template = {
   id: string;
@@ -43,12 +62,14 @@ export function NewsletterClient({
   templates,
   totalSent,
   unsubscribeCount,
+  deliveryCounts = {},
 }: {
   companies: Company[];
   newsletters: Newsletter[];
   templates: Template[];
   totalSent: number;
   unsubscribeCount: number;
+  deliveryCounts?: Record<string, Record<string, number>>;
 }) {
   const { toast } = useToast();
 
@@ -430,9 +451,7 @@ export function NewsletterClient({
                   <div key={n.id} className="px-4 py-3 space-y-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{n.subject}</p>
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                        n.status === "sent" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                      }`}>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${STATUS_STYLE[n.status] ?? "bg-amber-100 text-amber-700"}`}>
                         {n.status}
                       </span>
                     </div>
@@ -440,8 +459,11 @@ export function NewsletterClient({
                       <Users className="h-3 w-3" />
                       <span>{n.recipient_count} recipients</span>
                       <span>·</span>
-                      <span>{formatDate(n.sent_at ?? n.created_at)}</span>
+                      <span>{n.status === "scheduled" && n.scheduled_for ? `scheduled for ${formatDate(n.scheduled_for)}` : formatDate(n.sent_at ?? n.created_at)}</span>
                     </div>
+                    {countsLine(deliveryCounts[n.id]) && (
+                      <p className="text-xs text-muted-foreground">{countsLine(deliveryCounts[n.id])}</p>
+                    )}
                   </div>
                 ))
               )}

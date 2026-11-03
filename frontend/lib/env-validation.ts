@@ -25,6 +25,8 @@ export function validateEnv(): { valid: boolean; statuses: EnvStatus[]; summary:
     { key: "SERPAPI_KEY", required: false, hint: "Deprecated — Apify is now used instead of SerpAPI" },
     { key: "PIPEDRIVE_API_KEY", required: false },
     { key: "INTERNAL_APP_URL", required: false, hint: "Where the server calls itself. Empty = http://127.0.0.1:3000. Never the public domain." },
+    { key: "MAIL_PROVIDER", required: false, hint: "Set to ses to send newsletters and portal links through Amazon SES. Empty = newsletters refuse to send." },
+    { key: "MAIL_REPLY_TO", required: false, hint: "A real mailbox the club reads; replies to newsletters go here." },
     { key: "TWENTY_API_KEY", required: false, hint: "Optional second CRM. Empty means Coxa does not push to Twenty." },
     { key: "TWENTY_BASE_URL", required: false, hint: "Twenty origin, default http://localhost:3200" },
     { key: "NEXTAUTH_SECRET", required: false },

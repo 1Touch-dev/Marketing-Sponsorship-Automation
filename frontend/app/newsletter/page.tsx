@@ -38,11 +38,12 @@ export default async function NewsletterPage() {
     status: string;
     sent_at: string | null;
     created_at: string;
+    scheduled_for?: string | null;
   }> = [];
   try {
     const { data } = await sb
       .from("newsletters")
-      .select("id, subject, recipient_count, status, sent_at, created_at")
+      .select("id, subject, recipient_count, status, sent_at, created_at, scheduled_for")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -79,7 +80,19 @@ export default async function NewsletterPage() {
     // non-fatal
   }
 
-  const totalSent = newsletters.reduce((sum, n) => sum + (n.recipient_count ?? 0), 0);
+  // What really happened to each recipient (migration 0077). "Total sent" counts mail Amazon SES accepted, not rows saved.
+  const deliveryCounts: Record<string, Record<string, number>> = {};
+  let totalSent = 0;
+  try {
+    const { data: rows } = await sb.from("newsletter_deliveries").select("newsletter_id, status").eq("tenant_id", tenantId).limit(20000);
+    for (const r of (rows ?? []) as Array<{ newsletter_id: string; status: string }>) {
+      const c = (deliveryCounts[r.newsletter_id] ??= {});
+      c[r.status] = (c[r.status] ?? 0) + 1;
+      if (["accepted", "delivered", "bounced", "complained"].includes(r.status)) totalSent++;
+    }
+  } catch {
+    // migration 0077 not applied yet: nothing has really been sent
+  }
 
   return (
     <>
@@ -95,6 +108,7 @@ export default async function NewsletterPage() {
         newsletters={newsletters}
         templates={templates}
         totalSent={totalSent}
+        deliveryCounts={deliveryCounts}
         unsubscribeCount={unsubscribeCount}
       />
     </>
