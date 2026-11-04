@@ -16,17 +16,17 @@ function env(vars: Record<string, string | undefined>) {
 test("From addresses are always on the verified mail subdomain, with the club's name", () => {
   const undo = env({ MAIL_FROM_DOMAIN: undefined, MAIL_FROM_ADDRESS: undefined, MAIL_SYSTEM_FROM_ADDRESS: undefined, MAIL_FROM_NAME: undefined });
   try {
-    assert.equal(fromFor("newsletter").address, "patrocinio@mail.sponsorship.coritiba.com.br");
-    assert.equal(fromFor("outreach").address, "patrocinio@mail.sponsorship.coritiba.com.br");
+    assert.equal(fromFor("newsletter").address, "patrocinios@mail.sponsorship.coritiba.com.br");
+    assert.equal(fromFor("outreach").address, "patrocinios@mail.sponsorship.coritiba.com.br");
     assert.equal(fromFor("system").address, "nao-responda@mail.sponsorship.coritiba.com.br");
     assert.equal(fromFor("newsletter", "Maria Silva").name, "Maria Silva");
-    assert.match(fromFor("newsletter").header, /^=\?UTF-8\?B\?.+\?= <patrocinio@mail\.sponsorship\.coritiba\.com\.br>$/, "the accent in Patrocínios is encoded");
+    assert.match(fromFor("newsletter").header, /^=\?UTF-8\?B\?.+\?= <patrocinios@mail\.sponsorship\.coritiba\.com\.br>$/, "the accent in Patrocínios is encoded");
     assert.equal(Buffer.from(fromFor("newsletter").header.match(/\?B\?(.+)\?=/)![1], "base64").toString("utf8"), "Coritiba FC Patrocínios");
   } finally { undo(); }
 });
 
 test("a From address outside the verified domain is refused before anything is sent", () => {
-  const undo = env({ MAIL_FROM_ADDRESS: "patrocinio@coritiba.com.br" });
+  const undo = env({ MAIL_FROM_ADDRESS: "patrocinios@coritiba.com.br" });
   try { assert.throws(() => fromFor("newsletter"), /not on mail\.sponsorship\.coritiba\.com\.br/); } finally { undo(); }
 });
 
@@ -37,12 +37,12 @@ test("display names: plain ASCII is quoted and escaped, others are encoded, line
 });
 
 test("reply-to: the person first, then the club mailbox, and never something that is not an address", () => {
-  const undo = env({ MAIL_REPLY_TO: "patrocinio@coritiba.com.br" });
+  const undo = env({ MAIL_REPLY_TO: "patrocinios@coritiba.com.br" });
   try {
     assert.equal(replyToFor("Rep@Club.com"), "rep@club.com");
-    assert.equal(replyToFor(null), "patrocinio@coritiba.com.br");
-    assert.equal(clubReplyTo("rep@club.com"), "patrocinio@coritiba.com.br", "a newsletter is answered at the club's mailbox");
-    assert.equal(replyToFor("not an address <x>"), "patrocinio@coritiba.com.br");
+    assert.equal(replyToFor(null), "patrocinios@coritiba.com.br");
+    assert.equal(clubReplyTo("rep@club.com"), "patrocinios@coritiba.com.br", "a newsletter is answered at the club's mailbox");
+    assert.equal(replyToFor("not an address <x>"), "patrocinios@coritiba.com.br");
   } finally { undo(); }
   const undo2 = env({ MAIL_REPLY_TO: undefined });
   try {
@@ -60,7 +60,7 @@ test("MAIL_PROVIDER is ses only when it says so", () => {
 
 test("sendViaSes sends the right request: From, Reply-To, both bodies, unsubscribe headers, a tag", async () => {
   const ses = await fakeSes();
-  const undo = env({ SES_ENDPOINT: ses.url, MAIL_FROM_DOMAIN: undefined, MAIL_FROM_ADDRESS: undefined, MAIL_FROM_NAME: undefined, MAIL_REPLY_TO: "patrocinio@coritiba.com.br" });
+  const undo = env({ SES_ENDPOINT: ses.url, MAIL_FROM_DOMAIN: undefined, MAIL_FROM_ADDRESS: undefined, MAIL_FROM_NAME: undefined, MAIL_REPLY_TO: "patrocinios@coritiba.com.br" });
   resetSesClientForTests();
   try {
     const r = await sendViaSes({ to: "alvo@empresa.com", subject: "Olá — newsletter", text: "texto", html: "<p>html</p>", kind: "newsletter", headers: unsubscribeHeaders("https://x.test/u?t=1"), tag: "newsletter" });
@@ -69,8 +69,8 @@ test("sendViaSes sends the right request: From, Reply-To, both bodies, unsubscri
     const b = ses.seen[0].body;
     assert.equal(ses.seen[0].path, "/v2/email/outbound-emails");
     assert.deepEqual(b.Destination.ToAddresses, ["alvo@empresa.com"]);
-    assert.match(b.FromEmailAddress, /<patrocinio@mail\.sponsorship\.coritiba\.com\.br>$/);
-    assert.deepEqual(b.ReplyToAddresses, ["patrocinio@coritiba.com.br"]);
+    assert.match(b.FromEmailAddress, /<patrocinios@mail\.sponsorship\.coritiba\.com\.br>$/);
+    assert.deepEqual(b.ReplyToAddresses, ["patrocinios@coritiba.com.br"]);
     assert.equal(b.Content.Simple.Subject.Data, "Olá — newsletter");
     assert.equal(b.Content.Simple.Body.Text.Data, "texto");
     assert.equal(b.Content.Simple.Body.Html.Data, "<p>html</p>");

@@ -32,7 +32,7 @@ async function world() {
   const ses = await fakeSes();
   process.env.SES_ENDPOINT = ses.url;
   process.env.UNSUBSCRIBE_SECRET = "a-test-secret-of-sufficient-length";
-  process.env.MAIL_REPLY_TO = "patrocinio@coritiba.com.br";
+  process.env.MAIL_REPLY_TO = "patrocinios@coritiba.com.br";
   resetSesClientForTests();
   let db;
   try { db = await freshDb(MIG, { seed }); } catch (e) { await ses.close(); throw e; } // never leave the stand-in server open: it would keep the test process alive
@@ -56,7 +56,7 @@ test("queueing writes the newsletter and one row per person, and sends nothing",
     assert.equal(n.status, "scheduled");
     assert.deepEqual((await w.rows(n.id)).map((r) => `${r.email}:${r.status}`), ["a@x.com:queued", "b@x.com:queued", "out@x.com:skipped"]);
     const row = await w.nl(n.id);
-    assert.equal(row.from_address, "patrocinio@mail.sponsorship.coritiba.com.br");
+    assert.equal(row.from_address, "patrocinios@mail.sponsorship.coritiba.com.br");
     assert.equal(row.reply_to, "rep@club.com");
   } finally { await w.done(); }
 });

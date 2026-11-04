@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId, getTenantById } from "@/lib/tenants/current";
 import { loadSponsorClaims } from "@/lib/claims/sponsor-claims";
+import { resolveAppUrl } from "@/lib/url";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
@@ -180,7 +181,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
             </Button>
             {p.share_token && (
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Proposta de Patrocínio Coritiba FC — ${p.title}\n\nhttps://eligibly-facing-unloved.ngrok-free.dev/proposals/view/${p.share_token}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Proposta de Patrocínio Coritiba FC — ${p.title}\n\n${resolveAppUrl()}/proposals/view/${p.share_token}`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent transition-colors text-green-700 border-green-300 hover:bg-green-50"

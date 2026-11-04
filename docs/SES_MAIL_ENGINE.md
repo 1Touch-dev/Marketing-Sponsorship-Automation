@@ -1,12 +1,15 @@
 # Email delivery through Amazon SES
 
+> **Status, 4 Nov 2026: live.** DNS verified (DKIM and custom MAIL FROM both successful), DMARC for the subdomain is `p=reject` (published by IT), the bounce handler is subscribed and confirmed in SNS, `MAIL_PROVIDER=ses` is on, and the scheduler line is installed. Checked live: a real mail reached Gmail's inbox with SPF, DKIM and DMARC all passing; a simulated bounce reached the app and put the address on the do-not-contact list; the unsubscribe page, the one-click unsubscribe and a tampered link behave as described below.
+> **Corporate filters:** one test address behind a Proofpoint gateway never showed the mail although Amazon reported it delivered (the receiving server accepted it, then held or dropped it). A new sender domain gets extra scrutiny from such gateways, so send small batches at first, ask recipient admins to allow `mail.sponsorship.coritiba.com.br` if a sponsor reports missing mail, and let the volume grow gradually.
+
 Written 3 Nov 2026. Before this, the newsletter's "Send Now" saved a row marked "sent" and delivered nothing, and the unsubscribe link could not be opened by a logged-out reader. This is the delivery engine that replaces that.
 
 ## What it does
 
 | Mail | How it goes out | From | Replies go to |
 |---|---|---|---|
-| Newsletter (`/newsletter`) | One message per person through SES, each with that person's own signed unsubscribe link and one-click `List-Unsubscribe` headers. "Schedule for later" is honoured (time without a zone = Brasília). | `Coritiba FC Patrocínios <patrocinio@mail.sponsorship.coritiba.com.br>` | `MAIL_REPLY_TO` (the club's shared mailbox); until it is set, the person who sent it |
+| Newsletter (`/newsletter`) | One message per person through SES, each with that person's own signed unsubscribe link and one-click `List-Unsubscribe` headers. "Schedule for later" is honoured (time without a zone = Brasília). | `Coritiba FC Patrocínios <patrocinios@mail.sponsorship.coritiba.com.br>` | `MAIL_REPLY_TO` (the club's shared mailbox); until it is set, the person who sent it |
 | Sponsor portal login link | SES when `MAIL_PROVIDER=ses`, otherwise the connected Gmail as before | `nao-responda@mail.sponsorship.coritiba.com.br` | none |
 | Bounces and complaints | Amazon SES → SNS topic `sponsorship-ses-feedback` → `POST /api/ses/events` | | |
 
@@ -20,7 +23,8 @@ Written 3 Nov 2026. Before this, the newsletter's "Send Now" saved a row marked 
 |---|---|
 | `MAIL_PROVIDER` | `ses` switches real sending on. **Leave it empty until the domain is verified** (the newsletter then answers 503 "not switched on" instead of pretending). |
 | `MAIL_FROM_DOMAIN` | `mail.sponsorship.coritiba.com.br` (the default) |
-| `MAIL_REPLY_TO` | the club's shared mailbox, for example `patrocinio@coritiba.com.br` (must exist) |
+| `MAIL_REPLY_TO` | the club's shared mailbox, `patrocinios@coritiba.com.br` (note the final "s"; created by IT 4 Nov 2026, read by the commercial team) |
+| `MAIL_FROM_ADDRESS` | the sender address, `patrocinios@mail.sponsorship.coritiba.com.br` (the default). It must be on `MAIL_FROM_DOMAIN`. |
 | `SES_SNS_TOPIC_ARN` | `arn:aws:sns:us-east-1:180536781258:sponsorship-ses-feedback` (the default) |
 | `UNSUBSCRIBE_SECRET` | optional; defaults to `SESSION_SECRET` |
 
@@ -34,7 +38,7 @@ Credentials are **not** settings: the app asks the server's IAM role (`sponsorsh
 4. **Scheduler.** Add one line to the server's crontab so scheduled newsletters (and a send cut off by a restart) are picked up every minute:
    `* * * * * curl -s -m 280 -X POST -H "x-internal-secret: $(grep ^INTERNAL_API_SECRET= /home/ubuntu/Market_Sponsorship_Automation/frontend/.env.local | cut -d= -f2-)" http://127.0.0.1:3000/api/internal/newsletter-dispatch > /dev/null`
 5. **Bounce handler.** In SNS, subscribe `https://<the app's public address>/api/ses/events` (HTTPS) to the topic `sponsorship-ses-feedback`. The app confirms the subscription by itself (it opens Amazon's confirmation link, after verifying Amazon's signature). Check the subscription shows **Confirmed**. If the address changes later (ngrok → the club domain), subscribe the new one and delete the old.
-6. **Ask Rushendra** to also send **Delivery**, **Reject** and **Delivery Delay** events to the topic. Today only bounces and complaints arrive, so a recipient can reach `accepted` but never `delivered`.
+6. **Event types.** The SES event destination `bounce-complaint-to-sns` (configuration set `sponsorship-ses-config`) must send **Hard bounces, Complaints, Deliveries, Delivery delays and Rejects** to the topic (done 4 Nov 2026). Do **not** add Sends, Opens, Clicks, Subscriptions or Rendering failures: the handler answers those with an error and Amazon keeps retrying. Only messages sent after the events were enabled reach `delivered`; earlier ones stay `accepted`.
 7. **Test:** send a newsletter to two inboxes you own; check both arrive, from the right name, with a working unsubscribe link; click it, confirm, and send again: the second send skips that address.
 
 ## Safety notes

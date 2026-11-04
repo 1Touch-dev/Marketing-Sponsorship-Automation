@@ -311,7 +311,7 @@ export function injectNewsletterFooter(html: string, recipientEmail: string, app
   const footer = `
 <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:11px;color:#9ca3af;line-height:1.6">
   <p>Coritiba FC · Departamento Comercial · Rua Campo Comprido, 669 · Curitiba/PR</p>
-  <p>Você está recebendo esta mensagem porque demonstrou interesse em patrocinar o Coritiba FC.</p>
+  <p>Você está recebendo esta mensagem porque seu contato consta na lista de relacionamento comercial do Coritiba FC.</p>
   <p><a href="${unsub}" style="color:#6b7280">Descadastrar-se desta lista</a></p>
 </div>`;
   if (html.includes("</body>")) return html.replace("</body>", `${footer}</body>`);
