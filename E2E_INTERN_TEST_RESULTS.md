@@ -4,7 +4,7 @@
 **Tester:** Agent (browser automation)  
 **Plan:** `INTERN_TEST_PLAN.md` v2.0  
 **URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`
+**Login:** `patrocinios@coritiba.com.br`
 
 ---
 

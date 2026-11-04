@@ -140,7 +140,7 @@ Use checklist from `22nd_May.md`. **No demo to James until all pass.**
 
 | # | Test | Pass |
 |---|------|------|
-| T1 | Login `patrocinios@coritiba.com.br` / `admin@1Touch` | [ ] |
+| T1 | Login `patrocinios@coritiba.com.br` | [ ] |
 | T2 | Protected routes redirect to `/login` when logged out | [ ] |
 | T3 | Company → Run Intelligence → Discover Competitors | [ ] |
 | T4 | Campaign → AI generate strategies | [ ] |

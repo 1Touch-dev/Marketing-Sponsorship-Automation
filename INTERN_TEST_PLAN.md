@@ -2,7 +2,7 @@
 
 **Version:** 3.0 | **Date:** 4 June 2026  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
+**Login:** `patrocinios@coritiba.com.br` 
 **Master doc:** `4th_June.md` (sprints, certifications, production status)  
 **Rule:** Do **not** demo to James until every test below is marked ✅
 

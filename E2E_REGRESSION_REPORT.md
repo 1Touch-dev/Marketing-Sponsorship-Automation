@@ -230,7 +230,7 @@ All stabilization sprint changes verified:
 
 ## 10. Manual Test Checklist (for James/team)
 
-Use credentials: `patrocinios@coritiba.com.br` / `admin@1Touch`
+Use credentials: `patrocinios@coritiba.com.br`
 
 - [ ] Login at `/login`
 - [ ] Add company at `/companies`

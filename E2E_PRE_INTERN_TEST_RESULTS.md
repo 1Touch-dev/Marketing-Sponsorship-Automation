@@ -1,7 +1,7 @@
 # Pre-Intern E2E Test Results — 27 May 2026
 **Tester:** Abhishek (automated browser + API)  
 **Platform:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
+**Login:** `patrocinios@coritiba.com.br`  
 **Duration:** ~45 min  
 **Build:** Rebuilt + PM2 restarted before Replicate UI tests
 
@@ -187,5 +187,3 @@ These require **manual interaction** and **AI wait times** (30s–3min each):
 - **Prompts logged:** `coritiba_jersey green football kit with Patrocinador sponsor...`
 
 ---
-
-*Give interns `INTERN_TEST_PLAN.md` + this report. Password: `admin@1Touch` (also in E2E_REGRESSION_REPORT.md).*

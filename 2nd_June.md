@@ -3,7 +3,7 @@
 **Date:** 2 June 2026 | **By:** Abhishek  
 **Active branch:** `feature/bug-fixes-2june` ✅ PUSHED  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`  
+**Login:** `patrocinios@coritiba.com.br`  
 **Server:** AWS EC2 — app runs 24/7 via PM2 + systemd  
 
 **Audit source:** `Coritiba_Platform_Issues_Report_EN.pdf` (Perplexity, June 2026) — 15 bugs + 10 feature requests  

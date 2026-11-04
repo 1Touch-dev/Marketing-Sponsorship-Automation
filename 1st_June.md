@@ -3,7 +3,7 @@
 **Date:** 1 June 2026 | **By:** Abhishek  
 **Active branch:** `feature/agents-sprint`  
 **Platform URL:** https://eligibly-facing-unloved.ngrok-free.dev  
-**Login:** `patrocinios@coritiba.com.br` / `admin@1Touch`
+**Login:** `patrocinios@coritiba.com.br`
 
 **Server:** AWS EC2 — app runs 24/7 via PM2 + systemd
 

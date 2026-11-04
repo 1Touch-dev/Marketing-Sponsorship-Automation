@@ -20,7 +20,7 @@
 7. "Would it be possible to upload PowerPoint or Google Sheets or similar (leaving placeholders)? And having placeholders have different prompts, and different image upload and/or logo uploads to generate different needed graphics — some jersey mockups, others jersey ads, etc." (**item C**).
 8. "Yes presentation editor in sponsor." → we already have an internal editor + public share link; sponsor-side editing is a separate scope.
 9. "Look at integrating outreach agents for pre-approved campaigns." (**item D**).
-10. "Don't have credentials on phone, what are they?" → `patrocinios@coritiba.com.br` / `admin@1Touch` (verified working).
+10. "Don't have credentials on phone, what are they?" → `patrocinios@coritiba.com.br` (verified working).
 11. "How can we find something to scrape logos for companies?" → we already scrape via logo.dev + Apollo; must confirm it auto-appears on the sponsor page for image generation (**item E**).
 12. "If it's possible to add PPT or HTML, and leave placeholder images, for bulk generate; when proposals are approved for an industry and logos scraped, auto-customize proposals." (**item C** extended — bulk + auto-customize per company).
 13. "Which is cheaper?" (email sending) → Gmail/Workspace is effectively free (already owned); Resend free tier 3,000/mo; Brevo 300/day; SendGrid no longer free. Recommendation: Gmail for outreach + Resend/Brevo free for newsletters (**item B**).
