@@ -39,7 +39,7 @@ export function fromFor(kind: MailKind, displayName?: string | null): FromIdenti
   const address = (
     kind === "system"
       ? process.env.MAIL_SYSTEM_FROM_ADDRESS?.trim() || `nao-responda@${domain}`
-      : process.env.MAIL_FROM_ADDRESS?.trim() || `patrocinio@${domain}`
+      : process.env.MAIL_FROM_ADDRESS?.trim() || `patrocinios@${domain}`
   ).toLowerCase();
   if (!isEmailAddress(address) || !address.endsWith(`@${domain}`)) {
     throw new Error(`The From address ${address} is not on ${domain}. Amazon SES only sends from the verified domain.`);

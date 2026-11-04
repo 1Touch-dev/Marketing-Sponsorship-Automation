@@ -65,7 +65,10 @@ test("the public proposal page sends the sponsor only allow-listed fields", () =
   const page = pages.find((p) => p.url === "/proposals/view/x")!;
   assert.ok(/sponsorContent\(p\.content\)/.test(page.src), "content goes through the allow-list");
   assert.ok(!/content: p\.content as ProposalContent/.test(page.src), "the raw content is not passed to the browser");
-  assert.ok(/sponsorPricingTiers\(/.test(page.src) && /sponsorVariants\(/.test(page.src) && /sponsorIntelligence\(/.test(page.src));
+  assert.ok(/sponsorIntelligence\(/.test(page.src), "intelligence goes through the allow-list");
+  // Pricing tiers and strategy variants are internal: the page sends the sponsor empty lists, never the stored ones.
+  assert.ok(/strategy_variants:\s*\[\]/.test(page.src) && /pricing_tiers:\s*\[\]/.test(page.src), "pricing tiers and strategy variants are sent empty");
+  assert.ok(!/(strategy_variants|pricing_tiers):\s*p\./.test(page.src), "the stored pricing tiers and variants are not passed on");
 });
 
 test("the table covers every entry once and each says why it is public", () => {

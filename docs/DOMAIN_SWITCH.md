@@ -2,6 +2,8 @@
 
 Written 2 Nov 2026 for the person doing the switch (Abhishek, Rushendra). The production server is the instance `i-0222de7b6acefd4bd`, Elastic IP **54.157.138.205**. The target address is **`https://sponsorship.coritiba.com.br`**. If IT picks another name, replace it everywhere below.
 
+> **Status, 4 Nov 2026: cutover done.** The A record exists, Caddy serves HTTPS (Let's Encrypt, renews by itself), `APP_URL`, `NEXT_PUBLIC_APP_URL` and `GOOGLE_REDIRECT_URI` use `https://sponsorship.coritiba.com.br`, the 14 unsent emails were rewritten, and the Supabase Site URL is updated. ngrok still runs in parallel. Keep the DNS record **DNS only** (grey cloud): Cloudflare's proxy cuts requests at 100 seconds, which would break the long AI calls. Sponsors who already hold ngrok links keep working until the tunnel is stopped; check ngrok's traffic page before stopping it. n8n's own `WEBHOOK_URL` still names the ngrok address (n8n is not exposed publicly; change it only if a workflow starts using webhooks).
+
 ## The rule
 
 **Add the new address next to ngrok. Switch only when the new one works. Remove ngrok weeks later.** The app builds every link from `APP_URL`, so both addresses serve the same app at the same time and nothing breaks in between.
