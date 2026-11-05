@@ -27,6 +27,30 @@ export function claudeCostUsd(u: TokenUsage): number {
   );
 }
 
+// OpenAI backup (see lib/openai/text-client.ts). List prices per million tokens [input, output, cached input], from
+// OpenAI's pricing page (Nov 2026). A model not listed uses the OPENAI_TEXT_*_PER_MTOK settings (default: Sol's rates).
+const OPENAI_RATES: Record<string, [number, number, number]> = {
+  "gpt-6.1-sol": [2, 10, 0.1],
+  "gpt-6.1-terra": [1, 5, 0.05],
+  "gpt-6-luna": [0.1, 0.5, 0.01],
+  "gpt-6-astra": [10, 50, 1],
+};
+const rate = (name: string, fallback: number) => {
+  const raw = process.env[name];
+  const n = Number(raw);
+  return raw !== undefined && raw !== "" && Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
+export function openaiTextCostUsd(u: TokenUsage, model?: string): number {
+  const known = model ? OPENAI_RATES[model] : undefined;
+  const [inR, outR, cacheR] = known ?? [
+    rate("OPENAI_TEXT_INPUT_PER_MTOK", 2),
+    rate("OPENAI_TEXT_OUTPUT_PER_MTOK", 10),
+    rate("OPENAI_TEXT_CACHED_PER_MTOK", 0.1),
+  ];
+  return ((u.input ?? 0) * inR + (u.output ?? 0) * outR + (u.cacheRead ?? 0) * cacheR) / 1_000_000;
+}
+
 // ── Prompt caching helpers ─────────────────────────────────────────────────
 // Sonnet 4.6 only caches prefixes of at least 1024 tokens; below that a marker
 // is ignored. ~4 characters per token, so 4,400 characters is a safe floor.
