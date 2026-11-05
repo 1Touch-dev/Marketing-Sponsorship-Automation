@@ -5,6 +5,7 @@ import {
   type AuthorizationRow, type Block, type Channel, type ChannelCheckRow, type ContactRole, type RecipientVerdict, type RoleRow,
   type SuppressionReason, type SuppressionRow,
 } from "./model";
+import { reservedRecipientBlock } from "../email/reserved-recipient";
 
 type Sb = any;
 
@@ -216,6 +217,11 @@ export interface SendCheck { allowed: boolean; blocks: Block[]; warnings: string
 
 /** Everything that must be true before an email goes out: the recipient may be contacted, and whoever it is signed as is still authorized. */
 export async function checkSend(sb: Sb, tenantId: string, email: { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null }): Promise<SendCheck> {
+  const reserved = reservedRecipientBlock(email.recipient);
+  if (reserved) {
+    return { allowed: false, blocks: [reserved], warnings: [], enforced: true };
+  }
+
   let companyId = email.company_id ?? null;
   if (!companyId && email.proposal_id) {
     const { data: p } = await sb.from("proposals").select("company_id").eq("id", email.proposal_id).eq("tenant_id", tenantId).maybeSingle();

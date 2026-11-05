@@ -13,6 +13,7 @@ import { serverEnv } from "@/lib/env";
 import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
 import { userActor, type Actor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
+import { reservedRecipientBlock } from "@/lib/email/reserved-recipient";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -129,7 +130,16 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
     if (!body.test_recipient) {
       return NextResponse.json({ error: "test_recipient is required" }, { status: 400 });
     }
+    const testBlocked = reservedRecipientBlock(body.test_recipient);
+    if (testBlocked) {
+      return NextResponse.json({ error: testBlocked.message, code: testBlocked.code }, { status: 409 });
+    }
     return sendTestCopy(userActor(auth.user), sb, auth.user.tenant_id, email as Record<string, unknown>, body.test_recipient);
+  }
+
+  const reserved = reservedRecipientBlock(String((email as { recipient?: string }).recipient ?? ""));
+  if (reserved) {
+    return NextResponse.json({ error: reserved.message, code: reserved.code }, { status: 409 });
   }
 
   if (email.status === "sent") {

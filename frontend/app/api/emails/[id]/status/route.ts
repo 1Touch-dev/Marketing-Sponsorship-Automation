@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-permission";
 import { recordAudit } from "@/lib/audit/log";
 import { recordMessageEventSafe } from "@/lib/messaging/store";
 import { userActor } from "@/lib/identity/actor";
+import { reservedRecipientBlock } from "@/lib/email/reserved-recipient";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,23 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   }
 
   const sb = supabaseAdmin();
+
+  if (status === "approved") {
+    const { data: existing, error: loadErr } = await sb
+      .from("emails")
+      .select("id, recipient")
+      .eq("id", ctx.params.id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .maybeSingle();
+    if (loadErr || !existing) {
+      return NextResponse.json({ error: loadErr?.message ?? "Email not found" }, { status: loadErr ? 500 : 404 });
+    }
+    const reserved = reservedRecipientBlock(String((existing as { recipient?: string }).recipient ?? ""));
+    if (reserved) {
+      return NextResponse.json({ error: reserved.message, code: reserved.code }, { status: 409 });
+    }
+  }
+
   const { data, error } = await sb
     .from("emails")
     .update({ status })

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { NOINDEX_METADATA } from "@/lib/seo/noindex";
 
 export const metadata: Metadata = {
   title: "Proposta de Patrocínio",
   description: "Proposta de patrocínio esportivo gerada por IA.",
+  ...NOINDEX_METADATA,
 };
 
 export const dynamic = "force-dynamic";

@@ -46,7 +46,7 @@ export type ChannelStatus = "verified" | "bounced" | "invalid" | "unverified";
 export const channelStatus = (checks: ChannelCheckRow[]): ChannelStatus => latest(checks)?.outcome ?? "unverified";
 
 export interface Block {
-  code: "suppressed_email" | "suppressed_company" | "bad_channel" | "sender_not_authorized" | "check_failed";
+  code: "suppressed_email" | "suppressed_company" | "bad_channel" | "sender_not_authorized" | "check_failed" | "reserved_domain";
   message: string;
 }
 

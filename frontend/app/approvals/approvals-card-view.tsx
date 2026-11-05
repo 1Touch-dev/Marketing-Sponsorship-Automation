@@ -129,7 +129,7 @@ export function ApprovalsCardView({ items }: Props) {
 
       try {
         const res = await fetch(apiMap[currentItem.type], {
-          method: currentItem.type === "campaign" ? "PATCH" : "POST",
+          method: currentItem.type === "proposal" ? "POST" : "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyMap[currentItem.type]),
         });

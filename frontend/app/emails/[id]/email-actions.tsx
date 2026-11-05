@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { CheckCircle2, ExternalLink, Send, FlaskConical, AlertTriangle, X, MessageSquareText } from "lucide-react";
 import type { EmailRow } from "@/types/database";
+import { isReservedRecipientDomain } from "@/lib/email/reserved-recipient";
 
 // Patterns that indicate unresolved template placeholders
 const PLACEHOLDER_PATTERNS = [
@@ -43,6 +44,7 @@ export function EmailActions({ email }: { email: EmailRow }) {
 
   const isSent = email.status === "sent";
   const isApproved = email.status === "approved";
+  const reservedRecipient = isReservedRecipientDomain(email.recipient ?? "");
 
   // Inbound messages (Phase 2 reply capture) are read-only here — approve/
   // send/follow-up actions only make sense for our own outbound emails.
@@ -318,11 +320,21 @@ export function EmailActions({ email }: { email: EmailRow }) {
             </div>
           ) : null}
 
+          {reservedRecipient && !isSent ? (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                Recipient uses a reserved/test domain. Approve and Mark as Sent are blocked.
+              </p>
+            </div>
+          ) : null}
+
           <Button
             onClick={() => call("draft")}
-            disabled={!!busy || isSent}
+            disabled={!!busy || isSent || reservedRecipient}
             variant="outline"
             className="w-full"
+            title={reservedRecipient ? "Reserved/test recipient domain" : undefined}
           >
             {busy === "draft" ? "Approving…" : "Approve & log to Pipedrive"}
           </Button>
@@ -330,8 +342,14 @@ export function EmailActions({ email }: { email: EmailRow }) {
           <div className="flex gap-2">
             <Button
               onClick={() => call("send")}
-              disabled={!!busy || isSent || !isApproved}
-              title={!isApproved && !isSent ? "Approve the email first" : undefined}
+              disabled={!!busy || isSent || !isApproved || reservedRecipient}
+              title={
+                reservedRecipient
+                  ? "Reserved/test recipient domain"
+                  : !isApproved && !isSent
+                    ? "Approve the email first"
+                    : undefined
+              }
               className="flex-1"
             >
               <Send className="h-4 w-4 mr-2" />

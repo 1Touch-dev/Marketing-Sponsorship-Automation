@@ -5,16 +5,24 @@ import { NextRequest, NextResponse } from "next/server";
 // (and a test checks each one). Anything not listed there needs a staff session.
 import { isPublicPath } from "@/lib/auth/public-surface";
 import { sessionCookieOptions, withSessionCookieOptions } from "@/lib/auth/session-cookie";
+import { pathNeedsNoIndexHeader } from "@/lib/seo/noindex";
+
+function withOptionalNoIndex(res: NextResponse, pathname: string): NextResponse {
+  if (pathNeedsNoIndexHeader(pathname)) {
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+  }
+  return res;
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Skip auth for static assets and public paths
   if (isPublicPath(pathname)) {
-    return NextResponse.next();
+    return withOptionalNoIndex(NextResponse.next(), pathname);
   }
 
-  const res = NextResponse.next();
+  const res = withOptionalNoIndex(NextResponse.next(), pathname);
 
   const cookieOptions = sessionCookieOptions(req);
   const supabase = createServerClient(
