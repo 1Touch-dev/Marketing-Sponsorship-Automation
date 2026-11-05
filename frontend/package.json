@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:inventory": "tsx --test tests/inventory-availability.test.ts tests/inventory-reservation.test.ts",
     "test:ai-cost": "tsx --test tests/ai-cost-controls.test.ts",
+    "test:ai-fallback": "tsx --test tests/openai-fallback.test.ts",
     "test:revisions": "tsx --test tests/proposal-revisions.test.ts",
     "test:allocations": "tsx --test tests/allocations.test.ts",
     "test:delivery": "tsx --test tests/delivery-and-signatures.test.ts",

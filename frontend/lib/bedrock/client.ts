@@ -5,7 +5,9 @@ import {
 } from "@aws-sdk/client-bedrock-runtime";
 import { serverEnv } from "@/lib/env";
 import { checkDailySpendCap, recordSpend, bedrockCallCostUsd, reserveInFlightCall } from "@/lib/monitoring/spend-guard";
-import { CallThrottle, ProviderBreaker, callerLabel, callsPerMinuteLimit } from "@/lib/ai/cost-controls";
+import { CallThrottle, ProviderBreaker, callerLabel, callsPerMinuteLimit, openaiTextCostUsd } from "@/lib/ai/cost-controls";
+import { runProviderChain, type Attempt } from "@/lib/ai/provider-chain";
+import { isOpenAITextConfigured, openaiTextModel, openaiToolModel } from "@/lib/openai/text-client";
 import { logger } from "@/lib/monitoring/logger";
 import { notifySpendCapHit } from "@/lib/slack/notify";
 import { traceGeneration } from "@/lib/observability/langfuse";
@@ -23,6 +25,35 @@ const callThrottle = new CallThrottle(callsPerMinuteLimit());
 // straight to the direct Anthropic API for a while instead of paying a failed
 // round trip (and the AWS SDK's own retries) in front of every call.
 const bedrockBreaker = new ProviderBreaker();
+// Same idea one step down: if the Anthropic API itself is refusing us (disabled org, bad key, outage), go
+// straight to the OpenAI backup for a while instead of waiting on a failing call first each time.
+const anthropicBreaker = new ProviderBreaker();
+
+/** Order tried for every text call: Bedrock, then the direct Anthropic API, then OpenAI. A step is only present when it is configured. */
+type TextProvider = "aws_bedrock" | "anthropic_direct" | "openai_text";
+
+function modelFor(p: TextProvider, withTools = false): string {
+  if (p === "openai_text") return withTools ? openaiToolModel() : openaiTextModel();
+  if (p === "anthropic_direct") return process.env.ANTHROPIC_MODEL_ID || "claude-sonnet-4-6";
+  return serverEnv().BEDROCK_MODEL_ID;
+}
+
+function apiLabel(p: TextProvider, bedrockApi: string): string {
+  return p === "aws_bedrock" ? bedrockApi : p === "anthropic_direct" ? "anthropic_direct_fallback" : "openai_fallback";
+}
+
+function costFor(p: TextProvider, model: string, input: number, output: number, cacheRead: number, cacheWrite: number): number {
+  return p === "openai_text"
+    ? openaiTextCostUsd({ input, output, cacheRead }, model)
+    : bedrockCallCostUsd(input, output, cacheRead, cacheWrite);
+}
+
+function logFallback(call: string) {
+  return (failed: TextProvider, error: unknown) =>
+    logger.warn(`[ai] ${call}: ${failed} failed, trying the next provider`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+}
 
 /**
  * Runs before every Claude call: refuses when the daily cap is reached or the
@@ -185,12 +216,11 @@ async function invokeClaudeViaBedrock<T = unknown>(
 }
 
 /**
- * Hardening (Phase 2 continuity): Bedrock credentials can fail for reasons
- * unrelated to our own code (rotated/deactivated AWS key, region outage).
- * When ANTHROPIC_API_KEY is configured, a failed Bedrock call falls back to
- * the direct Anthropic API instead of taking down every AI feature at once —
- * same provider-abstraction principle already applied to enrichment vendors
- * (Pattern 2). Spend cap is still enforced once up front either way.
+ * Hardening (Phase 2 continuity): any one provider can fail for reasons unrelated to our own code (rotated AWS
+ * key, region outage, a disabled Anthropic org). Each call tries Bedrock, then the direct Anthropic API
+ * (ANTHROPIC_API_KEY), then OpenAI (OPENAI_API_KEY), using whichever are configured, so one failing vendor
+ * does not take down every AI feature — same provider-abstraction principle already applied to enrichment
+ * vendors (Pattern 2). Spend cap is still enforced once up front either way.
  */
 export async function invokeClaude<T = unknown>(
   opts: InvokeClaudeOptions,
@@ -199,29 +229,25 @@ export async function invokeClaude<T = unknown>(
   const release = await guardCall();
 
   let result: ClaudeResult<T>;
-  let provider: "aws_bedrock" | "anthropic_direct";
+  let provider: TextProvider;
   try {
-    const haveFallback = !!serverEnv().ANTHROPIC_API_KEY;
-    if (haveFallback && bedrockBreaker.isOpen()) {
-      const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
-      result = await invokeClaudeDirect<T>(opts);
-      provider = "anthropic_direct";
-    } else {
-      try {
-        result = await invokeClaudeViaBedrock<T>(opts);
-        provider = "aws_bedrock";
-        bedrockBreaker.reset();
-      } catch (bedrockErr) {
-        if (!haveFallback) throw bedrockErr;
-        bedrockBreaker.trip();
-        logger.warn("[bedrock] invokeClaude failed, falling back to direct Anthropic API", {
-          error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
-        });
-        const { invokeClaudeDirect } = await import("@/lib/anthropic/client");
-        result = await invokeClaudeDirect<T>(opts);
-        provider = "anthropic_direct";
-      }
+    const attempts: Array<Attempt<TextProvider, ClaudeResult<T>>> = [
+      { provider: "aws_bedrock", breaker: bedrockBreaker, run: () => invokeClaudeViaBedrock<T>(opts) },
+    ];
+    if (serverEnv().ANTHROPIC_API_KEY) {
+      attempts.push({
+        provider: "anthropic_direct",
+        breaker: anthropicBreaker,
+        run: async () => (await import("@/lib/anthropic/client")).invokeClaudeDirect<T>(opts),
+      });
     }
+    if (isOpenAITextConfigured()) {
+      attempts.push({
+        provider: "openai_text",
+        run: async () => (await import("@/lib/openai/text-client")).invokeOpenAIText<T>(opts),
+      });
+    }
+    ({ provider, result } = await runProviderChain(attempts, logFallback("invokeClaude")));
   } finally {
     release();
   }
@@ -230,7 +256,9 @@ export async function invokeClaude<T = unknown>(
     await recordSpend({
       category: "bedrock_text",
       provider,
-      amountUsd: bedrockCallCostUsd(
+      amountUsd: costFor(
+        provider,
+        modelFor(provider),
         result.usage.input_tokens ?? 0,
         result.usage.output_tokens ?? 0,
         result.usage.cache_read_input_tokens ?? 0,
@@ -244,14 +272,15 @@ export async function invokeClaude<T = unknown>(
         cache_read_input_tokens: result.usage.cache_read_input_tokens ?? 0,
         cache_creation_input_tokens: result.usage.cache_creation_input_tokens ?? 0,
         label,
-        api: provider === "aws_bedrock" ? "invoke_model" : "anthropic_direct_fallback",
+        api: apiLabel(provider, "invoke_model"),
+        model: modelFor(provider),
       },
     });
   }
 
   traceGeneration({
     name: "invokeClaude",
-    model: serverEnv().BEDROCK_MODEL_ID,
+    model: modelFor(provider),
     input: { system: opts.system, messages: opts.messages },
     output: result.text,
     usage: result.usage
@@ -350,9 +379,8 @@ async function converseWithToolsViaBedrock(opts: {
 /**
  * Claude Converse API — supports multi-turn tool use (agentic loops).
  * Uses ConverseCommand which natively handles tool_use / tool_result turns.
- * Falls back to the direct Anthropic API (translating the Converse tool
- * shapes) when Bedrock itself fails and ANTHROPIC_API_KEY is configured —
- * same reasoning as invokeClaude() above.
+ * Falls back through the same chain as invokeClaude() (Anthropic, then OpenAI), translating the Converse
+ * tool shapes for each.
  */
 export async function converseWithTools(opts: {
   system: string;
@@ -368,29 +396,25 @@ export async function converseWithTools(opts: {
   const release = await guardCall();
 
   let result: ConverseResult;
-  let provider: "aws_bedrock" | "anthropic_direct";
+  let provider: TextProvider;
   try {
-    const haveFallback = !!serverEnv().ANTHROPIC_API_KEY;
-    if (haveFallback && bedrockBreaker.isOpen()) {
-      const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
-      result = await converseWithToolsDirect(opts);
-      provider = "anthropic_direct";
-    } else {
-      try {
-        result = await converseWithToolsViaBedrock(opts);
-        provider = "aws_bedrock";
-        bedrockBreaker.reset();
-      } catch (bedrockErr) {
-        if (!haveFallback) throw bedrockErr;
-        bedrockBreaker.trip();
-        logger.warn("[bedrock] converseWithTools failed, falling back to direct Anthropic API", {
-          error: bedrockErr instanceof Error ? bedrockErr.message : String(bedrockErr),
-        });
-        const { converseWithToolsDirect } = await import("@/lib/anthropic/client");
-        result = await converseWithToolsDirect(opts);
-        provider = "anthropic_direct";
-      }
+    const attempts: Array<Attempt<TextProvider, ConverseResult>> = [
+      { provider: "aws_bedrock", breaker: bedrockBreaker, run: () => converseWithToolsViaBedrock(opts) },
+    ];
+    if (serverEnv().ANTHROPIC_API_KEY) {
+      attempts.push({
+        provider: "anthropic_direct",
+        breaker: anthropicBreaker,
+        run: async () => (await import("@/lib/anthropic/client")).converseWithToolsDirect(opts),
+      });
     }
+    if (isOpenAITextConfigured()) {
+      attempts.push({
+        provider: "openai_text",
+        run: async () => (await import("@/lib/openai/text-client")).converseWithToolsOpenAI(opts),
+      });
+    }
+    ({ provider, result } = await runProviderChain(attempts, logFallback("converseWithTools")));
   } finally {
     release();
   }
@@ -399,7 +423,9 @@ export async function converseWithTools(opts: {
     await recordSpend({
       category: "bedrock_text",
       provider,
-      amountUsd: bedrockCallCostUsd(
+      amountUsd: costFor(
+        provider,
+        modelFor(provider, true),
         result.usage.inputTokens ?? 0,
         result.usage.outputTokens ?? 0,
         result.usage.cacheReadTokens ?? 0,
@@ -413,14 +439,15 @@ export async function converseWithTools(opts: {
         cache_read_input_tokens: result.usage.cacheReadTokens ?? 0,
         cache_creation_input_tokens: result.usage.cacheWriteTokens ?? 0,
         label,
-        api: provider === "aws_bedrock" ? "converse" : "anthropic_direct_fallback",
+        api: apiLabel(provider, "converse"),
+        model: modelFor(provider, true),
       },
     });
   }
 
   traceGeneration({
     name: "converseWithTools",
-    model: serverEnv().BEDROCK_MODEL_ID,
+    model: modelFor(provider, true),
     input: { system: opts.system, messages: opts.messages, tools: opts.tools.map((t) => t.toolSpec.name) },
     output: result.text || JSON.stringify(result.toolCalls),
     usage: result.usage
