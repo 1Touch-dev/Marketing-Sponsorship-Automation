@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
+import { AiVideoIntroPanel } from "@/components/proposals/ai-video-intro-panel";
 import type { ProposalContent } from "@/types/database";
 import {
   FileText, MessageSquare, Target, TrendingUp,
@@ -552,6 +553,14 @@ export function ProposalEditor({
               value={content.video_intro_url ?? ""}
               onChange={(e) => setContent({ ...content, video_intro_url: e.target.value })}
               placeholder="https://youtu.be/... or https://loom.com/share/..."
+            />
+            <AiVideoIntroPanel
+              proposalId={id}
+              currentUrl={content.video_intro_url ?? ""}
+              onUse={(url) => {
+                setContent({ ...content, video_intro_url: url });
+                toast({ variant: "success", title: "Video set as intro", description: "Save the proposal to publish it on the share page." });
+              }}
             />
             {content.video_intro_url && (
               <Textarea
