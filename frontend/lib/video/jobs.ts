@@ -9,7 +9,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { recordSpend, checkDailySpendCap } from "@/lib/monitoring/spend-guard";
 import type { Actor } from "@/lib/identity/actor";
 import { resolveJobImageUrl, type ImageJobRow } from "@/lib/proposals/proposal-images";
-import { buildMotionPrompt } from "./motion-prompts";
+import { buildMotionPrompt, negativePromptFor } from "./motion-prompts";
 import {
   createVideoPrediction,
   getVideoPrediction,
@@ -178,7 +178,12 @@ export async function createVideoJob(input: {
   }
 
   try {
-    const prediction = await createVideoPrediction(model, { imageUrl, prompt, durationS });
+    const prediction = await createVideoPrediction(model, {
+      imageUrl,
+      prompt,
+      durationS,
+      negativePrompt: negativePromptFor(imageJob.job_type, input.customPrompt),
+    });
     const { data: updated } = await sb
       .from("video_jobs")
       .update({ status: "processing", provider_prediction_id: prediction.id, updated_at: new Date().toISOString() })

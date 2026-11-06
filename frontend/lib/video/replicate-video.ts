@@ -16,6 +16,8 @@ export type VideoRenderRequest = {
   prompt: string;
   /** Seconds. Kling takes 5 or 10; see ALLOWED_DURATIONS. */
   durationS: number;
+  /** What the video must not contain. Defaults to NEGATIVE_PROMPT. */
+  negativePrompt?: string;
 };
 
 export type VideoPredictionStatus = "starting" | "processing" | "succeeded" | "failed" | "canceled";
@@ -47,12 +49,14 @@ export type VideoModelSpec = {
 };
 
 /** What every clip must not contain, whichever model makes it. */
-export const NEGATIVE_PROMPT = "text overlays, subtitles, watermark, distorted logo, melted or changing letters, extra limbs, morphing faces";
+/** Includes the "static" words on purpose: without them the model drifts toward a slow zoom. */
+export const NEGATIVE_PROMPT = "static image, frozen frame, slideshow, text overlays, subtitles, watermark, distorted logo, melted or changing letters, extra limbs";
 
 export const ALLOWED_DURATIONS = [5, 10] as const;
 export const DEFAULT_DURATION_S = 5;
 
 /**
+ * kwaivgi/kling-v2.1 (the Studio's model) was REMOVED: Replicate reports it discontinued (6 Nov 2026).
  * Adding a model is adding an entry here: the lifecycle (create, check, download) is the same for all of them,
  * only the names of the input fields differ.
  */
@@ -66,19 +70,14 @@ export const VIDEO_MODELS: Record<string, VideoModelSpec> = {
       start_image: r.imageUrl,
       prompt: r.prompt,
       duration: r.durationS,
-      negative_prompt: NEGATIVE_PROMPT,
+      negative_prompt: r.negativePrompt ?? NEGATIVE_PROMPT,
     }),
-  },
-  "kwaivgi/kling-v2.1": {
-    id: "kwaivgi/kling-v2.1",
-    label: "Kling 2.1 (Studio default)",
-    costPerSecondUsd: 0.05,
-    hasAudio: false,
-    buildInput: (r) => ({ start_image: r.imageUrl, prompt: r.prompt, mode: "standard", duration: r.durationS }),
   },
   "bytedance/seedance-2.0-fast": {
     id: "bytedance/seedance-2.0-fast",
-    label: "Seedance 2.0 Fast (with sound)",
+    // Adds sound, but in a 6 Nov 2026 test it REFUSED photos with real people (error E005 "sensitive"), i.e. the jersey
+    // and campaign images. It worked on a stadium image. Not a safe default; Kling is.
+    label: "Seedance 2.0 Fast (with sound; refuses photos of people)",
     costPerSecondUsd: 0.15,
     hasAudio: true,
     buildInput: (r) => ({
