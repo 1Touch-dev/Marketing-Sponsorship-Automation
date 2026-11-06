@@ -40,7 +40,7 @@ export function ReportingCheckPanel() {
               <BarChart3 className="h-4 w-4 text-sky-600" />
               Reporting Agent
             </CardTitle>
-            <CardDescription>Drafts monthly ROI report emails for active sponsors with real match data (Phase 8, Team 2 agent)</CardDescription>
+            <CardDescription>Drafts monthly ROI report emails for active sponsors with real match data</CardDescription>
           </div>
           <Button size="sm" variant="outline" disabled={loading} onClick={runCheck} className="shrink-0">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Check for Reports"}

@@ -7,11 +7,6 @@ import { getCurrentTenant } from "@/lib/tenants/current";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
 import { hexToHslString } from "@/lib/theme/hex-to-hsl";
 
-export const metadata: Metadata = {
-  title: "Market Sponsorship Automation",
-  description: "AI-powered sponsorship proposal & campaign workflow.",
-};
-
 // All routes need server-side rendering (Supabase queries depend on env at runtime).
 export const dynamic = "force-dynamic";
 
@@ -19,6 +14,19 @@ const DEFAULT_CLUB_NAME = "Coritiba FC";
 const DEFAULT_TAGLINE = "Commercial Intelligence";
 const DEFAULT_CREST = "/brand/coritiba-crest.png";
 const DEFAULT_PRIMARY_HSL = "158 71% 30%"; // Coritiba green (#1a8f3c)
+
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getCurrentTenant();
+  const clubName =
+    tenant?.club_facts.short_name ?? tenant?.club_facts.club_name ?? DEFAULT_CLUB_NAME;
+  return {
+    title: {
+      default: `${clubName} · Patrocínios`,
+      template: `%s · ${clubName}`,
+    },
+    description: "Propostas e campanhas de patrocínio esportivo.",
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // White-label chrome (Task 13) — the internal CRM sidebar/buttons/focus

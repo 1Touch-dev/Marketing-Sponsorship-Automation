@@ -86,9 +86,6 @@ export function MockupForm({ mockupTypes }: { mockupTypes: Record<string, { labe
           <Label htmlFor="ai_provider">AI Provider</Label>
           <select id="ai_provider" name="ai_provider" className={selectCls}>
             <option value="manual">Manual Upload</option>
-            <option value="dalle3">DALL-E 3 (configure API key)</option>
-            <option value="stability">Stability AI (configure API key)</option>
-            <option value="midjourney">Midjourney (architecture ready)</option>
           </select>
         </div>
         <div className="space-y-1.5">

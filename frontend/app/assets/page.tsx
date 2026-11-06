@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -8,37 +9,68 @@ import { AssetLibraryClient, type Asset } from "./asset-library-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AssetsPage() {
+const PAGE_SIZE = 50;
+const JOB_SELECT = "id, job_type, status, prompt, output_urls, selected_url, proposal_id, company_id, campaign_id, created_at";
+
+export default async function AssetsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
 
-  const [{ data: jobs, error: jobsError }, { data: proposals }, { data: companies }, { data: campaigns }] = await Promise.all([
+  const jobsBase = () =>
+    sb
+      .from("image_generation_jobs" as "companies")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id" as "id", tenantId);
+
+  const [
+    jobsRes,
+    totalHead,
+    completedHead,
+    pendingHead,
+    generatingHead,
+    archivedHead,
+    { data: proposals },
+    { data: companies },
+    { data: campaigns },
+  ] = await Promise.all([
     // Found live-testing 2026-09-18 (wiring up campaign-image assignment):
     // this previously selected "image_url", a column that has never existed
     // on image_generation_jobs (the real fields are output_urls[]/
     // selected_url, resolved via resolveJobImageUrl — same helper the
-    // proposal-facing image pickers already use). Supabase returned an
-    // error, `jobs` came back undefined, and the whole page silently showed
-    // "0 Total Assets" against 214 real rows, with no error surfaced
-    // anywhere — same bug class as the Pipeline page's estimated_value
-    // issue found the day before. Also dropped "metadata", a second
-    // nonexistent column caught the same way once the first error was
-    // fixed and logged — this table has no folder/tag concept at all.
-    sb.from("image_generation_jobs" as "companies")
-      .select("id, job_type, status, prompt, output_urls, selected_url, proposal_id, company_id, campaign_id, created_at")
+    // proposal-facing image pickers already use).
+    sb
+      .from("image_generation_jobs" as "companies")
+      .select(JOB_SELECT, { count: "exact" })
       .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false })
-      .limit(200),
+      .range(offset, offset + PAGE_SIZE - 1),
+    jobsBase(),
+    jobsBase().eq("status" as "id", "completed"),
+    jobsBase().eq("status" as "id", "pending_approval"),
+    jobsBase().eq("status" as "id", "generating"),
+    jobsBase().eq("status" as "id", "archived"),
     sb.from("proposals").select("id, title").eq("tenant_id", tenantId).limit(100),
     sb.from("companies").select("id, company_name").eq("tenant_id", tenantId).neq("status", "closed").limit(100),
     sb.from("campaigns").select("id, title, company_id").eq("tenant_id", tenantId).limit(200),
   ]);
+
+  const jobsError = jobsRes.error;
   if (jobsError) console.error("[assets] failed to load image_generation_jobs", jobsError.message);
 
-  const statusCounts: Record<string, number> = {};
-  for (const j of (jobs ?? []) as Array<Record<string,string>>) {
-    statusCounts[j.status] = (statusCounts[j.status] ?? 0) + 1;
-  }
+  const jobs = jobsRes.data ?? [];
+  const totalCount = jobsRes.count ?? totalHead.count ?? jobs.length;
+  const statusCounts = {
+    completed: completedHead.count ?? 0,
+    pending_approval: pendingHead.count ?? 0,
+    generating: generatingHead.count ?? 0,
+    archived: archivedHead.count ?? 0,
+  };
 
   return (
     <>
@@ -55,11 +87,11 @@ export default async function AssetsPage() {
       {!jobsError && (
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
-          { label: "Total Assets", value: (jobs ?? []).length, color: "bg-slate-500" },
-          { label: "Approved", value: statusCounts.completed ?? 0, color: "bg-green-500" },
-          { label: "Pending Approval", value: statusCounts.pending_approval ?? 0, color: "bg-amber-500" },
-          { label: "Generating", value: statusCounts.generating ?? 0, color: "bg-blue-500" },
-          { label: "Archived", value: statusCounts.archived ?? 0, color: "bg-muted-foreground" },
+          { label: "Total Assets", value: totalCount, color: "bg-slate-500" },
+          { label: "Approved", value: statusCounts.completed, color: "bg-green-500" },
+          { label: "Pending Approval", value: statusCounts.pending_approval, color: "bg-amber-500" },
+          { label: "Generating", value: statusCounts.generating, color: "bg-blue-500" },
+          { label: "Archived", value: statusCounts.archived, color: "bg-muted-foreground" },
         ].map(stat => (
           <div key={stat.label} className="rounded-xl border bg-card p-4">
             <div className={`text-2xl font-bold`}>{stat.value}</div>
@@ -73,12 +105,24 @@ export default async function AssetsPage() {
       )}
 
       <AssetLibraryClient
-        assets={jobsError ? [] : (jobs ?? []) as unknown as Asset[]}
+        assets={jobsError ? [] : jobs as unknown as Asset[]}
         proposals={(proposals ?? []) as Array<{ id: string; title: string }>}
         companies={(companies ?? []) as Array<{ id: string; company_name: string }>}
         campaigns={(campaigns ?? []) as Array<{ id: string; title: string; company_id: string | null }>}
         loadError={jobsError?.message ?? null}
       />
+
+      {!jobsError && (
+        <div className="mt-4">
+          <PaginationControls
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalCount={totalCount}
+            basePath="/assets"
+            searchParams={searchParams}
+          />
+        </div>
+      )}
     </>
   );
 }
