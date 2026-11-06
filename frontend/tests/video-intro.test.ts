@@ -9,8 +9,9 @@ import {
   VIDEO_MODELS,
   DEFAULT_VIDEO_MODEL,
   VideoRendererError,
+  NEGATIVE_PROMPT,
 } from "../lib/video/replicate-video";
-import { buildMotionPrompt, motionStyleFor, MAX_CUSTOM_PROMPT_CHARS } from "../lib/video/motion-prompts";
+import { buildMotionPrompt, motionStyleFor, negativePromptFor, MAX_CUSTOM_PROMPT_CHARS } from "../lib/video/motion-prompts";
 import { isStale, STALE_AFTER_MS } from "../lib/video/jobs";
 
 process.env.REPLICATE_API_TOKEN = "r8_test_token";
@@ -51,8 +52,10 @@ test("cost estimate scales with length and falls back to the default model", () 
 test("an unknown VIDEO_MODEL setting falls back to the default", () => {
   process.env.VIDEO_MODEL = "not/a-model";
   assert.equal(videoModelId(), DEFAULT_VIDEO_MODEL);
-  process.env.VIDEO_MODEL = "kwaivgi/kling-v2.1";
-  assert.equal(videoModelId(), "kwaivgi/kling-v2.1");
+  process.env.VIDEO_MODEL = "bytedance/seedance-2.0-fast";
+  assert.equal(videoModelId(), "bytedance/seedance-2.0-fast");
+  process.env.VIDEO_MODEL = "kwaivgi/kling-v2.1"; // discontinued, so it must fall back
+  assert.equal(videoModelId(), DEFAULT_VIDEO_MODEL);
   delete process.env.VIDEO_MODEL;
 });
 
@@ -105,11 +108,34 @@ test("motion style follows the image type", () => {
 
 test("every motion prompt protects the sponsor logo, including a custom one", () => {
   for (const t of ["jersey_mockup_official", "stadium_mockup_official", "campaign_creative"]) {
-    assert.match(buildMotionPrompt(t), /sponsor logo stays sharp/);
+    assert.match(buildMotionPrompt(t), /sponsor logo and the club crest keep/);
   }
   const custom = buildMotionPrompt("campaign_creative", "  slow   pan  across the pitch ");
   assert.ok(custom.startsWith("slow pan across the pitch"));
-  assert.match(custom, /sponsor logo stays sharp/);
+  assert.match(custom, /sponsor logo and the club crest keep/);
+});
+
+test("every preset asks for real movement and none says the camera is the only thing that moves", () => {
+  for (const t of ["jersey_mockup_official", "stadium_mockup_official", "campaign_creative", "social_post", "custom"]) {
+    const p = buildMotionPrompt(t);
+    assert.doesNotMatch(p, /only the camera moves|mostly steady|subtle/i, t);
+    assert.match(p, /camera (glides|performs)/i, t);
+  }
+});
+
+test("the negative prompt pushes against a still image", () => {
+  assert.match(NEGATIVE_PROMPT, /static image/);
+  assert.match(NEGATIVE_PROMPT, /distorted logo/);
+});
+
+test("stadium shots keep the sponsor board in frame: sideways camera, no push-in", () => {
+  const p = buildMotionPrompt("stadium_mockup_official");
+  assert.match(p, /lateral tracking/);
+  assert.match(p, /No push-in, no zoom, no tilt/);
+  assert.doesNotMatch(p, /animate and glow/);
+  assert.match(negativePromptFor("stadium_mockup_official"), /sponsor board leaving the frame/);
+  assert.doesNotMatch(negativePromptFor("jersey_mockup_official"), /camera tilting up/);
+  assert.equal(negativePromptFor("stadium_mockup_official", "my own text"), NEGATIVE_PROMPT);
 });
 
 test("a very long custom prompt is cut to the limit", () => {

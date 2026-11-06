@@ -16,8 +16,22 @@ Ported from the 1Touch AI Studio (`lib/video/*`, `lib/jobs/process-video-job.ts`
 
 ## Settings
 - `REPLICATE_API_TOKEN` (already used for the jersey LoRA).
-- `VIDEO_MODEL` (optional). Default `kwaivgi/kling-v2.5-turbo-pro`. Others in `VIDEO_MODELS`: `kwaivgi/kling-v2.1`,
-  `bytedance/seedance-2.0-fast` (adds sound). A new model is one entry in that table.
+- `VIDEO_MODEL` (optional). Default `kwaivgi/kling-v2.5-turbo-pro`. Other entry in `VIDEO_MODELS`:
+  `bytedance/seedance-2.0-fast` (adds sound, but it refuses photos of real people, so jersey and campaign images fail).
+  A new model is one entry in that table. `kwaivgi/kling-v2.1` (the Studio's model) was discontinued by Replicate.
+
+## Motion prompts
+Presets per image type live in `lib/video/motion-prompts.ts` (jersey, stadium/LED, everything else). The first version
+asked for "subtle" motion and "only the camera moves", which gave a plain zoom. They now name what moves (player,
+crowd, cloth, smoke, light) and how the camera travels, and the negative prompt includes "static image, frozen frame".
+Tested on real proposal images (6 Nov 2026), 5 s clips, average frame-to-frame change (higher is livelier):
+jersey 16 -> 53, stadium 1.8 -> 20, campaign 25 -> 51, social post -> 49.
+
+Stadium images are different: the sponsor board is often at the bottom edge, and a forward or upward camera move pushed it
+out of the shot (and "LED boards glow" smeared its logo). So the stadium preset uses a sideways tracking shot, with
+"no push-in, no zoom, no tilt" and a matching negative prompt. That keeps the board in view but is the gentlest of the
+presets. Known limits: the model sometimes invents gibberish text on an empty stretch of a board, and a social-post
+poster may cut to a wider scene so its logo is not in every frame. A person's own text in the panel replaces the preset (the logo sentence is always added).
 
 ## Safeguards
 - Needs the `generate_images` permission; every query is filtered by tenant.
