@@ -11,10 +11,20 @@ const serverSchema = z.object({
   /** Where this server calls itself (see lib/url.ts internalAppUrl). Empty = http://127.0.0.1:$PORT (3000). */
   INTERNAL_APP_URL: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.string().url().optional()),
 
-  AWS_ACCESS_KEY_ID: z.string().min(1),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1),
+  /** Optional — when unset, AI skips Bedrock and uses Anthropic/OpenAI fallbacks. */
+  AWS_ACCESS_KEY_ID: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
+  AWS_SECRET_ACCESS_KEY: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
   AWS_REGION: z.string().min(1).default("us-east-1"),
-  BEDROCK_MODEL_ID: z.string().min(1),
+  BEDROCK_MODEL_ID: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().min(1).optional()
+  ),
 
   /** Direct Anthropic API — fallback when Bedrock is unreachable/misconfigured. Optional. */
   ANTHROPIC_API_KEY: z.preprocess(

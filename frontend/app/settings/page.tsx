@@ -145,13 +145,37 @@ export default async function SettingsPage({
   const allMigrationsApplied = m0005.applied && m0006.applied && m0027.applied;
 
   // Prompt version stats — count proposals/campaigns using current vs old prompts
-  const [{ count: totalProposals }, { count: v3Proposals }, { count: totalCampaigns }, { count: v3Campaigns }] =
-    await Promise.all([
-      sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
-      sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
-      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
-      sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
-    ]);
+  const [
+    { count: totalProposals },
+    { count: v3Proposals },
+    { count: totalCampaigns },
+    { count: v3Campaigns },
+    lastSpendRes,
+  ] = await Promise.all([
+    sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    sb.from("proposals").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
+    sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    sb.from("campaigns").select("*", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("prompt_version", PROMPT_VERSION),
+    sb
+      .from("spend_ledger" as "companies")
+      .select("provider, metadata, created_at" as "id")
+      .order("created_at" as "id", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const lastSpend = lastSpendRes.data as { provider?: string; metadata?: { model?: string } | null; created_at?: string } | null;
+  const liveProvider = lastSpend?.provider ?? null;
+  const liveModel =
+    lastSpend?.metadata && typeof lastSpend.metadata === "object" && typeof lastSpend.metadata.model === "string"
+      ? lastSpend.metadata.model
+      : null;
+  const anthropicConfigured = !!(process.env.ANTHROPIC_API_KEY?.trim());
+  const bedrockEnvConfigured = !!(
+    process.env.AWS_ACCESS_KEY_ID?.trim() &&
+    process.env.AWS_SECRET_ACCESS_KEY?.trim() &&
+    process.env.BEDROCK_MODEL_ID?.trim()
+  );
 
   return (
     <>
@@ -260,8 +284,11 @@ export default async function SettingsPage({
                   <div className="text-muted-foreground">Configured sender: {configuredSender}</div>
                 )}
                 {tokens?.refresh_token ? (
-                  <div className="text-xs text-emerald-600 font-medium">
-                    ✓ Refresh token stored — connection auto-renews every hour
+                  <div className="text-xs text-emerald-600 font-medium space-y-1">
+                    <div>✓ Refresh token stored — connection auto-renews every hour</div>
+                    <div className="text-amber-700 font-normal">
+                      If Google&apos;s OAuth consent screen is in Testing mode, the refresh token can expire after 7 days and staff must reconnect.
+                    </div>
                   </div>
                 ) : expiresAt ? (
                   <div className={`text-xs ${isTokenExpired ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>
@@ -320,11 +347,13 @@ export default async function SettingsPage({
         <Card>
           <CardHeader>
             <CardTitle>AI &amp; environment</CardTitle>
-            <CardDescription>Server-side configuration (read-only).</CardDescription>
+            <CardDescription>Live provider from recent spend; env is configuration only.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Row k="Bedrock model" v={process.env.BEDROCK_MODEL_ID ?? "—"} />
-            <Row k="AWS region" v={process.env.AWS_REGION ?? "—"} />
+            <Row k="Active AI provider" v={liveProvider ?? "No spend recorded yet"} />
+            <Row k="Active model" v={liveModel ?? "—"} />
+            <Row k="Anthropic API configured" v={anthropicConfigured ? "yes" : "no"} />
+            <Row k="Bedrock env configured" v={bedrockEnvConfigured ? "yes (tried when set)" : "no"} />
             <Row k="Default ideas / generation" v={process.env.MAX_CAMPAIGN_IDEAS ?? "5"} />
             <Row k="Follow-up delay (days)" v={process.env.FOLLOWUP_DELAY_DAYS ?? "3"} />
           </CardContent>
@@ -485,20 +514,19 @@ export default async function SettingsPage({
             <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border text-xs text-muted-foreground">
               <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
               <span>
-                Prompt source: <code className="font-mono">frontend/lib/bedrock/prompts.ts</code> —
-                all rules are code-enforced and cannot be bypassed from the UI.
-                Prompt version is stamped on every generated proposal and campaign.
+                Prompt rules are code-enforced and cannot be bypassed from the UI.
+                New generated proposals and campaigns are stamped with prompt version {PROMPT_VERSION}.
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* ── Migration status ── */}
+        {/* ── Sample schema checks (not a full migration auditor) ── */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Database migration status</CardTitle>
+            <CardTitle>Sample schema checks</CardTitle>
             <CardDescription>
-              Live checks against the database — refreshes on every page load.
+              Spot-checks for migrations 0005, 0006, and 0027 only — not a full schema audit.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
@@ -520,45 +548,16 @@ export default async function SettingsPage({
 
             {!allMigrationsApplied && (
               <div className="rounded border border-amber-200 bg-amber-50 p-4 space-y-3">
-                <p className="font-medium text-amber-900">Action required: apply pending migrations</p>
-                <ol className="list-decimal list-inside space-y-1 text-amber-800">
-                  <li>
-                    Open the{" "}
-                    <a
-                      href="https://supabase.com/dashboard/project/lmjwjztokzombtstmume/sql/new"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      Supabase Dashboard → SQL Editor
-                    </a>
-                  </li>
-                  <li>
-                    Paste the SQL from{" "}
-                    <code className="font-mono bg-amber-100 px-1 rounded">/api/internal/apply-migration</code>
-                  </li>
-                  <li>Click &quot;Run&quot;</li>
-                  <li>Refresh this page — badges will turn green automatically</li>
-                </ol>
-                <div className="flex gap-2 pt-1">
-                  <Button asChild variant="outline" size="sm">
-                    <a href="/api/internal/apply-migration" target="_blank">
-                      View migration SQL
-                    </a>
-                  </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <a href="/api/internal/migration-status" target="_blank">
-                      View detailed check results
-                    </a>
-                  </Button>
-                </div>
+                <p className="font-medium text-amber-900">One or more sample checks failed</p>
+                <p className="text-amber-800 text-xs">
+                  Apply the corresponding migration SQL in the Supabase Dashboard → SQL Editor, then refresh this page.
+                </p>
+                <Button asChild variant="outline" size="sm">
+                  <a href="/api/internal/migration-status" target="_blank">
+                    View detailed check results
+                  </a>
+                </Button>
               </div>
-            )}
-
-            {allMigrationsApplied && (
-              <p className="text-emerald-700 font-medium">
-                ✓ All migrations applied — database schema is fully up to date.
-              </p>
             )}
           </CardContent>
         </Card>

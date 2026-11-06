@@ -7,7 +7,7 @@ import { recordAudit } from "@/lib/audit/log";
 import { enqueueCrmSync } from "@/lib/crm/sync";
 import { pushContext, person } from "@/lib/pipedrive/context";
 import { loadVerifiedClaimsBlock } from "@/lib/claims/sponsor-claims";
-import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
+import { proposalPrompt, barterTermsInstructionBlock, nilTermsInstructionBlock, grantEsgInstructionBlock, exhibitorPackageInstructionBlock, BARTER_SPLIT_TEMPLATES, PROMPT_VERSION, type BarterGroundingItem, type BarterSplitTemplateKey } from "@/lib/bedrock/prompts";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { soldOutLines, type InventoryLike } from "@/lib/inventory/availability";
@@ -207,6 +207,7 @@ async function postHandler(req: Request) {
         company_id: company.id,
         status: "draft" as never,
         strategy: strategyVariant ?? "awareness",
+        prompt_version: PROMPT_VERSION,
       } as never).select("id").single();
       campaignId = newCampaign?.id ?? null;
     }
@@ -225,6 +226,7 @@ async function postHandler(req: Request) {
       selected_components: selectedComponents,
       selected_strategies: selectedStrategies,
       version: 1,
+      prompt_version: PROMPT_VERSION,
     };
     if (body.match_id) proposalRow.match_id = body.match_id;
 

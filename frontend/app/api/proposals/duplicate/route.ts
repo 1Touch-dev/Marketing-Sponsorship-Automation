@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { ProposalContent } from "@/types/database";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { userActor } from "@/lib/identity/actor";
+import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 
 export const runtime = "nodejs";
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
         version: 1,
         generated_by: source.generated_by,
         model_id: source.model_id,
-        prompt_version: source.prompt_version,
+        prompt_version: source.prompt_version ?? PROMPT_VERSION,
       }),
     )
     .select("*")

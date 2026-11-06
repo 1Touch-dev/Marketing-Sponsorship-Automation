@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireInternalAuth } from "@/lib/internal-auth";
+import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -164,6 +165,7 @@ export async function POST(req: Request) {
             strategy: camp.strategy,
             status: camp.status,
             summary: camp.summary,
+            prompt_version: PROMPT_VERSION,
           }).select("id").single();
           results.push({ action: "campaign_created", title: camp.title, id: created?.id });
         }

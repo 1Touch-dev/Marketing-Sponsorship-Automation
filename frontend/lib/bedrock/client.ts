@@ -32,10 +32,16 @@ const anthropicBreaker = new ProviderBreaker();
 /** Order tried for every text call: Bedrock, then the direct Anthropic API, then OpenAI. A step is only present when it is configured. */
 type TextProvider = "aws_bedrock" | "anthropic_direct" | "openai_text";
 
+/** Bedrock is only attempted when AWS keys + model id are configured. */
+export function isBedrockConfigured(): boolean {
+  const e = serverEnv();
+  return !!(e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY && e.BEDROCK_MODEL_ID);
+}
+
 function modelFor(p: TextProvider, withTools = false): string {
   if (p === "openai_text") return withTools ? openaiToolModel() : openaiTextModel();
   if (p === "anthropic_direct") return process.env.ANTHROPIC_MODEL_ID || "claude-sonnet-4-6";
-  return serverEnv().BEDROCK_MODEL_ID;
+  return serverEnv().BEDROCK_MODEL_ID ?? "bedrock-unconfigured";
 }
 
 function apiLabel(p: TextProvider, bedrockApi: string): string {
@@ -120,6 +126,9 @@ let cachedClient: BedrockRuntimeClient | null = null;
 function client() {
   if (cachedClient) return cachedClient;
   const env = serverEnv();
+  if (!env.AWS_ACCESS_KEY_ID || !env.AWS_SECRET_ACCESS_KEY) {
+    throw new Error("AWS Bedrock credentials are not configured");
+  }
   cachedClient = new BedrockRuntimeClient({
     region: env.AWS_REGION,
     credentials: {
@@ -190,6 +199,7 @@ async function invokeClaudeViaBedrock<T = unknown>(
     })),
   };
 
+  if (!env.BEDROCK_MODEL_ID) throw new Error("BEDROCK_MODEL_ID is not configured");
   const cmd = new InvokeModelCommand({
     modelId: env.BEDROCK_MODEL_ID,
     contentType: "application/json",
@@ -231,9 +241,14 @@ export async function invokeClaude<T = unknown>(
   let result: ClaudeResult<T>;
   let provider: TextProvider;
   try {
-    const attempts: Array<Attempt<TextProvider, ClaudeResult<T>>> = [
-      { provider: "aws_bedrock", breaker: bedrockBreaker, run: () => invokeClaudeViaBedrock<T>(opts) },
-    ];
+    const attempts: Array<Attempt<TextProvider, ClaudeResult<T>>> = [];
+    if (isBedrockConfigured()) {
+      attempts.push({
+        provider: "aws_bedrock",
+        breaker: bedrockBreaker,
+        run: () => invokeClaudeViaBedrock<T>(opts),
+      });
+    }
     if (serverEnv().ANTHROPIC_API_KEY) {
       attempts.push({
         provider: "anthropic_direct",
@@ -333,6 +348,7 @@ async function converseWithToolsViaBedrock(opts: {
   temperature?: number;
 }): Promise<ConverseResult> {
   const env = serverEnv();
+  if (!env.BEDROCK_MODEL_ID) throw new Error("BEDROCK_MODEL_ID is not configured");
 
   // ConverseCommand SDK types use nested generics that don't align cleanly with our custom message types.
   // Using 'as any' casts here is safe — the runtime values are correctly shaped for the API.
@@ -398,9 +414,14 @@ export async function converseWithTools(opts: {
   let result: ConverseResult;
   let provider: TextProvider;
   try {
-    const attempts: Array<Attempt<TextProvider, ConverseResult>> = [
-      { provider: "aws_bedrock", breaker: bedrockBreaker, run: () => converseWithToolsViaBedrock(opts) },
-    ];
+    const attempts: Array<Attempt<TextProvider, ConverseResult>> = [];
+    if (isBedrockConfigured()) {
+      attempts.push({
+        provider: "aws_bedrock",
+        breaker: bedrockBreaker,
+        run: () => converseWithToolsViaBedrock(opts),
+      });
+    }
     if (serverEnv().ANTHROPIC_API_KEY) {
       attempts.push({
         provider: "anthropic_direct",
