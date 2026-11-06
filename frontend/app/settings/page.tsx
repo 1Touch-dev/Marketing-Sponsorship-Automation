@@ -159,6 +159,10 @@ export default async function SettingsPage({
     sb
       .from("spend_ledger" as "companies")
       .select("provider, metadata, created_at" as "id")
+      // Only text-AI spend counts as "the active AI provider". Video and image rows (replicate, openai images) are
+      // also in the ledger and must not take over this card.
+      .eq("tenant_id" as "id", tenantId)
+      .eq("category" as "id", "bedrock_text")
       .order("created_at" as "id", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -352,6 +356,7 @@ export default async function SettingsPage({
           <CardContent className="space-y-2 text-sm">
             <Row k="Active AI provider" v={liveProvider ?? "No spend recorded yet"} />
             <Row k="Active model" v={liveModel ?? "—"} />
+            <Row k="Last text-AI call" v={lastSpend?.created_at ? new Date(lastSpend.created_at).toLocaleString("pt-BR") : "—"} />
             <Row k="Anthropic API configured" v={anthropicConfigured ? "yes" : "no"} />
             <Row k="Bedrock env configured" v={bedrockEnvConfigured ? "yes (tried when set)" : "no"} />
             <Row k="Default ideas / generation" v={process.env.MAX_CAMPAIGN_IDEAS ?? "5"} />
