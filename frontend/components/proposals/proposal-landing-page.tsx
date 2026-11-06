@@ -318,11 +318,6 @@ export function ProposalLandingPage({
     claims,
   );
 
-  const statusColor =
-    proposal.status === "approved" ? "bg-emerald-500 text-white" :
-    proposal.status === "rejected" ? "bg-red-500 text-white" :
-    "bg-white/20 text-white border border-white/30";
-
   return (
     <article className="min-h-screen w-full bg-slate-50 print:bg-white">
 
@@ -342,7 +337,7 @@ export function ProposalLandingPage({
 
         <div className="relative max-w-5xl mx-auto px-6 sm:px-8 py-16 sm:py-20 lg:py-24">
 
-          {/* Top bar: company chip + club logo + status */}
+          {/* Top bar: company chip + club logo (no internal workflow status) */}
           <div className="flex flex-wrap items-center gap-3 mb-6 sm:mb-8">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-sm">
               <Building2 className="h-3 w-3" />
@@ -359,9 +354,6 @@ export function ProposalLandingPage({
                 <Image src={tenant.crestUrl} alt={tenant.clubName} width={16} height={17} className="object-contain" />
               )}
               {tenant.clubName}
-            </span>
-            <span className={cn("ml-auto rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wider backdrop-blur-sm", statusColor)}>
-              {proposal.status}
             </span>
           </div>
 
@@ -388,8 +380,9 @@ export function ProposalLandingPage({
                   />
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white text-xs font-bold text-center px-1">
-                  {company.company_name.slice(0, 2).toUpperCase()}
+                <div className="w-14 h-14 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white">
+                  <Building2 className="h-6 w-6" aria-hidden />
+                  <span className="sr-only">{company.company_name}</span>
                 </div>
               )}
             </div>

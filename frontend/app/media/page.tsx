@@ -56,10 +56,10 @@ export default async function MediaPage() {
     <div className="space-y-6">
       <PageHeader
         title="AI Media & Mockups"
-        description="Visual generation foundation for Coritiba FC sponsorship mockups"
+        description="Visual briefs and placement templates for Coritiba FC sponsorship mockups"
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">AI Generation: Architecture Ready</Badge>
+            <Badge variant="outline" className="text-xs">Manual upload active</Badge>
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" />
               New Mockup
@@ -72,33 +72,33 @@ export default async function MediaPage() {
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-amber-800">Database Migration Required</p>
+            <p className="text-sm font-medium text-amber-800">This feature isn’t available yet</p>
             <p className="text-sm text-amber-700 mt-1">
-              Go to{" "}
-              <a href="/coritiba-intelligence" className="underline font-medium">Coritiba Intelligence</a>{" "}
-              to apply migrations.
+              Ask an admin to finish setup before media mockups can be used.
             </p>
           </div>
         </div>
       )}
 
-      {/* Architecture overview */}
+      {/* Manual workflow overview */}
       <Card className="border-purple-200 bg-purple-50/30">
         <CardContent className="pt-4">
-          <p className="text-sm font-semibold text-purple-800 mb-3">AI Media Generation — Architecture</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.entries(PROVIDER_LABELS).map(([key, cfg]) => (
-              <div key={key} className={`rounded-lg border p-3 ${cfg.color === "green" ? "bg-green-50 border-green-200" : "bg-white"}`}>
-                <p className="text-xs font-medium">{cfg.label}</p>
-                <Badge variant="outline" className={`text-xs mt-1 ${cfg.color === "green" ? "text-green-700 border-green-300" : "text-muted-foreground"}`}>
-                  {cfg.status}
-                </Badge>
-              </div>
-            ))}
+          <p className="text-sm font-semibold text-purple-800 mb-3">Visual mockup briefs</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-sm">
+            {(["manual"] as const).map((key) => {
+              const cfg = PROVIDER_LABELS[key];
+              return (
+                <div key={key} className="rounded-lg border p-3 bg-green-50 border-green-200">
+                  <p className="text-xs font-medium">{cfg.label}</p>
+                  <Badge variant="outline" className="text-xs mt-1 text-green-700 border-green-300">
+                    {cfg.status}
+                  </Badge>
+                </div>
+              );
+            })}
           </div>
           <p className="text-xs text-purple-700 mt-3">
-            The visual mockup system stores prompts, placement coordinates, and approval workflows. Connect a provider API key (DALL-E, Stability AI) to enable automated generation.
-            Manual upload is active — upload sponsor placements directly.
+            Store prompts, placement coordinates, and approval notes for sponsorship mockups. Upload sponsor placements directly as manual briefs.
           </p>
         </CardContent>
       </Card>
@@ -163,30 +163,6 @@ export default async function MediaPage() {
         </Card>
       )}
 
-      {/* Roadmap */}
-      <Card className="border-dashed">
-        <CardContent className="pt-4">
-          <p className="text-sm font-medium text-muted-foreground mb-3">Upcoming Visual AI Features</p>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-blue-400" />
-              <span>DALL-E 3 / Stability AI integration — connect API key to generate jersey mockups</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-purple-400" />
-              <span>Logo overlay system — upload sponsor logo, auto-place on templates using stored coordinates</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-pink-400" />
-              <span>Midjourney / Runway integration for video concept generation</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-amber-400" />
-              <span>Approval workflow for generated visuals before sharing with sponsors</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -68,7 +68,7 @@ export default async function EmailDetailPage({ params }: { params: { id: string
             <Card>
               <CardHeader>
                 <CardTitle>Reply classification</CardTitle>
-                <CardDescription>AI-assessed intent — see Phase 2, master_report.md 7.2.</CardDescription>
+                <CardDescription>AI-assessed intent of the sponsor reply.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <ReplyClassificationBadge classification={typedEmail.reply_classification} />

@@ -42,7 +42,7 @@ export function RenewalCheckPanel() {
               <RefreshCw className="h-4 w-4 text-violet-600" />
               Renewal Agent
             </CardTitle>
-            <CardDescription>Drafts renewal proposals for contracts expiring within 60 days (Phase 8, Team 2 agent)</CardDescription>
+            <CardDescription>Drafts renewal proposals for contracts expiring within 60 days</CardDescription>
           </div>
           <Button size="sm" variant="outline" disabled={loading} onClick={runCheck} className="shrink-0">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Check for Renewals"}

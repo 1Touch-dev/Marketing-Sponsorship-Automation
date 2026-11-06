@@ -137,12 +137,6 @@ type LogoItem = {
   imgElement?: HTMLImageElement;
 };
 
-const DEMO_LOGOS = [
-  { name: "Heineken", url: "/demo-logos/heineken.svg" },
-  { name: "Positivo", url: "/demo-logos/positivo.svg" },
-  { name: "Natura", url: "/demo-logos/natura.svg" },
-] as const;
-
 /** Same-origin URL so Konva export stays untainted and CORS does not block loads. */
 function resolveLogoUrl(url: string): string {
   const trimmed = url.trim();
@@ -540,17 +534,6 @@ export function MockupEditorClient() {
                 onKeyDown={e => e.key === "Enter" && void addLogo()}
               />
               <Button size="sm" onClick={() => void addLogo()} disabled={!logoUrl.trim()} className="px-3">Add</Button>
-            </div>
-          </div>
-          {/* Quick logos */}
-          <div>
-            <Label className="text-xs mb-1 block text-muted-foreground">Quick add (demo logos)</Label>
-            <div className="flex gap-2 flex-wrap">
-              {DEMO_LOGOS.map(l => (
-                <button key={l.name} onClick={() => void addLogo(l.url)} className="text-xs border rounded px-2 py-1 hover:bg-accent transition-colors">
-                  {l.name}
-                </button>
-              ))}
             </div>
           </div>
         </div>

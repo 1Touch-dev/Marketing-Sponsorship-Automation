@@ -89,10 +89,9 @@ export function ProposalTemplatesManager({
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
         <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-medium text-amber-800">Database migration required</p>
+          <p className="text-sm font-medium text-amber-800">This feature isn’t available yet</p>
           <p className="text-sm text-amber-700 mt-1">
-            Run <code>0025</code> (proposal_templates) and <code>0039_proposal_templates_industry.sql</code> in the
-            Supabase SQL Editor to enable presentation templates.
+            Ask an admin to finish setup before presentation templates can be used.
           </p>
         </div>
       </div>
