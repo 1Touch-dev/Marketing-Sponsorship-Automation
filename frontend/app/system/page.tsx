@@ -14,6 +14,7 @@ import { PipedriveStatusCard } from "./pipedrive-status-card";
 import { pipedriveConnection } from "@/lib/pipedrive/status";
 import { ConnectionSentence } from "@/components/integrations/connection-banner";
 import { getEnvSummary } from "@/lib/env-validation";
+import { resolveAppUrl } from "@/lib/url";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,7 @@ export default async function SystemMaintenancePage() {
   ];
 
   const envVars = getEnvSummary();
+  const appUrl = resolveAppUrl();
   const serpConfigured = !!(process.env.SERPAPI_KEY ?? process.env.SERPAPI_API_KEY);
   const openaiConfigured = !!(process.env.OPENAI_API_KEY);
   const bedrockConfigured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
@@ -386,20 +388,7 @@ export default async function SystemMaintenancePage() {
             <code className="block font-mono bg-white border rounded px-2 py-1 text-[11px] whitespace-pre-wrap">
               {`Authorization: Bearer {MSA_INTERNAL_WEBHOOK_SECRET}`}
             </code>
-            <p className="text-slate-500">Example: <span className="font-mono">0 * * * * curl -X POST https://your-domain/api/system/pipedrive-sync -H &quot;Authorization: Bearer $MSA_INTERNAL_WEBHOOK_SECRET&quot;</span></p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Info */}
-      <Card className="border-dashed">
-        <CardContent className="pt-4">
-          <p className="text-sm font-medium text-muted-foreground mb-2">What this page manages</p>
-          <div className="space-y-1.5 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Competitor content archival — hide Athletico/rival proposals from operational UI</div>
-            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Workflow failure resolution — mark old failures as resolved to clean dashboard</div>
-            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Test data cleanup — archive diagnostic/test companies from active view</div>
-            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Stale workflow detection — auto-fail workflows stuck for 30+ minutes</div>
+            <p className="text-slate-500">Example: <span className="font-mono">0 * * * * curl -X POST {appUrl}/api/system/pipedrive-sync -H &quot;Authorization: Bearer $MSA_INTERNAL_WEBHOOK_SECRET&quot;</span></p>
           </div>
         </CardContent>
       </Card>

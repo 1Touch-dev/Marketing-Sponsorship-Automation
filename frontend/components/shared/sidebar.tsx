@@ -227,13 +227,7 @@ export function Sidebar({
         <NavLinks sidebarCollapsed={collapsed} />
       </nav>
       {!collapsed && <CurrentUserBadge />}
-      <div className={cn("px-3 py-2 border-t flex-shrink-0", collapsed ? "flex justify-center" : "flex items-center justify-between gap-2")}>
-        {!collapsed && (
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
-            Platform v2.0 · Live
-          </div>
-        )}
+      <div className={cn("px-3 py-2 border-t flex-shrink-0", collapsed ? "flex justify-center" : "flex items-center justify-end gap-2")}>
         {!collapsed && <LangToggle />}
         <button
           onClick={toggle}

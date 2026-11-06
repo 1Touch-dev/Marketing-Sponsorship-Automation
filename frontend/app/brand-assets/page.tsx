@@ -3,7 +3,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   Shield, Shirt, Layout, Image, MapPin, Package,
-  Info, ExternalLink, Tag, Copy,
+  Info, Tag, Copy,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -163,14 +163,16 @@ export default async function BrandAssetsPage() {
                   )}
                   {typedPack.metadata && Object.keys(typedPack.metadata).length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.entries(typedPack.metadata).slice(0, 4).map(([k, v]) => (
-                        <span key={k} className="text-xs bg-background border px-2 py-0.5 rounded-md">
-                          <span className="text-muted-foreground">{k}: </span>
-                          <span className="font-medium">
-                            {Array.isArray(v) ? v.join(", ") : String(v)}
+                      {Object.entries(typedPack.metadata).slice(0, 4).map(([k, v]) => {
+                        const display = formatMetaValue(v);
+                        if (!display) return null;
+                        return (
+                          <span key={k} className="text-xs bg-background border px-2 py-0.5 rounded-md">
+                            <span className="text-muted-foreground">{k}: </span>
+                            <span className="font-medium">{display}</span>
                           </span>
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -197,44 +199,26 @@ export default async function BrandAssetsPage() {
         })}
       </div>
 
-      {/* Architecture note */}
-      <div className="mt-10 p-5 rounded-xl border bg-muted/30">
-        <h3 className="font-semibold mb-2 flex items-center gap-2">
-          <Info className="h-4 w-4 text-muted-foreground" />
-          Architecture & Future Integration
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
-          <div>
-            <div className="font-medium text-foreground mb-1">Current: Schema Layer</div>
-            <ul className="space-y-1 text-xs">
-              <li>✓ Brand asset packs defined</li>
-              <li>✓ Couto Pereira placement zones catalogued</li>
-              <li>✓ AI prompt templates stored per asset</li>
-              <li>✓ RLS + audit-ready structure</li>
-            </ul>
-          </div>
-          <div>
-            <div className="font-medium text-foreground mb-1">Phase 2: File Storage</div>
-            <ul className="space-y-1 text-xs">
-              <li>◯ Supabase Storage integration</li>
-              <li>◯ Upload Coritiba brand files</li>
-              <li>◯ Jersey/banner template images</li>
-              <li>◯ Thumbnail generation</li>
-            </ul>
-          </div>
-          <div>
-            <div className="font-medium text-foreground mb-1">Phase 3: AI Rendering</div>
-            <ul className="space-y-1 text-xs">
-              <li>◯ DALL-E / Midjourney integration</li>
-              <li>◯ Automatic sponsor logo placement</li>
-              <li>◯ AI mockup generation pipeline</li>
-              <li>◯ Proposal visual auto-generation</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </>
   );
+}
+
+function formatMetaValue(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(formatMetaValue).filter(Boolean).join(", ");
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    for (const k of ["name", "label", "url", "path", "title"]) {
+      if (typeof o[k] === "string" && o[k]) return o[k] as string;
+    }
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "";
+    }
+  }
+  return "";
 }
 
 function AssetCard({
@@ -306,12 +290,16 @@ function AssetCard({
       {/* Brand specs */}
       {asset.brand_specs && Object.keys(asset.brand_specs).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {Object.entries(asset.brand_specs).slice(0, 3).map(([k, v]) => (
-            <span key={k} className="text-xs bg-background border px-2 py-0.5 rounded-md">
-              <span className="text-muted-foreground">{k}: </span>
-              <span>{String(v)}</span>
-            </span>
-          ))}
+          {Object.entries(asset.brand_specs).slice(0, 3).map(([k, v]) => {
+            const display = formatMetaValue(v);
+            if (!display) return null;
+            return (
+              <span key={k} className="text-xs bg-background border px-2 py-0.5 rounded-md">
+                <span className="text-muted-foreground">{k}: </span>
+                <span>{display}</span>
+              </span>
+            );
+          })}
         </div>
       )}
     </div>
