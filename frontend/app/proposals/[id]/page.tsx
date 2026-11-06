@@ -25,7 +25,7 @@ import { EnhanceProposalButton } from "./enhance-proposal-button";
 import { ExecutionBriefPanel } from "@/components/proposals/execution-brief-panel";
 import { ProposalBrandGraphicsWrapper } from "@/components/proposals/proposal-brand-graphics-wrapper";
 import { fetchProposalImagesForLanding } from "@/lib/proposals/fetch-proposal-images";
-import { getProposalEngagementStats, getProposalVisitorBreakdown } from "@/lib/proposals/engagement";
+import { getAbVariantViewCounts, getProposalEngagementStats, getProposalVisitorBreakdown } from "@/lib/proposals/engagement";
 import { ApprovalRoleGate, SalesRoleGate } from "./role-gates";
 import { SaveVersionButton } from "@/components/proposals/save-version-button";
 import { VersionHistoryPanel } from "@/components/proposals/version-history-panel";
@@ -86,6 +86,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
 
   const engagement = await getProposalEngagementStats(sb, proposal.id);
   const visitorBreakdown = await getProposalVisitorBreakdown(sb, proposal.id);
+  const abViews = await getAbVariantViewCounts(sb, proposal.id);
   const viewCount = engagement.view_count;
 
   // Task 11 — e-signature panel only renders once a contract exists on
@@ -705,6 +706,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               ? (p.ab_test_config as { element: "hero_text" | "cta_text" | "package_layout"; variant_a: string; variant_b: string; created_at: string })
               : null
           }
+          initialViews={abViews}
         />
       </div>
     </>

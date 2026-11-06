@@ -1,4 +1,38 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { isMissingMigration } from "@/lib/proposals/revision-store";
+
+/**
+ * Exact A/B view counts from proposal_views (avoids PostgREST's ~1000-row
+ * select cap). Null/missing variant is treated as A to match track-view's
+ * default. Soft-fails to zeros if the table is missing.
+ */
+export async function getAbVariantViewCounts(
+  sb: ReturnType<typeof supabaseAdmin>,
+  proposalId: string,
+): Promise<{ A: number; B: number }> {
+  try {
+    const [aRes, bRes] = await Promise.all([
+      sb
+        .from("proposal_views" as "companies")
+        .select("id", { count: "exact", head: true })
+        .eq("proposal_id", proposalId)
+        .or("variant.eq.A,variant.is.null"),
+      sb
+        .from("proposal_views" as "companies")
+        .select("id", { count: "exact", head: true })
+        .eq("proposal_id", proposalId)
+        .eq("variant", "B"),
+    ]);
+
+    if (aRes.error && isMissingMigration(aRes.error)) return { A: 0, B: 0 };
+    if (bRes.error && isMissingMigration(bRes.error)) return { A: 0, B: 0 };
+    if (aRes.error || bRes.error) return { A: 0, B: 0 };
+
+    return { A: aRes.count ?? 0, B: bRes.count ?? 0 };
+  } catch {
+    return { A: 0, B: 0 };
+  }
+}
 
 /**
  * Phase 5 — native engagement analytics (master_report.md Section 4 P0
