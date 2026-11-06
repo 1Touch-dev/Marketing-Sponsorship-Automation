@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toaster";
 import { Link2, Copy, ExternalLink, Link2Off, Check } from "lucide-react";
@@ -16,7 +16,11 @@ export function ProposalShareButton({ proposalId, shareToken }: ProposalShareBut
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const shareUrl = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/proposals/view/${token}` : null;
+  // The address starts without the site name (same as the server's HTML) and gets it right after the page loads.
+  // Reading window.location during the first render made server and browser disagree (React errors #418/#423/#425).
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const shareUrl = token ? `${origin}/proposals/view/${token}` : null;
 
   async function handleShare() {
     setLoading(true);
