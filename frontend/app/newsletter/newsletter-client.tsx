@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { newsletterFieldError } from "@/lib/newsletter/field-error";
+import { countsLine } from "@/lib/mail/newsletter-analytics";
 
 type Company = {
   id: string;
@@ -39,15 +40,6 @@ const STATUS_STYLE: Record<string, string> = {
   failed: "bg-red-100 text-red-700",
   cancelled: "bg-slate-100 text-slate-600",
 };
-
-/** "5 accepted · 1 bounced": what happened to the recipients, in the order that matters. */
-function countsLine(c: Record<string, number> | undefined): string {
-  if (!c) return "";
-  return (["accepted", "delivered", "bounced", "complained", "failed", "skipped", "queued"] as const)
-    .filter((k) => c[k])
-    .map((k) => `${c[k]} ${k}`)
-    .join(" · ");
-}
 
 type Template = {
   id: string;
@@ -461,8 +453,8 @@ export function NewsletterClient({
                       <span>·</span>
                       <span>{n.status === "scheduled" && n.scheduled_for ? `scheduled for ${formatDate(n.scheduled_for)}` : formatDate(n.sent_at ?? n.created_at)}</span>
                     </div>
-                    {countsLine(deliveryCounts[n.id]) && (
-                      <p className="text-xs text-muted-foreground">{countsLine(deliveryCounts[n.id])}</p>
+                    {countsLine(deliveryCounts[n.id], n.status) && (
+                      <p className="text-xs text-muted-foreground">{countsLine(deliveryCounts[n.id], n.status)}</p>
                     )}
                   </div>
                 ))

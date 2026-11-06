@@ -19,6 +19,24 @@ import {
   type NewsItem,
   type NewsletterBlocks,
 } from "@/lib/newsletter/settings";
+import { countsLine, type DeliveryCounts } from "@/lib/mail/newsletter-analytics";
+import { formatDate } from "@/lib/utils";
+
+type AnalyticsNewsletter = {
+  id: string;
+  subject: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+  recipient_count: number;
+  deliveries: DeliveryCounts;
+};
+
+type AnalyticsUnsubscribe = {
+  email: string;
+  since: string;
+  note: string | null;
+};
 
 const INDUSTRIES = [
   "Automotivo", "Financeiro", "Alimentos e Bebidas", "Saúde",
@@ -111,6 +129,9 @@ export default function NewsletterSettingsPage() {
   const [configSaved, setConfigSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [migrationNeeded, setMigrationNeeded] = useState(false);
+  const [pastNewsletters, setPastNewsletters] = useState<AnalyticsNewsletter[]>([]);
+  const [unsubscribes, setUnsubscribes] = useState<AnalyticsUnsubscribe[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,17 +156,33 @@ export default function NewsletterSettingsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Mock past newsletters data
-  const pastNewsletters = [
-    { id: "1", subject: "Coritiba FC — Proposta de Parceria Jul/2026", sent_at: "2026-07-01", recipient_count: 42, open_rate: 38, click_rate: 12, unsubscribe_count: 1 },
-    { id: "2", subject: "Oportunidades de Patrocínio — Copa do Brasil", sent_at: "2026-06-15", recipient_count: 38, open_rate: 45, click_rate: 18, unsubscribe_count: 0 },
-    { id: "3", subject: "Coritiba FC — Newsletter Jun/2026", sent_at: "2026-06-01", recipient_count: 35, open_rate: 32, click_rate: 9, unsubscribe_count: 2 },
-  ];
-
-  const mockUnsubscribes = [
-    { email: "contato@empresa.com.br", date: "2026-07-01", reason: "Not interested" },
-    { email: "marketing@exemplo.com", date: "2026-06-15", reason: "Too frequent" },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setAnalyticsLoading(true);
+      try {
+        const res = await fetch("/api/newsletter/analytics");
+        const j = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (j?.migration_needed) setMigrationNeeded(true);
+        if (!res.ok) {
+          setPastNewsletters([]);
+          setUnsubscribes([]);
+          return;
+        }
+        setPastNewsletters(Array.isArray(j.newsletters) ? j.newsletters : []);
+        setUnsubscribes(Array.isArray(j.unsubscribes) ? j.unsubscribes : []);
+      } catch {
+        if (!cancelled) {
+          setPastNewsletters([]);
+          setUnsubscribes([]);
+        }
+      } finally {
+        if (!cancelled) setAnalyticsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   function toggleIndustry(ind: string) {
     setSelectedIndustries((prev) =>
@@ -471,32 +508,30 @@ export default function NewsletterSettingsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {pastNewsletters.length === 0 ? (
+              {analyticsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : pastNewsletters.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No newsletters sent yet.</p>
               ) : (
                 <div className="space-y-3">
-                  {pastNewsletters.map((n) => (
-                    <div key={n.id} className="rounded-lg border p-3 space-y-2">
-                      <p className="text-xs font-semibold truncate" title={n.subject}>{n.subject}</p>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {n.sent_at} · {n.recipient_count} recipients
+                  {pastNewsletters.map((n) => {
+                    const breakdown = countsLine(n.deliveries, n.status);
+                    return (
+                      <div key={n.id} className="rounded-lg border p-3 space-y-2">
+                        <p className="text-xs font-semibold truncate" title={n.subject}>{n.subject}</p>
+                        <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {formatDate(n.sent_at ?? n.created_at)}
+                          </span>
+                          <span>· {n.recipient_count} recipients</span>
+                          <span>· {n.status}</span>
+                        </div>
+                        {breakdown ? (
+                          <p className="text-xs text-muted-foreground">{breakdown}</p>
+                        ) : null}
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div className="text-center rounded bg-green-50 p-1.5">
-                          <p className="text-sm font-bold text-green-700">{n.open_rate}%</p>
-                          <p className="text-[10px] text-muted-foreground">Open Rate</p>
-                        </div>
-                        <div className="text-center rounded bg-blue-50 p-1.5">
-                          <p className="text-sm font-bold text-blue-700">{n.click_rate}%</p>
-                          <p className="text-[10px] text-muted-foreground">Click Rate</p>
-                        </div>
-                        <div className="text-center rounded bg-red-50 p-1.5">
-                          <p className="text-sm font-bold text-red-700">{n.unsubscribe_count}</p>
-                          <p className="text-[10px] text-muted-foreground">Unsubs</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -509,23 +544,27 @@ export default function NewsletterSettingsPage() {
                 <Users className="h-4 w-4 text-red-500" /> Unsubscribes
               </CardTitle>
               <CardDescription className="text-xs">
-                {mockUnsubscribes.length} contact{mockUnsubscribes.length !== 1 ? "s" : ""} unsubscribed
+                {analyticsLoading
+                  ? "Loading…"
+                  : `${unsubscribes.length} contact${unsubscribes.length !== 1 ? "s" : ""} unsubscribed`}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {mockUnsubscribes.length === 0 ? (
+              {analyticsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : unsubscribes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No unsubscribes yet.</p>
               ) : (
                 <div className="space-y-2">
-                  {mockUnsubscribes.map((u, i) => (
-                    <div key={i} className="rounded-md border p-2.5 space-y-1">
-                      <div className="flex items-center justify-between">
+                  {unsubscribes.map((u) => (
+                    <div key={`${u.email}-${u.since}`} className="rounded-md border p-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-medium truncate">{u.email}</span>
                         <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Unsubscribed</Badge>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" /> {u.date}
-                        {u.reason && <span>· {u.reason}</span>}
+                        <Clock className="h-3 w-3" /> {formatDate(u.since)}
+                        {u.note ? <span>· {u.note}</span> : null}
                       </div>
                     </div>
                   ))}

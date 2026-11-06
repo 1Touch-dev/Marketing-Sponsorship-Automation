@@ -2,6 +2,10 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import { NewsletterClient } from "./newsletter-client";
+import {
+  deliveryCountsByNewsletter,
+  newsletterUnsubscribes,
+} from "@/lib/mail/newsletter-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -67,31 +71,25 @@ export default async function NewsletterPage() {
     // table may not exist
   }
 
-  // Count unsubscribes from audit_logs
   let unsubscribeCount = 0;
-  try {
-    const { count } = await sb
-      .from("audit_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .eq("action", "newsletter.unsubscribed");
-    unsubscribeCount = count ?? 0;
-  } catch {
-    // non-fatal
-  }
+  const unsubs = await newsletterUnsubscribes(sb, tenantId);
+  if (unsubs.ok) unsubscribeCount = unsubs.rows.length;
 
-  // What really happened to each recipient (migration 0077). "Total sent" counts mail Amazon SES accepted, not rows saved.
-  const deliveryCounts: Record<string, Record<string, number>> = {};
+  // Exact per-status counts (head counts) — avoids PostgREST row caps.
+  let deliveryCounts: Record<string, Record<string, number>> = {};
   let totalSent = 0;
-  try {
-    const { data: rows } = await sb.from("newsletter_deliveries").select("newsletter_id, status").eq("tenant_id", tenantId).limit(20000);
-    for (const r of (rows ?? []) as Array<{ newsletter_id: string; status: string }>) {
-      const c = (deliveryCounts[r.newsletter_id] ??= {});
-      c[r.status] = (c[r.status] ?? 0) + 1;
-      if (["accepted", "delivered", "bounced", "complained"].includes(r.status)) totalSent++;
+  const counted = await deliveryCountsByNewsletter(
+    sb,
+    tenantId,
+    newsletters.map((n) => n.id),
+  );
+  if (counted.ok) {
+    deliveryCounts = counted.counts as Record<string, Record<string, number>>;
+    for (const c of Object.values(deliveryCounts)) {
+      for (const status of ["accepted", "delivered", "bounced", "complained"] as const) {
+        totalSent += c[status] ?? 0;
+      }
     }
-  } catch {
-    // migration 0077 not applied yet: nothing has really been sent
   }
 
   return (
