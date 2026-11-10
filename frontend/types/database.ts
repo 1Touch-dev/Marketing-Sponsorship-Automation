@@ -186,6 +186,8 @@ export interface ProposalContent {
   deliverables?: string[];
   investment_note?: string;
   cta?: string;
+  /** Which A/B/C option was applied to `cta` in the section picker (audit). */
+  cta_selected_option?: string;
   /** Task 8 — personalized video intro block, shown near the top of the
    *  public share page (distinct from campaign_video_url, the generic
    *  mid-page campaign video). A short, sponsor-specific welcome message

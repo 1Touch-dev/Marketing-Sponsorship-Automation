@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toaster";
+import { useLang } from "@/lib/i18n/lang-context";
 import { AiVideoIntroPanel } from "@/components/proposals/ai-video-intro-panel";
 import type { ProposalContent } from "@/types/database";
 import {
@@ -82,9 +83,10 @@ function SectionPicker({
   companyName?: string;
   industry?: string;
   campaignTitle?: string;
-  onSelect: (text: string) => void;
+  onSelect: (text: string, meta?: { label: string }) => void;
 }) {
   const { toast } = useToast();
+  const { lang } = useLang();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [variants, setVariants] = useState<SectionVariant[]>([]);
@@ -103,6 +105,7 @@ function SectionPicker({
           industry,
           campaign_title: campaignTitle,
           current_text: currentText,
+          language: lang === "en" ? "en" : "pt",
         }),
       });
       const j = await res.json() as { variants?: SectionVariant[]; error?: string };
@@ -121,12 +124,16 @@ function SectionPicker({
     }
   }
 
-  function apply() {
-    if (!selected) return;
-    const variant = variants.find((v) => v.label === selected);
-    if (variant) onSelect(variant.text);
-    setOpen(false);
-    toast({ variant: "success", title: `Option ${selected} applied`, description: "Text updated — remember to save." });
+  function applyVariant(label: string) {
+    const variant = variants.find((v) => v.label === label);
+    if (!variant) return;
+    setSelected(label);
+    onSelect(variant.text, { label });
+    toast({
+      variant: "success",
+      title: lang === "pt" ? `Opção ${label} aplicada` : `Option ${label} applied`,
+      description: lang === "pt" ? "Texto atualizado — lembre de salvar." : "Text updated — remember to save.",
+    });
   }
 
   const styleColors: Record<string, string> = {
@@ -139,6 +146,8 @@ function SectionPicker({
     B: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
     C: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   };
+
+  const radioName = `section-${sectionKey}`;
 
   return (
     <div className="mt-2">
@@ -159,75 +168,103 @@ function SectionPicker({
         {!loading && (open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
       </Button>
 
+      {selected && selected !== "CUSTOM" && (
+        <div className="mt-1.5">
+          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 px-2 py-0.5 text-[11px] font-medium">
+            <CheckCircle2 className="h-3 w-3" />
+            {lang === "pt" ? `Opção ${selected} em uso` : `Option ${selected} in use`}
+          </span>
+        </div>
+      )}
+
       {open && !loading && variants.length > 0 && (
         <div className="mt-3 space-y-3">
           <div className="text-xs text-muted-foreground font-medium">
-            Pick an option — or keep your current text and close
+            {lang === "pt"
+              ? "Escolha uma opção — ela vira o texto da seção"
+              : "Pick an option — it becomes the section text"}
           </div>
 
           {variants.map((v) => (
-            <button
+            <label
               key={v.label}
-              type="button"
-              onClick={() => setSelected(v.label === selected ? null : v.label)}
-              className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+              className={`flex w-full text-left rounded-xl border-2 p-4 transition-all cursor-pointer ${
                 selected === v.label
                   ? styleColors[v.label] + " border-opacity-100 ring-2 ring-offset-1 " + (v.label === "A" ? "ring-blue-400" : v.label === "B" ? "ring-emerald-400" : "ring-purple-400")
                   : "border-border hover:border-muted-foreground/40 bg-card"
               }`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${styleBadgeColors[v.label]}`}>
-                  Option {v.label}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {STYLE_LABELS[v.style] ?? v.style}
-                </span>
-                {selected === v.label && (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto" />
-                )}
+              <input
+                type="radio"
+                name={radioName}
+                value={v.label}
+                checked={selected === v.label}
+                onChange={() => applyVariant(v.label)}
+                className="mt-1 mr-3 accent-green-600 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${styleBadgeColors[v.label]}`}>
+                    Option {v.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {STYLE_LABELS[v.style] ?? v.style}
+                  </span>
+                  {selected === v.label && (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto" />
+                  )}
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap line-clamp-5">
+                  {v.text}
+                </p>
+                <div className="mt-1.5 text-xs text-muted-foreground">
+                  {wordCount(v.text)} words
+                </div>
               </div>
-              <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap line-clamp-5">
-                {v.text}
-              </p>
-              <div className="mt-1.5 text-xs text-muted-foreground">
-                {wordCount(v.text)} words
-              </div>
-            </button>
+            </label>
           ))}
 
           {/* Custom option */}
-          <button
-            type="button"
-            onClick={() => setSelected("CUSTOM")}
-            className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+          <label
+            className={`flex w-full text-left rounded-xl border-2 p-4 transition-all cursor-pointer ${
               selected === "CUSTOM"
                 ? "border-slate-400 bg-slate-50 dark:bg-slate-800 ring-2 ring-slate-400 ring-offset-1"
                 : "border-dashed border-border hover:border-muted-foreground/40 bg-card"
             }`}
           >
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                Custom
-              </span>
-              <span className="text-xs text-muted-foreground">Keep my current text and edit manually</span>
-              {selected === "CUSTOM" && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto" />}
+            <input
+              type="radio"
+              name={radioName}
+              value="CUSTOM"
+              checked={selected === "CUSTOM"}
+              onChange={() => setSelected("CUSTOM")}
+              className="mt-1 mr-3 accent-slate-600 shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                  Custom
+                </span>
+                <span className="text-xs text-muted-foreground">Keep my current text and edit manually</span>
+                {selected === "CUSTOM" && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto" />}
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                <PenLine className="h-3 w-3" /> Edit the text field directly above
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-              <PenLine className="h-3 w-3" /> Edit the text field directly below
-            </div>
-          </button>
+          </label>
 
           <div className="flex gap-2 pt-1">
             <Button
               type="button"
               size="sm"
               disabled={!selected || selected === "CUSTOM"}
-              onClick={apply}
+              onClick={() => selected && selected !== "CUSTOM" && applyVariant(selected)}
               className="gap-1.5"
             >
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Apply option {selected && selected !== "CUSTOM" ? selected : ""}
+              {lang === "pt" ? "Usar esta opção" : "Use this option"}
+              {selected && selected !== "CUSTOM" ? ` ${selected}` : ""}
             </Button>
             <Button
               type="button"
@@ -606,7 +643,17 @@ export function ProposalEditor({
                   companyName={companyName}
                   industry={industry}
                   campaignTitle={campaignTitle}
-                  onSelect={(text) => setContent({ ...content, [s.key]: text })}
+                  onSelect={(text, meta) => {
+                    if (s.key === "cta" && meta?.label) {
+                      setContent({
+                        ...content,
+                        cta: text,
+                        cta_selected_option: meta.label,
+                      });
+                    } else {
+                      setContent({ ...content, [s.key]: text });
+                    }
+                  }}
                 />
                 <WordCountBadge
                   text={(content[s.key] as string) ?? ""}
