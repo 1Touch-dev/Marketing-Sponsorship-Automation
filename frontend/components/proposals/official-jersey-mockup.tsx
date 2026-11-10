@@ -14,11 +14,14 @@ import {
 } from "lucide-react";
 import {
   JERSEY_PLACEMENTS,
-  isPlacementVisibleForKit,
+  JERSEY_TEAM_OPTIONS,
+  usablePlacementsForKit,
   type JerseyPlacementId,
+  type JerseyTeamId,
 } from "@/lib/media/jersey-placements";
 
 type KitType = "flat" | "home" | "training" | "goalkeeper";
+type PlacementSelection = JerseyPlacementId | "none";
 
 const KIT_TABS: { id: KitType; label: string; emoji: string; description: string }[] = [
   {
@@ -36,6 +39,11 @@ const KIT_TABS: { id: KitType; label: string; emoji: string; description: string
     description: "Full-body match photo — shirt, shorts & socks all visible",
   },
 ];
+
+function pickDefaultPlacement(usable: JerseyPlacementId[]): PlacementSelection {
+  if (usable.includes("chest_sponsor")) return "chest_sponsor";
+  return usable[0] ?? "none";
+}
 
 interface OfficialJerseyMockupProps {
   proposalId: string;
@@ -60,8 +68,9 @@ export function OfficialJerseyMockup({
   sponsorLogoUrl,
   onGenerated,
 }: OfficialJerseyMockupProps) {
+  const [team, setTeam] = useState<JerseyTeamId>("profissional");
   const [kitType, setKitType] = useState<KitType>("home");
-  const [placement, setPlacementState] = useState<JerseyPlacementId>("chest_sponsor");
+  const [placement, setPlacementState] = useState<PlacementSelection>("chest_sponsor");
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -70,18 +79,39 @@ export function OfficialJerseyMockup({
   const abortRef = useRef<AbortController | null>(null);
 
   const hasLogo = !!sponsorLogoUrl;
-  const currentImage =
-    images.find((i) => i.placement === placement && i.kitType === kitType) ?? null;
+  const needsCustomBase = team !== "profissional";
+  const hasCustomBase = !!customBase;
+  const usableIds =
+    needsCustomBase && !hasCustomBase
+      ? ([] as JerseyPlacementId[])
+      : usablePlacementsForKit(kitType, hasCustomBase || needsCustomBase);
 
-  const setPlacement = (p: JerseyPlacementId) => {
+  const currentImage =
+    placement !== "none"
+      ? images.find((i) => i.placement === placement && i.kitType === kitType) ?? null
+      : null;
+
+  const setPlacement = (p: PlacementSelection) => {
     setPlacementState(p);
     setError(null);
+  };
+
+  const syncPlacementToUsable = (nextUsable: JerseyPlacementId[], preferKeep?: PlacementSelection) => {
+    const keep = preferKeep ?? placement;
+    if (keep !== "none" && nextUsable.includes(keep)) {
+      setPlacementState(keep);
+      return;
+    }
+    setPlacementState(pickDefaultPlacement(nextUsable));
   };
 
   const handleCustomBase = (file: File | null) => {
     setError(null);
     if (!file) {
       setCustomBase(null);
+      const nextUsable =
+        team !== "profissional" ? [] : usablePlacementsForKit(kitType, false);
+      syncPlacementToUsable(nextUsable, team !== "profissional" ? "none" : undefined);
       return;
     }
     if (!file.type.startsWith("image/")) {
@@ -93,26 +123,46 @@ export function OfficialJerseyMockup({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setCustomBase({ dataUrl: String(reader.result), name: file.name });
+    reader.onload = () => {
+      setCustomBase({ dataUrl: String(reader.result), name: file.name });
+      const nextUsable = usablePlacementsForKit(kitType, true);
+      syncPlacementToUsable(nextUsable);
+    };
     reader.onerror = () => setError("Could not read the base image.");
     reader.readAsDataURL(file);
   };
 
+  const handleTeamChange = (next: JerseyTeamId) => {
+    setTeam(next);
+    setError(null);
+    if (next !== "profissional") {
+      setKitType("home");
+      const nextUsable = customBase ? usablePlacementsForKit("home", true) : [];
+      syncPlacementToUsable(nextUsable, customBase ? placement : "none");
+    } else {
+      const nextUsable = usablePlacementsForKit(kitType, !!customBase);
+      syncPlacementToUsable(nextUsable);
+    }
+  };
+
   const handleKitChange = (k: KitType) => {
     setKitType(k);
-    if (!isPlacementVisibleForKit(placement, k)) {
-      setPlacementState("chest_sponsor");
-    }
+    const nextUsable = usablePlacementsForKit(k, !!customBase);
+    syncPlacementToUsable(nextUsable);
     setError(null);
   };
 
+  const canGenerate = hasLogo && placement !== "none" && usableIds.includes(placement);
+
   const generate = async () => {
+    if (placement === "none" || !usableIds.includes(placement)) return;
     setShowConfirm(false);
     setLoading(true);
     setError(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const activePlacement = placement;
 
     try {
       const res = await fetch("/api/media/jersey-mockup", {
@@ -122,7 +172,7 @@ export function OfficialJerseyMockup({
         body: JSON.stringify({
           sponsor_name: companyName,
           sponsor_logo_url: sponsorLogoUrl ?? undefined,
-          placement,
+          placement: activePlacement,
           kit_type: kitType,
           custom_base_url: customBase?.dataUrl ?? undefined,
           proposal_id: proposalId,
@@ -135,13 +185,13 @@ export function OfficialJerseyMockup({
 
       const newImg: GeneratedImage = {
         url: data.url,
-        placement,
+        placement: activePlacement,
         kitType,
         durationMs: data.duration_ms ?? 0,
         model: data.model ?? "gpt-image-2",
       };
       setImages((prev) => [
-        ...prev.filter((i) => !(i.placement === placement && i.kitType === kitType)),
+        ...prev.filter((i) => !(i.placement === activePlacement && i.kitType === kitType)),
         newImg,
       ]);
       onGenerated?.();
@@ -161,7 +211,11 @@ export function OfficialJerseyMockup({
     abortRef.current?.abort();
   };
 
-  const placementLabel = JERSEY_PLACEMENTS.find((p) => p.id === placement)?.labelPt ?? placement;
+  const teamLabel = JERSEY_TEAM_OPTIONS.find((t) => t.id === team)?.labelPt ?? team;
+  const placementLabel =
+    placement === "none"
+      ? "Nenhuma"
+      : (JERSEY_PLACEMENTS.find((p) => p.id === placement)?.labelPt ?? placement);
   const activeKit = KIT_TABS.find((k) => k.id === kitType)!;
 
   return (
@@ -182,44 +236,77 @@ export function OfficialJerseyMockup({
         </p>
       </div>
 
-      {/* Kit type tabs */}
+      {/* Team: Profissional / Formativa / Feminino */}
       <div>
         <div className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
-          Kit Type
+          Equipe / Team
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {KIT_TABS.map((kit) => (
+        <div className="grid grid-cols-3 gap-2">
+          {JERSEY_TEAM_OPTIONS.map((opt) => (
             <button
-              key={kit.id}
+              key={opt.id}
               type="button"
-              onClick={() => handleKitChange(kit.id)}
-              className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-center transition-all ${
-                kitType === kit.id
-                  ? "border-green-500 bg-green-50 shadow-sm"
-                  : "border-slate-200 bg-white hover:border-green-300"
+              onClick={() => handleTeamChange(opt.id)}
+              className={`rounded-xl border px-3 py-2.5 text-center text-xs font-semibold transition-all ${
+                team === opt.id
+                  ? "border-green-500 bg-green-50 text-green-900 shadow-sm"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-green-300"
               }`}
             >
-              <span className="text-xl">{kit.emoji}</span>
-              <span className="text-xs font-semibold text-slate-700">{kit.label}</span>
-              <span className="text-[10px] text-slate-400 leading-tight hidden sm:block">
-                {kit.description}
-              </span>
+              {opt.labelPt}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-slate-400 mt-1.5">
-          {activeKit.emoji} <strong>{activeKit.label}:</strong> {activeKit.description}
-        </p>
       </div>
 
-      {/* Optional custom base image */}
+      {/* Kit type tabs — Profissional only (built-in photos) */}
+      {team === "profissional" && (
+        <div>
+          <div className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
+            Kit Type
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {KIT_TABS.map((kit) => (
+              <button
+                key={kit.id}
+                type="button"
+                onClick={() => handleKitChange(kit.id)}
+                className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-center transition-all ${
+                  kitType === kit.id
+                    ? "border-green-500 bg-green-50 shadow-sm"
+                    : "border-slate-200 bg-white hover:border-green-300"
+                }`}
+              >
+                <span className="text-xl">{kit.emoji}</span>
+                <span className="text-xs font-semibold text-slate-700">{kit.label}</span>
+                <span className="text-[10px] text-slate-400 leading-tight hidden sm:block">
+                  {kit.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            {activeKit.emoji} <strong>{activeKit.label}:</strong> {activeKit.description}
+          </p>
+        </div>
+      )}
+
+      {/* Custom base image */}
       <div>
         <div className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
           Base Image{" "}
           <span className="text-slate-400 font-normal normal-case">
-            — optional: upload your own jersey photo, otherwise the built-in kit photo is used
+            {needsCustomBase
+              ? "— obrigatório para Formativa / Feminino (envie a foto da camisa)"
+              : "— optional: upload your own jersey photo, otherwise the built-in kit photo is used"}
           </span>
         </div>
+        {needsCustomBase && !hasCustomBase && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+            Não há foto oficial desta equipe no sistema ainda. Envie uma foto da camisa para liberar as
+            posições de patrocínio.
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white hover:border-green-300 px-3 py-2 text-xs font-medium text-slate-600 cursor-pointer transition-colors">
             <input
@@ -252,61 +339,35 @@ export function OfficialJerseyMockup({
         )}
       </div>
 
+      {/* Sponsor position — None + usable zones only */}
       <div>
-        <div className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">
-          Sponsor Position —{" "}
-          <span className="text-green-600 font-normal normal-case">
-            only zones visible in this source photograph are enabled
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-          {JERSEY_PLACEMENTS.map((p) => {
-            // A custom uploaded base can show any zone, so every placement is
-            // selectable then. Otherwise a placement is only usable when the
-            // built-in kit photo actually shows that zone.
-            const usable =
-              p.enabled &&
-              !p.comingSoon &&
-              (!!customBase || isPlacementVisibleForKit(p.id, kitType));
+        <label
+          htmlFor="jersey-placement"
+          className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide block"
+        >
+          Sponsor Position
+        </label>
+        <select
+          id="jersey-placement"
+          value={placement}
+          onChange={(e) => setPlacement(e.target.value as PlacementSelection)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+        >
+          <option value="none">Nenhuma — None</option>
+          {usableIds.map((id) => {
+            const p = JERSEY_PLACEMENTS.find((z) => z.id === id)!;
             return (
-              <label
-                key={p.id}
-                className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
-                  !usable
-                    ? "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
-                    : placement === p.id
-                      ? "border-green-400 bg-green-50 cursor-pointer shadow-sm"
-                      : "border-slate-200 bg-white hover:border-green-300 cursor-pointer"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="jersey-placement"
-                  value={p.id}
-                  checked={placement === p.id}
-                  disabled={!usable}
-                  onChange={() => setPlacement(p.id)}
-                  className="mt-0.5 accent-green-600"
-                />
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-slate-700">{p.labelPt}</div>
-                  <div className="text-[10px] text-slate-400 leading-snug">{p.description}</div>
-                  {p.comingSoon && (
-                    <span className="text-[10px] text-amber-600 font-medium">Em breve</span>
-                  )}
-                  {!p.comingSoon &&
-                    p.enabled &&
-                    !isPlacementVisibleForKit(p.id, kitType) &&
-                    !customBase && (
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        Envie uma foto própria para usar esta posição
-                      </span>
-                    )}
-                </div>
-              </label>
+              <option key={id} value={id}>
+                {p.labelPt}
+              </option>
             );
           })}
-        </div>
+        </select>
+        {needsCustomBase && !hasCustomBase && (
+          <p className="text-[11px] text-slate-400 mt-1.5">
+            Envie a foto da camisa acima para ver as posições disponíveis.
+          </p>
+        )}
       </div>
 
       {/* Error */}
@@ -321,12 +382,19 @@ export function OfficialJerseyMockup({
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-slate-400 flex items-center gap-1.5">
           {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-green-600" />}
-          {activeKit.emoji} <strong>{activeKit.label}</strong> · {placementLabel}
+          <strong>{teamLabel}</strong>
+          {team === "profissional" && (
+            <>
+              {" "}
+              · {activeKit.emoji} <strong>{activeKit.label}</strong>
+            </>
+          )}{" "}
+          · {placementLabel}
         </p>
         <button
           type="button"
           onClick={() => (loading ? stop() : setShowConfirm(true))}
-          disabled={!hasLogo}
+          disabled={!canGenerate && !loading}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors shrink-0 ${
             loading
               ? "bg-red-600 hover:bg-red-700 text-white"
@@ -359,8 +427,14 @@ export function OfficialJerseyMockup({
                 Generate Jersey Mockup?
               </h3>
               <p className="text-sm text-slate-500">
-                Kit: <strong className="text-slate-700">{activeKit.label}</strong> · Zone:{" "}
-                <strong className="text-slate-700">{placementLabel}</strong>
+                Equipe: <strong className="text-slate-700">{teamLabel}</strong>
+                {team === "profissional" && (
+                  <>
+                    {" "}
+                    · Kit: <strong className="text-slate-700">{activeKit.label}</strong>
+                  </>
+                )}{" "}
+                · Zone: <strong className="text-slate-700">{placementLabel}</strong>
               </p>
             </div>
             <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-xs text-green-800 flex items-center gap-2">

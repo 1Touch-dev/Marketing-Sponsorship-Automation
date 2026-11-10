@@ -218,6 +218,31 @@ export function isPlacementVisibleForKit(
   return JERSEY_KIT_PLACEMENTS[kitType].includes(id);
 }
 
+/** Team category for jersey mockup UI (James: Pro / Formativa / Feminino). */
+export type JerseyTeamId = "profissional" | "formativa" | "feminino";
+
+export const JERSEY_TEAM_OPTIONS: { id: JerseyTeamId; labelPt: string; label: string }[] = [
+  { id: "profissional", labelPt: "Profissional", label: "Professional" },
+  { id: "formativa", labelPt: "Formativa", label: "Youth / Academy" },
+  { id: "feminino", labelPt: "Feminino", label: "Women's" },
+];
+
+/**
+ * Placements the operator may select for a kit photo.
+ * Custom base unlocks every enabled (non–coming-soon) zone; otherwise only
+ * zones visible in that kit's built-in photograph.
+ */
+export function usablePlacementsForKit(
+  kitType: "flat" | "home" | "training" | "goalkeeper",
+  hasCustomBase: boolean,
+): JerseyPlacementId[] {
+  return JERSEY_PLACEMENTS.filter((p) => {
+    if (!p.enabled || p.comingSoon) return false;
+    if (hasCustomBase) return true;
+    return isPlacementVisibleForKit(p.id, kitType);
+  }).map((p) => p.id);
+}
+
 /**
  * Per-kit overrides for PLAYER PHOTO bases (home, training, goalkeeper).
  * These photos are portrait-oriented, waist-up, player facing camera.
