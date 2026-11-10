@@ -29,6 +29,7 @@ interface ProposalBrandGraphicsWrapperProps {
  *   - BrandAssetsCard reports the new URL via onLogoUploaded
  *   - ProposalGraphicsPanel immediately receives it as sponsorLogoUrl
  *   - The Generate button becomes enabled without a page reload
+ *   - First-logo auto-creative seeds Visuais via seedCreative + refreshSignal
  */
 export function ProposalBrandGraphicsWrapper({
   proposalId,
@@ -40,6 +41,8 @@ export function ProposalBrandGraphicsWrapper({
   existingAssets = [],
 }: ProposalBrandGraphicsWrapperProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl ?? null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const [seedCreative, setSeedCreative] = useState<{ url: string; sceneType: string } | null>(null);
 
   return (
     <>
@@ -61,6 +64,8 @@ export function ProposalBrandGraphicsWrapper({
             sponsorLogoUrl={logoUrl}
             campaignTitle={campaignTitle}
             strategyVariants={strategyVariants}
+            refreshSignal={refreshSignal}
+            seedCreative={seedCreative}
           />
         </CardContent>
       </Card>
@@ -77,6 +82,10 @@ export function ProposalBrandGraphicsWrapper({
         campaignTitle={campaignTitle}
         onLogoUploaded={(url) => setLogoUrl(url)}
         onLogoRemoved={(url) => setLogoUrl(url)}
+        onCreativeGenerated={({ url, sceneType }) => {
+          setSeedCreative({ url, sceneType });
+          setRefreshSignal((n) => n + 1);
+        }}
       />
     </>
   );
