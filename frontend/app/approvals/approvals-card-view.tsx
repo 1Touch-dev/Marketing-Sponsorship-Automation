@@ -175,7 +175,7 @@ export function ApprovalsCardView({ items }: Props) {
     [currentItem, currentIndex, queueItems.length, goNext, loading, fetchTemplates],
   );
 
-  const handleSendEmail = useCallback(async () => {
+  const handleDraftEmail = useCallback(async () => {
     if (!approvedItem || !selectedTemplate) return;
     const to = recipient.trim();
     if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
@@ -197,27 +197,14 @@ export function ApprovalsCardView({ items }: Props) {
       if (!genRes.ok) {
         throw new Error(typeof genData?.error === "string" ? genData.error : "Failed to generate email");
       }
-      const emailId = genData.data?.id ?? genData.email_id ?? genData.id;
 
-      if (emailId) {
-        const sendRes = await fetch(`/api/emails/${emailId}/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "send" }),
-        });
-        const sendData = await sendRes.json().catch(() => ({}));
-        if (!sendRes.ok) {
-          throw new Error(typeof sendData?.error === "string" ? sendData.error : "Email drafted but send failed");
-        }
-      }
-
-      toast({ variant: "success", title: "Outreach email sent" });
+      toast({ variant: "success", title: "Email drafted, review and send it in Emails" });
       setShowEmailPicker(false);
       if (currentIndex < queueItems.length - 1) goNext();
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Could not send email",
+        title: "Could not draft email",
         description: err instanceof Error ? err.message : "Unknown error",
       });
     } finally {
@@ -351,7 +338,7 @@ export function ApprovalsCardView({ items }: Props) {
 
             <div className="space-y-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Send outreach email now?
+                Draft outreach email now?
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="approval-recipient" className="text-xs">Recipient email *</Label>
@@ -412,11 +399,11 @@ export function ApprovalsCardView({ items }: Props) {
               </Button>
               <Button
                 className="flex-1 gap-1.5"
-                onClick={() => void handleSendEmail()}
+                onClick={() => void handleDraftEmail()}
                 disabled={!selectedTemplate || !recipient.trim() || sendingEmail}
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                Send email
+                Draft email
               </Button>
             </div>
           </div>
