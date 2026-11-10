@@ -26,7 +26,7 @@ type ApprovalProposal = {
   company_id: string;
   content_md?: string | null;
   status_reason?: string | null;
-  companies: { company_name: string } | null;
+  companies: { company_name: string; contact_email?: string | null } | null;
 };
 
 type ApprovalCampaign = {
@@ -76,7 +76,7 @@ export default async function ApprovalsPage({
   ] = await Promise.all([
     sb
       .from("proposals")
-      .select("id, title, status, version, updated_at, company_id, content_md, status_reason, companies(company_name)")
+      .select("id, title, status, version, updated_at, company_id, content_md, status_reason, companies(company_name, contact_email)")
       .eq("tenant_id", tenantId)
       .in("status", ["under_review", "revision_requested", "draft", "approved"])
       .order("updated_at", { ascending: false })
@@ -181,6 +181,7 @@ export default async function ApprovalsPage({
         preview: p.content_md ? truncate(p.content_md.replace(/^#.*\n/gm, "").trim(), 200) : undefined,
         editUrl: `/proposals/${p.id}/edit`,
         note: p.status_reason === APPROVAL_EXPIRED_REASON ? "Previous approval no longer applies" : undefined,
+        contactEmail: p.companies?.contact_email ?? null,
       });
     }
   }

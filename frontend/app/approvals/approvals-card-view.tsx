@@ -4,8 +4,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { HumanInTheLoopBadge } from "@/components/shared/human-in-the-loop-badge";
+import { useToast } from "@/components/ui/toaster";
 import { Check, X, Pencil, ChevronLeft, ChevronRight, Mail, Loader2, ExternalLink, PartyPopper, Building2, Keyboard } from "lucide-react";
 
 export type ApprovalItem = {
@@ -19,6 +22,8 @@ export type ApprovalItem = {
   note?: string;
   /** Shown in place of the status title when the stored status and the checksum agree on a version. */
   badgeLabel?: string;
+  /** Company contact email — prefilled as outreach recipient after proposal approve. */
+  contactEmail?: string | null;
 };
 
 type EmailTemplate = {
@@ -35,6 +40,7 @@ type DecisionMap = Record<string, "approved" | "rejected">;
 type QueueTab = "all" | "proposal" | "campaign" | "email";
 
 export function ApprovalsCardView({ items }: Props) {
+  const { toast } = useToast();
   const [queueTab, setQueueTab] = useState<QueueTab>("all");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
@@ -49,6 +55,7 @@ export function ApprovalsCardView({ items }: Props) {
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [recipient, setRecipient] = useState("");
 
   // Drag/swipe state
   const [dragDelta, setDragDelta] = useState(0);
@@ -143,6 +150,8 @@ export function ApprovalsCardView({ items }: Props) {
             setDragDelta(0);
             if (action === "approved" && currentItem.type === "proposal") {
               setApprovedItem(currentItem);
+              setRecipient(currentItem.contactEmail?.trim() ?? "");
+              setSelectedTemplate("");
               setShowEmailPicker(true);
               void fetchTemplates();
             } else if (currentIndex < queueItems.length - 1) {
@@ -168,33 +177,53 @@ export function ApprovalsCardView({ items }: Props) {
 
   const handleSendEmail = useCallback(async () => {
     if (!approvedItem || !selectedTemplate) return;
+    const to = recipient.trim();
+    if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      toast({ variant: "destructive", title: "Enter a valid recipient email" });
+      return;
+    }
     setSendingEmail(true);
     try {
-      const genRes = await fetch(`/api/proposals/${approvedItem.id}/generate-email`, {
+      const genRes = await fetch("/api/emails/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template_id: selectedTemplate }),
+        body: JSON.stringify({
+          proposal_id: approvedItem.id,
+          recipient: to,
+          template_id: selectedTemplate,
+        }),
       });
-      if (!genRes.ok) throw new Error("Failed to generate email");
-      const genData = await genRes.json();
-      const emailId = genData.email_id ?? genData.id;
+      const genData = await genRes.json().catch(() => ({}));
+      if (!genRes.ok) {
+        throw new Error(typeof genData?.error === "string" ? genData.error : "Failed to generate email");
+      }
+      const emailId = genData.data?.id ?? genData.email_id ?? genData.id;
 
       if (emailId) {
-        await fetch(`/api/emails/${emailId}/send`, {
+        const sendRes = await fetch(`/api/emails/${emailId}/send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mode: "send" }),
         });
+        const sendData = await sendRes.json().catch(() => ({}));
+        if (!sendRes.ok) {
+          throw new Error(typeof sendData?.error === "string" ? sendData.error : "Email drafted but send failed");
+        }
       }
 
+      toast({ variant: "success", title: "Outreach email sent" });
       setShowEmailPicker(false);
       if (currentIndex < queueItems.length - 1) goNext();
-    } catch {
-      // silently fail
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Could not send email",
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     } finally {
       setSendingEmail(false);
     }
-  }, [approvedItem, selectedTemplate, currentIndex, queueItems.length, goNext]);
+  }, [approvedItem, selectedTemplate, recipient, currentIndex, queueItems.length, goNext, toast]);
 
   const handleEdit = useCallback(() => {
     if (!currentItem) return;
@@ -320,10 +349,21 @@ export function ApprovalsCardView({ items }: Props) {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Send outreach email now?
               </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="approval-recipient" className="text-xs">Recipient email *</Label>
+                <Input
+                  id="approval-recipient"
+                  type="email"
+                  required
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder="sponsor@company.com"
+                />
+              </div>
               {loadingTemplates ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading templates…
@@ -373,7 +413,7 @@ export function ApprovalsCardView({ items }: Props) {
               <Button
                 className="flex-1 gap-1.5"
                 onClick={() => void handleSendEmail()}
-                disabled={!selectedTemplate || sendingEmail}
+                disabled={!selectedTemplate || !recipient.trim() || sendingEmail}
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 Send email
