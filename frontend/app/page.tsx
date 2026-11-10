@@ -133,15 +133,15 @@ async function loadDashboard() {
       .order("updated_at", { ascending: false })
       .limit(8),
     sb.from("proposals")
-      .select("id, title, status, updated_at, companies(company_name)")
+      .select("id, title, status, created_at, companies(company_name)")
       .eq("tenant_id", tenantId)
       .neq("status", "rejected")
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(6),
     sb.from("emails")
-      .select("id, subject, status, recipient, updated_at")
+      .select("id, subject, status, recipient, sent_at, created_at")
       .eq("tenant_id", tenantId)
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(5),
     sb.from("followups")
       .select("id, reason, status", { count: "exact" })
@@ -318,7 +318,7 @@ type Proposal = {
   id: string;
   title: string;
   status: string;
-  updated_at: string;
+  created_at: string;
   companies: { company_name: string } | null;
 };
 
@@ -327,7 +327,8 @@ type Email = {
   subject: string;
   status: string;
   recipient: string;
-  updated_at: string;
+  sent_at: string | null;
+  created_at: string;
 };
 
 type AuditEntry = {
@@ -747,7 +748,7 @@ export default async function DashboardPage() {
                     <div className="text-sm font-medium truncate">{truncate(p.title, 55)}</div>
                     <div className="text-xs text-muted-foreground">
                       {(p.companies as { company_name: string } | null)?.company_name ?? "—"} ·{" "}
-                      {formatDate(p.updated_at)}
+                      {formatDate(p.created_at)}
                     </div>
                   </div>
                   <StatusBadge status={p.status} />
@@ -783,7 +784,7 @@ export default async function DashboardPage() {
                   <div className="min-w-0 mr-3">
                     <div className="text-sm font-medium truncate">{truncate(e.subject, 55)}</div>
                     <div className="text-xs text-muted-foreground">
-                      {e.recipient} · {formatDate(e.updated_at)}
+                      {e.recipient} · {formatDate(e.sent_at ?? e.created_at)}
                     </div>
                   </div>
                   <StatusBadge status={e.status} />

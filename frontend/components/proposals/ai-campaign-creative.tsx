@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Loader2,
   CheckCircle2,
@@ -56,6 +56,8 @@ interface AiCampaignCreativeProps {
   companyName: string;
   sponsorLogoUrl?: string | null;
   onGenerated?: () => void;
+  /** From Brand Assets first-logo auto-gen — merge into local creatives without reload. */
+  seedCreative?: { url: string; sceneType: string } | null;
 }
 
 type GeneratedCreative = {
@@ -65,17 +67,37 @@ type GeneratedCreative = {
   model: string;
 };
 
+function isSceneType(value: string): value is SceneType {
+  return value === "matchday_street" || value === "training_ground" || value === "fan_lifestyle";
+}
+
 export function AiCampaignCreative({
   proposalId,
   companyId,
   companyName,
   sponsorLogoUrl,
   onGenerated,
+  seedCreative,
 }: AiCampaignCreativeProps) {
   const [scene, setScene] = useState<SceneType>("matchday_street");
   const [loading, setLoading] = useState(false);
   const [creatives, setCreatives] = useState<GeneratedCreative[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!seedCreative?.url || !isSceneType(seedCreative.sceneType)) return;
+    const sceneType = seedCreative.sceneType;
+    setCreatives((prev) => [
+      ...prev.filter((c) => c.sceneType !== sceneType),
+      {
+        url: seedCreative.url,
+        sceneType,
+        durationMs: 0,
+        model: "gpt-image-2",
+      },
+    ]);
+    setScene(sceneType);
+  }, [seedCreative]);
 
   const currentCreative = creatives.find((c) => c.sceneType === scene) ?? null;
   const activeScene = SCENES.find((s) => s.id === scene)!;

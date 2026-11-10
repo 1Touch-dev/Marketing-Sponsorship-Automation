@@ -47,9 +47,9 @@ export function QuickActionsFAB() {
   if (isPublic || !isTopLevel) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
       {/* Action items */}
-      <div className={`flex flex-col items-end gap-2 transition-all duration-300 ${open ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
+      <div className={`flex flex-col items-end gap-2 transition-all duration-300 ${open ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"}`}>
         {ACTIONS.map((action, i) => (
           <button
             key={action.id}
@@ -70,7 +70,7 @@ export function QuickActionsFAB() {
       {/* Main FAB button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`relative h-14 w-14 rounded-full text-white shadow-xl transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${open ? "bg-slate-700 rotate-45 scale-110" : "bg-primary hover:scale-105 hover:shadow-2xl"}`}
+        className={`pointer-events-auto relative h-14 w-14 rounded-full text-white shadow-xl transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${open ? "bg-slate-700 rotate-45 scale-110" : "bg-primary hover:scale-105 hover:shadow-2xl"}`}
         aria-label={open ? "Close quick actions" : "Quick actions"}
       >
         {open ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
@@ -80,7 +80,7 @@ export function QuickActionsFAB() {
       </button>
 
       {/* Backdrop */}
-      {open && <div className="fixed inset-0 -z-10" onClick={() => setOpen(false)} />}
+      {open && <div className="fixed inset-0 -z-10 pointer-events-auto" onClick={() => setOpen(false)} />}
     </div>
   );
 }

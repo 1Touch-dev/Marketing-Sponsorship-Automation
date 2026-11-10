@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { OfficialJerseyMockup } from "./official-jersey-mockup";
 import { AiCampaignCreative } from "./ai-campaign-creative";
 import { ProposalImageManager } from "./proposal-image-manager";
@@ -15,6 +15,10 @@ export type ProposalGraphicsPanelProps = {
   campaignTitle?: string;
   strategyVariants?: StrategyVariant[] | null;
   compact?: boolean;
+  /** Bumped by parent when Brand Assets auto-generates a creative (remounts Saved Images). */
+  refreshSignal?: number;
+  /** Seed from first-logo auto-gen so AI Campaign Creative shows without reload. */
+  seedCreative?: { url: string; sceneType: string } | null;
 };
 
 export function ProposalGraphicsPanel({
@@ -25,9 +29,16 @@ export function ProposalGraphicsPanel({
   campaignTitle,
   strategyVariants,
   compact = false,
+  refreshSignal,
+  seedCreative,
 }: ProposalGraphicsPanelProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const hasLogo = !!sponsorLogoUrl;
+
+  useEffect(() => {
+    if (refreshSignal == null || refreshSignal <= 0) return;
+    setRefreshKey((k) => k + 1);
+  }, [refreshSignal]);
 
   return (
     <div className="space-y-4">
@@ -120,6 +131,7 @@ export function ProposalGraphicsPanel({
             companyId={companyId}
             companyName={companyName}
             sponsorLogoUrl={sponsorLogoUrl}
+            seedCreative={seedCreative}
             onGenerated={() => setRefreshKey((k) => k + 1)}
           />
         </div>

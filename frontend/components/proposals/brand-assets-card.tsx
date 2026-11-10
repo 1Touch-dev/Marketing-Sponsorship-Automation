@@ -26,6 +26,8 @@ interface BrandAssetsCardProps {
   onLogoUploaded?: (url: string) => void;
   /** Called with the new active logo URL (or null) after a logo is deleted */
   onLogoRemoved?: (url: string | null) => void;
+  /** Called after first-logo Matchday Street auto-gen succeeds so Visuais can show it without reload */
+  onCreativeGenerated?: (payload: { url: string; sceneType: "matchday_street" }) => void;
 }
 
 export function BrandAssetsCard({
@@ -39,6 +41,7 @@ export function BrandAssetsCard({
   campaignTitle: _campaignTitle,
   onLogoUploaded,
   onLogoRemoved,
+  onCreativeGenerated,
 }: BrandAssetsCardProps) {
   const [hasLogo, setHasLogo] = useState(initialHasLogo);
   const [autoGenerating, setAutoGenerating] = useState(false);
@@ -69,9 +72,12 @@ export function BrandAssetsCard({
               save_to_proposal: true,
             }),
           });
+          const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
             throw new Error(typeof data?.error === "string" ? data.error : "Campaign creative failed");
+          }
+          if (typeof data?.url === "string") {
+            onCreativeGenerated?.({ url: data.url, sceneType: "matchday_street" });
           }
           setAutoGenDone(true);
         } catch (err) {
@@ -82,7 +88,7 @@ export function BrandAssetsCard({
         }
       }
     },
-    [hasLogo, proposalId, companyId, companyName, onLogoUploaded],
+    [hasLogo, proposalId, companyId, companyName, onLogoUploaded, onCreativeGenerated],
   );
 
   return (

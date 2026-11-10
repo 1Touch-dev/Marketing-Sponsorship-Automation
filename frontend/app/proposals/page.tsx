@@ -45,7 +45,8 @@ export default async function ProposalsPage({
   const sb = supabaseAdmin();
   const tenant = await getCurrentTenant();
   const tenantId = tenant?.id ?? CORITIBA_TENANT_ID;
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const requested = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  let page = requested;
   const searchTerm = searchParams.q ? sanitizeSearchTerm(searchParams.q) : "";
   const textSearchOr = searchTerm
     ? buildListTextSearchOr({
@@ -98,7 +99,7 @@ export default async function ProposalsPage({
       PROPOSAL_STATUSES.map((s) =>
         applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
           .eq("status", s)
-          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(GROUP_PREVIEW_LIMIT),
       ),
     );
@@ -110,14 +111,18 @@ export default async function ProposalsPage({
     totalCount = byStatus.reduce((sum, g) => sum + g.totalInGroup, 0);
     proposals = byStatus.flatMap((g) => g.items);
   } else {
+    // Head-count first so we can clamp page before fetching the list range
+    const countResult = await applyFilters(
+      sb.from("proposals").select("id, companies!inner(id)", { count: "exact", head: true }),
+    );
+    totalCount = countResult.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1);
+    page = Math.min(requested, totalPages);
     const offset = (page - 1) * PAGE_SIZE;
-    const [pageResult] = await Promise.all([
-      applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
-        .order("updated_at", { ascending: searchParams.sort === "oldest" })
-        .range(offset, offset + PAGE_SIZE - 1),
-    ]);
+    const pageResult = await applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
+      .order("created_at", { ascending: searchParams.sort === "oldest" })
+      .range(offset, offset + PAGE_SIZE - 1);
     proposals = (pageResult.data ?? []) as unknown as ProposalRow[];
-    totalCount = pageResult.count ?? proposals.length;
   }
 
   const companiesResult = await companiesResultPromise;
@@ -309,7 +314,7 @@ function ProposalRow({ proposal: p }: { proposal: ProposalRow }) {
             {p.companies?.industry && (
               <span className="text-blue-400">{p.companies.industry} · </span>
             )}
-            {formatDate(p.updated_at)}
+            {formatDate(p.created_at)}
           </div>
         </div>
       </div>

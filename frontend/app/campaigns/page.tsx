@@ -67,7 +67,7 @@ export default async function CampaignsPage({
 }) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const requested = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const searchTerm = searchParams.q ? sanitizeSearchTerm(searchParams.q) : "";
   const textSearchOr = searchTerm
     ? buildListTextSearchOr({
@@ -91,7 +91,16 @@ export default async function CampaignsPage({
     return q as T;
   }
 
+  // Head-count first so we can clamp page before fetching the list range
+  // (use companies!inner so industry filter count matches the list query).
+  const countResult = await applyFilters(
+    sb.from("campaigns").select("id, companies!inner(id)", { count: "exact", head: true }),
+  );
+  const totalCount = countResult.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1);
+  const page = Math.min(requested, totalPages);
   const offset = (page - 1) * PAGE_SIZE;
+
   const [{ data: companies }, pageResult] = await Promise.all([
     sb.from("companies").select("id, company_name, industry").eq("tenant_id", tenantId).order("company_name"),
     applyFilters(
@@ -103,7 +112,6 @@ export default async function CampaignsPage({
 
   const preselectedCompanyId = searchParams.company ?? "";
   const campaigns = (pageResult.data ?? []) as unknown as CampaignRow[];
-  const totalCount = pageResult.count ?? campaigns.length;
 
   const hasFilters = !!(
     searchParams.q ||

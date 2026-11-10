@@ -53,7 +53,7 @@ export default async function CompaniesPage({
   const sb = supabaseAdmin();
   const tenant = await getCurrentTenant();
   const tenantId = tenant?.id ?? "00000000-0000-0000-0000-000000000001";
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const requested = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
   // Found in the 2026-09-23 UX audit: this page used to fetch up to 600 rows
   // and filter/sort them entirely in JS, then render every matching row into
@@ -84,14 +84,19 @@ export default async function CompaniesPage({
     return q as T;
   }
 
+  // Head-count first so we can clamp page before fetching the list range
+  const countResult = await applyFilters(sb.from("companies").select("id", { count: "exact", head: true }));
+  const totalCount = countResult.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1);
+  const page = Math.min(requested, totalPages);
   const offset = (page - 1) * PAGE_SIZE;
-  const [pageResult, countResult, logoResult] = await Promise.all([
+
+  const [pageResult, logoResult] = await Promise.all([
     applyFilters(
       sb.from("companies").select("id, company_name, industry, status, country, created_at, pipeline_stage, company_size, business_type, logo_url, logo_source"),
     )
       .order(searchParams.sort === "name" ? "company_name" : "created_at", { ascending: searchParams.sort === "name" })
       .range(offset, offset + PAGE_SIZE - 1),
-    applyFilters(sb.from("companies").select("id", { count: "exact", head: true })),
     // Lightweight id+logo_url fetch across ALL matching rows (not just this
     // page) — BulkFetchLogosButton scopes its bulk action to the full
     // filtered set, not just the visible page.
@@ -99,7 +104,6 @@ export default async function CompaniesPage({
   ]);
 
   const companies = (pageResult.data ?? []) as CompanyRow[];
-  const totalCount = countResult.count ?? companies.length;
   const allFilteredForBulk = (logoResult.data ?? []) as Array<{ id: string; logo_url: string | null }>;
 
   const hasFilters = !!(searchParams.q || searchParams.industry || searchParams.status || searchParams.size || searchParams.stage || searchParams.country);

@@ -19,9 +19,9 @@ export default async function EmailsPage({
   const tenantId = await resolveTenantId();
   let query = sb
     .from("emails")
-    .select("id, subject, status, recipient, updated_at, opened_at")
+    .select("id, subject, status, recipient, sent_at, created_at, opened_at")
     .eq("tenant_id", tenantId)
-    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(200);
 
   if (searchParams.status) query = query.eq("status", searchParams.status);
@@ -88,7 +88,7 @@ export default async function EmailsPage({
               <div>
                 <div className="font-medium">{truncate(e.subject, 90)}</div>
                 <div className="text-xs text-muted-foreground">
-                  {e.recipient} · {formatDate(e.updated_at)}
+                  {e.recipient} · {formatDate(e.sent_at ?? e.created_at)}
                 </div>
               </div>
               <div className="flex items-center gap-2">
