@@ -141,7 +141,6 @@ async function loadDashboard() {
     sb.from("emails")
       .select("id, subject, status, recipient, sent_at, created_at")
       .eq("tenant_id", tenantId)
-      .order("sent_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(5),
     sb.from("followups")
@@ -285,11 +284,7 @@ async function loadDashboard() {
     failedWorkflowRows: failedWorkflows.rows,
     contractRows: (contractsData ?? []) as { id: string; title: string | null; status: string | null; total_value_brl: number | null }[],
     recentProposals: recentProposals.data ?? [],
-    recentEmails: [...(recentEmails.data ?? [])].sort((a, b) => {
-      const aAt = (a.sent_at ?? a.created_at) as string;
-      const bAt = (b.sent_at ?? b.created_at) as string;
-      return bAt.localeCompare(aAt);
-    }),
+    recentEmails: recentEmails.data ?? [],
     recentAudit: cleanAudit,
     // KPIs
     approvedProposalCount: m.proposals_approved.value ?? 0,

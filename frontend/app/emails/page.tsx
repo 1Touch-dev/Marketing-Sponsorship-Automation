@@ -21,7 +21,6 @@ export default async function EmailsPage({
     .from("emails")
     .select("id, subject, status, recipient, sent_at, created_at, opened_at")
     .eq("tenant_id", tenantId)
-    .order("sent_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -36,12 +35,6 @@ export default async function EmailsPage({
       (e) => e.subject.toLowerCase().includes(q) || e.recipient.toLowerCase().includes(q),
     );
   }
-
-  emails = [...emails].sort((a, b) => {
-    const aAt = a.sent_at ?? a.created_at;
-    const bAt = b.sent_at ?? b.created_at;
-    return bAt.localeCompare(aAt);
-  });
 
   return (
     <>
