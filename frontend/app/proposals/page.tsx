@@ -98,7 +98,7 @@ export default async function ProposalsPage({
       PROPOSAL_STATUSES.map((s) =>
         applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
           .eq("status", s)
-          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
           .limit(GROUP_PREVIEW_LIMIT),
       ),
     );
@@ -113,7 +113,7 @@ export default async function ProposalsPage({
     const offset = (page - 1) * PAGE_SIZE;
     const [pageResult] = await Promise.all([
       applyFilters(sb.from("proposals").select(PROPOSAL_SELECT, { count: "exact" }))
-        .order("updated_at", { ascending: searchParams.sort === "oldest" })
+        .order("created_at", { ascending: searchParams.sort === "oldest" })
         .range(offset, offset + PAGE_SIZE - 1),
     ]);
     proposals = (pageResult.data ?? []) as unknown as ProposalRow[];
@@ -309,7 +309,7 @@ function ProposalRow({ proposal: p }: { proposal: ProposalRow }) {
             {p.companies?.industry && (
               <span className="text-blue-400">{p.companies.industry} · </span>
             )}
-            {formatDate(p.updated_at)}
+            {formatDate(p.created_at)}
           </div>
         </div>
       </div>
