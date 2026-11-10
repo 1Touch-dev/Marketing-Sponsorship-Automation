@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AssetUploader } from "./asset-uploader";
-import { Upload, Loader2, CheckCircle2, Sparkles } from "lucide-react";
+import { Upload, Loader2, Sparkles } from "lucide-react";
 import type { StrategyVariant } from "@/lib/ai/schemas";
 
 interface UploadedAsset {
@@ -14,6 +14,7 @@ interface UploadedAsset {
 
 interface BrandAssetsCardProps {
   proposalId: string;
+  companyId?: string;
   companyName: string;
   existingAssets: UploadedAsset[];
   hasLogo: boolean;
@@ -29,18 +30,20 @@ interface BrandAssetsCardProps {
 
 export function BrandAssetsCard({
   proposalId,
+  companyId,
   companyName,
   existingAssets,
   hasLogo: initialHasLogo,
   activeLogoUrl,
-  strategyVariants,
-  campaignTitle,
+  strategyVariants: _strategyVariants,
+  campaignTitle: _campaignTitle,
   onLogoUploaded,
   onLogoRemoved,
 }: BrandAssetsCardProps) {
   const [hasLogo, setHasLogo] = useState(initialHasLogo);
   const [autoGenerating, setAutoGenerating] = useState(false);
   const [autoGenDone, setAutoGenDone] = useState(false);
+  const [autoGenError, setAutoGenError] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (asset: UploadedAsset) => {
@@ -49,35 +52,37 @@ export function BrandAssetsCard({
       // Notify parent so ProposalGraphicsPanel's sponsorLogoUrl updates immediately
       onLogoUploaded?.(asset.url);
 
-      // Auto-trigger campaign image generation if this is the first logo upload
-      if (wasLogoMissing && strategyVariants && strategyVariants.length > 0) {
+      // Auto-generate one Matchday Street creative on first logo upload
+      if (wasLogoMissing) {
         setAutoGenerating(true);
+        setAutoGenError(null);
         try {
-          for (const variant of strategyVariants.slice(0, 3)) {
-            const activations = (variant.key_activations ?? []).slice(0, 2).join(" and ");
-            const tagline = variant.tagline ? `"${variant.tagline}". ` : "";
-            const prompt = `Professional Brazilian sports marketing campaign visual for ${companyName} sponsoring Coritiba FC. ${tagline}Strategy: "${variant.label}". ${activations ? `Activation: ${activations}.` : ""} Estádio Couto Pereira during match day. ${companyName} brand integrated into Coritiba FC's verde coxa and white. Modern advertising photography, 16:9 format.`;
-
-            await fetch("/api/media/campaign-image", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                proposal_id: proposalId,
-                prompt,
-                job_type: "campaign_creative",
-                strategy_variant_id: variant.id,
-                strategy_label: variant.label,
-                logo_url: asset.url,
-              }),
-            }).catch(() => {});
+          const res = await fetch("/api/media/campaign-creative", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sponsor_name: companyName,
+              sponsor_logo_url: asset.url,
+              scene_type: "matchday_street",
+              proposal_id: proposalId,
+              ...(companyId ? { company_id: companyId } : {}),
+              save_to_proposal: true,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(typeof data?.error === "string" ? data.error : "Campaign creative failed");
           }
           setAutoGenDone(true);
+        } catch (err) {
+          setAutoGenDone(false);
+          setAutoGenError(err instanceof Error ? err.message : "Auto-generate failed");
         } finally {
           setAutoGenerating(false);
         }
       }
     },
-    [hasLogo, proposalId, companyName, strategyVariants, onLogoUploaded],
+    [hasLogo, proposalId, companyId, companyName, onLogoUploaded],
   );
 
   return (
@@ -117,13 +122,18 @@ export function BrandAssetsCard({
         {autoGenerating && (
           <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Auto-generating campaign images for each strategy…</span>
+            <span>Auto-generating Matchday Street creative…</span>
           </div>
         )}
         {autoGenDone && !autoGenerating && (
           <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
             <Sparkles className="h-4 w-4" />
-            <span>Campaign images queued — check the Visuais section below.</span>
+            <span>Campaign creative ready — check the Visuais section above.</span>
+          </div>
+        )}
+        {autoGenError && !autoGenerating && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {autoGenError}
           </div>
         )}
 

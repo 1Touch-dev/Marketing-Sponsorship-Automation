@@ -68,6 +68,7 @@ export function ProposalBrandGraphicsWrapper({
       {/* Card 2: Brand Assets — upload here to immediately unlock the panel above */}
       <BrandAssetsCard
         proposalId={proposalId}
+        companyId={companyId}
         companyName={companyName}
         existingAssets={existingAssets}
         hasLogo={!!logoUrl}
