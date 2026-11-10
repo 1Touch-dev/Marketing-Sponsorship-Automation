@@ -19,8 +19,7 @@ export default async function AssetsPage({
 }) {
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const offset = (page - 1) * PAGE_SIZE;
+  const requested = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
   const jobsBase = () =>
     sb
@@ -28,9 +27,15 @@ export default async function AssetsPage({
       .select("id", { count: "exact", head: true })
       .eq("tenant_id" as "id", tenantId);
 
+  // Head-count first so we can clamp page before fetching the list range
+  const totalHead = await jobsBase();
+  const totalCount = totalHead.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE) || 1);
+  const page = Math.min(requested, totalPages);
+  const offset = (page - 1) * PAGE_SIZE;
+
   const [
     jobsRes,
-    totalHead,
     completedHead,
     pendingHead,
     generatingHead,
@@ -50,7 +55,6 @@ export default async function AssetsPage({
       .eq("tenant_id" as "id", tenantId)
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1),
-    jobsBase(),
     jobsBase().eq("status" as "id", "completed"),
     jobsBase().eq("status" as "id", "pending_approval"),
     jobsBase().eq("status" as "id", "generating"),
@@ -64,7 +68,6 @@ export default async function AssetsPage({
   if (jobsError) console.error("[assets] failed to load image_generation_jobs", jobsError.message);
 
   const jobs = jobsRes.data ?? [];
-  const totalCount = jobsRes.count ?? totalHead.count ?? jobs.length;
   const statusCounts = {
     completed: completedHead.count ?? 0,
     pending_approval: pendingHead.count ?? 0,
