@@ -28,6 +28,7 @@ import type { ClubContextInput } from "@/lib/bedrock/prompts";
 import { loadCompanyIndex, existingEntity, recordAgentResearch } from "@/lib/accounts/store";
 import { registrableDomain } from "@/lib/accounts/dedup";
 import { userActor } from "@/lib/identity/actor";
+import { filterRealSellers } from "@/lib/intelligence/seller-name-guard";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -127,9 +128,13 @@ export async function POST(req: Request) {
     const allSellers = activeTiers.flatMap((t) => perTier[t]);
 
     // Optional: persist discovered sellers as prospect companies (deduped).
+    // Aggregate / group / cluster labels are filtered at save only — discovery list unchanged.
     let savedCount = 0;
+    let skippedAggregates = 0;
     if (auto_save && allSellers.length > 0) {
-      savedCount = await saveSellersAsCompanies(product, allSellers, auth.user.tenant_id);
+      const result = await saveSellersAsCompanies(product, allSellers, auth.user.tenant_id);
+      savedCount = result.saved;
+      skippedAggregates = result.skippedAggregates;
     }
 
     await recordAudit({ actor: userActor(auth.user),
@@ -141,6 +146,7 @@ export async function POST(req: Request) {
         tiers: activeTiers,
         sellers_found: allSellers.length,
         saved: savedCount,
+        skipped_aggregates: skippedAggregates,
         apify_used: apifyUsed,
         duration_ms: Date.now() - startTime,
       },
@@ -154,6 +160,7 @@ export async function POST(req: Request) {
       sellers: allSellers,
       total_found: allSellers.length,
       saved_as_companies: savedCount,
+      skipped_aggregates: skippedAggregates,
       apify_used: apifyUsed,
       duration_ms: Date.now() - startTime,
     });
@@ -188,6 +195,7 @@ ${domains.map((d) => `- ${d.domain}: "${d.title}" — ${(d.description ?? "").sl
 Keywords: ${keywords.join(", ")}
 
 Find up to ${Math.min(limit, 15)} real companies located/operating in "${geo}" that SELL or MANUFACTURE "${product}".
+Return only named companies or brands. Never return groups, clusters, networks, "rede de…", "(cluster)", "patrocinadores" collectives, or unnamed distributor collectives.
 For each, judge whether they are a good sponsorship prospect for ${clubName} and whether they have barter potential (can exchange goods/services for exposure).
 
 Return JSON ONLY:
@@ -229,13 +237,19 @@ Return JSON ONLY:
   return [];
 }
 
-async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller[], tenantId: string): Promise<number> {
+async function saveSellersAsCompanies(
+  product: string,
+  sellers: DiscoveredSeller[],
+  tenantId: string,
+): Promise<{ saved: number; skippedAggregates: number }> {
   const sb = supabaseAdmin();
   let saved = 0;
+  const filtered = filterRealSellers(sellers);
+  const skippedAggregates = sellers.length - filtered.length;
   // Same-entity lookup on structure, not a loose substring match (which errored when
   // several rows contained the name, was read as "not found", and created a duplicate).
   const index = await loadCompanyIndex(sb, tenantId);
-  for (const s of sellers.slice(0, 30)) {
+  for (const s of filtered.slice(0, 30)) {
     const { existing } = existingEntity({ company_name: s.name, website: s.domain ?? null, domain: registrableDomain(s.domain) }, index);
     if (existing) continue;
 
@@ -290,7 +304,7 @@ async function saveSellersAsCompanies(product: string, sellers: DiscoveredSeller
       }
     }
   }
-  return saved;
+  return { saved, skippedAggregates };
 }
 
 function isNonCommercialDomain(domain: string): boolean {
