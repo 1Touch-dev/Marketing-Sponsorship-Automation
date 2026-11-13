@@ -70,7 +70,7 @@ export default async function PublicProposalViewPage({
   // Coritiba's known-good asset path — not trusting the DB's crest_url for
   // this tenant since migration 0047 seeded a mismatched extension (.svg,
   // no such file); other tenants use whatever they've actually configured.
-  const crestUrl = isCoritiba ? "/brand/coritiba-crest.png" : (tenant?.branding.crest_url ?? null);
+  const crestUrl = isCoritiba ? "/brand/coritiba_logo.png" : (tenant?.branding.crest_url ?? null);
 
   // A/B variant — ?v=B triggers Variant B
   const variant = searchParams?.v === "B" ? "B" : "A";

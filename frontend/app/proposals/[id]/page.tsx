@@ -238,7 +238,7 @@ export default async function ProposalDetailPage({ params }: { params: { id: str
               ⚠️ No sponsor logo uploaded
             </p>
             <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-0.5">
-              The landing page will show initials only, and image generation is locked. Upload the sponsor&apos;s logo in the Brand Assets section to unlock all features.
+              The landing page will show the company name as text, and image generation is locked. Upload the sponsor&apos;s logo in the Brand Assets section to unlock all features.
             </p>
           </div>
           <Button asChild size="sm" variant="outline" className="shrink-0 border-yellow-300 text-yellow-800 hover:bg-yellow-100">
