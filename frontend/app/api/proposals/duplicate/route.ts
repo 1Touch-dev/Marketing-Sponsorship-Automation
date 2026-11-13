@@ -7,6 +7,7 @@ import type { ProposalContent } from "@/types/database";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { userActor } from "@/lib/identity/actor";
 import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
+import { meetingLinkForUser } from "@/lib/proposals/meeting-link";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
         content_md: source.content_md,
         status: "draft",
         version: 1,
+        meeting_link: meetingLinkForUser(auth.user),
         generated_by: source.generated_by,
         model_id: source.model_id,
         prompt_version: source.prompt_version ?? PROMPT_VERSION,

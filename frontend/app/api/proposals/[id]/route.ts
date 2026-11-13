@@ -78,6 +78,10 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
   if ("ab_test_config" in parsed.data) {
     updated.ab_test_config = parsed.data.ab_test_config ?? null;
   }
+  // undefined = not sent (leave column alone); null/"" already normalized to null by schema
+  if ("meeting_link" in parsed.data && parsed.data.meeting_link !== undefined) {
+    updated.meeting_link = parsed.data.meeting_link;
+  }
 
   const { data: saved, error: updErr } = await sb
     .from("proposals")

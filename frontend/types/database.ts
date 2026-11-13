@@ -214,6 +214,8 @@ export interface Proposal {
   status: ProposalStatus;
   status_reason: string | null;
   version: number;
+  /** Public “Agendar Reunião” href; empty/null → mailto fallback on share page. */
+  meeting_link?: string | null;
   generated_by: string | null;
   model_id: string | null;
   prompt_version: string | null;

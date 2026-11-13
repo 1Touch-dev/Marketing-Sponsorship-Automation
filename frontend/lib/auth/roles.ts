@@ -20,6 +20,8 @@ export interface PlatformUser {
    *  belongs to exactly one tenant today; cross-tenant admin support
    *  accounts are a later Phase 4 concern, not built yet. */
   tenant_id: string;
+  /** Default Calendly/Cal.com URL; prefills proposals.meeting_link (migration 0079). Optional when column missing. */
+  calendar_url?: string | null;
   invited_by?: string | null;
   last_seen_at?: string | null;
   created_at: string;

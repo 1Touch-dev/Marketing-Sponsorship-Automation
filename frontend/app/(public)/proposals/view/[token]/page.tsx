@@ -117,6 +117,8 @@ export default async function PublicProposalViewPage({
     access_gate_nda_text?: string | null;
   };
   const company = p.companies;
+  // Trim so legacy "" rows still fall back to mailto (?? alone would not).
+  const meetingHref = p.meeting_link?.trim() || null;
 
   // Optional NDA/passcode gate (migration 0049) — checked server-side so
   // gated content never reaches the initial HTML response for a browser
@@ -264,9 +266,9 @@ export default async function PublicProposalViewPage({
               Falar com nossa equipe
             </a>
             <a
-              href={p.meeting_link ?? `mailto:patrocinios@coritiba.com.br?subject=Reunião%20-%20${encodeURIComponent(p.title)}`}
-              target={p.meeting_link ? "_blank" : undefined}
-              rel={p.meeting_link ? "noopener noreferrer" : undefined}
+              href={meetingHref ?? `mailto:patrocinios@coritiba.com.br?subject=Reunião%20-%20${encodeURIComponent(p.title)}`}
+              target={meetingHref ? "_blank" : undefined}
+              rel={meetingHref ? "noopener noreferrer" : undefined}
               className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 text-white px-5 py-2.5 text-sm font-semibold transition-all hover:scale-[1.02]"
             >
               <Calendar className="h-4 w-4" />
@@ -278,9 +280,9 @@ export default async function PublicProposalViewPage({
           // a non-Coritiba tenant — the lead capture form below is the real
           // channel; only surface a meeting link if one is actually set on
           // this proposal, rather than fabricating a contact address.
-          p.meeting_link && (
+          meetingHref && (
             <a
-              href={p.meeting_link}
+              href={meetingHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-full bg-white text-[#006B3F] hover:bg-green-50 px-5 py-2.5 text-sm font-bold transition-all shadow-lg hover:shadow-xl hover:scale-[1.02]"

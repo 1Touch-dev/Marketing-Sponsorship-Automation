@@ -47,6 +47,36 @@ export const proposalGenerateSchema = z.object({
   campaign_id: z.string().uuid(),
 });
 
+/**
+ * Booking / meeting URL for proposals and per-user calendar defaults.
+ * Empty/whitespace → null. Rejects javascript:/data: etc. — requires http(s).
+ */
+export const httpUrlOrNull = z.preprocess(
+  (v) => {
+    if (v === undefined) return undefined;
+    if (v === null) return null;
+    if (typeof v !== "string") return v;
+    const t = v.trim();
+    return t.length === 0 ? null : t;
+  },
+  z
+    .union([
+      z.null(),
+      z
+        .string()
+        .refine((s) => /^https?:\/\//i.test(s), { message: "URL must start with http:// or https://" })
+        .refine((s) => {
+          try {
+            const u = new URL(s);
+            return u.protocol === "http:" || u.protocol === "https:";
+          } catch {
+            return false;
+          }
+        }, { message: "Invalid URL" }),
+    ])
+    .optional(),
+);
+
 export const proposalUpdateSchema = z.object({
   title: z.string().min(2).max(200).optional(),
   content: z
@@ -64,6 +94,12 @@ export const proposalUpdateSchema = z.object({
     .optional(),
   edit_reason: z.string().max(300).optional(),
   ab_test_config: z.record(z.unknown()).nullable().optional(),
+  meeting_link: httpUrlOrNull,
+});
+
+/** Body for PATCH /api/users/me — only calendar_url is accepted. */
+export const userMeUpdateSchema = z.object({
+  calendar_url: httpUrlOrNull,
 });
 
 export const approvalSchema = z.object({

@@ -20,6 +20,7 @@ import { z } from "zod";
 import { idempotent } from "@/lib/idempotency";
 import { gateBatch } from "@/lib/batch/gate";
 import { checkDailySpendCap } from "@/lib/monitoring/spend-guard";
+import { meetingLinkForUser } from "@/lib/proposals/meeting-link";
 
 export const runtime = "nodejs";
 /**
@@ -247,6 +248,7 @@ async function postHandler(req: Request) {
           status: "draft",
           version: 1,
           prompt_version: PROMPT_VERSION,
+          meeting_link: meetingLinkForUser(auth.user),
           strategy_variants: gen.strategy_variants.length ? gen.strategy_variants : null,
           pricing_tiers: gen.pricing_tiers.length ? gen.pricing_tiers : null,
         })

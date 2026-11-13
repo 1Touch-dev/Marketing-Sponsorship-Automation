@@ -574,7 +574,8 @@ export function ProposalEditor({
               placeholder="https://calendly.com/your-link or https://cal.com/your-link"
             />
             <div className="text-xs text-muted-foreground">
-              If set, the &ldquo;Agendar Reunião&rdquo; button on the public proposal page will link here instead of sending an email.
+              Prefills from Settings → My calendar link on new proposals. Override anytime.
+              Leave blank to fall back to mailto on the public &ldquo;Agendar Reunião&rdquo; button.
             </div>
           </div>
 
