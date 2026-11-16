@@ -49,7 +49,16 @@ export default async function EmailDetailPage({ params }: { params: { id: string
                 <pre className="mt-2 overflow-x-auto rounded-md border bg-muted/30 p-3 text-xs">{typedEmail.body_html}</pre>
               </details>
             ) : null}
-            {typedEmail.status_reason ? (
+            {typedEmail.status === "sending" &&
+            typedEmail.status_reason &&
+            /send unconfirmed/i.test(typedEmail.status_reason) ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-1">
+                <p className="font-semibold">
+                  Send unconfirmed — check SES / message events before retrying
+                </p>
+                <p className="text-amber-800/90 text-xs">Status reason: {typedEmail.status_reason}</p>
+              </div>
+            ) : typedEmail.status_reason ? (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 Status reason: {typedEmail.status_reason}
               </div>

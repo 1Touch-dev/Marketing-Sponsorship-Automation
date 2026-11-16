@@ -50,9 +50,13 @@ test("normalizeSesMessageId strips brackets and keeps the bare local-part", () =
   assert.equal(normalizeSesMessageId("no-at-sign").bare, "no-at-sign");
 });
 
-test("isUncertainSesFailure: transient and timeouts are unclear; hard rejects are not", () => {
-  assert.equal(isUncertainSesFailure(new MailError("throttle", "ThrottlingException", true)), true);
+test("isUncertainSesFailure: throttling is a clear refuse; only timeouts/internal are unclear", () => {
+  assert.equal(isUncertainSesFailure(new MailError("throttle", "ThrottlingException", true)), false);
+  assert.equal(isUncertainSesFailure(new MailError("slow", "TooManyRequestsException", true)), false);
   assert.equal(isUncertainSesFailure(new MailError("bad", "MessageRejected", false)), false);
+  assert.equal(isUncertainSesFailure(new MailError("down", "InternalFailure", true)), true);
+  assert.equal(isUncertainSesFailure(new MailError("busy", "ServiceUnavailable", true)), true);
+  assert.equal(isUncertainSesFailure(new MailError("slow", "RequestTimeout", true)), true);
   assert.equal(isUncertainSesFailure(new OutreachMailNotConfiguredError()), false);
   assert.equal(isUncertainSesFailure(new Error("fetch failed")), true);
   assert.equal(isUncertainSesFailure(new Error("Request timed out")), true);
@@ -139,7 +143,18 @@ test("sendOutreachEmail with injected sender: success returns ids; hard failure 
 test("injectOutreachUnsubscribeFooter places the link before </body>", () => {
   const out = injectOutreachUnsubscribeFooter("<html><body><p>Oi</p></body></html>", "https://app.test/u");
   assert.match(out, /Não quero mais receber/);
+  assert.match(out, /Coritiba FC · Departamento Comercial/);
   assert.ok(out.indexOf("https://app.test/u") < out.indexOf("</body>"));
+});
+
+test("injectOutreachUnsubscribeFooter uses clubName when provided", () => {
+  const out = injectOutreachUnsubscribeFooter(
+    "<html><body><p>Oi</p></body></html>",
+    "https://app.test/u",
+    "Acme FC",
+  );
+  assert.match(out, /Acme FC · Departamento Comercial/);
+  assert.doesNotMatch(out, /Coritiba FC ·/);
 });
 
 test("agent toolSendEmail refuses non-approved mail and never calls SES", async () => {

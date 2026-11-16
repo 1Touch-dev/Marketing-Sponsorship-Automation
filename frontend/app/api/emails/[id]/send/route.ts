@@ -22,6 +22,7 @@ import {
 import { MailError } from "@/lib/mail/ses";
 import { resolveAppUrl } from "@/lib/url";
 import { logger } from "@/lib/monitoring/logger";
+import { resolveClubContext } from "@/lib/tenants/club-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -320,6 +321,8 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
   });
 
   try {
+    const club = await resolveClubContext(auth.user.tenant_id);
+    const clubName = club.club_facts.short_name ?? club.club_facts.club_name;
     const sesResult = await sendOutreachEmail({
       to: String(email.recipient ?? ""),
       subject: String(email.subject ?? ""),
@@ -328,6 +331,7 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
       replyTo: null,
       tenantId: auth.user.tenant_id,
       appUrl: resolveAppUrl(req),
+      clubName,
     });
     bareMessageId = sesResult.bareMessageId;
     rawMessageId = sesResult.rawMessageId;

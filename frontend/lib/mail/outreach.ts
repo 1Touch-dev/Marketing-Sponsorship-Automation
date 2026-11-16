@@ -26,6 +26,8 @@ export type OutreachEmailPayload = {
   tenantId: string;
   /** App origin for unsubscribe URLs. */
   appUrl: string;
+  /** Club short name for unsubscribe footer (defaults to Coritiba FC). */
+  clubName?: string | null;
 };
 
 export type OutreachSendResult = { messageId: string; bareMessageId: string; rawMessageId: string };
@@ -41,10 +43,24 @@ export function normalizeSesMessageId(id: string): { bare: string; raw: string }
   return { bare: bare || raw, raw };
 }
 
-/** True when we cannot know if SES accepted the message — do not revert to approved / retry. */
+/** SES codes where we cannot know if the message was accepted — keep row in "sending". */
+const UNCERTAIN_SES_CODES = new Set([
+  "InternalFailure",
+  "ServiceUnavailable",
+  "TimeoutError",
+  "RequestTimeout",
+]);
+
+/**
+ * True when we cannot know if SES accepted the message — do not revert to approved / retry.
+ * Throttling / TooManyRequests are clear refusals (mail not accepted) → false so callers revert to approved.
+ */
 export function isUncertainSesFailure(err: unknown): boolean {
   if (err instanceof OutreachMailNotConfiguredError) return false;
-  if (err instanceof MailError) return err.transient;
+  if (err instanceof MailError) {
+    if (err.code === "ThrottlingException" || err.code === "TooManyRequestsException") return false;
+    return UNCERTAIN_SES_CODES.has(err.code);
+  }
   if (!(err instanceof Error)) return true;
   const m = err.message.toLowerCase();
   return (
@@ -72,12 +88,13 @@ export async function sendOutreachEmail(
   const to = mail.to.trim();
   if (!to) throw new MailError("Outreach send requires a recipient", "NoRecipient", false);
 
+  const club = (mail.clubName?.trim() || "Coritiba FC");
   const token = makeUnsubscribeToken(mail.tenantId, to);
   const unsub = unsubscribeUrl(mail.appUrl, token);
   const headers = unsubscribeHeaders(unsub);
   const textBase = mail.bodyText || (mail.bodyHtml ? stripHtml(mail.bodyHtml) : "");
-  const text = `${textBase}\n\n--\nPara não receber mais mensagens do Coritiba FC Patrocínios: ${unsub}`;
-  const html = mail.bodyHtml ? injectOutreachUnsubscribeFooter(mail.bodyHtml, unsub) : undefined;
+  const text = `${textBase}\n\n--\nPara não receber mais mensagens do ${club} Patrocínios: ${unsub}`;
+  const html = mail.bodyHtml ? injectOutreachUnsubscribeFooter(mail.bodyHtml, unsub, club) : undefined;
 
   const send = deps.send ?? sendViaSes;
   const r = await send({
@@ -95,10 +112,15 @@ export async function sendOutreachEmail(
   return { messageId: ids.bare, bareMessageId: ids.bare, rawMessageId: ids.raw };
 }
 
-export function injectOutreachUnsubscribeFooter(html: string, unsubUrl: string): string {
+export function injectOutreachUnsubscribeFooter(
+  html: string,
+  unsubUrl: string,
+  clubName?: string | null,
+): string {
+  const club = clubName?.trim() || "Coritiba FC";
   const footer = `
 <div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;line-height:1.5">
-  <p>Coritiba FC · Departamento Comercial</p>
+  <p>${club} · Departamento Comercial</p>
   <p><a href="${unsubUrl}" style="color:#6b7280">Não quero mais receber estas mensagens</a></p>
 </div>`;
   if (html.includes("</body>")) return html.replace("</body>", `${footer}</body>`);

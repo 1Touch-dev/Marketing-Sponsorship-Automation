@@ -518,6 +518,8 @@ export async function toolSendEmail(
   let bareMessageId: string;
   let rawMessageId: string;
   try {
+    const club = await resolveClubContext(tenantId);
+    const clubName = club.club_facts.short_name ?? club.club_facts.club_name;
     const sesResult = await sendOutreachEmail(
       {
         to: String(email.recipient ?? ""),
@@ -526,6 +528,7 @@ export async function toolSendEmail(
         bodyHtml: email.body_html ? String(email.body_html) : null,
         tenantId,
         appUrl: deps.appUrl ?? resolveAppUrl(),
+        clubName,
       },
       { send: deps.send },
     );
