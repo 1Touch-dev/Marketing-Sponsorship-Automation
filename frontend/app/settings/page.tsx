@@ -190,7 +190,7 @@ export default async function SettingsPage({
       {gmailConnected && isTokenExpired && (
         <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 flex items-center justify-between gap-4">
           <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-            ⚠️ Gmail token expired (since {expiresAt}). Outreach emails are logged to Pipedrive — actual Gmail delivery requires reconnecting.
+            ⚠️ Gmail token expired (since {expiresAt}). Outreach Send still uses Amazon SES; reconnect to restore the Test button and legacy thread sync.
           </p>
           <Button size="sm" variant="outline" asChild>
             <a href="/api/auth/gmail">Reconnect Gmail</a>
@@ -267,8 +267,10 @@ export default async function SettingsPage({
           <CardHeader>
             <CardTitle>Gmail integration <span className="text-xs font-normal text-muted-foreground ml-1">(optional)</span></CardTitle>
             <CardDescription>
-              Outreach emails are logged as Pipedrive Activities — Gmail is not required for sending.
-              Connect only if you want inbound reply sync back into the Threads view.
+              Outreach <strong>Send email</strong> delivers through Amazon SES when MAIL_PROVIDER=ses (same as newsletters and portal links).
+              Gmail is for the Emails page <strong>Test</strong> button and legacy thread sync — leave it connected for those.
+              Until reply sync ships, staff must check <strong>patrocinios@coritiba.com.br</strong> by hand for sponsor replies.
+              Test only with your own inbox or SES simulator addresses — never a real sponsor.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">

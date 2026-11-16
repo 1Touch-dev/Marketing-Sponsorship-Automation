@@ -198,7 +198,7 @@ export function ApprovalsCardView({ items }: Props) {
         throw new Error(typeof genData?.error === "string" ? genData.error : "Failed to generate email");
       }
 
-      toast({ variant: "success", title: "Email drafted, review and send it in Emails" });
+      toast({ variant: "success", title: "Email drafted, approve it in Emails" });
       setShowEmailPicker(false);
       if (currentIndex < queueItems.length - 1) goNext();
     } catch (err) {

@@ -37,16 +37,16 @@ export async function POST(req: NextRequest) {
 
   const sb = supabaseAdmin();
   const r = await recordSuppression(sb, who.tenantId, {
-    email: who.email, decision: "suppressed", reasonCode: "asked_to_stop", note: "Unsubscribed from a newsletter",
-    actor: { kind: "system", name: "newsletter-unsubscribe" }, source: "newsletter_unsubscribe",
+    email: who.email, decision: "suppressed", reasonCode: "asked_to_stop", note: "Unsubscribed via email link",
+    actor: { kind: "system", name: "email-unsubscribe" }, source: "email_unsubscribe",
   });
   if (!r.ok) return page(`<h2>Não foi possível concluir</h2><p>Tente novamente em instantes ou responda ao e-mail que você recebeu.</p>`, 500);
 
   // The address is a person's data and the log is permanent, so only a fingerprint of it is written here.
   await recordAudit({
-    actor: externalActor("newsletter recipient", `recipient:${logFingerprint(who.email)}`),
+    actor: externalActor("email recipient", `recipient:${logFingerprint(who.email)}`),
     tenant_id: who.tenantId,
-    action: "newsletter.unsubscribed",
+    action: "email.unsubscribed",
     entity_type: "contact",
     entity_id: null,
     metadata: { email_fingerprint: logFingerprint(who.email), already: r.value.already, timestamp: new Date().toISOString() },

@@ -103,7 +103,7 @@ export const TOOL_LABELS: Record<string, string> = {
   scrape_company_intelligence: "Scraping campaigns & social signals (Apify)…",
   generate_personalized_proposal: "Generating personalized proposal (Bedrock)…",
   generate_outreach_email: "Drafting personalised email (Bedrock)…",
-  send_email: "Sending via Pipedrive…",
+  send_email: "Sending via Amazon SES…",
 };
 
 export const TOOL_DONE_LABELS: Record<string, (result: Record<string, unknown>) => string> = {

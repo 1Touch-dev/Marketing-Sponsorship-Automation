@@ -33,6 +33,9 @@ import { serverEnv } from "@/lib/env";
 import { emailOutputSchema, validateAiOutput } from "@/lib/ai/schemas";
 import { PROMPT_VERSION } from "@/lib/bedrock/prompts";
 import { logger } from "@/lib/monitoring/logger";
+import { isUncertainSesFailure, sendOutreachEmail } from "@/lib/mail/outreach";
+import { reservedRecipientBlock } from "@/lib/email/reserved-recipient";
+import type { MailSender } from "@/lib/mail/ses";
 
 export type ToolResult = {
   success: boolean;
@@ -439,41 +442,54 @@ export async function toolGenerateOutreachEmail(input: {
   }
 }
 
-// ── Tool 5: Send Email via Pipedrive ─────────────────────────────────────────
+// ── Tool 5: Send Email via Amazon SES ────────────────────────────────────────
 
-export async function toolSendEmail(input: {
-  email_id: string;
-}): Promise<ToolResult> {
-  const sb = supabaseAdmin();
+export async function toolSendEmail(
+  input: { email_id: string },
+  deps: { send?: MailSender; appUrl?: string; sb?: ReturnType<typeof supabaseAdmin> } = {},
+): Promise<ToolResult> {
+  const sb = deps.sb ?? supabaseAdmin();
 
-  // An email whose last send has an unknown outcome is never sent again until
-  // a person reconciles it, or the recipient could be contacted twice.
+  const { data: row } = await sb
+    .from("emails")
+    .select("id, status, recipient, company_id, proposal_id, sender_member_id, tenant_id, subject, body_text, body_html, approved_at, metadata")
+    .eq("id", input.email_id)
+    .maybeSingle();
+  if (!row) return { success: false, data: { sent: false }, summary: "Email not found" };
+
+  // Same gates as the human send route: never self-approve; only send approved content.
+  if (row.status !== "approved") {
+    return {
+      success: false,
+      data: { sent: false, blocked: true },
+      summary: `Email must be approved before sending (current status: "${row.status}"). The agent cannot approve its own emails.`,
+    };
+  }
+
+  const reserved = reservedRecipientBlock(String(row.recipient ?? ""));
+  if (reserved) {
+    return { success: false, data: { sent: false, blocked: true }, summary: `Not sending: ${reserved.message}` };
+  }
+
   const pre = await loadDelivery(sb, null, input.email_id);
   if (pre && !pre.view.canSend && pre.view.state !== "crm_activity_recorded") {
     return { success: false, data: { sent: false }, summary: `Not sending: ${pre.view.blockedReason}` };
   }
 
-  // Do-not-contact, dead addresses and revoked signers: refused before anything is claimed or sent.
-  {
-    const { data: row } = await sb.from("emails").select("recipient, company_id, proposal_id, sender_member_id, tenant_id").eq("id", input.email_id).maybeSingle();
-    if (row) {
-      const standing = await checkSend(sb, (row as { tenant_id: string }).tenant_id, row as { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null });
-      if (!standing.allowed) return { success: false, data: { sent: false, blocked: true }, summary: `Not sending: ${standing.blocks[0].message}` };
-    }
+  const standing = await checkSend(
+    sb,
+    (row as { tenant_id: string }).tenant_id,
+    row as { recipient: string; company_id?: string | null; proposal_id?: string | null; sender_member_id?: string | null },
+  );
+  if (!standing.allowed) {
+    return { success: false, data: { sent: false, blocked: true }, summary: `Not sending: ${standing.blocks[0].message}` };
   }
 
-  // Infrastructure-enforced send gate: atomically claim the email by flipping
-  // it to a transient "sending" status, guarded on it not already being
-  // sent/sending. Two concurrent callers (double-click, retry, two approve
-  // routes) race on this single UPDATE — only one can win the WHERE clause,
-  // so at most one ever proceeds to actually send. A prior SELECT-then-UPDATE
-  // here left a real window where both could pass the check and send twice.
   const { data: claimed } = await sb
     .from("emails")
     .update({ status: "sending" })
     .eq("id", input.email_id)
-    .neq("status", "sent")
-    .neq("status", "sending")
+    .eq("status", "approved")
     .select("*")
     .maybeSingle();
 
@@ -491,10 +507,85 @@ export async function toolSendEmail(input: {
   }
 
   const email = claimed;
+  const tenantId = String(email.tenant_id);
+
+  await recordMessageEventSafe(sb, tenantId, String(email.id), {
+    event_type: "send_attempted",
+    source: "platform",
+    detail: { by: "agent" },
+  });
+
+  let bareMessageId: string;
+  let rawMessageId: string;
+  try {
+    const club = await resolveClubContext(tenantId);
+    const clubName = club.club_facts.short_name ?? club.club_facts.club_name;
+    const sesResult = await sendOutreachEmail(
+      {
+        to: String(email.recipient ?? ""),
+        subject: String(email.subject ?? ""),
+        bodyText: String(email.body_text ?? ""),
+        bodyHtml: email.body_html ? String(email.body_html) : null,
+        tenantId,
+        appUrl: deps.appUrl ?? resolveAppUrl(),
+        clubName,
+      },
+      { send: deps.send },
+    );
+    bareMessageId = sesResult.bareMessageId;
+    rawMessageId = sesResult.rawMessageId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.warn("Agent tool send_email SES failed", { error: message });
+    if (isUncertainSesFailure(err)) {
+      await recordMessageEventSafe(sb, tenantId, String(email.id), {
+        event_type: "outcome_unknown",
+        source: "provider",
+        provider: "ses",
+        detail: { error: message, by: "agent" },
+      });
+      await sb
+        .from("emails")
+        .update({ status: "sending", status_reason: "Send unconfirmed — do not retry until reconciled" })
+        .eq("id", input.email_id)
+        .eq("status", "sending");
+      return {
+        success: false,
+        data: { sent: false, unconfirmed: true },
+        summary: `Send unconfirmed via Amazon SES (do not retry): ${message}`,
+      };
+    }
+    await recordMessageEventSafe(sb, tenantId, String(email.id), {
+      event_type: "failed",
+      source: "provider",
+      provider: "ses",
+      detail: { error: message, by: "agent" },
+    });
+    await sb
+      .from("emails")
+      .update({ status: "approved", status_reason: null })
+      .eq("id", input.email_id)
+      .eq("status", "sending");
+    return { success: false, data: { sent: false }, summary: `Send failed via Amazon SES: ${message}` };
+  }
+
+  await recordMessageEventSafe(sb, tenantId, String(email.id), {
+    event_type: "provider_accepted",
+    source: "provider",
+    provider: "ses",
+    provider_receipt_id: bareMessageId,
+    detail: { by: "agent", provider_message_id_raw: rawMessageId },
+  });
+
+  const sentMetadata = {
+    ...(email.metadata as Record<string, unknown> ?? {}),
+    provider_message_id: bareMessageId,
+    provider_message_id_raw: rawMessageId,
+    sent_by_agent: true,
+  };
 
   try {
-    // The activity goes on the proposal's deal, found by its stored link; if there is none yet, the deal is created first.
-    const pd = pushContext(sb, String(email.tenant_id), agent("outreach-agent"), "email_logged", String(email.id));
+    const pd = pushContext(sb, tenantId, agent("outreach-agent"), "email_logged", String(email.id));
     if (email.proposal_id) {
       const ids = await resolveProposalPipedriveIds(sb, email.proposal_id as string);
       if (!ids.dealId) await enqueueCrmSync({ entity_type: "proposal", entity_id: email.proposal_id as string, operation: "create" }, pd);
@@ -507,44 +598,69 @@ export async function toolSendEmail(input: {
 
     await sb.from("emails").update({
       status: "sent",
-      approved_at: new Date().toISOString(),
+      // Preserve existing approval — never approve as a side effect of send.
+      approved_at: email.approved_at,
       sent_at: new Date().toISOString(),
+      status_reason: null,
       metadata: {
-        ...(email.metadata as Record<string, unknown> ?? {}),
+        ...sentMetadata,
         pipedrive_activity_id: activity_id,
         pipedrive_error: pdError ?? null,
-        sent_by_agent: true,
       },
     }).eq("id", email.id);
 
-    await recordMessageEventSafe(sb, String(email.tenant_id), String(email.id), {
+    await recordMessageEventSafe(sb, tenantId, String(email.id), {
       event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
       source: "crm",
       detail: { pipedrive_activity_id: activity_id, error: pdError ?? null, by: "agent" },
     });
 
     return {
-      success: !pdError,
+      success: true,
       data: {
         sent: true,
+        provider_message_id: bareMessageId,
         pipedrive_activity_id: activity_id,
         pipedrive_error: pdError ?? null,
       },
-      // Truthful on purpose: nothing here emails the recipient, it logs the send in the CRM.
       summary: pdError
-        ? `Email marked sent, but CRM logging failed: ${pdError}. This platform has no email provider connected, so the recipient was not emailed by it.`
-        : `Email marked sent and logged in the CRM (Pipedrive activity #${activity_id}). This platform has no email provider connected, so the recipient was not emailed by it.`,
+        ? `Email accepted by Amazon SES (message ${bareMessageId}); CRM logging failed: ${pdError}`
+        : `Email sent via Amazon SES (message ${bareMessageId}) and logged in Pipedrive (activity #${activity_id})`,
     };
   } catch (err) {
-    logger.warn("Agent tool send_email failed", { error: String(err) });
-    // Release the claim so the email isn't stranded in "sending" forever —
-    // only revert if it's still "sending" (don't clobber a status a retry
-    // or another path may have already moved forward from).
-    await sb.from("emails").update({ status: "pending_approval" }).eq("id", input.email_id).eq("status", "sending");
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error("Agent outreach SES accepted but DB/CRM persistence failed — do not retry send", {
+      email_id: input.email_id,
+      provider_message_id: bareMessageId,
+      provider_message_id_raw: rawMessageId,
+      error: message,
+    });
+    const { data: fallback } = await sb.from("emails").update({
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      status_reason: null,
+      metadata: { ...sentMetadata, pipedrive_error: message },
+    }).eq("id", input.email_id).eq("status", "sending").select("id").maybeSingle();
+
+    if (!fallback) {
+      await recordMessageEventSafe(sb, tenantId, String(email.id), {
+        event_type: "outcome_unknown",
+        source: "platform",
+        provider: "ses",
+        provider_receipt_id: bareMessageId,
+        detail: { error: message, by: "agent" },
+      });
+      await sb.from("emails").update({
+        status: "sending",
+        status_reason: `Send unconfirmed after SES accept (message ${bareMessageId}) — do not retry`,
+        metadata: sentMetadata,
+      }).eq("id", input.email_id);
+    }
+
     return {
-      success: false,
-      data: { sent: false },
-      summary: `Send failed: ${err instanceof Error ? err.message : String(err)}`,
+      success: true,
+      data: { sent: true, provider_message_id: bareMessageId },
+      summary: `Email accepted by Amazon SES (message ${bareMessageId}); CRM update failed: ${message}`,
     };
   }
 }

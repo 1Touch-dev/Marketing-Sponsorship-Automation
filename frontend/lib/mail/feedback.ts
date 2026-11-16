@@ -1,5 +1,7 @@
 import { recordSuppression } from "@/lib/contacts/store";
 import { CORITIBA_TENANT_ID } from "@/lib/tenants/types";
+import { recordMessageEventSafe } from "@/lib/messaging/store";
+import { normalizeSesMessageId } from "./outreach";
 
 type Sb = any;
 
@@ -45,11 +47,34 @@ export interface FeedbackResult { duplicate: boolean; suppressed: number; update
 export async function applyFeedback(sb: Sb, snsMessageId: string, ev: FeedbackEvent, payload: unknown): Promise<FeedbackResult> {
   const out: FeedbackResult = { duplicate: false, suppressed: 0, updated: 0 };
 
-  // Which club does this belong to? The delivery row knows; anything else (a portal login mail) is the default club.
+  // Which club does this belong to? Newsletter delivery row, else outreach message_events, else default club.
+  // Outreach stores the bare SES id (local-part); SNS may send the full id@email.amazonses.com form.
   let tenantId = CORITIBA_TENANT_ID;
-  if (ev.messageId) {
-    const { data: d } = await sb.from("newsletter_deliveries").select("tenant_id").eq("provider_message_id", ev.messageId).limit(1);
-    if (d?.[0]?.tenant_id) tenantId = d[0].tenant_id;
+  let outreachEmailId: string | null = null;
+  const ids = ev.messageId ? normalizeSesMessageId(ev.messageId) : null;
+  if (ids) {
+    const findNewsletterTenant = async (mid: string) => {
+      const { data } = await sb.from("newsletter_deliveries").select("tenant_id").eq("provider_message_id", mid).limit(1);
+      return data?.[0]?.tenant_id as string | undefined;
+    };
+    const nlTenant = (await findNewsletterTenant(ids.raw)) ?? (ids.bare !== ids.raw ? await findNewsletterTenant(ids.bare) : undefined);
+    if (nlTenant) tenantId = nlTenant;
+    else {
+      const findOutreach = async (mid: string) => {
+        const { data } = await sb
+          .from("message_events")
+          .select("tenant_id, email_id")
+          .eq("event_type", "provider_accepted")
+          .eq("provider_receipt_id", mid)
+          .limit(1);
+        return data?.[0] as { tenant_id?: string; email_id?: string } | undefined;
+      };
+      const me = (await findOutreach(ids.bare)) ?? (ids.bare !== ids.raw ? await findOutreach(ids.raw) : undefined);
+      if (me?.tenant_id) {
+        tenantId = me.tenant_id;
+        outreachEmailId = me.email_id ?? null;
+      }
+    }
   }
 
   const { error } = await sb.from("mail_feedback_events").insert({
@@ -70,6 +95,36 @@ export async function applyFeedback(sb: Sb, snsMessageId: string, ev: FeedbackEv
     out.updated += data?.length ?? 0;
   };
 
+  /** Permanent bounce (or reject) on an SES outreach send: flip the emails row and record a provider event. */
+  const touchOutreach = async (kind: "bounce" | "reject") => {
+    if (!outreachEmailId || !ev.messageId) return;
+    if (kind === "bounce") {
+      const { data } = await sb
+        .from("emails")
+        .update({ status: "bounced", status_reason: "Permanent bounce reported by Amazon SES" })
+        .eq("id", outreachEmailId)
+        .eq("tenant_id", tenantId)
+        .in("status", ["sent", "opened", "sending"])
+        .select("id");
+      out.updated += data?.length ?? 0;
+      await recordMessageEventSafe(sb, tenantId, outreachEmailId, {
+        event_type: "bounced",
+        source: "provider",
+        provider: "ses",
+        provider_receipt_id: ev.messageId,
+        detail: { bounce_type: ev.bounceType, via: "ses_feedback" },
+      });
+    } else {
+      await recordMessageEventSafe(sb, tenantId, outreachEmailId, {
+        event_type: "failed",
+        source: "provider",
+        provider: "ses",
+        provider_receipt_id: ev.messageId,
+        detail: { via: "ses_feedback", raw: ev.raw },
+      });
+    }
+  };
+
   for (const email of ev.recipients) {
     if (ev.kind === "bounce" || ev.kind === "complaint") {
       const r = await recordSuppression(sb, tenantId, {
@@ -79,6 +134,7 @@ export async function applyFeedback(sb: Sb, snsMessageId: string, ev: FeedbackEv
       });
       if (r.ok && !r.value.already) out.suppressed++;
       await touch(email, { status: ev.kind === "bounce" ? "bounced" : "complained", error: ev.kind === "bounce" ? "Permanent bounce" : "Complaint" });
+      // Complaint: keep emails.status as sent; suppression already blocks future mail.
     } else if (ev.kind === "delivery") {
       // Never move a recipient back from bounced/complained to delivered when events arrive out of order.
       await touch(email, { status: "delivered", delivered_at: now }, ["accepted"]);
@@ -88,5 +144,7 @@ export async function applyFeedback(sb: Sb, snsMessageId: string, ev: FeedbackEv
       await touch(email, {});
     }
   }
+  if (ev.kind === "bounce") await touchOutreach("bounce");
+  else if (ev.kind === "reject") await touchOutreach("reject");
   return out;
 }

@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NextResponse } from "next/server";
-import { countsLine } from "../lib/mail/newsletter-analytics";
+import { countsLine, isNewsletterUnsubSource } from "../lib/mail/newsletter-analytics";
 import { handleNewsletterAnalyticsGet } from "../lib/mail/newsletter-analytics-handler";
+
+test("isNewsletterUnsubSource accepts legacy and current sources", () => {
+  assert.equal(isNewsletterUnsubSource("newsletter_unsubscribe"), true);
+  assert.equal(isNewsletterUnsubSource("email_unsubscribe"), true);
+  assert.equal(isNewsletterUnsubSource("ses_feedback"), false);
+  assert.equal(isNewsletterUnsubSource(null), false);
+});
 
 test("countsLine shows delivery breakdown in status order", () => {
   assert.equal(

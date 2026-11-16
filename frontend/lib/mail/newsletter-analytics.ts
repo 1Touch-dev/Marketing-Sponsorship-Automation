@@ -66,6 +66,11 @@ export async function deliveryCountsByNewsletter(
 
 export type NewsletterUnsubscribe = { email: string; since: string; note: string | null };
 
+/** Legacy source name plus current unsubscribe-route source. */
+export function isNewsletterUnsubSource(source: string | null | undefined): boolean {
+  return source === "newsletter_unsubscribe" || source === "email_unsubscribe";
+}
+
 /** Current do-not-contact rows created by the newsletter unsubscribe link. */
 export async function newsletterUnsubscribes(
   sb: Sb,
@@ -76,7 +81,7 @@ export async function newsletterUnsubscribes(
     return { ok: false, missing: listed.status === 503, error: listed.error };
   }
   const rows = listed.value
-    .filter((r) => r.source === "newsletter_unsubscribe" && !!r.email)
+    .filter((r) => isNewsletterUnsubSource(r.source) && !!r.email)
     .map((r) => ({ email: r.email as string, since: r.since, note: r.note }));
   return { ok: true, rows };
 }

@@ -119,11 +119,15 @@ export function EmailActions({ email }: { email: EmailRow }) {
       }
       if (j.pipedrive_activity_id) setPipedriveId(j.pipedrive_activity_id);
       if (j.pipedrive_warning) {
-        toast({ variant: "destructive", title: "Pipedrive warning", description: j.pipedrive_warning });
+        toast({
+          variant: mode === "send" ? "success" : "destructive",
+          title: mode === "send" ? "Email sent via Amazon SES" : "Pipedrive warning",
+          description: j.pipedrive_warning,
+        });
       } else {
         toast({
           variant: "success",
-          title: mode === "send" ? "Email logged as sent in Pipedrive" : "Email approved & logged to Pipedrive",
+          title: mode === "send" ? "Email sent via Amazon SES" : "Email approved & logged to Pipedrive",
         });
       }
       router.refresh();
@@ -293,10 +297,10 @@ export function EmailActions({ email }: { email: EmailRow }) {
           <CardTitle>Actions</CardTitle>
           <CardDescription>
             {isSent
-              ? "Email has been sent and logged to Pipedrive."
+              ? "Delivered via Amazon SES (and logged to Pipedrive when that succeeds)."
               : isApproved
-              ? "Email is approved. Send when ready."
-              : "Approve to log this email activity in Pipedrive."}
+              ? "Content approved. Send email delivers it to the recipient via Amazon SES. Test sends a Gmail preview copy only."
+              : "Approve marks content OK and logs to Pipedrive. It does not email the recipient."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -324,7 +328,7 @@ export function EmailActions({ email }: { email: EmailRow }) {
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
-                Recipient uses a reserved/test domain. Approve and Mark as Sent are blocked.
+                Recipient uses a reserved/test domain. Approve and Send email are blocked.
               </p>
             </div>
           ) : null}
@@ -353,7 +357,7 @@ export function EmailActions({ email }: { email: EmailRow }) {
               className="flex-1"
             >
               <Send className="h-4 w-4 mr-2" />
-              {busy === "send" ? "Sending…" : "Mark as Sent in Pipedrive"}
+              {busy === "send" ? "Sending…" : "Send email"}
             </Button>
             <Button
               variant="outline"
