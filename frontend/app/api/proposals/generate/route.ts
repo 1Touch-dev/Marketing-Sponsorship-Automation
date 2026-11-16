@@ -39,6 +39,7 @@ import {
 } from "@/lib/ai/schemas";
 import type { ProposalContent } from "@/types/database";
 import { guardColumns } from "@/lib/db/column-guard";
+import { meetingLinkForUser } from "@/lib/proposals/meeting-link";
 import { resolveClubContext } from "@/lib/tenants/club-context";
 import { userActor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
@@ -262,6 +263,7 @@ async function postHandler(req: Request) {
     content: proposalContent as unknown as ProposalContent,
     content_md: contentMd,
     status: "draft" as const,
+    meeting_link: meetingLinkForUser(auth.user),
     generated_by: "bedrock-claude",
     model_id: env.BEDROCK_MODEL_ID,
     prompt_version: PROMPT_VERSION,

@@ -73,7 +73,7 @@ const DEFAULT_TENANT_DISPLAY = {
   isCoritiba: true,
   clubName: "Coritiba FC",
   clubFullName: "Coritiba Foot Ball Club",
-  crestUrl: "/brand/coritiba-crest.png",
+  crestUrl: "/brand/coritiba_logo.png",
   stadiumName: "Estádio Couto Pereira",
   city: "Curitiba",
   state: "Paraná",
@@ -380,9 +380,13 @@ export function ProposalLandingPage({
                   />
                 </div>
               ) : (
-                <div className="w-14 h-14 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white">
-                  <Building2 className="h-6 w-6" aria-hidden />
-                  <span className="sr-only">{company.company_name}</span>
+                <div
+                  className="min-w-[3.5rem] max-w-[9rem] h-14 px-2.5 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-white"
+                  title={company.company_name}
+                >
+                  <span className="text-sm font-semibold leading-tight text-center line-clamp-2">
+                    {company.company_name}
+                  </span>
                 </div>
               )}
             </div>

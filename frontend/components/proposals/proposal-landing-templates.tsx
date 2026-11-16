@@ -59,11 +59,7 @@ export function LandingTemplateMinimal({ proposal, company, campaign, tenant = D
           {company.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt={company.company_name} className="h-10 object-contain" />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-lg">
-              {company.company_name[0]}
-            </div>
-          )}
+          ) : null}
           <div>
             <h1 className="text-lg font-bold text-slate-800">{company.company_name}</h1>
             {company.industry && <p className="text-xs text-slate-500">{company.industry}</p>}
@@ -320,9 +316,9 @@ export function LandingTemplateOneOffer({ proposal, company, campaign, tenant = 
               // eslint-disable-next-line @next/next/no-img-element
               <img src={company.logo_url} alt={company.company_name} className="h-12 object-contain mb-6" />
             ) : (
-              <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl mb-6">
-                {company.company_name[0]}
-              </div>
+              <p className="text-sm font-semibold text-white mb-6" title={company.company_name}>
+                {company.company_name}
+              </p>
             )}
             <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs font-semibold text-white/80 mb-4">
               <Tag className="h-3 w-3" /> Oferta Exclusiva
@@ -436,9 +432,13 @@ export function LandingTemplateInventoryMenu({ proposal, company, campaign, tena
       {/* Hero */}
       <header className="text-white px-8 py-14 text-center" style={{ background: "linear-gradient(135deg, #003A2D 0%, #005742 100%)" }}>
         <div className="flex items-center justify-center gap-3 mb-4">
-          {company.logo_url && (
+          {company.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt={company.company_name} className="h-10 object-contain" />
+          ) : (
+            <span className="text-sm font-semibold text-white" title={company.company_name}>
+              {company.company_name}
+            </span>
           )}
           <span className="text-white/40 text-2xl">×</span>
           <span className="text-sm font-bold text-white/90 uppercase tracking-widest">{tenant.clubName}</span>

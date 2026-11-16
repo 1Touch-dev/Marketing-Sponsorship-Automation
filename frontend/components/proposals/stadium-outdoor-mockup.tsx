@@ -178,39 +178,25 @@ export function StadiumOutdoorMockup({
 
       {/* Placement selector */}
       <div>
-        <div className="text-xs font-semibold text-slate-600 mb-2">Choose placement</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        <label htmlFor="stadium-placement" className="text-xs font-semibold text-slate-600 mb-2 block">
+          Choose placement
+        </label>
+        <select
+          id="stadium-placement"
+          value={placement}
+          onChange={(e) => setPlacement(e.target.value as StadiumPlacementId)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+        >
           {STADIUM_PLACEMENTS.map((p) => {
             const base = STADIUM_BASES[p.basePhoto];
             return (
-              <label
-                key={p.id}
-                className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${
-                  placement === p.id
-                    ? "border-amber-400 bg-amber-50 shadow-sm"
-                    : "border-slate-200 bg-white hover:border-amber-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="stadium-placement"
-                  value={p.id}
-                  checked={placement === p.id}
-                  onChange={() => setPlacement(p.id)}
-                  className="mt-0.5 accent-amber-600"
-                />
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-slate-700 flex items-center gap-1">
-                    <span>{PLACEMENT_ICONS[p.id] ?? "📍"}</span>
-                    {p.labelPt}
-                  </div>
-                  <div className="text-xs text-slate-400 leading-snug">{p.description}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5 italic">{base.labelPt}</div>
-                </div>
-              </label>
+              <option key={p.id} value={p.id}>
+                {PLACEMENT_ICONS[p.id] ? `${PLACEMENT_ICONS[p.id]} ` : ""}
+                {p.labelPt} — {base.labelPt}
+              </option>
             );
           })}
-        </div>
+        </select>
       </div>
 
       {/* Selected photo preview label */}

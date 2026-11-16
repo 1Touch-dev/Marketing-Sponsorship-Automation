@@ -13,6 +13,7 @@ import { resolveClubContext } from "@/lib/tenants/club-context";
 import { soldOutLines, type InventoryLike } from "@/lib/inventory/availability";
 import { userActor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
+import { meetingLinkForUser } from "@/lib/proposals/meeting-link";
 
 export const maxDuration = 90;
 
@@ -227,6 +228,7 @@ async function postHandler(req: Request) {
       selected_strategies: selectedStrategies,
       version: 1,
       prompt_version: PROMPT_VERSION,
+      meeting_link: meetingLinkForUser(auth.user),
     };
     if (body.match_id) proposalRow.match_id = body.match_id;
 

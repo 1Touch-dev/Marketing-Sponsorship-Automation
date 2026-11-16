@@ -186,6 +186,8 @@ export interface ProposalContent {
   deliverables?: string[];
   investment_note?: string;
   cta?: string;
+  /** Which A/B/C option was applied to `cta` in the section picker (audit). */
+  cta_selected_option?: string;
   /** Task 8 — personalized video intro block, shown near the top of the
    *  public share page (distinct from campaign_video_url, the generic
    *  mid-page campaign video). A short, sponsor-specific welcome message
@@ -212,6 +214,8 @@ export interface Proposal {
   status: ProposalStatus;
   status_reason: string | null;
   version: number;
+  /** Public “Agendar Reunião” href; empty/null → mailto fallback on share page. */
+  meeting_link?: string | null;
   generated_by: string | null;
   model_id: string | null;
   prompt_version: string | null;

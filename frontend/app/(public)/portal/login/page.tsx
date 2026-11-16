@@ -26,7 +26,7 @@ export default function PortalLoginPage() {
       <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 shadow-xl p-8">
         <div className="flex items-center gap-3 mb-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/coritiba-crest.png" alt="Coritiba FC" className="h-10 w-10 object-contain" />
+          <img src="/brand/coritiba_logo.png" alt="Coritiba FC" className="h-10 w-10 object-contain" />
           <div>
             <div className="text-sm font-bold text-slate-800">Portal do Patrocinador</div>
             <div className="text-xs text-slate-400">Coritiba FC</div>

@@ -8,7 +8,7 @@ import { ProposalGraphicsPanel } from "@/components/proposals/proposal-graphics-
 import type { StrategyVariant } from "@/lib/ai/schemas";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { ProposalContent } from "@/types/database";
+import type { Proposal, ProposalContent } from "@/types/database";
 import { formatDate } from "@/lib/utils";
 import { ArrowLeft, Edit3, Eye, Clock, Building2, Layers, FileText, Image as ImageIcon, CalendarClock } from "lucide-react";
 import { ExpiryDateField } from "./expiry-date-field";
@@ -146,7 +146,7 @@ export default async function ProposalEditPage({ params }: { params: { id: strin
             id={proposal.id}
             initialTitle={proposal.title}
             initialContent={proposal.content as ProposalContent}
-            initialMeetingLink={(proposal as unknown as { meeting_link?: string | null }).meeting_link}
+            initialMeetingLink={(proposal as Proposal).meeting_link}
             proposalStatus={proposal.status}
             versions={versions ?? []}
             companyName={p.companies?.company_name}

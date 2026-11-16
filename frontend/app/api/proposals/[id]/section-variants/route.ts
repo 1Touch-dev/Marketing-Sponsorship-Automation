@@ -50,13 +50,19 @@ export async function POST(
   if ("error" in auth) return auth.error;
 
   try {
-    const { section, company_name, industry, campaign_title, current_text } = await req.json() as {
+    const { section, company_name, industry, campaign_title, current_text, language } = await req.json() as {
       section: string;
       company_name?: string;
       industry?: string;
       campaign_title?: string;
       current_text?: string;
+      language?: "pt" | "en";
     };
+    const outputLang = language === "en" ? "en" : "pt";
+    const languageRule =
+      outputLang === "en"
+        ? 'Write the JSON "text" value in English.'
+        : 'Write the JSON "text" value entirely in Brazilian Portuguese (pt-BR). Do not write the section body in English.';
 
     const tenant: ClubContextInput = await resolveClubContext(auth.user.tenant_id);
     const clubName = tenant.club_facts.short_name ?? tenant.club_facts.club_name;
@@ -89,6 +95,7 @@ export async function POST(
         `The club plays at ${stadiumName} in ${region}, Brazil.`,
         `${clubName}'s identity: ${tenant.branding.primary_color ? "its official brand colors" : "its club identity"}, traditional, community-driven.`,
         `Writing style for this variant: ${style}`,
+        languageRule,
         "Output MUST be a JSON object with a single key: { \"text\": \"your content here\" }",
         "No markdown, no fences, no explanation — just the JSON object.",
       ].join("\n");

@@ -12,7 +12,7 @@ import { PortalShell } from "../../portal-shell";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_CLUB_NAME = "Coritiba FC";
-const DEFAULT_CREST = "/brand/coritiba-crest.png";
+const DEFAULT_CREST = "/brand/coritiba_logo.png";
 const COUNTS = [
   ["sold", "Vendidos"],
   ["scheduled", "Agendados"],

@@ -15,7 +15,7 @@ import { PortalDeliveryList, type PortalDeliveryItem } from "./portal-delivery";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_CLUB_NAME = "Coritiba FC";
-const DEFAULT_CREST = "/brand/coritiba-crest.png";
+const DEFAULT_CREST = "/brand/coritiba_logo.png";
 const DEFAULT_PRIMARY_HEX = "#1a8f3c"; // Coritiba green
 
 export default async function PortalDashboardPage() {
