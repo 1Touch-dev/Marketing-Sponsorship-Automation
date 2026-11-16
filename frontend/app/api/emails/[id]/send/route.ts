@@ -14,6 +14,14 @@ import { loadDelivery, recordMessageEventSafe } from "@/lib/messaging/store";
 import { userActor, type Actor } from "@/lib/identity/actor";
 import { idempotent } from "@/lib/idempotency";
 import { reservedRecipientBlock } from "@/lib/email/reserved-recipient";
+import {
+  isUncertainSesFailure,
+  OutreachMailNotConfiguredError,
+  sendOutreachEmail,
+} from "@/lib/mail/outreach";
+import { MailError } from "@/lib/mail/ses";
+import { resolveAppUrl } from "@/lib/url";
+import { logger } from "@/lib/monitoring/logger";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -95,12 +103,9 @@ async function sendTestCopy(
  * Body: { mode?: "draft" | "send", test_only?: boolean, test_recipient?: string }
  *
  * "draft" = mark email as approved in DB + log activity to Pipedrive as scheduled (done:0)
- * "send"  = mark email as sent in DB + log activity to Pipedrive as done (done:1) —
+ * "send"  = deliver via Amazon SES, then mark sent + log Pipedrive activity —
  *           only allowed once the email is already in "approved" status.
- * test_only=true bypasses both of the above entirely — see sendTestCopy().
- *
- * Uses Pipedrive Activities API (type: "email") instead of Gmail.
- * Looks up pipedrive_deal_id / pipedrive_org_id from the linked proposal's company JSONB.
+ * test_only=true bypasses both of the above entirely — see sendTestCopy() (Gmail).
  */
 async function postHandler(req: Request, ctx: { params: { id: string } }) {
   const auth = await requirePermission("send_proposal");
@@ -243,15 +248,153 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
     metadata: { mode },
   });
 
-  // Everything from here on can fail partway through (Pipedrive call, DB
-  // write) — if it does after we've claimed "sending" above, release the
-  // claim so the email isn't stranded in an unsendable limbo forever.
+  // Approve path: content OK + Pipedrive note only (no SES).
+  if (mode === "draft") {
+    let activity_id: number | null = null;
+    let pdError: string | null = null;
+    let updated: Record<string, unknown> | null = null;
+    try {
+      const pdResult = await logEmailToPipedrive(
+        pushContext(sb, auth.user.tenant_id, person(auth.user.email), "email_logged", email.id),
+        email.proposal_id ?? null,
+        { subject: email.subject, bodyHtml: email.body_html ?? email.body_text ?? "" },
+      );
+      activity_id = pdResult.activity_id;
+      pdError = pdResult.error ?? null;
+
+      const { data: updatedRow, error: updErr } = await sb
+        .from("emails")
+        .update({
+          status: "approved",
+          approved_at: new Date().toISOString(),
+          metadata: {
+            ...(email.metadata as Record<string, unknown> ?? {}),
+            pipedrive_activity_id: activity_id,
+            pipedrive_error: pdError ?? null,
+          },
+        })
+        .eq("id", email.id)
+        .eq("tenant_id", auth.user.tenant_id)
+        .select("*")
+        .single();
+      if (updErr) throw new Error(updErr.message);
+      updated = updatedRow;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (eventId) await failWorkflow(eventId, message);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
+    if (eventId) await completeWorkflow(eventId, { pipedrive_activity_id: activity_id, mode });
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: "content_approved", source: "platform", actor_user_id: auth.user.id, actor_email: auth.user.email,
+    });
+    const deliveryAfter = await loadDelivery(sb, auth.user.tenant_id, email.id);
+    await recordAudit({
+      actor: userActor(auth.user),
+      entity_type: "email",
+      entity_id: email.id,
+      action: "email.draft_created",
+      metadata: { recipient: email.recipient, pipedrive_activity_id: activity_id, pipedrive_error: pdError ?? null },
+    });
+    return NextResponse.json({
+      data: updated,
+      pipedrive_activity_id: activity_id,
+      pipedrive_warning: pdError ? `Pipedrive log failed: ${pdError}` : null,
+      delivery: deliveryAfter?.view ?? null,
+    });
+  }
+
+  // Send path: SES first, then mark sent + Pipedrive. Recipient already has the mail if SES accepted.
   let activity_id: number | null = null;
   let pdError: string | null = null;
   let updated: Record<string, unknown> | null = null;
+  let bareMessageId: string | null = null;
+  let rawMessageId: string | null = null;
+
+  await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+    event_type: "send_attempted",
+    source: "platform",
+    actor_user_id: auth.user.id,
+    actor_email: auth.user.email,
+  });
+
   try {
-    // The activity is logged on the proposal's deal, found by its stored link. This records that Coxa put a note in the CRM;
-    // it says nothing about the email having been delivered.
+    const sesResult = await sendOutreachEmail({
+      to: String(email.recipient ?? ""),
+      subject: String(email.subject ?? ""),
+      bodyText: String(email.body_text ?? ""),
+      bodyHtml: email.body_html ? String(email.body_html) : null,
+      replyTo: null,
+      tenantId: auth.user.tenant_id,
+      appUrl: resolveAppUrl(req),
+    });
+    bareMessageId = sesResult.bareMessageId;
+    rawMessageId = sesResult.rawMessageId;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const uncertain = isUncertainSesFailure(err);
+
+    if (uncertain) {
+      // SES may already have accepted — do not revert to approved (would allow a double send).
+      await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+        event_type: "outcome_unknown",
+        source: "provider",
+        provider: "ses",
+        detail: { error: message },
+      });
+      await sb
+        .from("emails")
+        .update({
+          status: "sending",
+          status_reason: "Send unconfirmed — do not retry until reconciled",
+        })
+        .eq("id", email.id)
+        .eq("tenant_id", auth.user.tenant_id)
+        .eq("status", "sending");
+      if (eventId) await failWorkflow(eventId, message);
+      return NextResponse.json(
+        {
+          error: message,
+          code: "send_unconfirmed",
+          hint: "The provider may already have the message. Do not click Send again until this is reconciled.",
+        },
+        { status: 504 },
+      );
+    }
+
+    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+      event_type: "failed",
+      source: "provider",
+      provider: "ses",
+      detail: { error: message },
+    });
+    await sb
+      .from("emails")
+      .update({ status: "approved", status_reason: null })
+      .eq("id", email.id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .eq("status", "sending");
+    if (eventId) await failWorkflow(eventId, message);
+    const status = err instanceof OutreachMailNotConfiguredError ? 503 : err instanceof MailError ? 502 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+
+  await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+    event_type: "provider_accepted",
+    source: "provider",
+    provider: "ses",
+    provider_receipt_id: bareMessageId,
+    detail: { provider_message_id_raw: rawMessageId },
+  });
+
+  const sentMetadata = {
+    ...(email.metadata as Record<string, unknown> ?? {}),
+    provider_message_id: bareMessageId,
+    provider_message_id_raw: rawMessageId,
+  };
+
+  try {
     const pdResult = await logEmailToPipedrive(
       pushContext(sb, auth.user.tenant_id, person(auth.user.email), "email_logged", email.id),
       email.proposal_id ?? null,
@@ -260,72 +403,105 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
     activity_id = pdResult.activity_id;
     pdError = pdResult.error ?? null;
 
-    const updates: Record<string, unknown> = {
-      status: mode === "send" ? "sent" : "approved",
-      approved_at: new Date().toISOString(),
-      // Store Pipedrive activity ID in metadata field
-      metadata: {
-        ...(email.metadata as Record<string, unknown> ?? {}),
-        pipedrive_activity_id: activity_id,
-        pipedrive_error: pdError ?? null,
-      },
-    };
-
-    if (mode === "send") {
-      updates.sent_at = new Date().toISOString();
-    }
-
     const { data: updatedRow, error: updErr } = await sb
       .from("emails")
-      .update(updates)
+      .update({
+        status: "sent",
+        approved_at: email.approved_at ?? new Date().toISOString(),
+        sent_at: new Date().toISOString(),
+        status_reason: null,
+        metadata: {
+          ...sentMetadata,
+          pipedrive_activity_id: activity_id,
+          pipedrive_error: pdError ?? null,
+        },
+      })
       .eq("id", email.id)
       .eq("tenant_id", auth.user.tenant_id)
       .select("*")
       .single();
-
     if (updErr) throw new Error(updErr.message);
     updated = updatedRow;
   } catch (err) {
-    if (mode === "send") {
-      await sb
+    // SES already accepted — never retry SES; never revert to approved.
+    const message = err instanceof Error ? err.message : String(err);
+    pdError = pdError ?? message;
+    logger.error("Outreach SES accepted but DB/CRM persistence failed — do not retry send", {
+      route: "/api/emails/[id]/send",
+      email_id: email.id,
+      provider_message_id: bareMessageId,
+      provider_message_id_raw: rawMessageId,
+      error: message,
+    });
+
+    const { data: fallback } = await sb
+      .from("emails")
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        status_reason: null,
+        metadata: {
+          ...sentMetadata,
+          pipedrive_error: pdError,
+        },
+      })
+      .eq("id", email.id)
+      .eq("tenant_id", auth.user.tenant_id)
+      .select("*")
+      .maybeSingle();
+
+    if (fallback) {
+      updated = fallback;
+    } else {
+      await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+        event_type: "outcome_unknown",
+        source: "platform",
+        provider: "ses",
+        provider_receipt_id: bareMessageId,
+        detail: { error: message, note: "SES accepted; row update failed" },
+      });
+      const { data: stuck } = await sb
         .from("emails")
-        .update({ status: "pending_approval" })
+        .update({
+          status: "sending",
+          status_reason: `Send unconfirmed after SES accept (message ${bareMessageId}) — do not retry`,
+          metadata: sentMetadata,
+        })
         .eq("id", email.id)
         .eq("tenant_id", auth.user.tenant_id)
-        .eq("status", "sending");
+        .select("*")
+        .maybeSingle();
+      updated = stuck;
     }
-    const message = err instanceof Error ? err.message : String(err);
-    if (eventId) await failWorkflow(eventId, message);
-    return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
+    event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
+    source: "crm",
+    actor_user_id: auth.user.id,
+    actor_email: auth.user.email,
+    detail: { pipedrive_activity_id: activity_id, error: pdError ?? null },
+  });
 
   if (eventId) {
-    await completeWorkflow(eventId, { pipedrive_activity_id: activity_id, mode });
+    await completeWorkflow(eventId, {
+      pipedrive_activity_id: activity_id,
+      mode,
+      provider_message_id: bareMessageId,
+    });
   }
 
-  // Record what actually happened. Approving is one fact; logging an activity
-  // in the CRM is another. Neither means the recipient has the message.
-  if (mode === "draft") {
-    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
-      event_type: "content_approved", source: "platform", actor_user_id: auth.user.id, actor_email: auth.user.email,
-    });
-  } else {
-    await recordMessageEventSafe(sb, auth.user.tenant_id, email.id, {
-      event_type: pdError ? "crm_activity_failed" : "crm_activity_recorded",
-      source: "crm",
-      actor_user_id: auth.user.id,
-      actor_email: auth.user.email,
-      detail: { pipedrive_activity_id: activity_id, error: pdError ?? null },
-    });
-  }
   const deliveryAfter = await loadDelivery(sb, auth.user.tenant_id, email.id);
 
-  await recordAudit({ actor: userActor(auth.user),
+  await recordAudit({
+    actor: userActor(auth.user),
     entity_type: "email",
     entity_id: email.id,
-    action: mode === "send" ? "email.sent" : "email.draft_created",
+    action: "email.sent",
     metadata: {
       recipient: email.recipient,
+      provider_message_id: bareMessageId,
+      provider_message_id_raw: rawMessageId,
       pipedrive_activity_id: activity_id,
       pipedrive_error: pdError ?? null,
     },
@@ -333,6 +509,7 @@ async function postHandler(req: Request, ctx: { params: { id: string } }) {
 
   return NextResponse.json({
     data: updated,
+    provider_message_id: bareMessageId,
     pipedrive_activity_id: activity_id,
     pipedrive_warning: pdError ? `Pipedrive log failed: ${pdError}` : null,
     delivery: deliveryAfter?.view ?? null,
