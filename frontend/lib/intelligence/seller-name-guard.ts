@@ -3,7 +3,15 @@
  * Skip aggregate / group / cluster labels so they never become companies.
  */
 
-const AGGREGATE_MARKERS = ["cluster", "rede de", "patrocinadores", "network of"] as const;
+/** Always-aggregate phrases — matched with word boundaries (not plain substring). */
+const HARD_AGGREGATE_RES = [
+  /\bcluster\b/,
+  /\bnetwork\s+of\b/,
+  /\bpatrocinadores\b/,
+] as const;
+
+/** "rede de …" is often an aggregate label, but real brands use it too ("Rede de Hotéis X"). */
+const REDE_DE_RE = /\brede\s+de\b/;
 
 // s.a. / s.a end on a non-word char, so do not require a trailing \b after the dots.
 const LEGAL_SUFFIX_RE = /(?:\b(?:ltda|eireli|me|sa)\b|\bs\.a\.?|\bs\/a\b)/;
@@ -27,6 +35,7 @@ const NON_BRAND_TOKENS = new Set([
   "o",
   "as",
   "os",
+  "rede",
   "distribuidoras",
   "empresas",
   "fabricantes",
@@ -113,7 +122,14 @@ export function isAggregateSellerName(name: string): boolean {
   const normalized = normalizeSellerName(name);
   if (!normalized) return true;
 
-  if (AGGREGATE_MARKERS.some((m) => normalized.includes(m))) return true;
+  if (HARD_AGGREGATE_RES.some((re) => re.test(normalized))) return true;
+
+  // "rede de …" — aggregate unless a legal suffix or brand-like name remains.
+  if (REDE_DE_RE.test(normalized)) {
+    if (hasLegalSuffix(normalized)) return false;
+    if (hasBrandLikeProperName(normalized)) return false;
+    return true;
+  }
 
   // Plural industry collectives ("distribuidoras de…") only when no legal suffix and no brand.
   if (PLURAL_COLLECTIVE_RE.test(normalized)) {
