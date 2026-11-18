@@ -3,11 +3,23 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/auth/roles";
 import { requirePermission } from "@/lib/auth/server-permission";
 import { resolveTenantId } from "@/lib/tenants/current";
+import {
+  findAuthUserByEmail,
+  issuePasswordLinkEmail,
+  listAuthEmailsLower,
+  passwordLinkAuditMeta,
+} from "@/lib/auth/password-links";
+import { recordAudit } from "@/lib/audit/log";
+import { userActor } from "@/lib/identity/actor";
+import { resolveAppUrl } from "@/lib/url";
 
 export const runtime = "nodejs";
 
 // GET /api/users — list all platform users (scoped to the caller's own tenant)
 export async function GET() {
+  const auth = await requirePermission("manage_users");
+  if ("error" in auth) return auth.error;
+
   const sb = supabaseAdmin();
   const tenantId = await resolveTenantId();
   const { data, error } = await sb
@@ -17,10 +29,24 @@ export async function GET() {
     .order("created_at" as "id", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ users: data ?? [] });
+
+  let authEmails = new Set<string>();
+  try {
+    authEmails = await listAuthEmailsLower();
+  } catch {
+    // Enrichment is best-effort; UI can still manage roles without has_auth_user.
+  }
+
+  const users = (data ?? []).map((u) => {
+    const row = u as { email?: string };
+    const email = (row.email ?? "").toLowerCase();
+    return { ...u, has_auth_user: email ? authEmails.has(email) : false };
+  });
+
+  return NextResponse.json({ users });
 }
 
-// POST /api/users — invite a new user
+// POST /api/users — invite a new user (platform_users + Auth + SES set-password link)
 export async function POST(req: Request) {
   const auth = await requirePermission("manage_users");
   if ("error" in auth) return auth.error;
@@ -35,15 +61,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `role must be one of: ${validRoles.join(", ")}` }, { status: 400 });
   }
 
+  const email = String(body.email).trim().toLowerCase();
+  const fullName = String(body.full_name).trim();
   const sb = supabaseAdmin();
 
-  // Scoped to this tenant — the same email could legitimately belong to a
-  // different tenant's platform_users row (two unrelated clubs, same
-  // person's email), so uniqueness is checked per-tenant, not globally.
   const { data: existing } = await sb
     .from("platform_users" as "companies")
     .select("id")
-    .eq("email" as "id", body.email)
+    .eq("email" as "id", email)
     .eq("tenant_id" as "id", auth.user.tenant_id)
     .maybeSingle();
 
@@ -55,14 +80,56 @@ export async function POST(req: Request) {
     .from("platform_users" as "companies")
     .insert({
       tenant_id: auth.user.tenant_id,
-      email: body.email.trim().toLowerCase(),
-      full_name: body.full_name.trim(),
+      email,
+      full_name: fullName,
       role: body.role,
-      invited_by: body.invited_by ?? "admin",
+      invited_by: body.invited_by ?? auth.user.email,
     } as unknown as Record<string, unknown>)
     .select()
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ user: data }, { status: 201 });
+
+  try {
+    await issuePasswordLinkEmail({
+      tenantId: auth.user.tenant_id,
+      email,
+      kind: "invite",
+      appUrl: resolveAppUrl(req),
+    });
+  } catch (err) {
+    const authUser = await findAuthUserByEmail(email).catch(() => null);
+    await recordAudit({
+      actor: userActor(auth.user),
+      entity_type: "platform_user",
+      entity_id: (data as { id: string }).id,
+      action: "auth.user_invited",
+      tenant_id: auth.user.tenant_id,
+      metadata: {
+        ...passwordLinkAuditMeta(email, "invite"),
+        email_sent: false,
+        error: err instanceof Error ? err.message.slice(0, 200) : "send failed",
+      },
+    });
+    return NextResponse.json(
+      {
+        error: authUser
+          ? "User was created, but the email could not be sent. Use Send reset link."
+          : "User was created in Login accounts, but the set-password email could not be sent. Use Resend invite.",
+        user: { ...data, has_auth_user: Boolean(authUser) },
+      },
+      { status: 502 },
+    );
+  }
+
+  await recordAudit({
+    actor: userActor(auth.user),
+    entity_type: "platform_user",
+    entity_id: (data as { id: string }).id,
+    action: "auth.user_invited",
+    tenant_id: auth.user.tenant_id,
+    metadata: { ...passwordLinkAuditMeta(email, "invite"), email_sent: true },
+  });
+
+  return NextResponse.json({ user: { ...data, has_auth_user: true }, email_sent: true }, { status: 201 });
 }

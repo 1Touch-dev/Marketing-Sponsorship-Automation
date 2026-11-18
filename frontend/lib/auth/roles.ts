@@ -26,6 +26,8 @@ export interface PlatformUser {
   last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
+  /** Present when Login accounts list is enriched from Supabase Auth. */
+  has_auth_user?: boolean;
 }
 
 // --------------------------------------------------------------------------

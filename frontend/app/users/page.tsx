@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
 import UsersManager from "./users-manager";
+import { listAuthEmailsLower } from "@/lib/auth/password-links";
+import type { PlatformUser } from "@/lib/auth/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,20 @@ export default async function UsersPage() {
     .select("*")
     .eq("tenant_id" as "id", tenantId)
     .order("created_at" as "id", { ascending: true });
+
+  let authEmails = new Set<string>();
+  try {
+    authEmails = await listAuthEmailsLower();
+  } catch {
+    /* enrichment best-effort */
+  }
+
+  const enriched: PlatformUser[] = ((usersError ? [] : users ?? []) as unknown as PlatformUser[]).map(
+    (u) => ({
+      ...u,
+      has_auth_user: authEmails.has((u.email ?? "").toLowerCase()),
+    }),
+  );
 
   return (
     <div className="space-y-6">
@@ -57,7 +73,7 @@ export default async function UsersPage() {
       </div>
 
       <UsersManager
-        initialUsers={(usersError ? [] : users ?? []) as unknown as import("@/lib/auth/roles").PlatformUser[]}
+        initialUsers={enriched}
         loadError={usersError?.message ?? null}
       />
     </div>
