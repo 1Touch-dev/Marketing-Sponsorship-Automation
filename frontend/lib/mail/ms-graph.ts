@@ -43,8 +43,12 @@ export type InboxDeltaResult = {
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const DEFAULT_PAGE_CAP = 10;
+/** Fresh Inbox delta only — do not read the whole mailbox history. */
+export const INITIAL_DELTA_SINCE = "2026-11-16T00:00:00Z";
 const SELECT =
   "id,internetMessageId,subject,from,receivedDateTime,body,internetMessageHeaders";
+const PREFER_HEADERS =
+  'outlook.body-content-type="text", odata.maxpagesize=50';
 
 type TokenCache = { accessToken: string; expiresAt: number };
 let tokenCache: TokenCache | null = null;
@@ -121,7 +125,7 @@ async function graphGet(
   const res = await fetchFn(url, {
     headers: {
       authorization: `Bearer ${token}`,
-      Prefer: 'outlook.body-content-type="text"',
+      Prefer: PREFER_HEADERS,
       accept: "application/json",
     },
   });
@@ -168,9 +172,10 @@ export async function fetchInboxDelta(
 ): Promise<InboxDeltaResult> {
   const pageCap = opts.pageCap ?? DEFAULT_PAGE_CAP;
   const token = opts.token ?? (await getGraphToken(opts));
+  const filter = encodeURIComponent(`receivedDateTime ge ${INITIAL_DELTA_SINCE}`);
   const initial =
     deltaLink ||
-    `${GRAPH}/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages/delta?$select=${SELECT}`;
+    `${GRAPH}/users/${encodeURIComponent(mailbox)}/mailFolders/inbox/messages/delta?$select=${SELECT}&$filter=${filter}`;
 
   let url: string | null = initial;
   const messages: GraphMessage[] = [];
@@ -210,6 +215,7 @@ export async function fetchInboxDelta(
   }
 
   // Enrich messages missing headers (delta sometimes omits them).
+  // Fail the run on fetchMessage errors so the caller does not advance the cursor.
   const enriched: GraphMessage[] = [];
   for (const m of messages) {
     if (!m.id) continue;
@@ -220,8 +226,9 @@ export async function fetchInboxDelta(
     try {
       const full = await fetchMessage(mailbox, m.id, { ...opts, token });
       enriched.push({ ...m, ...full });
-    } catch {
-      enriched.push(m);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(`Graph enrich failed for message ${m.id}: ${detail}`);
     }
   }
 

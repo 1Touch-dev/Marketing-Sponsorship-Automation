@@ -266,11 +266,15 @@ async function ingestOne(
   const fromEmail = emailFromHeader(fromRaw) ?? normalizeEmail(msg.from?.emailAddress?.address ?? "");
 
   if (isAutomaticReply(msg, text)) {
-    // Link under parent when In-Reply-To matches — never flip parent to replied.
+    // Only store OOO when In-Reply-To/References hard-matches our outbound — never soft-match, never flip replied.
     let oooParent: { id: string; proposal_id: string | null } | null = null;
     for (const bare of extractReferencedMessageIds(msg.internetMessageHeaders)) {
       oooParent = await findOutboundByBareReceipt(sb, tenantId, bare);
       if (oooParent) break;
+    }
+    if (!oooParent) {
+      counts.skipped += 1;
+      return;
     }
     const { data: inserted } = await sb
       .from("emails")
@@ -278,7 +282,7 @@ async function ingestOne(
         {
           tenant_id: tenantId,
           gmail_message_id: key,
-          proposal_id: oooParent?.proposal_id ?? null,
+          proposal_id: oooParent.proposal_id ?? null,
           direction: "inbound",
           sender: fromRaw,
           recipient: mailbox,
@@ -295,7 +299,7 @@ async function ingestOne(
             match_method: "ooo",
             internet_message_id: internetId,
             ms_graph_id: msg.id,
-            ...(oooParent ? { parent_email_id: oooParent.id } : {}),
+            parent_email_id: oooParent.id,
           },
         },
         { onConflict: "gmail_message_id", ignoreDuplicates: true },

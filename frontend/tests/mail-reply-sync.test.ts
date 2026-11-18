@@ -9,7 +9,7 @@ import {
   syncMailboxReplies,
 } from "../lib/mail/reply-sync";
 import { detectOptOut } from "../lib/contacts/model";
-import { resetGraphTokenCacheForTests } from "../lib/mail/ms-graph";
+import { INITIAL_DELTA_SINCE, resetGraphTokenCacheForTests } from "../lib/mail/ms-graph";
 
 const T = "00000000-0000-0000-0000-000000000001";
 const MAILBOX = "patrocinios@coritiba.com.br";
@@ -577,6 +577,124 @@ test("out-of-office stores classification and does not set parent replied", asyn
     const inbound = sb.state.emails.find((e) => e.direction === "inbound");
     assert.equal(inbound?.reply_classification, "out_of_office");
     assert.equal(inbound?.metadata?.parent_email_id, OUTBOUND_ID);
+  } finally {
+    undo();
+  }
+});
+
+test("unmatched out-of-office is skipped and not inserted", async () => {
+  const undo = env({
+    MS_GRAPH_TENANT_ID: "t",
+    MS_GRAPH_CLIENT_ID: "c",
+    MS_GRAPH_CLIENT_SECRET: "s",
+  });
+  resetGraphTokenCacheForTests();
+  try {
+    const sb = makeFakeSb({ outbound: outboundSeed({ status: "sent" }) });
+    const fetchFn = graphFetchFactory([
+      {
+        value: [
+          {
+            id: "ooo-noise",
+            internetMessageId: "<ooo-unrelated@mail.com>",
+            subject: "Automatic reply: Out of Office",
+            from: { emailAddress: { address: "stranger@elsewhere.com" } },
+            body: { contentType: "text", content: "I am away." },
+            internetMessageHeaders: [{ name: "Auto-Submitted", value: "auto-replied" }],
+          },
+        ],
+        delta: "https://graph.microsoft.com/delta?$deltatoken=1",
+      },
+    ]);
+    const c = await syncMailboxReplies(sb, T, syncOpts(fetchFn as any));
+    assert.equal(c.ooo, 0);
+    assert.equal(c.inserted, 0);
+    assert.equal(c.skipped >= 1, true);
+    assert.equal(sb.state.emails.filter((e) => e.direction === "inbound").length, 0);
+    assert.equal(sb.state.emails.find((e) => e.id === OUTBOUND_ID)?.status, "sent");
+  } finally {
+    undo();
+  }
+});
+
+test("enrichment fetchMessage failure aborts and does not save cursor", async () => {
+  const undo = env({
+    MS_GRAPH_TENANT_ID: "t",
+    MS_GRAPH_CLIENT_ID: "c",
+    MS_GRAPH_CLIENT_SECRET: "s",
+  });
+  resetGraphTokenCacheForTests();
+  try {
+    const sb = makeFakeSb({ outbound: outboundSeed() });
+    const fetchFn = async (url: string) => {
+      if (String(url).includes("oauth2")) {
+        return new Response(JSON.stringify({ access_token: "tok", expires_in: 3600 }), { status: 200 });
+      }
+      if (String(url).includes("/delta")) {
+        return new Response(
+          JSON.stringify({
+            value: [
+              {
+                id: "needs-enrich",
+                // Missing internetMessageId + headers → triggers fetchMessage
+                subject: "Re: x",
+                from: { emailAddress: { address: "a@b.com" } },
+                body: { contentType: "text", content: "hi" },
+              },
+            ],
+            "@odata.deltaLink": "https://graph.microsoft.com/delta?$deltatoken=should-not-save",
+          }),
+          { status: 200 },
+        );
+      }
+      // fetchMessage path
+      return new Response("boom", { status: 500 });
+    };
+
+    const c = await syncMailboxReplies(sb, T, syncOpts(fetchFn as any));
+    assert.equal(c.errors.length >= 1, true);
+    assert.match(c.errors[0] ?? "", /enrich failed|fetchMessage|500/i);
+    assert.equal(sb.state.syncState?.delta_link ?? null, null);
+  } finally {
+    undo();
+  }
+});
+
+test("fresh delta URL includes receivedDateTime filter from 2026-11-16", async () => {
+  const undo = env({
+    MS_GRAPH_TENANT_ID: "t",
+    MS_GRAPH_CLIENT_ID: "c",
+    MS_GRAPH_CLIENT_SECRET: "s",
+  });
+  resetGraphTokenCacheForTests();
+  try {
+    const sb = makeFakeSb({ outbound: outboundSeed() });
+    const seen: string[] = [];
+    const fetchFn = async (url: string, init?: RequestInit) => {
+      if (String(url).includes("oauth2")) {
+        return new Response(JSON.stringify({ access_token: "tok", expires_in: 3600 }), { status: 200 });
+      }
+      seen.push(String(url));
+      const prefer = String((init?.headers as Record<string, string>)?.Prefer ?? "");
+      assert.match(prefer, /odata\.maxpagesize=50/);
+      assert.match(prefer, /outlook\.body-content-type="text"/);
+      return new Response(
+        JSON.stringify({
+          value: [],
+          "@odata.deltaLink": "https://graph.microsoft.com/delta?$deltatoken=fresh",
+        }),
+        { status: 200 },
+      );
+    };
+
+    await syncMailboxReplies(sb, T, syncOpts(fetchFn as any));
+    const deltaUrl = seen.find((u) => u.includes("/messages/delta"));
+    assert.ok(deltaUrl, "expected a fresh delta request");
+    assert.ok(
+      deltaUrl!.includes(encodeURIComponent(`receivedDateTime ge ${INITIAL_DELTA_SINCE}`)) ||
+        deltaUrl!.includes(`receivedDateTime ge ${INITIAL_DELTA_SINCE}`),
+      `filter missing in ${deltaUrl}`,
+    );
   } finally {
     undo();
   }
