@@ -54,6 +54,7 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   R(/^\/api\/proposals\/detect-cold$/, "internal-secret", "scheduler endpoint", INTERNAL),
   R(/^\/api\/email-sequences\/advance$/, "internal-secret", "scheduler endpoint", INTERNAL),
   R(/^\/api\/gmail\/sync-threads$/, "internal-secret", "scheduler endpoint", INTERNAL),
+  R(/^\/api\/mail\/sync-replies$/, "internal-secret", "scheduler endpoint", /requireCaller/),
   // The app calling its own routes (lib/auth/internal-call.ts). Each route uses requireCaller(): a signed-in person with the
   // permission, or INTERNAL_API_SECRET; with neither the route answers 401 itself.
   R(/^\/api\/companies\/[^/]+\/discover$/, "internal-secret", "the app's own call after a company is created", /requireCaller/),
