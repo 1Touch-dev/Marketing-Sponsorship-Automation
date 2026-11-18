@@ -3,6 +3,7 @@ import { resolveTenantId } from "@/lib/tenants/current";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ReplyClassificationBadge } from "@/components/shared/reply-classification-badge";
 import { formatDate } from "@/lib/utils";
@@ -15,6 +16,19 @@ export const dynamic = "force-dynamic";
 type EmailWithRelations = EmailRow & {
   proposals: { id: string; title: string } | null;
   email_threads: { id: string; gmail_thread_id: string | null } | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+type InboundChild = {
+  id: string;
+  subject: string;
+  sender: string | null;
+  status: string;
+  status_reason: string | null;
+  reply_classification: string | null;
+  created_at: string;
+  body_text: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 export default async function EmailDetailPage({ params }: { params: { id: string } }) {
@@ -30,12 +44,36 @@ export default async function EmailDetailPage({ params }: { params: { id: string
 
   const typedEmail = email as unknown as EmailWithRelations;
 
+  // Phase B: inbound replies linked via metadata.parent_email_id (Graph sync).
+  let inboundReplies: InboundChild[] = [];
+  if (typedEmail.direction === "outbound") {
+    const { data: children } = await sb
+      .from("emails")
+      .select("id, subject, sender, status, status_reason, reply_classification, created_at, body_text, metadata")
+      .eq("tenant_id", tenantId)
+      .eq("direction", "inbound")
+      .contains("metadata", { parent_email_id: params.id })
+      .order("created_at", { ascending: true });
+    inboundReplies = (children ?? []) as InboundChild[];
+  }
+
+  const meta = typedEmail.metadata ?? {};
+  const needsReview = meta.needs_review === true || typedEmail.status_reason === "Needs review";
+
   return (
     <>
       <PageHeader
         title={typedEmail.subject}
         description={`To ${typedEmail.recipient}${typedEmail.sender ? ` · from ${typedEmail.sender}` : ""} · last updated ${formatDate(typedEmail.updated_at)}`}
-        actions={<StatusBadge status={typedEmail.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            {needsReview ? <Badge variant="warning">Needs review</Badge> : null}
+            {typedEmail.reply_classification === "out_of_office" ? (
+              <Badge variant="secondary">Out of office</Badge>
+            ) : null}
+            <StatusBadge status={typedEmail.status} />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,6 +158,50 @@ export default async function EmailDetailPage({ params }: { params: { id: string
           ) : null}
         </div>
       </div>
+
+      {typedEmail.direction === "outbound" ? (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Inbound replies</CardTitle>
+            <CardDescription>
+              Matched from Microsoft 365 patrocinios@ (hard match or soft match awaiting review).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {inboundReplies.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No replies ingested yet.</p>
+            ) : (
+              inboundReplies.map((r) => {
+                const rMeta = r.metadata ?? {};
+                const soft = rMeta.match_method === "soft" || rMeta.needs_review === true;
+                return (
+                  <div key={r.id} className="rounded-md border p-3 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <Link href={`/emails/${r.id}`} className="font-medium hover:underline">
+                        {r.subject}
+                      </Link>
+                      <StatusBadge status={r.status} />
+                      {soft ? <Badge variant="warning">Needs review</Badge> : null}
+                      {r.reply_classification === "out_of_office" ? (
+                        <Badge variant="secondary">Out of office</Badge>
+                      ) : (
+                        <ReplyClassificationBadge classification={r.reply_classification} />
+                      )}
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatDate(r.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">From {r.sender ?? "unknown"}</p>
+                    {r.body_text ? (
+                      <p className="text-sm whitespace-pre-wrap line-clamp-4">{r.body_text}</p>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </>
   );
 }
