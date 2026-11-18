@@ -26,6 +26,7 @@ const INTERNAL = /requirePermissionOrInternal|INTERNAL_API_SECRET|requireInterna
 export const PUBLIC_SURFACE: PublicEntry[] = [
   // pages
   E("/login", "none", "the sign-in page"),
+  E("/auth/set-password", "none", "staff invite/recovery set-password form; verifyOtp runs only on submit"),
   E("/sports-clubs", "none", "public marketing page"), E("/nonprofits", "none", "public marketing page"), E("/conferences", "none", "public marketing page"),
   E("/chambers", "none", "public marketing page"), E("/festivals", "none", "public marketing page"),
   P("/proposals/view/", "share-token", "the public proposal page: reached by its share token, and shows only what a sponsor may read (lib/portal/safe-view.ts)"),
@@ -36,6 +37,7 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   // api
   E("/api/auth/login", "none", "signs a person in with their credentials", /signInWithPassword|checkRateLimit/),
   E("/api/auth/session", "none", "reports the caller's own session, nothing else"),
+  E("/api/auth/forgot-password", "rate-limited-form", "staff forgot-password: generic response; SES link in the background", /checkRateLimit/),
   E("/api/health", "none", "liveness only"),
   P("/api/internal/", "internal-secret", "called by schedulers and operators with the shared secret", INTERNAL),
   P("/api/portal/", "portal-session", "the sponsor portal API: every route confirms the sponsor session (portalGet, portalPost for the one thing a sponsor does), except its three entry steps", /portalGet\(|portalPost\(|requirePortalSession|checkRateLimit|verifyMagicLinkToken|PORTAL_COOKIE/),

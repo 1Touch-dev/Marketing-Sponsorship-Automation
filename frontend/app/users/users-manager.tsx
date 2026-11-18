@@ -23,11 +23,22 @@ export default function UsersManager({
   const [inviteRole, setInviteRole] = React.useState<UserRole>("sales_rep");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [rowBusy, setRowBusy] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<string | null>(null);
   const router = useRouter();
 
+  React.useEffect(() => {
+    setUsers(initialUsers);
+  }, [initialUsers]);
+
   async function inviteUser() {
-    if (!inviteEmail || !inviteName) { setError("Name and email are required"); return; }
-    setSaving(true); setError(null);
+    if (!inviteEmail || !inviteName) {
+      setError("Name and email are required");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setToast(null);
     try {
       const res = await fetch("/api/users", {
         method: "POST",
@@ -35,9 +46,24 @@ export default function UsersManager({
         body: JSON.stringify({ email: inviteEmail, full_name: inviteName, role: inviteRole }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to invite"); return; }
+      if (res.status === 502 && data.user) {
+        setUsers((u) => [...u, data.user]);
+        setError(data.error ?? "Invite email failed — use Resend invite");
+        setInviteEmail("");
+        setInviteName("");
+        setShowInvite(false);
+        router.refresh();
+        return;
+      }
+      if (!res.ok) {
+        setError(data.error ?? "Failed to invite");
+        return;
+      }
       setUsers((u) => [...u, data.user]);
-      setInviteEmail(""); setInviteName(""); setShowInvite(false);
+      setInviteEmail("");
+      setInviteName("");
+      setShowInvite(false);
+      setToast("Invite sent — they will receive a set-password link by email");
       router.refresh();
     } finally {
       setSaving(false);
@@ -52,7 +78,11 @@ export default function UsersManager({
     });
     if (res.ok) {
       const data = await res.json();
-      setUsers((u) => u.map((usr) => usr.id === id ? data.user : usr));
+      setUsers((u) =>
+        u.map((usr) =>
+          usr.id === id ? { ...data.user, has_auth_user: usr.has_auth_user } : usr,
+        ),
+      );
     }
   }
 
@@ -63,7 +93,50 @@ export default function UsersManager({
       body: JSON.stringify({ is_active: !current }),
     });
     if (res.ok) {
-      setUsers((u) => u.map((usr) => usr.id === id ? { ...usr, is_active: !current } : usr));
+      const data = await res.json();
+      setUsers((u) =>
+        u.map((usr) =>
+          usr.id === id
+            ? { ...data.user, has_auth_user: usr.has_auth_user, is_active: !current }
+            : usr,
+        ),
+      );
+    }
+  }
+
+  async function resendInvite(id: string) {
+    setRowBusy(id);
+    setToast(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/users/${id}/resend-invite`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Resend invite failed");
+        return;
+      }
+      setUsers((u) => u.map((usr) => (usr.id === id ? { ...usr, has_auth_user: true } : usr)));
+      setToast("Invite email sent");
+      router.refresh();
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
+  async function sendReset(id: string) {
+    setRowBusy(id);
+    setToast(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/users/${id}/send-reset`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Send reset link failed");
+        return;
+      }
+      setToast("Reset link sent by email");
+    } finally {
+      setRowBusy(null);
     }
   }
 
@@ -77,6 +150,13 @@ export default function UsersManager({
           {showInvite ? "Cancel" : "+ Invite user"}
         </Button>
       </div>
+
+      {toast && (
+        <p className="text-sm text-emerald-700 bg-emerald-50 rounded-md px-3 py-2">{toast}</p>
+      )}
+      {error && !showInvite && (
+        <p className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">{error}</p>
+      )}
 
       {showInvite && (
         <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
@@ -99,7 +179,9 @@ export default function UsersManager({
               className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
             >
               {ROLES.map((r) => (
-                <option key={r} value={r}>{roleLabel(r)}</option>
+                <option key={r} value={r}>
+                  {roleLabel(r)}
+                </option>
               ))}
             </select>
           </div>
@@ -108,12 +190,20 @@ export default function UsersManager({
             <Button size="sm" onClick={inviteUser} disabled={saving}>
               {saving ? "Inviting…" : "Send invite"}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => { setShowInvite(false); setError(null); }}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setShowInvite(false);
+                setError(null);
+              }}
+            >
               Cancel
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            The user will appear in the team list immediately. Full email-based login will be enabled once Supabase Auth is wired up.
+            Creates their login and emails a set-password link (Portuguese then English). The link
+            is valid for 1 hour and single-use. No password is shown or emailed.
           </p>
         </div>
       )}
@@ -123,25 +213,41 @@ export default function UsersManager({
           <caption className="text-left text-sm font-medium px-4 py-2">Login accounts</caption>
           <thead className="bg-muted/40 border-b">
             <tr>
-              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Name</th>
-              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Email</th>
-              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Role</th>
-              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Status</th>
-              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">Last seen</th>
-              <th scope="col" className="py-2.5 px-4"><span className="sr-only">Actions</span></th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">
+                Name
+              </th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">
+                Email
+              </th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">
+                Role
+              </th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">
+                Status
+              </th>
+              <th scope="col" className="text-left py-2.5 px-4 font-medium text-muted-foreground">
+                Last seen
+              </th>
+              <th scope="col" className="py-2.5 px-4">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loadError ? (
               <tr>
                 <td colSpan={6} className="p-4">
-                  <EmptyState role="alert" title="Couldn't load login accounts" description={loadError} />
+                  <EmptyState
+                    role="alert"
+                    title="Couldn't load login accounts"
+                    description={loadError}
+                  />
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-8 text-center text-muted-foreground text-sm">
-                  No users yet. Run migration 0016 first, then invite your team.
+                  No users yet. Invite your team to send a set-password email.
                 </td>
               </tr>
             ) : (
@@ -156,22 +262,54 @@ export default function UsersManager({
                       className={`text-xs font-medium rounded-full px-2.5 py-1 border-0 cursor-pointer ${roleColor(u.role)}`}
                     >
                       {ROLES.map((r) => (
-                        <option key={r} value={r}>{roleLabel(r)}</option>
+                        <option key={r} value={r}>
+                          {roleLabel(r)}
+                        </option>
                       ))}
                     </select>
                   </td>
                   <td className="py-2.5 px-4">
-                    <span className={`text-xs font-medium ${u.is_active ? "text-green-700" : "text-muted-foreground"}`}>
+                    <span
+                      className={`text-xs font-medium ${u.is_active ? "text-green-700" : "text-muted-foreground"}`}
+                    >
                       {u.is_active ? "Active" : "Deactivated"}
                     </span>
+                    {u.has_auth_user === false && (
+                      <span className="block text-[10px] text-amber-700 mt-0.5">No login yet</span>
+                    )}
                   </td>
                   <td className="py-2.5 px-4 text-muted-foreground text-xs">
                     {u.last_seen_at
-                      ? new Date(u.last_seen_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+                      ? new Date(u.last_seen_at).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                       : "Never"}
                   </td>
-                  <td className="py-2.5 px-4 text-right">
+                  <td className="py-2.5 px-4 text-right space-x-2 whitespace-nowrap">
+                    {u.has_auth_user ? (
+                      <button
+                        type="button"
+                        disabled={rowBusy === u.id}
+                        onClick={() => sendReset(u.id)}
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-50"
+                      >
+                        {rowBusy === u.id ? "Sending…" : "Send reset link"}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={rowBusy === u.id}
+                        onClick={() => resendInvite(u.id)}
+                        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-50"
+                      >
+                        {rowBusy === u.id ? "Sending…" : "Resend invite"}
+                      </button>
+                    )}
                     <button
+                      type="button"
                       onClick={() => toggleActive(u.id, u.is_active)}
                       className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
                     >
@@ -186,7 +324,7 @@ export default function UsersManager({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Role changes take effect immediately. Admin is the only role that can access this page and manage Pipedrive settings.
+        Role changes take effect immediately. Only admins can invite users or send password links.
       </p>
     </div>
   );

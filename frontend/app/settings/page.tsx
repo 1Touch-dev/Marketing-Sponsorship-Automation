@@ -14,6 +14,7 @@ import {
 import { BackfillButton } from "./backfill-button";
 import { GmailDisconnectButton } from "./gmail-disconnect-button";
 import { CalendarLinkCard } from "./calendar-link-card";
+import { ChangePasswordCard } from "./change-password-card";
 
 export const dynamic = "force-dynamic";
 
@@ -261,6 +262,7 @@ export default async function SettingsPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CalendarLinkCard />
+        <ChangePasswordCard />
 
         {/* ── Gmail ── */}
         <Card>

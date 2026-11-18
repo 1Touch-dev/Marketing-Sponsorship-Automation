@@ -87,3 +87,14 @@ test("niche lead pages are public so AppShell can skip staff chrome", () => {
   }
   assert.equal(isPublicPath("/companies"), null);
 });
+
+test("staff set-password page and forgot-password API are on the public surface", () => {
+  assert.ok(isPublicPath("/auth/set-password"), "/auth/set-password is public");
+  assert.equal(isPublicPath("/auth/set-password")!.guard, "none");
+  const forgot = isPublicPath("/api/auth/forgot-password");
+  assert.ok(forgot, "/api/auth/forgot-password is public");
+  assert.equal(forgot!.guard, "rate-limited-form");
+  const route = apiRoutes.find((r) => r.url === "/api/auth/forgot-password");
+  assert.ok(route, "forgot-password route file exists");
+  assert.ok(/checkRateLimit/.test(route!.src), "forgot-password rate-limits");
+});
