@@ -269,7 +269,7 @@ export default async function SettingsPage({
             <CardDescription>
               Outreach <strong>Send email</strong> delivers through Amazon SES when MAIL_PROVIDER=ses (same as newsletters and portal links).
               Gmail is for the Emails page <strong>Test</strong> button and legacy thread sync — leave it connected for those.
-              Until reply sync ships, staff must check <strong>patrocinios@coritiba.com.br</strong> by hand for sponsor replies.
+              Microsoft 365 <strong>patrocinios@</strong> is polled every 5 minutes for outreach replies (Graph sync).
               Test only with your own inbox or SES simulator addresses — never a real sponsor.
             </CardDescription>
           </CardHeader>
