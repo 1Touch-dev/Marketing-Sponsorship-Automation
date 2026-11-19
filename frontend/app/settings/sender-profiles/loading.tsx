@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function SenderProfilesLoading() {
-  return <p className="text-sm text-muted-foreground">Loading sender identities.</p>;
+  return <PageLoader label="Carregando remetentes… / Loading sender identities…" />;
 }

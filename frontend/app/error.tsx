@@ -1,9 +1,12 @@
 "use client";
 
+import { Crest } from "@/components/brand/crest";
+
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <Crest size={80} />
+      <h1 className="mt-6 text-2xl font-semibold">Algo deu errado / Something went wrong</h1>
       <p className="text-muted-foreground mt-2 max-w-lg text-center text-sm">
         {error.message || "An unexpected error occurred."}
       </p>
@@ -11,7 +14,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
         onClick={() => reset()}
         className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
       >
-        Try again
+        Tentar novamente / Try again
       </button>
     </div>
   );

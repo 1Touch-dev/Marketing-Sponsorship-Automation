@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "lucide-react";
+import { CrestSpinner } from "@/components/brand/crest";
 
 export function CalendarLinkCard() {
   const [value, setValue] = useState("");
@@ -76,7 +77,7 @@ export function CalendarLinkCard() {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {loading ? (
-          <p className="text-muted-foreground">Loading…</p>
+          <div className="flex justify-center py-4"><CrestSpinner size={32} /></div>
         ) : (
           <>
             <Input

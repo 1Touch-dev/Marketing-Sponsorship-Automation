@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function ContractRecapLoading() {
-  return <p className="text-sm text-muted-foreground">Loading this recap.</p>;
+  return <PageLoader label="Carregando o resumo… / Loading this recap…" />;
 }

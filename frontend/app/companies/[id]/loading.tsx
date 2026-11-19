@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function CompanyLoading() {
-  return <p className="text-sm text-muted-foreground">Loading company.</p>;
+  return <PageLoader label="Carregando a empresa… / Loading company…" />;
 }

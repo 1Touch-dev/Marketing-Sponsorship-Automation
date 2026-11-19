@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_CLUB_NAME = "Coritiba FC";
 const DEFAULT_TAGLINE = "Commercial Intelligence";
-const DEFAULT_CREST = "/brand/coritiba-crest.png";
+const DEFAULT_CREST = "/brand/coritiba_logo.png"; // the official crest, same file as the sign-in page
 const DEFAULT_PRIMARY_HSL = "158 71% 30%"; // Coritiba green (#1a8f3c)
 
 export async function generateMetadata(): Promise<Metadata> {

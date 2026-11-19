@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useUserRole } from "@/lib/auth/use-user-role";
 import { useLang, t } from "@/lib/i18n/lang-context";
 import { NAV_MODULES, moduleForPath, type NavModule } from "@/lib/nav/modules";
+import { Crest } from "@/components/brand/crest";
 
 function LangToggle() {
   const { lang, toggle } = useLang();
@@ -197,23 +198,23 @@ export function Sidebar({
     >
       <div className={cn("px-5 py-4 border-b flex-shrink-0", collapsed && "px-2 flex justify-center")}>
         {collapsed ? (
-          <div className="h-5 w-5 flex items-center justify-center">
+          <div className="h-9 w-9 flex items-center justify-center">
             {crestUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={crestUrl} alt={clubName} className="h-5 w-5 object-contain" />
+              <img src={crestUrl} alt={clubName} className="h-9 w-auto object-contain" />
             ) : (
               <Trophy className="h-4 w-4 text-muted-foreground" />
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             {crestUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={crestUrl} alt={clubName} className="h-6 w-6 object-contain shrink-0" />
+              <img src={crestUrl} alt={clubName} className="h-10 w-auto object-contain shrink-0" />
             )}
             <div className="min-w-0">
               <div className="text-sm font-bold tracking-tight text-foreground truncate">{clubName}</div>
-              <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5 truncate">{tagline}</div>
+              <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-0.5 truncate">{tagline}</div>
             </div>
           </div>
         )}
@@ -260,7 +261,10 @@ export function MobileNav() {
     <>
       {/* Top bar */}
       <header className="md:hidden flex items-center justify-between border-b bg-card px-4 py-3 sticky top-0 z-30 pointer-events-none">
-        <span className="text-sm font-semibold tracking-tight pointer-events-none">Market Sponsorship</span>
+        <span className="flex items-center gap-2.5 pointer-events-none">
+          <Crest size={32} />
+          <span className="text-sm font-bold tracking-tight">Coritiba FC</span>
+        </span>
         <button
           aria-label="Toggle menu"
           className="rounded-md p-1.5 hover:bg-accent transition-colors pointer-events-auto"
@@ -280,9 +284,12 @@ export function MobileNav() {
           />
           {/* Drawer */}
           <nav className="relative bg-card w-64 h-full flex flex-col shadow-xl z-50">
-            <div className="px-6 py-5 border-b">
-              <div className="text-sm font-semibold tracking-tight">Market Sponsorship</div>
-              <div className="text-xs text-muted-foreground">Automation MVP</div>
+            <div className="flex items-center gap-3 px-6 py-5 border-b">
+              <Crest size={44} />
+              <div>
+                <div className="text-sm font-bold tracking-tight">Coritiba FC</div>
+                <div className="text-xs text-muted-foreground">Plataforma de Patrocínios</div>
+              </div>
             </div>
             <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
               <NavLinks onClick={() => setOpen(false)} />

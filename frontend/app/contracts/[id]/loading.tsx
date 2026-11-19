@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function ContractDeliveryLoading() {
-  return <p className="text-sm text-muted-foreground">Loading this contract.</p>;
+  return <PageLoader label="Carregando o contrato… / Loading this contract…" />;
 }
