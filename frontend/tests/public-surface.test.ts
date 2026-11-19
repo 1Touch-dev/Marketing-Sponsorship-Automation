@@ -88,13 +88,19 @@ test("niche lead pages are public so AppShell can skip staff chrome", () => {
   assert.equal(isPublicPath("/companies"), null);
 });
 
-test("staff set-password page and forgot-password API are on the public surface", () => {
+test("staff set-password page and forgot/set-password APIs are on the public surface", () => {
   assert.ok(isPublicPath("/auth/set-password"), "/auth/set-password is public");
   assert.equal(isPublicPath("/auth/set-password")!.guard, "none");
   const forgot = isPublicPath("/api/auth/forgot-password");
   assert.ok(forgot, "/api/auth/forgot-password is public");
   assert.equal(forgot!.guard, "rate-limited-form");
-  const route = apiRoutes.find((r) => r.url === "/api/auth/forgot-password");
-  assert.ok(route, "forgot-password route file exists");
-  assert.ok(/checkRateLimit/.test(route!.src), "forgot-password rate-limits");
+  const forgotRoute = apiRoutes.find((r) => r.url === "/api/auth/forgot-password");
+  assert.ok(forgotRoute, "forgot-password route file exists");
+  assert.ok(/checkRateLimit/.test(forgotRoute!.src), "forgot-password rate-limits");
+  const setPw = isPublicPath("/api/auth/set-password");
+  assert.ok(setPw, "/api/auth/set-password is public");
+  assert.equal(setPw!.guard, "rate-limited-form");
+  const setRoute = apiRoutes.find((r) => r.url === "/api/auth/set-password");
+  assert.ok(setRoute, "set-password route file exists");
+  assert.ok(/checkRateLimit/.test(setRoute!.src), "set-password rate-limits");
 });

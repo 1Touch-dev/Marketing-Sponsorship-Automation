@@ -65,8 +65,9 @@ export async function POST(req: Request) {
   if (verifyError) {
     return NextResponse.json({ error: "Current password is incorrect" }, { status: 401 });
   }
-  // Discard the anon session immediately — we only needed the verify.
-  await anon.auth.signOut().catch(() => {});
+  // Do not signOut on the anon client: default scope is "global" and would
+  // invalidate the cookie session needed for updateUser below. Anon client
+  // has persistSession: false, so the verify session dies with this request.
 
   const sessionClient = supabaseServer();
   const { error: updateError } = await sessionClient.auth.updateUser({ password: next });
