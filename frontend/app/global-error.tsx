@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Crest } from "@/components/brand/crest";
 
 /**
  * Root error boundary for the App Router.
@@ -20,7 +21,8 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body className="min-h-screen bg-background px-6 py-10 font-sans antialiased">
-        <h1 className="text-2xl font-semibold">Application error</h1>
+        <Crest size={72} />
+        <h1 className="mt-4 text-2xl font-semibold">Application error</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">{error.message}</p>
         <button
           type="button"

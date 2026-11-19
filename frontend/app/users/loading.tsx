@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function UsersLoading() {
-  return <p className="text-sm text-muted-foreground">Loading login accounts.</p>;
+  return <PageLoader label="Carregando contas de acesso… / Loading login accounts…" />;
 }

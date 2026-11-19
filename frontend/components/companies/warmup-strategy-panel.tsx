@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
 import { Flame, Loader2, ChevronRight, CalendarDays } from "lucide-react";
+import { CrestSpinner } from "@/components/brand/crest";
 
 type Step = { step: number; type: string; label: string; delay_days: number };
 type Sequence = { id: string; name: string; steps: Step[] | string; is_default?: boolean };
@@ -139,8 +140,8 @@ export function WarmupStrategyPanel({ companyId }: { companyId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+          <div className="flex justify-center py-4">
+            <CrestSpinner size={32} />
           </div>
         ) : (
           <>

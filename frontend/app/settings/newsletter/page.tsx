@@ -21,6 +21,7 @@ import {
 } from "@/lib/newsletter/settings";
 import { countsLine, type DeliveryCounts } from "@/lib/mail/newsletter-analytics";
 import { formatDate } from "@/lib/utils";
+import { CrestSpinner } from "@/components/brand/crest";
 
 type AnalyticsNewsletter = {
   id: string;
@@ -509,7 +510,7 @@ export default function NewsletterSettingsPage() {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <div className="flex justify-center py-4"><CrestSpinner size={32} /></div>
               ) : pastNewsletters.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No newsletters sent yet.</p>
               ) : (
@@ -551,7 +552,7 @@ export default function NewsletterSettingsPage() {
             </CardHeader>
             <CardContent>
               {analyticsLoading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <div className="flex justify-center py-4"><CrestSpinner size={32} /></div>
               ) : unsubscribes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No unsubscribes yet.</p>
               ) : (

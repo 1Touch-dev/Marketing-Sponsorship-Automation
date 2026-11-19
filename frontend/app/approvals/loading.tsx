@@ -1,3 +1,5 @@
+import { PageLoader } from "@/components/brand/crest";
+
 export default function ApprovalsLoading() {
-  return <p className="text-sm text-muted-foreground">Loading the approval queue.</p>;
+  return <PageLoader label="Carregando a fila de aprovações… / Loading the approval queue…" />;
 }

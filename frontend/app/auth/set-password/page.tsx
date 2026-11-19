@@ -3,12 +3,44 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, KeyRound } from "lucide-react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { CrestSpinner } from "@/components/brand/crest";
+import { useLang } from "@/lib/i18n/lang-context";
 
 type LinkType = "invite" | "recovery";
 
 function isLinkType(v: string | null): v is LinkType {
   return v === "invite" || v === "recovery";
 }
+
+const COPY = {
+  setTitle: { pt: "Defina sua senha", en: "Set your password" },
+  resetTitle: { pt: "Redefina sua senha", en: "Reset your password" },
+  sub: {
+    pt: "Escolha uma senha para sua conta na plataforma de patrocínios do Coritiba FC.",
+    en: "Choose a password for your Coritiba FC sponsorship platform account.",
+  },
+  newPw: { pt: "Nova senha", en: "New password" },
+  confirmPw: { pt: "Confirmar senha", en: "Confirm password" },
+  hint: { pt: "Mínimo de 8 caracteres.", en: "At least 8 characters." },
+  submit: { pt: "Definir senha", en: "Set password" },
+  saving: { pt: "Salvando…", en: "Saving…" },
+  invalidLink: {
+    pt: "Este link é inválido ou está incompleto.",
+    en: "This link is invalid or incomplete.",
+  },
+  back: { pt: "Voltar ao login", en: "Back to sign in" },
+  tooShort: { pt: "A senha deve ter pelo menos 8 caracteres.", en: "Password must be at least 8 characters." },
+  mismatch: { pt: "As senhas não coincidem.", en: "Passwords do not match." },
+  failed: {
+    pt: "Não foi possível definir a senha. Tente novamente ou peça um novo link.",
+    en: "Could not set your password. Try again or request a new link.",
+  },
+  wrong: { pt: "Algo deu errado. Tente novamente.", en: "Something went wrong. Please try again." },
+} as const;
+
+const INPUT =
+  "w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-900 placeholder-slate-400 transition focus:border-[#00573f] focus:outline-none focus:ring-2 focus:ring-[#00573f]/30 disabled:bg-slate-100";
 
 /**
  * Staff set-password / reset page.
@@ -17,7 +49,15 @@ function isLinkType(v: string | null): v is LinkType {
  */
 export default function SetPasswordPage() {
   return (
-    <React.Suspense fallback={<Shell><p className="text-green-300/70 text-sm">Loading…</p></Shell>}>
+    <React.Suspense
+      fallback={
+        <AuthShell>
+          <div className="flex min-h-[280px] items-center justify-center">
+            <CrestSpinner size={56} />
+          </div>
+        </AuthShell>
+      }
+    >
       <SetPasswordForm />
     </React.Suspense>
   );
@@ -26,6 +66,8 @@ export default function SetPasswordPage() {
 function SetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const { lang } = useLang();
+  const l = lang;
   const tokenHash = params.get("token_hash") ?? "";
   const typeParam = params.get("type");
   const type = isLinkType(typeParam) ? typeParam : null;
@@ -41,15 +83,15 @@ function SetPasswordForm() {
     e.preventDefault();
     setError(null);
     if (!tokenHash || !type) {
-      setError("This link is invalid or incomplete. Request a new one from the login page.");
+      setError(COPY.invalidLink[l]);
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(COPY.tooShort[l]);
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(COPY.mismatch[l]);
       return;
     }
 
@@ -62,50 +104,52 @@ function SetPasswordForm() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(
-          typeof data.error === "string"
-            ? data.error
-            : "Could not set your password. Try again or request a new link.",
-        );
+        setError(typeof data.error === "string" ? data.error : COPY.failed[l]);
         return;
       }
       router.replace("/login?password_set=1");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(COPY.wrong[l]);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Shell>
-      <h2 className="text-xl font-semibold text-white mb-1 flex items-center gap-2">
-        <KeyRound className="h-5 w-5 text-green-400" />
-        {type === "invite" ? "Set your password" : "Reset your password"}
-      </h2>
-      <p className="text-green-300/70 text-sm mb-6">
-        Choose a new password for your Coritiba FC sponsorship account.
-      </p>
+    <AuthShell>
+      <div className="mb-6">
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#00573f]/10 text-[#00573f]">
+          <KeyRound className="h-5 w-5" aria-hidden />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900">
+          {type === "invite" ? COPY.setTitle[l] : COPY.resetTitle[l]}
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">{COPY.sub[l]}</p>
+      </div>
 
       {!linkOk && (
-        <div role="alert" className="mb-4 p-3 rounded-lg bg-red-900/40 border border-red-500/40 text-red-300 text-sm">
-          This link is invalid or incomplete.{" "}
-          <a href="/login" className="underline">Back to sign in</a>
+        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {COPY.invalidLink[l]}{" "}
+          <a href="/login" className="font-medium underline">
+            {COPY.back[l]}
+          </a>
         </div>
       )}
 
       {error && (
-        <div role="alert" className="mb-4 p-3 rounded-lg bg-red-900/40 border border-red-500/40 text-red-300 text-sm">
+        <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}{" "}
-          <a href="/login" className="underline">Sign in</a>
+          <a href="/login" className="font-medium underline">
+            {COPY.back[l]}
+          </a>
         </div>
       )}
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label htmlFor="new-password" className="block text-sm font-medium text-green-200 mb-1.5">
-            New password
+          <label htmlFor="new-password" className="mb-1.5 block text-sm font-medium text-slate-700">
+            {COPY.newPw[l]}
           </label>
           <input
             id="new-password"
@@ -116,12 +160,13 @@ function SetPasswordForm() {
             required
             minLength={8}
             disabled={!linkOk || loading}
-            className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+            className={INPUT}
           />
+          <p className="mt-1 text-xs text-slate-400">{COPY.hint[l]}</p>
         </div>
         <div>
-          <label htmlFor="confirm-password" className="block text-sm font-medium text-green-200 mb-1.5">
-            Confirm password
+          <label htmlFor="confirm-password" className="mb-1.5 block text-sm font-medium text-slate-700">
+            {COPY.confirmPw[l]}
           </label>
           <input
             id="confirm-password"
@@ -132,40 +177,23 @@ function SetPasswordForm() {
             required
             minLength={8}
             disabled={!linkOk || loading}
-            className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+            className={INPUT}
           />
         </div>
         <button
           type="submit"
           disabled={!linkOk || loading}
-          className="w-full flex items-center justify-center gap-2 py-2.5 px-6 rounded-lg bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#00573f] px-6 py-2.5 font-semibold text-white shadow-sm transition hover:bg-[#006b4d] focus:outline-none focus:ring-2 focus:ring-[#00573f]/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? (
-            <><Loader2 size={18} className="animate-spin" /> Saving…</>
+            <>
+              <Loader2 size={18} className="animate-spin" /> {COPY.saving[l]}
+            </>
           ) : (
-            "Set password"
+            COPY.submit[l]
           )}
         </button>
       </form>
-    </Shell>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-black flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-green-600 shadow-2xl mb-4">
-            <span className="text-3xl font-black text-white">C</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white">Coritiba FC</h1>
-          <p className="text-green-300 text-sm mt-1">Commercial Intelligence Platform</p>
-        </div>
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 shadow-2xl">
-          {children}
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
