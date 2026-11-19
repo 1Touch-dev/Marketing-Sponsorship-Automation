@@ -3,7 +3,6 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, KeyRound } from "lucide-react";
-import { supabaseBrowser } from "@/lib/supabase/client";
 
 type LinkType = "invite" | "recovery";
 
@@ -13,7 +12,8 @@ function isLinkType(v: string | null): v is LinkType {
 
 /**
  * Staff set-password / reset page.
- * verifyOtp runs ONLY on submit so email scanners do not burn the token.
+ * Posts to /api/auth/set-password on submit only (no verifyOtp on load — Safe Links safe).
+ * Server-side verifyOtp + admin.updateUserById avoids HttpOnly cookie conflicts.
  */
 export default function SetPasswordPage() {
   return (
@@ -55,24 +55,20 @@ function SetPasswordForm() {
 
     setLoading(true);
     try {
-      const sb = supabaseBrowser();
-      // verifyOtp only here — not on page load (Safe Links / scanners).
-      const { error: verifyError } = await sb.auth.verifyOtp({
-        type,
-        token_hash: tokenHash,
+      const res = await fetch("/api/auth/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token_hash: tokenHash, type, password }),
       });
-      if (verifyError) {
-        setError("This link is invalid or has expired. Request a new one from the login page.");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          typeof data.error === "string"
+            ? data.error
+            : "Could not set your password. Try again or request a new link.",
+        );
         return;
       }
-
-      const { error: updateError } = await sb.auth.updateUser({ password });
-      if (updateError) {
-        setError("Could not set your password. Try again or request a new link.");
-        return;
-      }
-
-      await sb.auth.signOut();
       router.replace("/login?password_set=1");
       router.refresh();
     } catch {

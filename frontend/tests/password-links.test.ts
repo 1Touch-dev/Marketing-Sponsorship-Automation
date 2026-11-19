@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
 import {
   FORGOT_PASSWORD_GENERIC_MESSAGE,
@@ -89,15 +91,20 @@ test("forgot-password generic message is stable for enumeration safety", () => {
   );
 });
 
-test("public surface: set-password page and forgot-password API are public", () => {
+test("public surface: set-password page and forgot/set-password APIs are public", () => {
   const page = isPublicPath("/auth/set-password");
   assert.ok(page);
   assert.equal(page!.guard, "none");
 
-  const api = isPublicPath("/api/auth/forgot-password");
-  assert.ok(api);
-  assert.equal(api!.guard, "rate-limited-form");
-  assert.ok(api!.marker?.test("checkRateLimit"));
+  const forgot = isPublicPath("/api/auth/forgot-password");
+  assert.ok(forgot);
+  assert.equal(forgot!.guard, "rate-limited-form");
+  assert.ok(forgot!.marker?.test("checkRateLimit"));
+
+  const setPw = isPublicPath("/api/auth/set-password");
+  assert.ok(setPw);
+  assert.equal(setPw!.guard, "rate-limited-form");
+  assert.ok(setPw!.marker?.test("checkRateLimit"));
 });
 
 test("change-password and user invite APIs are not public", () => {
@@ -105,4 +112,39 @@ test("change-password and user invite APIs are not public", () => {
   assert.equal(isPublicPath("/api/users"), null);
   assert.equal(isPublicPath("/api/users/x/resend-invite"), null);
   assert.equal(isPublicPath("/api/users/x/send-reset"), null);
+});
+
+test("set-password page posts to API and does not call verifyOtp in the browser", () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, "../app/auth/set-password/page.tsx"),
+    "utf8",
+  );
+  assert.match(src, /\/api\/auth\/set-password/);
+  assert.ok(!/\.verifyOtp\s*\(/.test(src), "page must not call verifyOtp (server does)");
+  assert.ok(!/supabaseBrowser/.test(src), "page must not use supabaseBrowser for set-password");
+  assert.ok(!/\.updateUser\s*\(/.test(src), "page must not call updateUser");
+});
+
+test("change-password route does not global-signOut the anon verify client", () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, "../app/api/auth/change-password/route.ts"),
+    "utf8",
+  );
+  assert.ok(
+    !/anon\.auth\.signOut\(\s*\)/.test(src),
+    "anon.auth.signOut() without scope would kill the cookie session (global)",
+  );
+  assert.match(src, /signOut\(\s*\{\s*scope:\s*"others"/);
+  assert.match(src, /updateUser\(\s*\{\s*password/);
+});
+
+test("set-password API uses anon verifyOtp then admin.updateUserById", () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, "../app/api/auth/set-password/route.ts"),
+    "utf8",
+  );
+  assert.match(src, /checkRateLimit/);
+  assert.match(src, /verifyOtp/);
+  assert.match(src, /updateUserById/);
+  assert.match(src, /supabaseAnonNoSession/);
 });

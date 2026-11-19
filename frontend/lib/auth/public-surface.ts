@@ -38,6 +38,7 @@ export const PUBLIC_SURFACE: PublicEntry[] = [
   E("/api/auth/login", "none", "signs a person in with their credentials", /signInWithPassword|checkRateLimit/),
   E("/api/auth/session", "none", "reports the caller's own session, nothing else"),
   E("/api/auth/forgot-password", "rate-limited-form", "staff forgot-password: generic response; SES link in the background", /checkRateLimit/),
+  E("/api/auth/set-password", "rate-limited-form", "staff invite/recovery set password; verifyOtp server-side", /checkRateLimit/),
   E("/api/health", "none", "liveness only"),
   P("/api/internal/", "internal-secret", "called by schedulers and operators with the shared secret", INTERNAL),
   P("/api/portal/", "portal-session", "the sponsor portal API: every route confirms the sponsor session (portalGet, portalPost for the one thing a sponsor does), except its three entry steps", /portalGet\(|portalPost\(|requirePortalSession|checkRateLimit|verifyMagicLinkToken|PORTAL_COOKIE/),
