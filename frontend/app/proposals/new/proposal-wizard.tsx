@@ -226,16 +226,9 @@ export function ProposalWizard({
   const { toast } = useToast();
 
   const [step, setStep] = useState(1);
-  // Use a stable session key — avoid SSR/client mismatch by not touching sessionStorage during render
-  const [sessionKey] = useState(() => crypto.randomUUID());
-  const sessionInitialized = React.useRef(false);
-  useEffect(() => {
-    if (sessionInitialized.current) return;
-    sessionInitialized.current = true;
-    if (!sessionStorage.getItem("wizard_session")) {
-      sessionStorage.setItem("wizard_session", sessionKey);
-    }
-  }, [sessionKey]);
+  // Stable key for SSR/hydration; reuse sessionStorage after mount for draft resume
+  const [sessionKey, setSessionKey] = useState(() => crypto.randomUUID());
+  const draftRestored = React.useRef(false);
 
   // Wizard state
   const [proposalType, setProposalType] = useState<ProposalType>("sponsorship");
@@ -266,6 +259,47 @@ export function ProposalWizard({
       body: JSON.stringify({ session_key: sessionKey, ...updates }),
     });
   }, [sessionKey]);
+
+  // Resolve session + restore draft (including selected_inventory_lines)
+  useEffect(() => {
+    if (draftRestored.current) return;
+    draftRestored.current = true;
+    const existing = sessionStorage.getItem("wizard_session");
+    const key = existing || sessionKey;
+    if (!existing) sessionStorage.setItem("wizard_session", key);
+    if (key !== sessionKey) setSessionKey(key);
+
+    fetch(`/api/proposals/wizard?session=${encodeURIComponent(key)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: {
+        draft?: {
+          current_step?: number;
+          proposal_type?: ProposalType;
+          company_id?: string | null;
+          selected_components?: string[];
+          selected_strategies?: string[];
+          custom_brief?: string | null;
+          generation_options?: { selected_inventory_lines?: SelectedInventoryLine[] } | null;
+        } | null;
+      }) => {
+        const draft = d.draft;
+        if (!draft) return;
+        if (typeof draft.current_step === "number" && draft.current_step >= 1 && draft.current_step <= 6) {
+          setStep(draft.current_step);
+        }
+        if (draft.proposal_type) setProposalType(draft.proposal_type);
+        if (draft.company_id && !preselectedCompanyId) {
+          const company = companies.find((c) => c.id === draft.company_id);
+          if (company) setSelectedCompany(company);
+        }
+        if (Array.isArray(draft.selected_components)) setSelectedComponents(draft.selected_components);
+        if (Array.isArray(draft.selected_strategies)) setSelectedStrategies(draft.selected_strategies);
+        if (typeof draft.custom_brief === "string") setCustomBrief(draft.custom_brief);
+        const lines = draft.generation_options?.selected_inventory_lines;
+        if (Array.isArray(lines) && lines.length > 0) setSelectedInventoryLines(lines);
+      })
+      .catch(() => {/* non-blocking */});
+  }, [sessionKey, companies, preselectedCompanyId]);
 
   // Fetch upcoming matches once, for the optional per-match scoping picker in step 2
   useEffect(() => {
@@ -343,7 +377,15 @@ export function ProposalWizard({
   }
 
   function next() {
-    saveDraft({ current_step: step + 1, proposal_type: proposalType, company_id: selectedCompany?.id, selected_components: selectedComponents, selected_strategies: selectedStrategies, custom_brief: customBrief }).catch(() => {/* non-blocking */});
+    saveDraft({
+      current_step: step + 1,
+      proposal_type: proposalType,
+      company_id: selectedCompany?.id,
+      selected_components: selectedComponents,
+      selected_inventory_lines: selectedInventoryLines,
+      selected_strategies: selectedStrategies,
+      custom_brief: customBrief,
+    }).catch(() => {/* non-blocking */});
     setStep(s => Math.min(s + 1, 6));
   }
   function back() { setStep(s => Math.max(s - 1, 1)); }
@@ -842,7 +884,11 @@ export function ProposalWizard({
               <div className="flex justify-between items-start"><span className="text-muted-foreground">Components</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-right max-w-[55%]">
-                    {selectedComponents.length > 0 ? `${selectedComponents.length} selected` : "None (AI will choose)"}
+                    {selectedInventoryLines.length > 0
+                      ? `${selectedInventoryLines.length} selected — ${selectedInventoryLines.map(l => l.name).slice(0, 3).join(", ")}${selectedInventoryLines.length > 3 ? "…" : ""}`
+                      : selectedComponents.length > 0
+                        ? `${selectedComponents.length} selected`
+                        : "None (AI will choose)"}
                   </span>
                   <button onClick={() => setStep(3)} className="text-slate-400 hover:text-primary" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
                 </div>

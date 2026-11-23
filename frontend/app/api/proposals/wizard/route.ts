@@ -35,6 +35,18 @@ async function postHandler(req: Request) {
 
   const sessionKey = (body.session_key as string) ?? randomUUID();
 
+  // Persist inventory lines inside generation_options (no extra column required)
+  const incomingOptions =
+    body.generation_options && typeof body.generation_options === "object" && !Array.isArray(body.generation_options)
+      ? (body.generation_options as Record<string, unknown>)
+      : {};
+  const generationOptions = {
+    ...incomingOptions,
+    ...(body.selected_inventory_lines !== undefined
+      ? { selected_inventory_lines: body.selected_inventory_lines }
+      : {}),
+  };
+
   // Upsert wizard draft
   const { data, error } = await sb
     .from("proposal_wizard_drafts" as "companies")
@@ -49,7 +61,7 @@ async function postHandler(req: Request) {
         selected_components: body.selected_components ?? [],
         selected_strategies: body.selected_strategies ?? [],
         custom_brief: body.custom_brief ?? null,
-        generation_options: body.generation_options ?? {},
+        generation_options: generationOptions,
         generated_proposal_id: body.generated_proposal_id ?? null,
         status: body.status ?? "in_progress",
       },
