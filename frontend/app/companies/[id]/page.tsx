@@ -23,6 +23,7 @@ import { getCompanyCostToServe } from "@/lib/companies/cost-to-serve";
 import { OutreachAgentPanel } from "@/components/agents/outreach-agent-panel";
 import { WarmupStrategyPanel } from "@/components/companies/warmup-strategy-panel";
 import { RefetchLogoButton } from "./refetch-logo-button";
+import { DeleteCompanyButton } from "./delete-company-button";
 import { CompanyDetailTabs } from "@/components/companies/company-detail-tabs";
 import { LogoArtworkPanel } from "./logo-artwork-panel";
 
@@ -116,6 +117,7 @@ export default async function CompanyDetailPage({
                 Create Proposal
               </Button>
             </Link>
+            <DeleteCompanyButton companyId={company.id} companyName={company.company_name} />
           </div>
         }
       />

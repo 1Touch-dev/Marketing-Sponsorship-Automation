@@ -1,9 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { resolveTenantId } from "@/lib/tenants/current";
 import { PageHeader } from "@/components/shared/page-header";
+import { ScrollToFormButton } from "@/components/shared/scroll-to-form-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Heart, Users, Calendar, DollarSign, CheckCircle, Plus, AlertCircle, Leaf, BookOpen, Activity } from "lucide-react";
 import { SocialProjectForm } from "./social-project-form";
 import { AmountRaisedField } from "./amount-raised-field";
@@ -56,10 +56,11 @@ export default async function LeiDeIncentivoPage() {
         title="Lei de Incentivo"
         description="Social projects, charitable programs, and fiscal incentive sponsorship proposals"
         actions={
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            New Project
-          </Button>
+          !migrationNeeded ? (
+            <ScrollToFormButton targetId="new-project-form" focusId="name">
+              New Project
+            </ScrollToFormButton>
+          ) : undefined
         }
       />
 
@@ -127,7 +128,7 @@ export default async function LeiDeIncentivoPage() {
 
       {/* Add form */}
       {!migrationNeeded && (
-        <Card>
+        <Card id="new-project-form" className="scroll-mt-24">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Plus className="h-4 w-4" />

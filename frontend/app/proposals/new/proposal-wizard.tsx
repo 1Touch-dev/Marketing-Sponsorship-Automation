@@ -11,7 +11,7 @@ import {
   Check, ChevronRight, ChevronLeft, Sparkles, Building2,
   Package, Brain, Zap, FileText, Users, Globe, MapPin,
   TrendingUp, Heart, Repeat2, Loader2, Star, Pencil,
-  Landmark, LayoutGrid,
+  Landmark, LayoutGrid, X,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -249,6 +249,8 @@ export function ProposalWizard({
   const [selectedInventoryLines, setSelectedInventoryLines] = useState<SelectedInventoryLine[]>([]);
   const [dbInventory, setDbInventory] = useState<DbInventoryItem[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryPage, setInventoryPage] = useState(0);
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
   const [customBrief, setCustomBrief] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -479,6 +481,29 @@ export function ProposalWizard({
   );
   const filteredCompanies = companySearch ? allFilteredCompanies : allFilteredCompanies.slice(0, COMPANY_PICKER_LIMIT);
 
+  const INVENTORY_PAGE_SIZE = 8;
+  const inventorySearchLower = inventorySearch.trim().toLowerCase();
+  const filteredInventory = dbInventory.filter((item) => {
+    if (!inventorySearchLower) return true;
+    const catLabel = (INVENTORY_CATEGORY_LABEL[item.category ?? ""] ?? humanizeCategory(item.category)).toLowerCase();
+    return (
+      item.name.toLowerCase().includes(inventorySearchLower) ||
+      catLabel.includes(inventorySearchLower) ||
+      (item.slot_timing ?? "").toLowerCase().includes(inventorySearchLower) ||
+      (item.category ?? "").toLowerCase().includes(inventorySearchLower)
+    );
+  });
+  const sortedInventory = [...filteredInventory].sort((a, b) =>
+    (a.category ?? "").localeCompare(b.category ?? "") || a.name.localeCompare(b.name)
+  );
+  const inventoryTotalPages = Math.max(1, Math.ceil(sortedInventory.length / INVENTORY_PAGE_SIZE));
+  const safeInventoryPage = Math.min(inventoryPage, inventoryTotalPages - 1);
+  const pageInventory = sortedInventory.slice(
+    safeInventoryPage * INVENTORY_PAGE_SIZE,
+    safeInventoryPage * INVENTORY_PAGE_SIZE + INVENTORY_PAGE_SIZE,
+  );
+  const pageCategories = Array.from(new Set(pageInventory.map((i) => i.category)));
+
   const availableComponents = proposalType === "barter" ? BARTER_COMPONENTS :
     proposalType === "lei_de_incentivo" ? SOCIAL_COMPONENTS :
     proposalType === "grant_esg" ? SOCIAL_COMPONENTS :
@@ -682,31 +707,122 @@ export function ProposalWizard({
               </div>
             )}
 
-            {/* Live DB inventory for sponsorship/mixed */}
+            {/* Live DB inventory for sponsorship/mixed — search + pager (~8/page) */}
             {!inventoryLoading && (proposalType === "sponsorship" || proposalType === "mixed") && dbInventory.length > 0 && (
               <>
-                {/* Group by category */}
-                {Array.from(new Set(dbInventory.map(i => i.category))).map(cat => {
-                  const items = dbInventory.filter(i => i.category === cat);
+                <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-card/95 backdrop-blur-sm border-b space-y-2">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <input
+                      type="search"
+                      value={inventorySearch}
+                      onChange={(e) => {
+                        setInventorySearch(e.target.value);
+                        setInventoryPage(0);
+                      }}
+                      placeholder="Search inventory by name, category, timing…"
+                      className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                      <span className="font-medium text-foreground">{selectedInventoryLines.length}</span> selected
+                      {selectedInventoryLines.length > 0 && (
+                        <span className="ml-2 text-emerald-600 font-medium">
+                          R${packageTotal().toLocaleString("pt-BR")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {sortedInventory.length === 0
+                        ? "No matches"
+                        : `Showing ${safeInventoryPage * INVENTORY_PAGE_SIZE + 1}–${Math.min((safeInventoryPage + 1) * INVENTORY_PAGE_SIZE, sortedInventory.length)} of ${sortedInventory.length}`}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2"
+                        disabled={safeInventoryPage <= 0}
+                        onClick={() => setInventoryPage(Math.max(0, safeInventoryPage - 1))}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-xs font-medium tabular-nums px-1">
+                        Page {safeInventoryPage + 1}/{inventoryTotalPages}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2"
+                        disabled={safeInventoryPage >= inventoryTotalPages - 1}
+                        onClick={() => setInventoryPage(Math.min(inventoryTotalPages - 1, safeInventoryPage + 1))}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedInventoryLines.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedInventoryLines.map((line) => (
+                      <button
+                        key={line.inventory_id}
+                        type="button"
+                        title="Remove from package"
+                        onClick={() => {
+                          markInteracted();
+                          setSelectedInventoryLines((prev) => prev.filter((l) => l.inventory_id !== line.inventory_id));
+                        }}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-foreground hover:bg-primary/10"
+                      >
+                        {line.name}
+                        {line.quantity > 1 ? ` ×${line.quantity}` : ""}
+                        <X className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {pageCategories.map((cat) => {
+                  const categoryFiltered = filteredInventory.filter((i) => i.category === cat);
+                  const items = pageInventory.filter((i) => i.category === cat);
+                  const pageStartsMidCategory =
+                    safeInventoryPage > 0 &&
+                    sortedInventory[(safeInventoryPage * INVENTORY_PAGE_SIZE) - 1]?.category === cat;
                   return (
-                    <div key={cat}>
+                    <div key={cat ?? "other"}>
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{INVENTORY_CATEGORY_LABEL[cat ?? ""] ?? humanizeCategory(cat)}</div>
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          {INVENTORY_CATEGORY_LABEL[cat ?? ""] ?? humanizeCategory(cat)}
+                          {pageStartsMidCategory ? " (cont.)" : ""}
+                        </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => items.forEach(item => { if (effectiveAvailability(item).state !== "sold_out" && !selectedInventoryLines.find(l => l.inventory_id === item.id)) toggleInventoryLine(item); })}
+                            type="button"
+                            onClick={() => categoryFiltered.forEach((item) => {
+                              if (effectiveAvailability(item).state !== "sold_out" && !selectedInventoryLines.find((l) => l.inventory_id === item.id)) {
+                                toggleInventoryLine(item);
+                              }
+                            })}
                             className="text-xs text-primary hover:underline"
                           >Select all</button>
                           <span className="text-slate-300">|</span>
                           <button
-                            onClick={() => setSelectedInventoryLines(prev => prev.filter(l => !items.find(i => i.id === l.inventory_id)))}
+                            type="button"
+                            onClick={() => {
+                              markInteracted();
+                              setSelectedInventoryLines((prev) => prev.filter((l) => !categoryFiltered.find((i) => i.id === l.inventory_id)));
+                            }}
                             className="text-xs text-slate-400 hover:text-slate-600 hover:underline"
                           >Deselect all</button>
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        {items.map(item => {
-                          const line = selectedInventoryLines.find(l => l.inventory_id === item.id);
+                        {items.map((item) => {
+                          const line = selectedInventoryLines.find((l) => l.inventory_id === item.id);
                           const isSelected = !!line;
                           const rate = resolveRate(item, selectedCompany?.company_size ?? "medium");
                           const price = rate.amount;
@@ -716,6 +832,7 @@ export function ProposalWizard({
                             <div key={item.id} className={`rounded-xl border-2 p-3 transition-all ${soldOut ? "opacity-60 border-border bg-muted/40" : isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}>
                               <div className="flex items-start gap-3">
                                 <button
+                                  type="button"
                                   onClick={() => toggleInventoryLine(item)}
                                   disabled={soldOut && !isSelected}
                                   className={`mt-0.5 h-5 w-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors disabled:cursor-not-allowed ${isSelected ? "bg-primary border-primary text-white" : "border-slate-300"}`}
@@ -746,9 +863,9 @@ export function ProposalWizard({
                                 </div>
                                 {isSelected && (
                                   <div className="flex items-center gap-1.5 shrink-0">
-                                    <button onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) - 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">−</button>
+                                    <button type="button" onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) - 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">−</button>
                                     <span className="text-sm font-medium w-5 text-center">{line?.quantity ?? 1}</span>
-                                    <button onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) + 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">+</button>
+                                    <button type="button" onClick={() => updateLineQty(item.id, (line?.quantity ?? 1) + 1)} className="h-6 w-6 rounded border flex items-center justify-center text-sm hover:bg-slate-100">+</button>
                                   </div>
                                 )}
                               </div>
@@ -759,6 +876,10 @@ export function ProposalWizard({
                     </div>
                   );
                 })}
+
+                {sortedInventory.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">No inventory matches “{inventorySearch.trim()}”.</p>
+                )}
               </>
             )}
 
