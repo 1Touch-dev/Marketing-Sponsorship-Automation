@@ -228,7 +228,10 @@ export function ProposalWizard({
   const [step, setStep] = useState(1);
   // Stable key for SSR/hydration; reuse sessionStorage after mount for draft resume
   const [sessionKey, setSessionKey] = useState(() => crypto.randomUUID());
-  const draftRestored = React.useRef(false);
+  const draftRestoreStarted = React.useRef(false);
+  // If the user clicks through before the draft GET returns, do not overwrite their picks
+  const userInteracted = React.useRef(false);
+  const markInteracted = useCallback(() => { userInteracted.current = true; }, []);
 
   // Wizard state
   const [proposalType, setProposalType] = useState<ProposalType>("sponsorship");
@@ -260,10 +263,24 @@ export function ProposalWizard({
     });
   }, [sessionKey]);
 
+  function beginFreshSession() {
+    const fresh = crypto.randomUUID();
+    sessionStorage.removeItem("wizard_session");
+    sessionStorage.setItem("wizard_session", fresh);
+    setSessionKey(fresh);
+  }
+
   // Resolve session + restore draft (including selected_inventory_lines)
   useEffect(() => {
-    if (draftRestored.current) return;
-    draftRestored.current = true;
+    if (draftRestoreStarted.current) return;
+    draftRestoreStarted.current = true;
+
+    // Opening from a company page must always start fresh — never resume another draft
+    if (preselectedCompanyId) {
+      sessionStorage.setItem("wizard_session", sessionKey);
+      return;
+    }
+
     const existing = sessionStorage.getItem("wizard_session");
     const key = existing || sessionKey;
     if (!existing) sessionStorage.setItem("wizard_session", key);
@@ -279,19 +296,32 @@ export function ProposalWizard({
           selected_components?: string[];
           selected_strategies?: string[];
           custom_brief?: string | null;
+          status?: string | null;
+          generated_proposal_id?: string | null;
           generation_options?: { selected_inventory_lines?: SelectedInventoryLine[] } | null;
         } | null;
       }) => {
+        if (userInteracted.current) return;
         const draft = d.draft;
         if (!draft) return;
+
+        // Finished drafts must not resume — mint a new session for the next proposal
+        if (draft.status === "completed" || draft.generated_proposal_id) {
+          beginFreshSession();
+          return;
+        }
+
+        // Closed/missing company → stay on step 1; do not jump mid-wizard
+        if (draft.company_id) {
+          const company = companies.find((c) => c.id === draft.company_id);
+          if (!company) return;
+          setSelectedCompany(company);
+        }
+
         if (typeof draft.current_step === "number" && draft.current_step >= 1 && draft.current_step <= 6) {
           setStep(draft.current_step);
         }
         if (draft.proposal_type) setProposalType(draft.proposal_type);
-        if (draft.company_id && !preselectedCompanyId) {
-          const company = companies.find((c) => c.id === draft.company_id);
-          if (company) setSelectedCompany(company);
-        }
         if (Array.isArray(draft.selected_components)) setSelectedComponents(draft.selected_components);
         if (Array.isArray(draft.selected_strategies)) setSelectedStrategies(draft.selected_strategies);
         if (typeof draft.custom_brief === "string") setCustomBrief(draft.custom_brief);
@@ -326,6 +356,7 @@ export function ProposalWizard({
   }
 
   function toggleInventoryLine(item: DbInventoryItem) {
+    markInteracted();
     const exists = selectedInventoryLines.find(l => l.inventory_id === item.id);
     if (exists) {
       setSelectedInventoryLines(prev => prev.filter(l => l.inventory_id !== item.id));
@@ -377,6 +408,7 @@ export function ProposalWizard({
   }
 
   function next() {
+    markInteracted();
     saveDraft({
       current_step: step + 1,
       proposal_type: proposalType,
@@ -388,7 +420,10 @@ export function ProposalWizard({
     }).catch(() => {/* non-blocking */});
     setStep(s => Math.min(s + 1, 6));
   }
-  function back() { setStep(s => Math.max(s - 1, 1)); }
+  function back() {
+    markInteracted();
+    setStep(s => Math.max(s - 1, 1));
+  }
 
   // ── Generate proposal ────────────────────────────────────────────────────
   async function generateProposal(): Promise<GenerateAttempt> {
@@ -419,6 +454,9 @@ export function ProposalWizard({
       if (!res.ok || !j.proposal_id) {
         return { ok: false, error: j.error ?? "Generation failed", code: j.code };
       }
+      // Server already marks the draft completed + generated_proposal_id; clear the
+      // browser session so a later /proposals/new in this tab cannot resume it.
+      beginFreshSession();
       setGeneratedId(j.proposal_id);
       setStep(6);
       toast({ variant: "success", title: "Proposal generated!", description: "Review your proposal below." });
@@ -494,7 +532,7 @@ export function ProposalWizard({
                   {PROPOSAL_TYPES.filter(pt => pt.cluster === cluster).map(pt => (
                     <button
                       key={pt.type}
-                      onClick={() => setProposalType(pt.type)}
+                      onClick={() => { markInteracted(); setProposalType(pt.type); }}
                       className={`w-full flex items-start gap-4 rounded-xl border-2 p-4 text-left transition-all ${
                         proposalType === pt.type
                           ? colorMap[pt.color] + " border-opacity-100"
@@ -542,7 +580,7 @@ export function ProposalWizard({
               {filteredCompanies.map(c => (
                 <button
                   key={c.id}
-                  onClick={() => setSelectedCompany(c)}
+                  onClick={() => { markInteracted(); setSelectedCompany(c); }}
                   className={`w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all ${
                     selectedCompany?.id === c.id
                       ? "border-primary bg-primary/5"
@@ -732,9 +770,12 @@ export function ProposalWizard({
                   return (
                     <button
                       key={comp.id}
-                      onClick={() => setSelectedComponents(prev =>
-                        prev.includes(comp.id) ? prev.filter(id => id !== comp.id) : [...prev, comp.id]
-                      )}
+                      onClick={() => {
+                        markInteracted();
+                        setSelectedComponents(prev =>
+                          prev.includes(comp.id) ? prev.filter(id => id !== comp.id) : [...prev, comp.id]
+                        );
+                      }}
                       className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all ${selected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40 bg-card"}`}
                     >
                       <div className={`mt-0.5 rounded-md p-1.5 flex-shrink-0 ${selected ? "bg-primary/10" : "bg-muted"}`}>
@@ -816,9 +857,12 @@ export function ProposalWizard({
                 return (
                   <button
                     key={s.key}
-                    onClick={() => setSelectedStrategies(prev =>
-                      prev.includes(s.key) ? prev.filter(k => k !== s.key) : [...prev, s.key]
-                    )}
+                    onClick={() => {
+                      markInteracted();
+                      setSelectedStrategies(prev =>
+                        prev.includes(s.key) ? prev.filter(k => k !== s.key) : [...prev, s.key]
+                      );
+                    }}
                     className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-all relative ${
                       selected ? colorMap[s.color] + " border-opacity-100" :
                       isRecommended ? "border-amber-200 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/10 hover:border-amber-400" :
@@ -946,7 +990,15 @@ export function ProposalWizard({
               <Button variant="outline" className="flex-1 gap-2" onClick={() => router.push(`/proposals/${generatedId}/edit`)}>
                 Edit Sections
               </Button>
-              <Button variant="outline" className="flex-1 gap-2" onClick={() => { setStep(1); setSelectedCompany(null); setSelectedComponents([]); setSelectedStrategies([]); setGeneratedId(null); sessionStorage.removeItem("wizard_session"); }}>
+              <Button variant="outline" className="flex-1 gap-2" onClick={() => {
+                setStep(1);
+                setSelectedCompany(null);
+                setSelectedComponents([]);
+                setSelectedInventoryLines([]);
+                setSelectedStrategies([]);
+                setGeneratedId(null);
+                beginFreshSession();
+              }}>
                 New Proposal
               </Button>
             </div>
