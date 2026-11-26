@@ -1012,7 +1012,10 @@ export function ProposalWizard({
               <textarea
                 rows={3}
                 value={customBrief}
-                onChange={e => setCustomBrief(e.target.value)}
+                onChange={(e) => {
+                  markInteracted();
+                  setCustomBrief(e.target.value);
+                }}
                 placeholder="Any specific goals, tone, budget range, or context for this proposal..."
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring resize-none"
               />

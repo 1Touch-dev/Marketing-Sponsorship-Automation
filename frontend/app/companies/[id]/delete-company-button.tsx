@@ -44,18 +44,7 @@ export function DeleteCompanyButton({
         setPreview({ blockers: j.blockers ?? [], dependents: j.dependents ?? {} });
         return;
       }
-      // Fallback: unconfirmed DELETE returns blockers on 409
-      const del = await fetch(`/api/companies/${companyId}`, { method: "DELETE" });
-      const dj = await del.json().catch(() => ({})) as {
-        error?: string;
-        blockers?: string[];
-        dependents?: Record<string, number>;
-      };
-      if (del.status === 409) {
-        setPreview({ blockers: dj.blockers ?? [], dependents: dj.dependents ?? {} });
-        return;
-      }
-      setPreviewError(j.error ?? dj.error ?? "Could not preview delete");
+      setPreviewError(j.error ?? "Could not preview delete");
     } catch {
       setPreviewError("Could not preview delete");
     } finally {

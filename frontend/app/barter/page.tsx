@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ScrollToFormButton } from "@/components/shared/scroll-to-form-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, TrendingDown, AlertCircle, Plus, CheckCircle, Clock, DollarSign } from "lucide-react";import { BarterForm } from "./barter-form";
+import { Package, TrendingDown, AlertCircle, Plus, CheckCircle, Clock, DollarSign } from "lucide-react";
+import { BarterForm } from "./barter-form";
 import { BarterItemEditor } from "./barter-item-editor";
 
 export const dynamic = "force-dynamic";
